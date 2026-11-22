@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=BACKCORD
+GenericName=Chat
+Comment=Chat and voice for Matrix and Discord
+Exec=backcord --open-link %u
+Icon=io.github.spike848.BACKCORD
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+MimeType=x-scheme-handler/backcord;
+Keywords=Matrix;Discord;Voice;
+StartupWMClass=io.github.spike848.BACKCORD
