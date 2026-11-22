@@ -202,21 +202,40 @@ async fn run(
                 let _ = connection.ws.close(None).await;
                 return;
             }
-            Ended::Moved(to, reply) => {
+            Ended::Moved(mut to, mut reply) => {
                 let _ = connection.ws.close(None).await;
-                match Connection::open(&to, codecs(), &[]).await {
-                    Ok(moved) => {
-                        connection = moved;
-                        identity = to;
-                        media.reset();
-                        drops = 0;
-                        let _ = reply.send(Ok(()));
-                    }
-                    Err(error) => {
-                        let reason = format!("{error:#}");
-                        let _ = reply.send(Err(error));
-                        listener.disconnected(&reason);
-                        return;
+                loop {
+                    match Connection::open(&to, codecs(), &[]).await {
+                        Ok(moved) => {
+                            connection = moved;
+                            identity = to;
+                            media.reset();
+                            drops = 0;
+                            let _ = reply.send(Ok(()));
+                            break;
+                        }
+                        // The server named for a move had gone stale by the
+                        // time it was reached, as when Discord names it before
+                        // a bot's move ends the old call: the call waits for
+                        // the one its owner asks Discord for next.
+                        Err(error) if closed(&error) == Some(4006) => {
+                            let reason = format!("{error:#}");
+                            let _ = reply.send(Err(error));
+                            match media.wait_for_move(&connection, &mut orders).await {
+                                Ended::Moved(next, next_reply) => (to, reply) = (next, next_reply),
+                                Ended::Left => return,
+                                Ended::Dropped(_) => {
+                                    listener.disconnected(&reason);
+                                    return;
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            let reason = format!("{error:#}");
+                            let _ = reply.send(Err(error));
+                            listener.disconnected(&reason);
+                            return;
+                        }
                     }
                 }
             }

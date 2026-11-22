@@ -24,6 +24,9 @@ use crate::{
     widgets::Pic,
 };
 
+/// The full profile's card, as wide as Discord's.
+pub(super) const SIDE_WIDTH: f32 = 340.0;
+
 /// A line of the card's words, wrapped.
 fn note<'a>(ink: Color, words: &'a str) -> Element<'a, Message> {
     text(words).size(13).color(ink).into()
@@ -74,7 +77,9 @@ pub(super) fn full_view<'a>(
 ) -> Element<'a, Message> {
     let look = &shown.look;
     let inks = crate::profile::inks(ctx, look, Mode::Side);
-    let side_width = (width * 0.4 - 8.0).max(340.0);
+    // The card keeps the width of Discord's, whatever the window's: wider,
+    // its banner, frame and type would grow with it.
+    let side_width = SIDE_WIDTH;
     let side = container(
         scroll_view(crate::profile::body::profile_body(
             ctx,

@@ -35,6 +35,18 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
+## Novità della 1.2.5
+
+- **Spostamenti in vocale**: quando un bot ti sposta (per esempio da un
+  canale "crea stanza") non risulti più silenziato nel canale nuovo, e la
+  chiamata non si disconnette più se Discord indica il nuovo server prima
+  di chiudere il vecchio.
+- **Messaggi diretti**: la lista dei DM non resta più vuota tornando dalla
+  lista canali di un server lungo; ogni lista riparte dall'alto.
+- **Profilo completo**: ha le misure di Discord e non si allarga più con la
+  finestra (banner, cornice e testo non si stirano né si tagliano); le date
+  di "Membro da" e "Amici dal" sono in italiano.
+
 ## Novità della 1.2.4
 
 - **Interfaccia in italiano**: tradotte circa 2300 scritte rimaste in

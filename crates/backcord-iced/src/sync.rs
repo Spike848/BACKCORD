@@ -197,8 +197,13 @@ impl App {
         let state = self.client.state();
         // The DM search's filter is the DM home's: it goes as the rail
         // goes to a server, or back home.
+        // The list starts at its top in each place, as Discord's does: an
+        // offset kept from a longer list would build rows out of view.
+        let mut to_top = false;
         if self.sidebar.filtered_in.as_ref() != Some(&state.navigation) {
+            to_top = self.sidebar.filtered_in.is_some();
             self.sidebar.filtered_in = Some(state.navigation.clone());
+            self.sidebar.scroll.offset = 0.0;
             if !self.sidebar.filter.is_empty() {
                 self.sidebar.filter.clear();
                 self.lists_shown = None;
@@ -226,6 +231,12 @@ impl App {
             crate::profile::profile_sync(self),
             self.status.sync(self.client.state()),
         ];
+        if to_top {
+            tasks.push(iced::widget::operation::snap_to(
+                crate::sidebar::LIST,
+                iced::widget::scrollable::RelativeOffset::START,
+            ));
+        }
         self.cards.sync(&self.client.app, &self.profiles);
         crate::friends::friends_sync(self);
         self.quick.sync(self.client.state());
@@ -770,9 +781,10 @@ impl App {
             }
         }
         let mut top = 0.0;
+        let viewport = self.sidebar.viewport();
         let (from, to) = (
-            self.sidebar.scroll.offset - MARGIN,
-            self.sidebar.scroll.offset + self.sidebar.scroll.height + MARGIN,
+            viewport.offset - MARGIN,
+            viewport.offset + viewport.height + MARGIN,
         );
         for row in &self.sidebar.rows {
             let height = row.height();

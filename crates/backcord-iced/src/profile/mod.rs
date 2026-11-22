@@ -613,8 +613,13 @@ pub fn full_profile_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Mes
         .as_ref()
         .filter(|shown| shown.look.view.large)?;
     let (window_width, window_height) = (ctx.look.window.width, ctx.look.window.height);
-    let width = (window_width * 0.7).max(720.0).min(window_width - 32.0);
-    let height = (window_height * 0.75).max(520.0).min(window_height - 32.0);
+    // Discord's size, not the window's: a wide window doesn't stretch it.
+    let width = (window_width * 0.7)
+        .clamp(720.0, 960.0)
+        .min(window_width - 32.0);
+    let height = (window_height * 0.75)
+        .clamp(520.0, 760.0)
+        .min(window_height - 32.0);
     let modal = crate::profile::full::full_view(ctx, shown, width, height);
     // Over the window dimmed as under a settings card.
     Some(opaque(stack![

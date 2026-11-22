@@ -92,7 +92,9 @@ member list, the DMs, and the lists still to come build on it.
   round the card, 12 px past its sides, and the full profile's, 16 px past
   them with its top staple 8 px lower and none at the foot, in a window
   over 785 px tall; the docked card has none. Settings' cosmetics switches
-  turn each off.
+  turn each off. The full profile is Discord's size whatever the window's,
+  at most 960 by 760 px, its card 340 px wide, so a wide window doesn't
+  stretch the banner, the frame or the type.
 - A server tag on a message or a profile card (`tag_card.rs`) opens a
   card about its server beside it, 300 px
   wide: the server's icon, name and tag at once where this account is in

@@ -1061,6 +1061,32 @@ pub(crate) async fn call(
                                     dropped = false;
                                     was_moved = false;
                                 }
+                                // Moved by someone, the server Discord named may
+                                // have gone stale as the move ended the old call:
+                                // asked where the call is now, Discord names a
+                                // fresh one, as its client asks.
+                                Ok(Err(error)) if was_moved => {
+                                    tracing::info!(error = format!("{error:#}"), "the moved call's server refused it; asking Discord where it is");
+                                    let again = async {
+                                        let next = discord.join(guild, &channel).await?;
+                                        call.move_to(&next, &channel).await?;
+                                        anyhow::Ok(next)
+                                    };
+                                    match tokio::time::timeout(MOVE_TIMEOUT, again).await {
+                                        Ok(Ok(next)) => {
+                                            server = next;
+                                            dropped = false;
+                                            was_moved = false;
+                                            // Asking joins muted, as every join does.
+                                            discord.set_self(guild, &channel, state.muted, state.deafened, state.camera_phase == CameraPhase::On);
+                                        }
+                                        Ok(Err(error)) => {
+                                            tracing::warn!(error = format!("{error:#}"), "could not follow the call to its new voice server");
+                                            bail!("Discord moved the call to another voice server, and BACKCORD couldn't connect to it. Join again.");
+                                        }
+                                        Err(_) => bail!("Discord moved the call to another voice server, which took too long to answer. Join again."),
+                                    }
+                                }
                                 Ok(Err(error)) => {
                                     tracing::warn!(error = format!("{error:#}"), "could not follow the call to its new voice server");
                                     bail!("Discord moved the call to another voice server, and BACKCORD couldn't connect to it. Join again.");
@@ -1126,6 +1152,10 @@ pub(crate) async fn call(
                                     server = next;
                                     dropped = false;
                                     was_moved = false;
+                                    // Asking where the call is joins muted, as
+                                    // every join does: others would hear this
+                                    // account as muted in the new channel.
+                                    discord.set_self(guild, &channel, state.muted, state.deafened, state.camera_phase == CameraPhase::On);
                                 }
                                 Ok(Err(error)) => {
                                     tracing::warn!(error = format!("{error:#}"), "could not follow the call to its new channel");

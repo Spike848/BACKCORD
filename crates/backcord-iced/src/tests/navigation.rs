@@ -3,10 +3,29 @@
 
 use std::sync::Arc;
 
-use backcord_core::application::Navigation;
+use backcord_core::application::{Action, Navigation};
 
 use super::{change, interact, preview, shows, start, unread};
 use crate::app::{App, Message};
+
+#[test]
+fn the_dm_list_shows_whatever_the_list_before_was_scrolled_to() {
+    let (mut app, _folder) = preview();
+    // A long server's channels scrolled far down.
+    app.sidebar.scroll.offset = 5_000.0;
+    app.client
+        .dispatch(Action::Navigate(Navigation::DirectMessages));
+    let _ = app.sync();
+    assert_eq!(
+        app.sidebar.scroll.offset, 0.0,
+        "a new place starts at the top"
+    );
+    assert!(shows(&app, "Riley"));
+    // Nor does an offset past the list's end, which the scrollable shows
+    // as its end, leave it blank.
+    app.sidebar.scroll.offset = 5_000.0;
+    assert!(shows(&app, "Riley"));
+}
 
 #[test]
 fn a_channel_clicked_in_the_list_opens() {

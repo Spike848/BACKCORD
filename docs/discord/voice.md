@@ -35,7 +35,15 @@ rooms moves it, and `VOICE_SERVER_UPDATE` follows some 40 ms later. A
 connection closed with 4022 can't resume or identify again (Discord answers
 4006). The call's connection, closed with either, doesn't try; it keeps its media and waits those
 five seconds for the move; being disconnected from voice gets no new
-server, and the call ends then. A stream moves the same way, with a new `STREAM_CREATE` and
+server, and the call ends then. Where Discord hasn't named the new
+server, BACKCORD asks with a voice state update, which joins muted as
+every join does; once the call follows, it sends the account's own mute,
+deafen and camera again, or others would see it muted in the new channel.
+Discord may also name the new server before the old call ends, and that
+server then answers 4006 (Session is no longer valid) once the move has
+ended the old call: the call keeps waiting, BACKCORD asks where it is, and
+it follows to the fresh server Discord names.
+A stream moves the same way, with a new `STREAM_CREATE` and
 `STREAM_SERVER_UPDATE`: sharing sends to the new server, after waiting up to
 five seconds for it when the old connection ends, and watching connects again.
 

@@ -214,7 +214,9 @@ pub(super) fn profile_body<'a>(
         body = body.push(
             column![
                 title(backcord_iced_kit::i18n::tr("Friends Since"), inks.ink),
-                text(look.friends_since.as_str()).size(14).color(inks.ink2),
+                text(backcord_iced_kit::i18n::t(&look.friends_since))
+                    .size(14)
+                    .color(inks.ink2),
             ]
             .spacing(6),
         );
@@ -1291,7 +1293,11 @@ pub(super) fn member_since<'a>(
         if !plain {
             line = line.push(ctx.look.glyph(Icon::Discord, 16, ink));
         }
-        line = line.push(text(created.as_str()).size(14).color(ink));
+        line = line.push(
+            text(backcord_iced_kit::i18n::t(created))
+                .size(14)
+                .color(ink),
+        );
     }
     if profile.created.is_some() && profile.joined.is_some() {
         line = line.push(text("\u{2022}").size(14).color(ink));
@@ -1318,7 +1324,7 @@ pub(super) fn member_since<'a>(
         };
         line = line
             .push(icon)
-            .push(text(joined.as_str()).size(14).color(ink));
+            .push(text(backcord_iced_kit::i18n::t(joined)).size(14).color(ink));
     }
     line.into()
 }

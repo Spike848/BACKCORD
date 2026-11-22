@@ -44,7 +44,10 @@ what costs is kept out of the view:
   rows built beyond the edges, an end reached or left, a new size, and the
   last a moment after the list stops; a scrolling list reports on every
   frame it moves, and each report builds the view again. The member list keeps the
-  look of each member who didn't change as the roster changes.
+  look of each member who didn't change as the roster changes. The
+  sidebar's list starts at its top in each place, and builds its rows for
+  an offset no further than its end, as the scrollable shows it: an offset
+  kept from a longer list would otherwise build only rows out of view.
 - Pictures are the core's own buffers in tiny-skia's format, premultiplied
   BGRA (`pictures.rs`, `chat::set_pixel_buffers`), handed to iced without a
   copy. Copies at other sizes are made once and go when the core lets go of

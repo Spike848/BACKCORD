@@ -69,6 +69,21 @@ pub(crate) struct View<'a> {
 }
 
 impl Sidebar {
+    /// The list's height.
+    fn total(&self) -> f32 {
+        self.rows.iter().map(SideRow::height).sum::<f32>() + END - GAP
+    }
+
+    /// Where the list is scrolled to, past its end no further than the
+    /// scrollable shows it: an offset kept from a longer list, which the
+    /// scrollable brings back to the end without saying so, would build
+    /// only rows out of view and leave the list blank.
+    pub fn viewport(&self) -> crate::sync::Scroll {
+        let mut scroll = self.scroll;
+        scroll.offset = scroll.offset.min(self.total() - scroll.height).max(0.0);
+        scroll
+    }
+
     pub fn new(height: f32) -> Self {
         Self {
             header: SideHeader::default(),
@@ -380,8 +395,8 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
 impl<'a> View<'a> {
     pub fn sidebar_view(self) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
-        let total: f32 = self.s.rows.iter().map(SideRow::height).sum::<f32>() + END - GAP;
-        let viewport = self.s.scroll;
+        let total = self.s.total();
+        let viewport = self.s.viewport();
         let mut rows = Rows::new(total);
         let mut top = 0.0;
         for (index, row) in self.s.rows.iter().enumerate() {
