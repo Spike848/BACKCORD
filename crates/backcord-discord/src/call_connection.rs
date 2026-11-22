@@ -186,11 +186,13 @@ async fn run(
         let mut ended = media
             .run(&mut connection, &listener, &sending, &mut orders)
             .await;
-        // Disconnected from the call: kicked from voice, or moved to a
-        // channel on another voice server, which Discord names just after.
-        // The call waits a while for the move before it ends.
+        // Disconnected from the call (4014), or the call terminated on
+        // this server (4022, as when a bot that makes rooms moves the
+        // account): kicked from voice, or moved to a channel on another
+        // voice server, which Discord names just after. Neither resumes; the
+        // call waits a while for the move before it ends.
         if let Ended::Dropped(error) = &ended
-            && closed(error) == Some(4014)
+            && matches!(closed(error), Some(4014 | 4022))
         {
             listener.disconnected(&format!("{error:#}"));
             ended = media.wait_for_move(&connection, &mut orders).await;

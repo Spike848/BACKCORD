@@ -9176,7 +9176,7 @@ const server = Bun.serve<SocketData>({
       // names the new one, and the old one closes with 4014 once she's there.
       // Someone moving her to ?channel=ID on another voice server goes as on
       // Discord: her voice state says where, the old server closes her call
-      // with 4014, and the new one is named 40 ms later.
+      // with 4014 (or ?code=), and the new one is named 40 ms later.
       const state = voice.get(ALICE);
       if (!state?.guild) return new Response("Alice isn't in a server's voice channel\n", { status: 409 });
       const name = () => {
@@ -9193,7 +9193,18 @@ const server = Bun.serve<SocketData>({
       }
       state.channel = to;
       announce(ALICE);
-      for (const ws of voiceSockets) if (!ws.data.stream && ws.data.callKey) ws.close(4014, "Disconnected.");
+      // ?code=4022 closes it as Discord does when a bot moves her: Call
+      // terminated, after which the old session neither resumes nor
+      // identifies again (4006).
+      const code = Number(url.searchParams.get("code") ?? 4014);
+      const closing = [...voiceSockets].filter((ws) => !ws.data.stream && ws.data.callKey);
+      if (code === 4022) {
+        voiceToken = MOVED_VOICE_TOKEN;
+        for (const ws of closing) {
+          for (const [session, ssrc] of callSessions) if (ssrc === ws.data.ssrc) callSessions.delete(session);
+        }
+      }
+      for (const ws of closing) ws.close(code, code === 4022 ? "Disconnected: Call terminated." : "Disconnected.");
       setTimeout(name, 40);
       return new Response(`moved Alice to ${to}\n`);
     }

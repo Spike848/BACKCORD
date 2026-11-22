@@ -35,6 +35,12 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
+## Novità della 1.2.3
+
+- **Spostamenti in vocale corretti**: quando un bot (per esempio quello di un
+  canale "crea stanza") ti sposta in un altro canale, la chiamata ti segue
+  invece di disconnettersi con "Vocale disconnessa".
+
 ## Novità della 1.2.2
 
 - **Cancella tutto**: tasto destro su un DM o su un server → *Cancella

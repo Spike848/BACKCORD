@@ -30,8 +30,10 @@ there and it goes on. The old server may drop the connection before that
 word comes, so a dropped connection waits five seconds for it before the
 call ends. Someone moving the account to a channel on another voice server
 goes that way: its voice state names the channel, the old server closes the
-connection with 4014, and `VOICE_SERVER_UPDATE` follows some 40 ms later.
-The call's connection, closed with 4014, keeps its media and waits those
+connection with 4014, or with 4022 (Call terminated) when a bot that makes
+rooms moves it, and `VOICE_SERVER_UPDATE` follows some 40 ms later. A
+connection closed with 4022 can't resume or identify again (Discord answers
+4006). The call's connection, closed with either, doesn't try; it keeps its media and waits those
 five seconds for the move; being disconnected from voice gets no new
 server, and the call ends then. A stream moves the same way, with a new `STREAM_CREATE` and
 `STREAM_SERVER_UPDATE`: sharing sends to the new server, after waiting up to

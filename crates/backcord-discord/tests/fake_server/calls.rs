@@ -1148,13 +1148,28 @@ async fn join_lounge(
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
 async fn a_call_follows_a_move_to_another_voice_server() {
-    let fixture = Fixture::start("a_call_follows_a_move_to_another_voice_server").await;
+    follows_a_move("a_call_follows_a_move_to_another_voice_server", 4014).await;
+}
+
+/// Discord ends the old connection with 4022, Call terminated, as when a
+/// bot that makes rooms moves the account: the old session can't be resumed
+/// or joined again, and the call waits for the new server all the same.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn a_call_follows_a_move_that_terminates_the_old_call() {
+    follows_a_move("a_call_follows_a_move_that_terminates_the_old_call", 4022).await;
+}
+
+/// Someone moves Alice to another voice server's channel, the old server
+/// closing her call with `code`.
+async fn follows_a_move(name: &str, code: u16) {
+    let fixture = Fixture::start(name).await;
     let (discord, server, guild) = (&fixture.discord, fixture.server, &fixture.guild);
     let listener = Arc::new(Dropping::default());
     let (assigned, mut call) = join_lounge(&fixture, listener.clone()).await;
     let mut live = discord.live();
     // Someone drags Alice to Create Room, on another voice server: her
-    // voice state says so, the old server closes the call with 4014, and
+    // voice state says so, the old server closes the call with `code`, and
     // the new server is named just after, as in a user's log.
     let to = discord
         .snapshots()
@@ -1165,7 +1180,11 @@ async fn a_call_follows_a_move_to_another_voice_server() {
         .find(|found| found.name == "Create Room")
         .map(|found| found.id.clone())
         .unwrap();
-    post_control(server, &format!("/_control/voice-move?channel={to}"), "");
+    post_control(
+        server,
+        &format!("/_control/voice-move?channel={to}&code={code}"),
+        "",
+    );
     let channel = live_where(&mut live, |event| match event {
         Live::VoiceChannel {
             guild: moved,
@@ -1188,7 +1207,7 @@ async fn a_call_follows_a_move_to_another_voice_server() {
         !listener.dropped.lock().unwrap().is_empty()
     })
     .await;
-    assert!(listener.dropped.lock().unwrap()[0].contains("4014"));
+    assert!(listener.dropped.lock().unwrap()[0].contains(&code.to_string()));
     // The call waited, and carries on there: Bob's tone comes through.
     timeout(WAIT, call.move_to(&moved, &to))
         .await
