@@ -29,7 +29,7 @@ impl<'a> Page<'a> {
         if let Some(links) = platform.discord_links {
             parts.push(self.flip(
                 backcord_iced_kit::i18n::tr("Open Discord links in BACKCORD"),
-                "discord:// links from other apps and shortcuts open here instead of Discord. Turning it off gives them back to the app that had them.",
+                backcord_iced_kit::i18n::tr("discord:// links from other apps and shortcuts open here instead of Discord. Turning it off gives them back to the app that had them."),
                 links,
                 Pref::DiscordLinks,
             ));
@@ -55,7 +55,7 @@ impl<'a> Page<'a> {
             self.flip(
                 backcord_iced_kit::i18n::tr("Render with the GPU"),
                 backcord_iced_kit::i18n::tr("Hardware acceleration. Off, BACKCORD draws on the processor, which uses about half the memory."),
-                prefs.gpu_rendering,
+                prefs.gpu_rendering.unwrap_or(true),
                 Pref::GpuRendering,
             ),
         ]);
@@ -85,7 +85,7 @@ impl<'a> Page<'a> {
     /// effect, and Restart BACKCORD. The renderer is chosen once as BACKCORD
     /// starts (`graphics::plan`).
     fn restart_row(self) -> Option<Element<'a, Message>> {
-        let gpu = self.cx.layout.prefs.gpu_rendering;
+        let gpu = self.cx.layout.prefs.gpu_rendering.unwrap_or(true);
         if gpu == crate::renderer::gpu() {
             return None;
         }

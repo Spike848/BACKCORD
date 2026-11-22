@@ -172,9 +172,10 @@ pub fn place_videos(app: &mut App) {
     }
     // In the window's pixels.
     let scale = app.device_scale();
+    let corner_size = crate::call::corner::placed(app).size();
     let corner_pixels = (
-        (CORNER.width * scale).round() as u32,
-        (CORNER.height * scale).round() as u32,
+        (corner_size.width * scale).round() as u32,
+        (corner_size.height * scale).round() as u32,
     );
     for (place, slot) in slots.iter().enumerate() {
         let Slot::Person(index) = *slot else {
@@ -343,7 +344,7 @@ pub fn voice_description(app: &App) -> String {
             .map(|person| person.name.as_str())
             .collect();
         return if !ringing.is_empty() {
-            format!("Calling {}...", ringing.join(", "))
+            backcord_iced_kit::i18n::t(format!("Calling {}...", ringing.join(", ")))
         } else if voice.participants.len() == 1 {
             backcord_iced_kit::i18n::tr("Nobody else is in the call yet.").into()
         } else {
@@ -355,7 +356,10 @@ pub fn voice_description(app: &App) -> String {
     }
     if voice_here(app) {
         return if voice.participants.len() == 1 {
-            "You're here alone. Stay as long as you like; others can join later.".into()
+            backcord_iced_kit::i18n::tr(
+                "You're here alone. Stay as long as you like; others can join later.",
+            )
+            .into()
         } else {
             backcord_iced_kit::i18n::tr(
                 "Voice stays connected while you browse other conversations.",
@@ -369,9 +373,9 @@ pub fn voice_description(app: &App) -> String {
         backcord_iced_kit::i18n::tr("Join and hang out.")
     };
     if present.is_empty() {
-        format!("{join} The channel stays here when empty.")
+        backcord_iced_kit::i18n::t(format!("{join} The channel stays here when empty."))
     } else {
-        format!("{} here. {join}", super::who_is_here(present))
+        backcord_iced_kit::i18n::t(format!("{} here. {join}", super::who_is_here(present)))
     }
 }
 
@@ -434,7 +438,9 @@ fn join_view(app: &App) -> Element<'_, Message> {
         top: 6.0,
         ..Padding::ZERO
     }));
-    container(panel).center(Length::Fill).into()
+    container(crate::call::corner::keep_clear(app, panel))
+        .center(Length::Fill)
+        .into()
 }
 
 /// The stage: the tiles where they go, scrolled when they're taller
@@ -583,8 +589,14 @@ fn stage_tile(
                 marks.push((Icon::HeadphoneOff, theme.danger));
             }
             let said = status(person);
-            let note =
-                (!matches!(said, "Muted" | "Deafened" | "Speaking" | "Listening")).then_some(said);
+            let note = (![
+                "Muted",
+                "Deafened",
+                "Speaking",
+                backcord_iced_kit::i18n::tr("Listening"),
+            ]
+            .contains(&said))
+            .then_some(said);
             // Another's stream is LIVE on its own tile; this account's
             // own shows LIVE here.
             let live = person.streaming && person.local;
@@ -701,9 +713,9 @@ pub fn watch_status(app: &App, user: &str) -> String {
         return String::new();
     };
     if watching.frames.is_none() {
-        format!("Connecting to {}'s stream...", watching.name)
+        backcord_iced_kit::i18n::t(format!("Connecting to {}'s stream...", watching.name))
     } else {
-        format!("Waiting for {}'s picture...", watching.name)
+        backcord_iced_kit::i18n::t(format!("Waiting for {}'s picture...", watching.name))
     }
 }
 
@@ -722,7 +734,7 @@ pub fn stream_viewers<'a>(
         .map(|person| (person.user.as_str(), person.avatar.as_deref()))
         .collect();
     let names: Vec<&str> = people.iter().map(|(name, _)| *name).collect();
-    let names = format!("Watching: {}", names.join(", "));
+    let names = backcord_iced_kit::i18n::t(format!("Watching: {}", names.join(", ")));
     viewers(app.ctx(), &people, names)
 }
 
@@ -1042,7 +1054,7 @@ fn quality_badge<'a>(app: &'a App, user: &str) -> Option<Element<'a, Message>> {
         .find(|watching| watching.user == user)?
         .quality?;
     let words = if height == 0 {
-        format!("SOURCE {fps}FPS")
+        backcord_iced_kit::i18n::t(format!("SOURCE {fps}FPS"))
     } else {
         format!("{height}P {fps}FPS")
     };
@@ -1061,9 +1073,16 @@ fn quality_badge<'a>(app: &'a App, user: &str) -> Option<Element<'a, Message>> {
         ..Default::default()
     });
     Some(
-        row![quality, tile::pill("LIVE", theme.danger, theme.on_danger)]
-            .spacing(4)
-            .align_y(Alignment::Center)
-            .into(),
+        row![
+            quality,
+            tile::pill(
+                backcord_iced_kit::i18n::tr("LIVE"),
+                theme.danger,
+                theme.on_danger
+            )
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center)
+        .into(),
     )
 }

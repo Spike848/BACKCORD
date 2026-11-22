@@ -161,7 +161,7 @@ impl Picker {
                         );
                     }
                     if let Some(error) = &gifs.home_error {
-                        note.clone_from(error);
+                        note = backcord_iced_kit::i18n::t(error);
                     }
                 }
             }
@@ -169,7 +169,7 @@ impl Picker {
                 if gifs.loading {
                     placeholders(PLACEHOLDERS, &mut tile);
                 } else if let Some(error) = &gifs.error {
-                    note.clone_from(error);
+                    note = backcord_iced_kit::i18n::t(error);
                 } else if gifs.results.is_empty() {
                     note = backcord_iced_kit::i18n::tr("No GIFs match your search.").into();
                 }

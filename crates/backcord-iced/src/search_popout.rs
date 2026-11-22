@@ -251,24 +251,24 @@ fn filters(server: bool) -> Group {
     let mut rows = vec![Row::Key {
         key: "from:",
         label: backcord_iced_kit::i18n::tr("From a specific user"),
-        hint: "user",
+        hint: backcord_iced_kit::i18n::tr("user"),
     }];
     if server {
         rows.push(Row::Key {
             key: "in:",
             label: backcord_iced_kit::i18n::tr("Sent in a specific channel"),
-            hint: "channel",
+            hint: backcord_iced_kit::i18n::tr("channel"),
         });
     }
     rows.push(Row::Key {
         key: "has:",
         label: backcord_iced_kit::i18n::tr("Includes a specific type of data"),
-        hint: "link, embed or file",
+        hint: backcord_iced_kit::i18n::tr("link, embed or file"),
     });
     rows.push(Row::Key {
         key: "mentions:",
         label: backcord_iced_kit::i18n::tr("Mentions a specific user"),
-        hint: "user",
+        hint: backcord_iced_kit::i18n::tr("user"),
     });
     rows.push(Row::MoreFilters);
     Group {
@@ -773,7 +773,7 @@ fn row_view<'a>(ctx: Ctx<'a>, row: &Row, index: usize, lit: bool) -> Element<'a,
             ))
             .width(Length::Fill)
             .clip(true),
-            text("dates, author type, and more")
+            text(backcord_iced_kit::i18n::tr("dates, author type, and more"))
                 .size(13)
                 .color(theme.muted)
                 .wrapping(text::Wrapping::None),
@@ -911,7 +911,7 @@ pub(crate) fn calendar<'a>(
     .align_y(Alignment::Center);
     let cell = 40.0;
     let names = row(["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(|name| {
-        text(name)
+        text(backcord_iced_kit::i18n::tr(name))
             .size(12)
             .font(SEMIBOLD)
             .color(theme.muted)

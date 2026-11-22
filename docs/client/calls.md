@@ -89,9 +89,12 @@ The call's views and what they do are in `call/`.
   header starts a call or a video call, its buttons greyed while the call
   can't be joined (Discord offline, another call joining or leaving).
 - While the call isn't on screen, the stream watched, this account's
-  screen or a camera stays in a corner of the window (`call/corner.rs`),
-  its title and stop under the pointer; a click returns to the call, a
-  drag moves it to the nearest corner.
+  screen or a camera floats over the window (`call/corner.rs`), at first
+  in the top right, its title and stop under the pointer; a click returns
+  to the call, a drag moves it anywhere right of the channel list and
+  under the header, and its edges and corners resize it, keeping its
+  shape. Let go over a voice channel's Join and who is in it, it moves
+  the least way clear of them.
 - Sounds play as the core says (joining, leaving, muting, someone
   streaming), and a DM's call rings while it's incoming.
 - Push to talk and the other keybinds (the root `src/keybinds.rs`,

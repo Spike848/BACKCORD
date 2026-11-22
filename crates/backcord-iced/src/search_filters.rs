@@ -563,7 +563,7 @@ pub fn view<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
         Field::From,
         backcord_iced_kit::i18n::tr("From"),
         backcord_iced_kit::i18n::tr("Sent by any of the selected users"),
-        format!("ex. {own}"),
+        backcord_iced_kit::i18n::t(format!("ex. {own}")),
         filters.from.clone(),
     ));
     if in_server {
@@ -571,7 +571,7 @@ pub fn view<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
             Field::In,
             "In",
             backcord_iced_kit::i18n::tr("Sent in any of the selected channels"),
-            format!("ex. {here}"),
+            backcord_iced_kit::i18n::t(format!("ex. {here}")),
             filters.channels.clone(),
         ));
     }
@@ -586,7 +586,7 @@ pub fn view<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
         Field::Mentions,
         backcord_iced_kit::i18n::tr("Mentions"),
         backcord_iced_kit::i18n::tr("Mentions any of the selected users"),
-        format!("ex. {own}"),
+        backcord_iced_kit::i18n::t(format!("ex. {own}")),
         filters.mentions.clone(),
     ));
     fields = fields.push(labelled(
@@ -617,10 +617,14 @@ pub fn view<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
         // Unset: Discord's placeholder in the box.
         stack![
             pinned,
-            container(text("ex. True").size(15).color(theme.muted))
-                .padding(Padding::ZERO.left(12))
-                .height(crate::form::DROPDOWN)
-                .align_y(Alignment::Center)
+            container(
+                text(backcord_iced_kit::i18n::tr("ex. True"))
+                    .size(15)
+                    .color(theme.muted)
+            )
+            .padding(Padding::ZERO.left(12))
+            .height(crate::form::DROPDOWN)
+            .align_y(Alignment::Center)
         ]
         .into()
     } else {
@@ -636,7 +640,7 @@ pub fn view<'a>(ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
     let clear_label = if count == 0 {
         backcord_iced_kit::i18n::tr("Clear Filters").to_owned()
     } else {
-        format!("Clear Filters ({count})")
+        backcord_iced_kit::i18n::t(format!("Clear Filters ({count})"))
     };
     let changed = filters.filters_text(in_server) != filters.initial;
     let foot = row![
@@ -925,7 +929,7 @@ fn dates<'a>(ctx: Ctx<'a>, filters: &'a Filters) -> Element<'a, Message> {
         let kinds = crate::form::dropdown(
             DATE_KINDS
                 .iter()
-                .map(|(_, name)| (*name).to_owned())
+                .map(|(_, name)| backcord_iced_kit::i18n::tr(name).to_owned())
                 .collect(),
             Some(kind),
             filters.open == Some(Field::Kind(index)),
@@ -954,7 +958,7 @@ fn dates<'a>(ctx: Ctx<'a>, filters: &'a Filters) -> Element<'a, Message> {
             border: crate::style::edge(if open { accent } else { line }, 8.0),
             ..Default::default()
         });
-        let label = REMOVE_DATE[index.min(DATES - 1)];
+        let label = backcord_iced_kit::i18n::tr(REMOVE_DATE[index.min(DATES - 1)]);
         let trash = ctx
             .look
             .icon_button(Icon::Trash, label, message(FiltersEvent::RemoveDate(index)))

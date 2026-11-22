@@ -128,23 +128,29 @@ pub fn view<'a>(mfa: &'a Mfa, cx: Ctx<'a>) -> Option<Element<'a, Message>> {
     let warning = prompt.warning();
     let (words, placeholder) = match prompt.method {
         Some(MfaMethod::App) => (
-            "Enter the 6-digit code from your authenticator app.".to_owned(),
-            "6-digit code",
+            backcord_iced_kit::i18n::tr("Enter the 6-digit code from your authenticator app.")
+                .to_owned(),
+            backcord_iced_kit::i18n::tr("6-digit code"),
         ),
         Some(MfaMethod::Sms) => (
             match &prompt.phone {
-                Some(phone) => format!("Enter the 6-digit code Discord sent to {phone}."),
+                Some(phone) => backcord_iced_kit::i18n::t(format!(
+                    "Enter the 6-digit code Discord sent to {phone}."
+                )),
                 None => backcord_iced_kit::i18n::tr("Discord is sending a code to your phone.")
                     .to_owned(),
             },
-            "6-digit code",
+            backcord_iced_kit::i18n::tr("6-digit code"),
         ),
         Some(MfaMethod::Password) => (
             backcord_iced_kit::i18n::tr("Enter your password.").to_owned(),
             backcord_iced_kit::i18n::tr("Password"),
         ),
         Some(MfaMethod::Backup) => (
-            "Enter one of your 8-digit backup codes. Each works only once.".to_owned(),
+            backcord_iced_kit::i18n::tr(
+                "Enter one of your 8-digit backup codes. Each works only once.",
+            )
+            .to_owned(),
             backcord_iced_kit::i18n::tr("Backup code"),
         ),
         Some(MfaMethod::Passkey) | None => (
@@ -266,7 +272,8 @@ pub fn view<'a>(mfa: &'a Mfa, cx: Ctx<'a>) -> Option<Element<'a, Message>> {
         }
     }
     if let Some(error) = &prompt.error {
-        body = body.push(crate::form::error(theme, error.clone()).width(Length::Fill));
+        body = body
+            .push(crate::form::error(theme, backcord_iced_kit::i18n::t(error)).width(Length::Fill));
     }
     let open = !prompt.busy;
     let mut buttons = row![].spacing(8).align_y(Alignment::Center);

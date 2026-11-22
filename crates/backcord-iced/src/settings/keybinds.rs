@@ -181,7 +181,7 @@ impl<'a> Page<'a> {
                     Some(keybind_message(Event::Add)),
                 ),
             ),
-            form::note(theme, note),
+            form::note(theme, backcord_iced_kit::i18n::t(note)),
         ];
         for (row, binding) in self.cx.layout.keybinds.iter().enumerate() {
             parts.push(self.keybind_row(row, binding));
@@ -381,18 +381,18 @@ fn key_name(key: &Pressed, physical: key::Physical, location: Location) -> Strin
             let named = match named {
                 key::Named::Control => "Ctrl".to_owned(),
                 key::Named::Super | key::Named::Meta => "Super".to_owned(),
-                key::Named::ArrowUp => "Up".to_owned(),
-                key::Named::ArrowDown => "Down".to_owned(),
-                key::Named::ArrowLeft => "Left".to_owned(),
-                key::Named::ArrowRight => "Right".to_owned(),
-                key::Named::Space => "Space".to_owned(),
+                key::Named::ArrowUp => backcord_iced_kit::i18n::tr("Up").to_owned(),
+                key::Named::ArrowDown => backcord_iced_kit::i18n::tr("Down").to_owned(),
+                key::Named::ArrowLeft => backcord_iced_kit::i18n::tr("Left").to_owned(),
+                key::Named::ArrowRight => backcord_iced_kit::i18n::tr("Right").to_owned(),
+                key::Named::Space => backcord_iced_kit::i18n::tr("Space").to_owned(),
                 named => format!("{named:?}"),
             };
             format!("{side}{named}")
         }
         Pressed::Unidentified => match physical {
             key::Physical::Code(code) => format!("{code:?}"),
-            key::Physical::Unidentified(_) => "Unknown key".to_owned(),
+            key::Physical::Unidentified(_) => backcord_iced_kit::i18n::tr("Unknown key").to_owned(),
         },
     }
 }

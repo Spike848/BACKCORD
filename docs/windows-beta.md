@@ -45,8 +45,9 @@ device verification and recovery are being tested.
 
 ## Rendering on Windows
 
-BACKCORD draws on the CPU, with tiny-skia, unless "Render with the GPU" in
-Settings → Advanced is on. With it on, wgpu draws on the GPU: on Windows it
+BACKCORD draws on the GPU, with wgpu, while "Render with the GPU" in
+Settings → Advanced is on, as it is unless turned off; off, it draws on the
+CPU with tiny-skia. On the GPU, on Windows it
 has Direct3D 12, Vulkan and OpenGL to choose from, and `WGPU_BACKEND` names
 one for a start. If the GPU can't start, BACKCORD restarts itself on the CPU,
 says so in the window and turns the setting off

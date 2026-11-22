@@ -476,7 +476,7 @@ pub fn voice_card<'a>(
     let error = playback.and_then(|playback| playback.error.as_deref());
     let started = playback.is_some_and(|playback| playback.playing || playback.position_ms > 0);
     let (time, ink) = match (error, playback) {
-        (Some(error), _) => (error.to_owned(), theme.danger),
+        (Some(error), _) => (backcord_iced_kit::i18n::t(error), theme.danger),
         (None, Some(playback)) if started => (
             voice_time(voice.duration_ms.saturating_sub(playback.position_ms)),
             theme.muted,
@@ -657,7 +657,7 @@ pub fn clip_cell<'a>(
             layers = layers.push(
                 container(
                     container(
-                        text(why)
+                        text(backcord_iced_kit::i18n::t(why))
                             .size(13)
                             .color(Color::WHITE)
                             .wrapping(text::Wrapping::None),

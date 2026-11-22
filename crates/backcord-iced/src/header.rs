@@ -159,8 +159,8 @@ pub fn header(state: &AppState, was: &Header, link: u32) -> Header {
         members: match room.members {
             _ if room.forum => String::new(),
             0 => backcord_iced_kit::i18n::tr("Members").to_owned(),
-            1 => "1 member".to_owned(),
-            count => format!("{count} members"),
+            1 => backcord_iced_kit::i18n::tr("1 member").to_owned(),
+            count => backcord_iced_kit::i18n::t(format!("{count} members")),
         },
         profile_available: state.one_to_one().is_some(),
         search: state.conversation_that(|can| can.search).map(|_| {
@@ -169,7 +169,7 @@ pub fn header(state: &AppState, was: &Header, link: u32) -> Header {
                 .as_deref()
                 .and_then(|place| state.servers.iter().find(|server| server.id == place))
                 .map_or(room.name.as_str(), |server| server.name.as_str());
-            format!("Search {looks_in}")
+            backcord_iced_kit::i18n::t(format!("Search {looks_in}"))
         }),
     }
 }
@@ -439,7 +439,7 @@ fn header_buttons<'a>(ctx: crate::ctx::Ctx<'a>) -> Vec<Element<'a, Message>> {
     }
     // Stream Proof's button, on the header.
     let prefs = &ctx.layout.prefs;
-    if prefs.stream_proof.unwrap_or(true) && prefs.stream_proof_location.unwrap_or(0) == 1 {
+    if prefs.stream_proof.unwrap_or(true) && prefs.stream_proof_location.unwrap_or(1) == 1 {
         push(
             if ctx.stream_proof {
                 Icon::EyeOff

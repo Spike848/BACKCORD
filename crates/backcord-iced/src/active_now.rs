@@ -390,7 +390,7 @@ fn doing_card(friends: &[&Friend], doing: &[Doing<'_>]) -> Card {
         rows.push(CardRow {
             kind: RowKind::Game,
             title: what.clone(),
-            detail: format!("{} People", first.friends.len()),
+            detail: backcord_iced_kit::i18n::t(format!("{} People", first.friends.len())),
             icon: activity.large_image.as_deref().map(str::to_owned),
             named: what.clone(),
             start: None,
@@ -419,7 +419,7 @@ fn card(
     let first = friends[0];
     let names: Vec<&str> = friends.iter().map(|friend| friend.name.as_str()).collect();
     Card {
-        title: self::names(&names),
+        title: backcord_iced_kit::i18n::t(self::names(&names)),
         doing,
         start,
         face: someone(&first.id, &first.name, first.avatar.as_deref()),
@@ -448,10 +448,10 @@ fn detail_row(activity: &Activity) -> CardRow {
     CardRow {
         kind: RowKind::Detail,
         title: title.to_owned(),
-        detail: activity
-            .state
-            .as_deref()
-            .map_or_else(|| format!("with {}", activity.name), str::to_owned),
+        detail: activity.state.as_deref().map_or_else(
+            || backcord_iced_kit::i18n::t(format!("with {}", activity.name)),
+            str::to_owned,
+        ),
         icon: activity
             .small_image
             .as_deref()
@@ -509,9 +509,9 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
                     .color(theme.text)
                     .width(Length::Fill)
                     .align_x(Alignment::Center),
-                text(
+                text(backcord_iced_kit::i18n::tr(
                     "When a friend starts an activity \u{2014} like playing a game or hanging out on voice \u{2014} we'll show it here!"
-                )
+                ))
                 .size(13)
                 .color(theme.muted)
                 .width(Length::Fill)
@@ -626,7 +626,9 @@ fn active_row<'a>(ctx: crate::ctx::Ctx<'a>, entry: &'a CardRow) -> Element<'a, M
     {
         words = words.push(
             crate::widgets::live_text(std::time::Duration::from_secs(1), move || {
-                elapsed((backcord_core::clock::now_ms() / 1000).saturating_sub(start))
+                backcord_iced_kit::i18n::t(elapsed(
+                    (backcord_core::clock::now_ms() / 1000).saturating_sub(start),
+                ))
             })
             .size(12)
             .color(theme.muted),

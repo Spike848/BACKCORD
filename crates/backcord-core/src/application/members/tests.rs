@@ -470,6 +470,46 @@ fn inviting_someone_sends_them_a_link_to_the_first_channel_by_position() {
     );
 }
 
+#[test]
+fn the_invite_dialog_sends_its_link_to_someone_it_lists_once() {
+    let mut app = staff();
+    app.state.invite = Some(InviteDialog {
+        room: "discord:50:54".into(),
+        people: vec![InvitePerson {
+            id: "3".into(),
+            name: "Cara".into(),
+            friend: true,
+            ..InvitePerson::default()
+        }],
+        ..InviteDialog::default()
+    });
+    assert!(matches!(
+        app.dispatch(Action::InviteFromDialog("3".into())).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::SendInvite { user, room }))]
+            if user == "3" && room == "discord:50:54"
+    ));
+    assert!(
+        app.dispatch(Action::InviteFromDialog("3".into()))
+            .is_empty(),
+        "once"
+    );
+    assert!(
+        app.dispatch(Action::InviteFromDialog("9".into()))
+            .is_empty(),
+        "not listed"
+    );
+    app.apply(Event::InviteSent {
+        user: "3".into(),
+        room: "discord:50:54".into(),
+        result: Ok(()),
+    });
+    let invite = app.state.invite.as_ref().expect("open");
+    assert_eq!(
+        (invite.sending.len(), invite.sent.as_slice()),
+        (0, ["3".to_owned()].as_slice())
+    );
+}
+
 const LOUNGE: &str = "discord:10:12";
 
 #[test]

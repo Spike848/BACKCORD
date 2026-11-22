@@ -324,11 +324,16 @@ pub(super) fn divider<'a>(ctx: crate::ctx::Ctx<'a>, look: &'a RowLook) -> Elemen
 /// left end that narrows to the line's height.
 fn new_tag<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     let (red, ink) = (ctx.look.theme.danger, ctx.look.theme.on_danger);
-    let pill = container(text("NEW").size(10).font(BOLD).color(ink))
-        .padding([0, 4])
-        .height(13)
-        .align_y(Alignment::Center)
-        .style(move |_| rounded(red, 3));
+    let pill = container(
+        text(backcord_iced_kit::i18n::tr("NEW"))
+            .size(10)
+            .font(BOLD)
+            .color(ink),
+    )
+    .padding([0, 4])
+    .height(13)
+    .align_y(Alignment::Center)
+    .style(move |_| rounded(red, 3));
     stack![
         container(pill).padding(Padding::ZERO.left(6)),
         ctx.look.glyph(Icon::NoticeNotch, 13, red)
@@ -365,7 +370,10 @@ pub fn edge_line<'a>(
         } else {
             format!("This is the start of #{}.", edge.name)
         };
-        text(words).size(14).color(theme.muted).into()
+        text(backcord_iced_kit::i18n::t(words))
+            .size(14)
+            .color(theme.muted)
+            .into()
     } else {
         edge_button(ctx, edge.loading, edge.failed, false, earlier)
     };
@@ -397,13 +405,13 @@ pub(super) fn edge_button<'a>(
         (
             Icon::History,
             theme.secondary,
-            format!("Loading {which} messages..."),
+            backcord_iced_kit::i18n::t(format!("Loading {which} messages...")),
         )
     } else if failed {
         (
             Icon::TriangleAlert,
             theme.danger,
-            format!("Couldn't load {which} messages. Retry"),
+            backcord_iced_kit::i18n::t(format!("Couldn't load {which} messages. Retry")),
         )
     } else if newer {
         (
@@ -488,8 +496,15 @@ pub(super) fn welcome<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
                         .style(move |_| rounded(field, 34)),
                 )
                 .push(Space::new().height(8))
-                .push(title(format!("Welcome to #{}!", edge.name), BOLD));
-            text(format!("This is the start of the #{} channel.", edge.name)).size(16)
+                .push(title(
+                    backcord_iced_kit::i18n::t(format!("Welcome to #{}!", edge.name)),
+                    BOLD,
+                ));
+            text(backcord_iced_kit::i18n::t(format!(
+                "This is the start of the #{} channel.",
+                edge.name
+            )))
+            .size(16)
         }
     };
     block
@@ -734,7 +749,10 @@ pub(super) fn conversation_start<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Me
     } else if edge.direct || edge.thread {
         (edge.name.clone(), 28)
     } else {
-        (format!("Welcome to #{}", edge.name), 28)
+        (
+            backcord_iced_kit::i18n::t(format!("Welcome to #{}", edge.name)),
+            28,
+        )
     };
     start = start.push(text(title).size(size).font(BOLD).color(theme.text));
     if edge.ready {
@@ -748,7 +766,7 @@ pub(super) fn conversation_start<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Me
         } else {
             format!("This is the start of #{}. No messages here yet.", edge.name)
         };
-        start = start.push(text(words).color(theme.secondary));
+        start = start.push(text(backcord_iced_kit::i18n::t(words)).color(theme.secondary));
     }
     container(start)
         .width(Length::Fill)
@@ -768,7 +786,10 @@ pub(super) fn unread_bar<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Mes
     }
     let index = ctx.lanes.timeline.unread_index(ctx.state)?;
     let theme = ctx.look.theme;
-    let label = unread_label(&ctx.lanes.timeline.messages[index..], state.detached);
+    let label = backcord_iced_kit::i18n::t(unread_label(
+        &ctx.lanes.timeline.messages[index..],
+        state.detached,
+    ));
     let ink = theme.on_accent;
     let jump = button(
         container(

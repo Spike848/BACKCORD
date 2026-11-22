@@ -231,7 +231,7 @@ pub const PAGE: &str = "sheet-page";
 fn controls_close<'a, M: Clone + 'a>(look: Look<'a>, label: &'a str, close: M) -> Element<'a, M> {
     let theme = look.theme;
     let (raised, lit) = (theme.raised, theme.hover);
-    let tip = format!("Close {label}");
+    let tip = crate::i18n::t(format!("Close {label}"));
     iced::widget::tooltip(
         button(look.glyph(Icon::X, 18, theme.secondary).boxed(CLOSE))
             .padding(0)

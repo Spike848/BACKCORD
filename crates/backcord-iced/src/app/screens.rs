@@ -198,13 +198,13 @@ impl App {
             Event::ActivityMenu(privacy) => {
                 let mut rows = vec![crate::menus::MenuRow::new(
                     crate::menus::MenuAct::AllActivity,
-                    "View All Activity",
+                    backcord_iced_kit::i18n::tr("View All Activity"),
                     crate::pictures::Icon::Gamepad,
                 )];
                 if privacy {
                     rows.push(crate::menus::MenuRow::new(
                         crate::menus::MenuAct::ActivityPrivacy,
-                        "Manage Privacy",
+                        backcord_iced_kit::i18n::tr("Manage Privacy"),
                         crate::pictures::Icon::Lock,
                     ));
                 }

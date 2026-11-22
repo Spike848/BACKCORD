@@ -68,6 +68,16 @@ impl Application {
         };
         #[cfg(not(feature = "discord"))]
         let mut choices = self.state.person_choices(user);
+        #[cfg(feature = "discord")]
+        if self.member_place(user).is_none()
+            && self
+                .state
+                .friend_requests
+                .iter()
+                .any(|request| request.id == user)
+        {
+            choices = self.request_choices(user);
+        }
         self.offer_invite(user, &mut choices);
         if let Some(room) = self.state.selected.as_deref() {
             self.offer_apps(room, user, &mut choices);
@@ -288,6 +298,20 @@ impl Application {
             choices.push(MenuChoice::TransferOwnership);
         }
         choices.push(MenuChoice::CopyId);
+        choices
+    }
+
+    /// The menu of someone a friend request is waiting with, as Discord's
+    /// Requests list has it: their profile, a message, a call and a note,
+    /// then how this account stands with them.
+    #[cfg(feature = "discord")]
+    fn request_choices(&self, user: &str) -> Vec<MenuChoice> {
+        let mut choices = vec![MenuChoice::Profile, MenuChoice::Message];
+        if self.can_call(user) {
+            choices.push(MenuChoice::Call);
+        }
+        choices.push(MenuChoice::AddNote);
+        choices.extend(self.state.relationship_choices(user));
         choices
     }
 

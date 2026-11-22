@@ -466,11 +466,15 @@ fn private_note<'a>(profile: &chat::Profile, inks: &Inks) -> Element<'a, Message
     let words = format!(
         "{who}'s profile is private, so some information is hidden. Add them as a friend to see more."
     );
-    container(text(words).size(14).color(inks.ink))
-        .padding(12)
-        .width(Length::Fill)
-        .style(|_| rounded(Color::from_rgba8(255, 255, 255, 20.0 / 255.0), 8))
-        .into()
+    container(
+        text(backcord_iced_kit::i18n::t(words))
+            .size(14)
+            .color(inks.ink),
+    )
+    .padding(12)
+    .width(Length::Fill)
+    .style(|_| rounded(Color::from_rgba8(255, 255, 255, 20.0 / 255.0), 8))
+    .into()
 }
 
 /// The banner, with the avatar over its lower edge on a ring of the
@@ -1424,7 +1428,7 @@ fn connections<'a>(
         let mut words = column![name];
         if let Some(since) = &connection.since {
             words = words.push(
-                text(format!("Member since {since}"))
+                text(backcord_iced_kit::i18n::t(format!("Member since {since}")))
                     .size(12)
                     .color(inks.ink3),
             );

@@ -124,8 +124,8 @@ impl<'a> super::View<'a> {
         let theme = self.cx.look.theme;
         let label = match events {
             0 => backcord_iced_kit::i18n::tr("Events").to_owned(),
-            1 => "1 Event".to_owned(),
-            count => format!("{count} Events"),
+            1 => backcord_iced_kit::i18n::tr("1 Event").to_owned(),
+            count => backcord_iced_kit::i18n::t(format!("{count} Events")),
         };
         let (hover, ink) = (theme.hover, theme.channel_read);
         let face = button(

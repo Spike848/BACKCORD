@@ -278,7 +278,12 @@ impl<'a> View<'a> {
         if popover.expanded {
             let mut options = column![].spacing(2);
             for (key, name, note) in STATUSES {
-                options = options.push(self.status_option(key, name, note, key == status));
+                options = options.push(self.status_option(
+                    key,
+                    backcord_iced_kit::i18n::tr(name),
+                    backcord_iced_kit::i18n::tr(note),
+                    key == status,
+                ));
             }
             first = first.push(options);
         }
@@ -440,7 +445,11 @@ impl<'a> View<'a> {
         .spacing(4);
         if let Some(started) = playing.started_ms {
             let lasted = played_for(self.cx.minute.saturating_mul(1000).saturating_sub(started));
-            lines = lines.push(text(lasted).size(12).color(theme.live));
+            lines = lines.push(
+                text(backcord_iced_kit::i18n::t(lasted))
+                    .size(12)
+                    .color(theme.live),
+            );
         }
         let raised = theme.raised;
         container(lines)
@@ -476,7 +485,9 @@ impl<'a> View<'a> {
         let name = STATUSES
             .iter()
             .find(|(key, ..)| *key == status)
-            .map_or(backcord_iced_kit::i18n::tr("Online"), |(_, name, _)| name);
+            .map_or(backcord_iced_kit::i18n::tr("Online"), |(_, name, _)| {
+                backcord_iced_kit::i18n::tr(name)
+            });
         let mut line = row![].spacing(8).align_y(Alignment::Center);
         if let Some(dot) = self.cx.mark(Mark::Dot(presence(status), rgb(theme.raised))) {
             line = line.push(Pic::square(dot, 16.0));
@@ -605,14 +616,17 @@ impl<'a> View<'a> {
                 .size(12)
                 .font(BOLD)
                 .color(theme.muted),
-            controls::choices(theme, &CLEAR, draft.clear, |index| message(
-                Event::ClearAfter(index)
-            )),
+            controls::choices(
+                theme,
+                &CLEAR.map(backcord_iced_kit::i18n::tr),
+                draft.clear,
+                |index| message(Event::ClearAfter(index))
+            ),
         ]
         .spacing(12)
         .padding(20);
         if let Some(error) = &editor.error {
-            body = body.push(form::error(theme, error.as_str()));
+            body = body.push(form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         let mut foot = row![].spacing(8).align_y(Alignment::Center);
         if self.cx.state.custom_status.is_some() {

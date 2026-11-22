@@ -132,7 +132,7 @@ impl<'a> View<'a> {
                     backcord_iced_kit::i18n::tr("Select where you want to share this message.")
                         .to_owned()
                 } else {
-                    format!("Maximum {FORWARD_LIMIT} places at once.")
+                    backcord_iced_kit::i18n::t(format!("Maximum {FORWARD_LIMIT} places at once."))
                 })
                 .size(14)
                 .color(theme.secondary)
@@ -209,18 +209,18 @@ impl<'a> View<'a> {
             .collect();
         if !self.s.is_empty() && !slowed.is_empty() {
             let words = match slowed.as_slice() {
-                [one] => {
-                    format!("The message you added will not be sent to slowmode channel: {one}.")
-                }
-                many => format!(
+                [one] => backcord_iced_kit::i18n::t(format!(
+                    "The message you added will not be sent to slowmode channel: {one}."
+                )),
+                many => backcord_iced_kit::i18n::t(format!(
                     "The message you added will not be sent to slowmode channels: {}.",
                     many.join(", ")
-                ),
+                )),
             };
             body = body.push(text(words).size(14).color(theme.secondary));
         }
         if let Some(error) = &forwarding.error {
-            body = body.push(crate::form::error(theme, error.clone()));
+            body = body.push(crate::form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         // Up to FORWARD_LIMIT, as Discord's button counts them.
         let label = match chosen {
@@ -277,7 +277,7 @@ impl<'a> View<'a> {
         let place = match server {
             _ if room.direct => backcord_iced_kit::i18n::tr("Direct message").to_owned(),
             Some(server) => server.name.clone(),
-            None => "Channel".to_owned(),
+            None => backcord_iced_kit::i18n::tr("Channel").to_owned(),
         };
         let (accent, faint) = (theme.accent, theme.faint);
         let tick = container(if ticked {

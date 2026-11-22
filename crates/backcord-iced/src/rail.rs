@@ -859,7 +859,10 @@ impl<'a> View<'a> {
         // A server out of reach in a Discord outage says so, besides
         // fading.
         let name = if item.unavailable {
-            Cow::Owned(format!("{} (unavailable in a Discord outage)", item.name))
+            Cow::Owned(backcord_iced_kit::i18n::t(format!(
+                "{} (unavailable in a Discord outage)",
+                item.name
+            )))
         } else {
             Cow::Borrowed(item.name.as_str())
         };

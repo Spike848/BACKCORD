@@ -523,11 +523,11 @@ pub(super) fn share_menu<'a>(ctx: crate::ctx::Ctx<'a>, share: &'a Share) -> Elem
                     .size(16)
                     .font(BOLD)
                     .color(theme.text),
-                text(format!(
+                text(backcord_iced_kit::i18n::t(format!(
                     "{} \u{b7} {} fps",
                     resolution_name(quality.resolution),
                     quality.fps
-                ))
+                )))
                 .size(13)
                 .color(theme.muted),
             ]

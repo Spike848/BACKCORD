@@ -157,12 +157,12 @@ fn choices(list: &[Level], offered: impl Fn(u8) -> bool) -> Vec<form::Choice<'st
         .map(|&(value, title, description, colour)| {
             let offered = offered(value);
             form::Choice {
-                title: title.into(),
-                description: if offered {
+                title: backcord_iced_kit::i18n::tr(title).into(),
+                description: backcord_iced_kit::i18n::tr(if offered {
                     description
                 } else {
                     NOT_FOR_COMMUNITY
-                }
+                })
                 .into(),
                 colour: colour.map(hex),
                 offered,
@@ -222,7 +222,7 @@ impl<'a> View<'a> {
             on,
             (ready && lock.is_none()).then(|| safety(SafetyChoice::RequireMfa(!on))),
         )
-        .description(mfa_text);
+        .description(backcord_iced_kit::i18n::t(mfa_text));
         if let Some(lock) = lock {
             switch = switch.locked(lock);
         }
@@ -230,11 +230,15 @@ impl<'a> View<'a> {
         if !mfa_note.is_empty() {
             let sunken = theme.sunken;
             mfa.push(
-                container(text(mfa_note).size(14).color(theme.secondary))
-                    .padding([10, 12])
-                    .width(Length::Fill)
-                    .style(move |_| rounded(sunken, 6))
-                    .into(),
+                container(
+                    text(backcord_iced_kit::i18n::tr(mfa_note))
+                        .size(14)
+                        .color(theme.secondary),
+                )
+                .padding([10, 12])
+                .width(Length::Fill)
+                .style(move |_| rounded(sunken, 6))
+                .into(),
             );
         }
         form::page([
@@ -410,16 +414,20 @@ impl<'a> View<'a> {
                     .size(15)
                     .font(MEDIUM)
                     .color(theme.text),
-                text(ban_.reason.as_deref().unwrap_or("No reason provided"))
-                    .size(13)
-                    .color(theme.muted),
+                text(
+                    ban_.reason
+                        .as_deref()
+                        .unwrap_or(backcord_iced_kit::i18n::tr("No reason provided")),
+                )
+                .size(13)
+                .color(theme.muted),
             ]
             .spacing(4),
         ]
         .spacing(12)
         .padding(16);
         if let Some(error) = &page.open_error {
-            body = body.push(form::error(theme, error.as_str()));
+            body = body.push(form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         if self.cx.app.may(&core.server, Permission::Ban) {
             body = body.push(
@@ -760,9 +768,9 @@ pub(super) fn pager<'a>(
     go: impl Fn(usize) -> Message,
 ) -> Element<'a, Message> {
     let at = if bare {
-        format!("{} of {pages}", page + 1)
+        format!("{} {} {pages}", page + 1, backcord_iced_kit::i18n::tr("of"))
     } else {
-        format!("Page {} of {pages}", page + 1)
+        backcord_iced_kit::i18n::t(format!("Page {} of {pages}", page + 1))
     };
     row![
         action(

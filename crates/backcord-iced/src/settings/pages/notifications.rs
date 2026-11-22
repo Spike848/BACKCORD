@@ -32,9 +32,9 @@ impl<'a> Page<'a> {
                 on,
                 Some(pref(Pref::Notifications(!on))),
             )
-            .description(format!(
+            .description(backcord_iced_kit::i18n::t(format!(
                 "For new messages while BACKCORD isn't in front. {rules} which: usually DMs and mentions. Clicking one opens the conversation."
-            ))
+            )))
             .view(self.cx.look),
             switch(
                 backcord_iced_kit::i18n::tr("Show what messages say"),

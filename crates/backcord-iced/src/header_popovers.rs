@@ -259,9 +259,19 @@ impl Popovers {
                     1 => format!("1 {one}"),
                     count => format!("{count} {many}"),
                 };
-                section(&mut rows, threads, heading.to_uppercase(), now);
+                section(
+                    &mut rows,
+                    threads,
+                    backcord_iced_kit::i18n::t(heading).to_uppercase(),
+                    now,
+                );
             }
-            section(&mut rows, &sections.older, "OLDER THREADS".into(), now);
+            section(
+                &mut rows,
+                &sections.older,
+                backcord_iced_kit::i18n::tr("OLDER THREADS").into(),
+                now,
+            );
         }
         self.threads = rows;
     }
@@ -642,7 +652,7 @@ impl<'a> View<'a> {
                     .size(14)
                     .font(BOLD)
                     .color(crate::style::hex(0x5eb479)),
-                text("Users with the \"Pin Messages\" permission can pin a message from its context menu.")
+                text(backcord_iced_kit::i18n::tr("Users with the \"Pin Messages\" permission can pin a message from its context menu."))
                     .size(14)
                     .color(theme.text)
                     .center(),
@@ -674,7 +684,7 @@ impl<'a> View<'a> {
             Some(None) => {
                 Some(backcord_iced_kit::i18n::tr("Loading pinned messages...").to_owned())
             }
-            Some(Some(Err(error))) => Some(error.clone()),
+            Some(Some(Err(error))) => Some(backcord_iced_kit::i18n::t(error)),
             Some(Some(Ok(pinned))) if pinned.is_empty() => Some(
                 if state.selected_room().is_some_and(|room| room.direct) {
                     backcord_iced_kit::i18n::tr(
@@ -801,12 +811,12 @@ impl<'a> View<'a> {
         let found = list.search.as_ref().map(|search| &search.found);
         let note = match found {
             Some(None) => Some(backcord_iced_kit::i18n::tr("Searching...").to_owned()),
-            Some(Some(Err(error))) => Some(error.clone()),
+            Some(Some(Err(error))) => Some(backcord_iced_kit::i18n::t(error)),
             Some(Some(Ok(_))) => None,
             None if sections_empty && list.loading => {
                 Some(backcord_iced_kit::i18n::tr("Loading threads...").into())
             }
-            None if sections_empty => list.error.clone(),
+            None if sections_empty => list.error.as_ref().map(backcord_iced_kit::i18n::t),
             None => None,
         };
         let body: Element<'a, Message> = if let Some(note) = note {
@@ -1017,8 +1027,8 @@ impl<'a> View<'a> {
         let left = room.saturating_sub(chosen);
         let detail = match left {
             0 => backcord_iced_kit::i18n::tr("This group has no room for more.").to_owned(),
-            1 => "You can add 1 more friend.".to_owned(),
-            left => format!("You can add {left} more friends."),
+            1 => backcord_iced_kit::i18n::tr("You can add 1 more friend.").to_owned(),
+            left => backcord_iced_kit::i18n::t(format!("You can add {left} more friends.")),
         };
         let field = controls::field(
             theme,
@@ -1058,7 +1068,7 @@ impl<'a> View<'a> {
         .spacing(8)
         .padding(12);
         if let Some(error) = &picker.error {
-            body = body.push(crate::form::error(theme, error.as_str()));
+            body = body.push(crate::form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         let label = if picker.adding {
             backcord_iced_kit::i18n::tr("Adding...")
@@ -1144,7 +1154,7 @@ fn section(rows: &mut Vec<ThreadRow>, threads: &[ListedThread], heading: String,
 }
 
 fn thread_row(thread: &ListedThread, now: u64) -> ThreadRow {
-    let ago = ago(thread.active_ms, now);
+    let ago = backcord_iced_kit::i18n::t(ago(thread.active_ms, now));
     let (person, lead, words, time) = match (&thread.recent, &thread.owner, thread.archived) {
         (Some(recent), _, false) => (Some(&recent.author), "", recent.text.as_str(), ago),
         (None, _, false) => (
@@ -1157,9 +1167,14 @@ fn thread_row(thread: &ListedThread, now: u64) -> ThreadRow {
             Some(owner),
             backcord_iced_kit::i18n::tr("Started by "),
             "",
-            format!("Last active {ago}"),
+            backcord_iced_kit::i18n::t(format!("Last active {ago}")),
         ),
-        (_, None, true) => (None, "", "", format!("Last active {ago}")),
+        (_, None, true) => (
+            None,
+            "",
+            "",
+            backcord_iced_kit::i18n::t(format!("Last active {ago}")),
+        ),
     };
     ThreadRow {
         room: thread.room.clone(),

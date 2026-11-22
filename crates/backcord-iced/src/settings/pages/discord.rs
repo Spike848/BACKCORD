@@ -99,10 +99,10 @@ impl<'a> Page<'a> {
                             .size(16)
                             .font(crate::fonts::SEMIBOLD)
                             .color(theme.text),
-                        text(format!(
+                        text(backcord_iced_kit::i18n::t(format!(
                             "{count} {}",
                             if count == 1 { "account" } else { "accounts" }
-                        ))
+                        )))
                         .size(14)
                         .color(theme.secondary)
                     ]
@@ -154,7 +154,10 @@ impl<'a> Page<'a> {
             }
             list = list.push(people);
             if count > settings.blocked_shown {
-                let more = format!("See {} more", count - settings.blocked_shown);
+                let more = backcord_iced_kit::i18n::t(format!(
+                    "See {} more",
+                    count - settings.blocked_shown
+                ));
                 list = list.push(Element::from(
                     action(
                         theme,

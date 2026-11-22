@@ -48,8 +48,11 @@ impl<'a> View<'a> {
             .count();
         let header = row![
             Space::new().width(HANDLE),
-            container(form::heading(theme, format!("ROLES – {}", listed.len())))
-                .width(Length::Fill),
+            container(form::heading(
+                theme,
+                backcord_iced_kit::i18n::t(format!("ROLES – {}", listed.len()))
+            ))
+            .width(Length::Fill),
             container(form::heading(theme, backcord_iced_kit::i18n::tr("MEMBERS")))
                 .width(MEMBERS + 2.0 * BUTTON + HANDLE),
         ]
@@ -140,9 +143,11 @@ impl<'a> View<'a> {
                     .size(15)
                     .font(SEMIBOLD)
                     .color(theme.text),
-                text(format!("{name} • applies to all server members"))
-                    .size(13)
-                    .color(theme.secondary)
+                text(backcord_iced_kit::i18n::t(format!(
+                    "{name} • applies to all server members"
+                )))
+                .size(13)
+                .color(theme.secondary)
             ]
             .spacing(2)
             .width(Length::Fill),

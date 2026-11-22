@@ -381,10 +381,10 @@ impl<'a> View<'a> {
             page = page.push(view);
         }
         if let Some(problem) = core.problem() {
-            page = page.push(form::error(theme, problem));
+            page = page.push(form::error(theme, backcord_iced_kit::i18n::t(problem)));
         }
         if let Some(error) = &core.error {
-            page = page.push(form::error(theme, error.as_str()));
+            page = page.push(form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         let bar = ((core.changed() || core.saving) && !core.immediate()).then(|| {
             form::Unsaved {
@@ -458,10 +458,10 @@ impl<'a> View<'a> {
                     backcord_iced_kit::i18n::tr("EXPRESSION")
                 }
                 SettingsSection::Members | SettingsSection::Roles | SettingsSection::Invites => {
-                    "PEOPLE"
+                    backcord_iced_kit::i18n::tr("PEOPLE")
                 }
                 SettingsSection::Safety | SettingsSection::AuditLog | SettingsSection::Bans => {
-                    "MODERATION"
+                    backcord_iced_kit::i18n::tr("MODERATION")
                 }
                 _ => "",
             };

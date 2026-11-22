@@ -151,6 +151,7 @@ fn requests_list_someone_once_with_their_message() {
     let request = |id: &str, name: &str, incoming, spam| FriendRequest {
         id: id.into(),
         name: name.into(),
+        username: Some(format!("{}_", name.to_lowercase())),
         avatar: None,
         incoming,
         spam,
@@ -182,18 +183,32 @@ fn requests_list_someone_once_with_their_message() {
     // Lena's friend request and message are one request.
     assert_eq!(friends::waiting(app.client.state()), 1);
     dm_screen(&mut app, DmScreen::Requests);
-    assert!(shows(&app, "REQUESTS — 1"));
+    assert!(shows(&app, "Received: 1"));
     assert!(shows(&app, "Sent you a friend request and a message"));
     assert!(shows(&app, "Hi from Lena"));
-    assert!(shows(&app, "Accept") && shows(&app, "Ignore"));
-    assert!(shows(&app, "SENT — 1"));
-    assert!(shows(&app, "You sent a friend request"));
-    assert!(shows(&app, "Cancel"));
+    // One sent shows their username, as Discord's list does.
+    assert!(shows(&app, "Sent: 1"));
+    assert!(shows(&app, "max_"));
+    // A right click on it opens their menu.
+    interact(&mut app, |ui| {
+        let row = ui.find("max_").expect("Max's row");
+        ui.point_at(row.visible_bounds().expect("in view").center());
+        ui.simulate([
+            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(
+                iced::mouse::Button::Right,
+            )),
+            iced::Event::Mouse(iced::mouse::Event::ButtonReleased(
+                iced::mouse::Button::Right,
+            )),
+        ]);
+    });
+    assert!(app.win.menu.is_some(), "Max's menu");
+    let _ = app.update(Message::Menu(crate::menus::Event::Close));
     // Spam folds away until opened.
-    assert!(shows(&app, "SPAM — 1"));
+    assert!(shows(&app, "Spam: 1"));
     assert!(!shows(&app, "Maybe spam"));
     interact(&mut app, |ui| {
-        ui.click("SPAM — 1").expect("the spam heading");
+        ui.click("Spam: 1").expect("the spam heading");
     });
     assert!(shows(&app, "Maybe spam"));
 }
@@ -467,6 +482,7 @@ fn a_discord_dm_offers_add_friend_or_accept_in_its_opening() {
         state.friend_requests = vec![backcord_core::chat::FriendRequest {
             id: riley.clone(),
             name: "Riley".into(),
+            username: None,
             avatar: None,
             incoming: true,
             spam: false,
@@ -975,6 +991,7 @@ fn a_message_requests_time_today_follows_the_12_hour_clock() {
         state.friend_requests = vec![FriendRequest {
             id: "10".into(),
             name: "Lena".into(),
+            username: None,
             avatar: None,
             incoming: true,
             spam: false,

@@ -129,7 +129,11 @@ beside the chosen audio devices (`devices.json`), and starts at 1080p30 without
 it. The menu lists every screen, window and camera, and is never taller than
 the window: where they don't all fit, as with many windows open or the window
 short or zoomed, the choices scroll as one above Go Live, which stays in view.
-Larger screens, and those of another shape, are scaled down to fit. BACKCORD
+A larger screen is scaled down to the chosen lines (720, 1080, or 2160 for
+the screen's own size), keeping its shape: a screen wider than 16:9, an
+ultrawide or two screens side by side, keeps those lines up to 32:9's width
+(3840 by 1080 at 1080p) rather than shrinking to 16:9's width, which sent a
+32:9 screen at 1080p as 1920 by 540, and Discord showed it as 540p. BACKCORD
 caps them at the bitrates Discord's client uses: at most 3.5 Mbit/s up to 720p
 and 9 Mbit/s above, the cap op 12 announces, with the frame rate as its
 `max_framerate`. Discord's client allows accounts without Nitro 720p30, but

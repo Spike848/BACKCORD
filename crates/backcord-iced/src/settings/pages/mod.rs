@@ -238,7 +238,7 @@ impl Settings {
                 }
             }
             Pref::GpuRendering(on) => {
-                prefs.gpu_rendering = on;
+                prefs.gpu_rendering = Some(on);
                 cx.keep("gpu_rendering", on);
             }
             Pref::GpuEncoding(on) => {

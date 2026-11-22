@@ -195,10 +195,13 @@ impl<'a> View<'a> {
             busy,
         } = foot;
         if !status.is_empty() {
-            body.push(form::note(theme, status));
+            body.push(form::note(theme, backcord_iced_kit::i18n::t(status)));
         }
         if !error.is_empty() {
-            body.push(form::note_in(error, theme.danger));
+            body.push(form::note_in(
+                backcord_iced_kit::i18n::t(error),
+                theme.danger,
+            ));
         }
         let mut row_ = vec![
             action(
@@ -217,7 +220,7 @@ impl<'a> View<'a> {
             row_.push(
                 action(
                     theme,
-                    confirm,
+                    backcord_iced_kit::i18n::t(confirm),
                     Kind::Primary,
                     (!busy).then(|| message(main)),
                 )
@@ -235,21 +238,23 @@ impl<'a> View<'a> {
             .state
             .event_prompt(self.cx.layout.prefs.twelve_hour_clock)?;
         let theme = self.cx.look.theme;
-        let mut body = vec![
-            self.cx
-                .look
-                .dialog_head(prompt.title.to_owned(), message(Event::CloseScheduled)),
-        ];
+        let mut body = vec![self.cx.look.dialog_head(
+            backcord_iced_kit::i18n::t(prompt.title),
+            message(Event::CloseScheduled),
+        )];
         if prompt.found {
-            body.push(
-                self.cx
-                    .look
-                    .found_card(None, prompt.name, [prompt.when, prompt.detail]),
-            );
+            body.push(self.cx.look.found_card(
+                None,
+                prompt.name,
+                [
+                    backcord_iced_kit::i18n::t(prompt.when),
+                    backcord_iced_kit::i18n::t(prompt.detail),
+                ],
+            ));
         }
         if !prompt.description.is_empty() {
             body.push(
-                text(prompt.description)
+                text(backcord_iced_kit::i18n::t(prompt.description))
                     .size(14)
                     .color(theme.text)
                     .width(Length::Fill)
@@ -278,13 +283,16 @@ impl<'a> View<'a> {
     /// Browser for one only Discord redeems.
     fn gift_view(self) -> Option<Element<'a, Message>> {
         let prompt = self.cx.state.gift_prompt()?;
-        let mut body = vec![
-            self.cx
-                .look
-                .dialog_head(prompt.title.to_owned(), message(Event::CloseGift)),
-        ];
+        let mut body = vec![self.cx.look.dialog_head(
+            backcord_iced_kit::i18n::t(prompt.title),
+            message(Event::CloseGift),
+        )];
         if prompt.found {
-            body.push(self.cx.look.found_card(None, prompt.name, [prompt.detail]));
+            body.push(self.cx.look.found_card(
+                None,
+                prompt.name,
+                [backcord_iced_kit::i18n::t(prompt.detail)],
+            ));
         }
         self.link_dialog_foot(
             &mut body,
@@ -306,24 +314,23 @@ impl<'a> View<'a> {
     fn oauth_view(self) -> Option<Element<'a, Message>> {
         let prompt = self.cx.state.oauth_prompt()?;
         let theme = self.cx.look.theme;
-        let mut body = vec![
-            self.cx
-                .look
-                .dialog_head(prompt.title.clone(), message(Event::CloseOAuth)),
-        ];
+        let mut body = vec![self.cx.look.dialog_head(
+            backcord_iced_kit::i18n::t(&prompt.title),
+            message(Event::CloseOAuth),
+        )];
         if prompt.found {
             let avatar = self
                 .cx
                 .avatar(prompt.icon.as_deref(), &prompt.name, 48.0, 24.0, 1.0);
-            body.push(
-                self.cx
-                    .look
-                    .found_card(Some(avatar), prompt.name.clone(), [prompt.detail]),
-            );
+            body.push(self.cx.look.found_card(
+                Some(avatar),
+                prompt.name.clone(),
+                [backcord_iced_kit::i18n::t(prompt.detail)],
+            ));
         }
         if !prompt.warning.is_empty() {
             body.push(
-                text(prompt.warning)
+                text(backcord_iced_kit::i18n::t(prompt.warning))
                     .size(14)
                     .font(BOLD)
                     .color(theme.danger)
@@ -333,7 +340,7 @@ impl<'a> View<'a> {
         }
         if !prompt.wants.is_empty() {
             body.push(
-                text(prompt.wants)
+                text(backcord_iced_kit::i18n::t(prompt.wants))
                     .size(14)
                     .color(theme.text)
                     .width(Length::Fill)
@@ -387,7 +394,7 @@ impl<'a> View<'a> {
             );
         }
         if !prompt.status.is_empty() {
-            body.push(form::note(theme, prompt.status));
+            body.push(form::note(theme, backcord_iced_kit::i18n::t(prompt.status)));
         }
         if !prompt.address.is_empty() {
             let copied = self.s.copied.as_deref() == Some(prompt.address.as_str());

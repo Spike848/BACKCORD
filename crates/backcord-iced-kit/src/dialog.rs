@@ -28,7 +28,7 @@ impl<'a> crate::look::Look<'a> {
                 .size(18)
                 .font(BOLD)
                 .color(self.theme.text)
-                .wrapping(text::Wrapping::None)
+                .wrapping(text::Wrapping::WordOrGlyph)
                 .width(Length::Fill),
             self.icon_button(crate::icons::Icon::X, crate::i18n::tr("Close"), close)
                 .below(),

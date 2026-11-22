@@ -10,13 +10,16 @@
 //! it.
 
 use backcord_core::{
-    application::{Action, AppState, ChannelAsk, INVITE_AGES, INVITE_USES},
+    application::{
+        Action, AppState, ChannelAsk, INVITE_AGES, INVITE_USES, InviteDialog, InvitePerson,
+    },
     chat::{ChannelKind, ChannelSettings},
 };
+use backcord_iced_kit::{i18n::tr, widgets::scroll_view};
 use iced::{
     Alignment, Element, Length, Task,
     keyboard::key,
-    widget::{Id, button, container, operation, row, text},
+    widget::{Id, button, column, container, operation, row, text},
 };
 
 use crate::{
@@ -34,7 +37,15 @@ const WIDE: f32 = 460.0;
 const NARROW: f32 = 440.0;
 /// The invite link's box.
 const LINK: f32 = 44.0;
+/// How tall the invite dialog's list of people is, and how many of each
+/// kind it shows at most; the search finds the rest.
+const PEOPLE_HEIGHT: f32 = 300.0;
+const PEOPLE_SHOWN: usize = 200;
+/// How wide the invite link's choices are: the dialog's width inside its
+/// padding, so the Italian words fit.
+const CHOICES_WIDTH: f32 = WIDE - 40.0;
 /// The fields' ids.
+const INVITE_SEARCH: &str = "invite-search";
 const JOIN_FIELD: &str = "join-invite";
 const CHANNEL_FIELD: &str = "channel-name";
 
@@ -63,6 +74,10 @@ struct InviteChoice {
     age: usize,
     uses: usize,
     copied: Option<String>,
+    /// What's typed in its search, and whether it shows the choices for a
+    /// new link rather than the people.
+    search: String,
+    editing: bool,
 }
 
 struct ChannelDraft {
@@ -74,6 +89,10 @@ struct ChannelDraft {
 pub enum Event {
     InviteAge(usize),
     InviteUses(usize),
+    InviteSearch(String),
+    /// Edit invite link, or Cancel back from its choices.
+    EditInvite,
+    InvitePerson(String),
     Copy(String),
     Remake,
     CloseInvite,
@@ -112,14 +131,23 @@ pub fn is_open(state: &AppState) -> bool {
         || state.move_sync.is_some()
 }
 
-/// The pictures the dialogs show: the server an invite is to.
+/// The pictures the dialogs show: the server an invite is to, and the
+/// people the invite dialog lists.
 pub fn pictures(state: &AppState) -> Vec<String> {
+    let people = state.invite.iter().flat_map(|invite| {
+        invite
+            .people
+            .iter()
+            .filter_map(|person| person.avatar.clone())
+            .take(2 * PEOPLE_SHOWN)
+    });
     state
         .join
         .as_ref()
         .and_then(|join| join.preview.as_ref())
         .and_then(|preview| preview.icon.clone())
         .into_iter()
+        .chain(people)
         .collect()
 }
 
@@ -140,6 +168,8 @@ impl Dialogs {
                     age: index(&INVITE_AGES, invite.max_age),
                     uses: index(&INVITE_USES, invite.max_uses),
                     copied: None,
+                    search: String::new(),
+                    editing: false,
                 });
                 focus = Some(NOBODY);
             }
@@ -202,10 +232,24 @@ impl Dialogs {
                 }
                 return iced::clipboard::write(link);
             }
+            Event::InviteSearch(typed) => {
+                if let Some(invite) = &mut local.invite {
+                    invite.search = typed;
+                }
+                return Task::none();
+            }
+            Event::EditInvite => {
+                if let Some(invite) = &mut local.invite {
+                    invite.editing = !invite.editing;
+                }
+                return Task::none();
+            }
+            Event::InvitePerson(user) => Action::InviteFromDialog(user),
             Event::Remake => {
-                let Some(invite) = &local.invite else {
+                let Some(invite) = &mut local.invite else {
                     return Task::none();
                 };
+                invite.editing = false;
                 Action::MakeInvite {
                     max_age: INVITE_AGES[invite.age],
                     max_uses: INVITE_USES[invite.uses],
@@ -354,36 +398,177 @@ impl<'a> View<'a> {
         self.invite_view()
     }
 
-    /// The invite link to a server or channel: the link with Copy, how long
-    /// it lasts and how often it works, and the choices for a new one.
+    /// The invite dialog, as Discord's: whom it lands in, the people to
+    /// send the link to with Invite each, found by the search, then the link
+    /// with Copy and how long it lasts; Edit invite link turns it to the
+    /// choices for a new one.
     fn invite_view(self) -> Option<Element<'a, Message>> {
         let invite = self.cx.state.invite.as_ref()?;
         let choice = self.s.invite.as_ref()?;
+        if choice.editing {
+            return Some(self.invite_settings_view(invite, choice));
+        }
         let theme = self.cx.look.theme;
         let place = if invite.voice {
             invite.channel.clone()
         } else {
             format!("#{}", invite.channel)
         };
+        let mut body = vec![
+            self.cx.look.dialog_head(
+                format!("{} {}", tr("Invite friends to"), invite.server),
+                message(Event::CloseInvite),
+            ),
+            form::note(theme, format!("{} {place}", tr("Recipients will land in"))),
+            form::field(
+                theme,
+                INVITE_SEARCH,
+                tr("Search for friends"),
+                &choice.search,
+            )
+            .padding([8.0, 10.0])
+            .on_input(|typed| message(Event::InviteSearch(typed)))
+            .into(),
+        ];
+        let wanted = choice.search.trim().to_lowercase();
+        let found = |person: &&InvitePerson| {
+            wanted.is_empty()
+                || person.name.to_lowercase().contains(&wanted)
+                || person
+                    .username
+                    .as_deref()
+                    .is_some_and(|username| username.to_lowercase().contains(&wanted))
+        };
+        let mut list = column![].spacing(2);
+        let mut any = false;
+        for (friends, heading) in [(true, "FRIENDS"), (false, "SERVER MEMBERS")] {
+            let mut shown = invite
+                .people
+                .iter()
+                .filter(|person| person.friend == friends)
+                .filter(found)
+                .take(PEOPLE_SHOWN)
+                .peekable();
+            if shown.peek().is_none() {
+                continue;
+            }
+            any = true;
+            list = list.push(form::heading(theme, tr(heading)));
+            for person in shown {
+                list = list.push(self.invite_row(invite, person));
+            }
+        }
+        if !any {
+            list = list.push(form::note(theme, tr("No one found")));
+        }
+        body.push(
+            container(
+                scroll_view(list.padding(iced::Padding {
+                    right: 10.0,
+                    ..iced::Padding::ZERO
+                }))
+                .width(Length::Fill)
+                .style(backcord_iced_kit::style::scrollbar(theme)),
+            )
+            .height(PEOPLE_HEIGHT)
+            .into(),
+        );
+        body.extend([
+            text(tr("Or, send a server invite link to a friend"))
+                .size(15)
+                .font(backcord_iced_kit::fonts::BOLD)
+                .color(theme.text)
+                .width(Length::Fill)
+                .into(),
+            self.link_box(invite, choice),
+        ]);
+        if let Some(error) = &invite.error {
+            body.push(form::note_in(
+                backcord_iced_kit::i18n::t(error),
+                theme.danger,
+            ));
+        }
+        let edit = button(text(tr("Edit invite link.")).size(13).color(theme.link))
+            .padding(0)
+            .on_press(message(Event::EditInvite))
+            .style(|_, _| button::Style::default());
+        let mut note = row![].spacing(4).align_y(Alignment::Center);
+        if invite.link.is_some() {
+            note = note.push(form::note(
+                theme,
+                format!("{}{}.", lasts(invite.max_age), works(invite.max_uses)),
+            ));
+        }
+        body.push(
+            iced::widget::Column::new()
+                .push(note.push(edit).wrap())
+                .width(Length::Fill)
+                .into(),
+        );
+        Some(self.cx.look.framed(body, WIDE, message(Event::CloseInvite)))
+    }
+
+    /// Someone the invite dialog lists: their picture, name and username,
+    /// and Invite, or Sent once it went.
+    fn invite_row(
+        self,
+        invite: &'a InviteDialog,
+        person: &'a InvitePerson,
+    ) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let sent = invite.sent.contains(&person.id);
+        let sending = invite.sending.contains(&person.id);
+        let mut words = column![
+            text(person.name.as_str())
+                .size(15)
+                .font(backcord_iced_kit::fonts::BOLD)
+                .color(theme.text)
+                .wrapping(text::Wrapping::None),
+        ];
+        if let Some(username) = &person.username {
+            words = words.push(
+                text(username.as_str())
+                    .size(12)
+                    .color(theme.muted)
+                    .wrapping(text::Wrapping::None),
+            );
+        }
+        let button_ = action(
+            theme,
+            if sent { tr("Sent") } else { tr("Invite") },
+            Kind::Plain,
+            (!sent && !sending).then(|| message(Event::InvitePerson(person.id.clone()))),
+        );
+        row![
+            self.cx
+                .avatar(person.avatar.as_deref(), &person.name, 32.0, 16.0, 1.0),
+            container(words).width(Length::Fill).clip(true),
+            button_,
+        ]
+        .spacing(10)
+        .padding([4, 0])
+        .align_y(Alignment::Center)
+        .into()
+    }
+
+    /// The link with Copy, or Copied once it was.
+    fn link_box(self, invite: &'a InviteDialog, choice: &'a InviteChoice) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
         let link = invite.link.as_deref().unwrap_or_default();
         let copied = !link.is_empty() && choice.copied.as_deref() == Some(link);
         let shown = if invite.making {
-            text(backcord_iced_kit::i18n::tr("Making a link...")).color(theme.muted)
+            text(tr("Making a link...")).color(theme.muted)
         } else {
             text(link).color(theme.text)
         };
         let sunken = theme.sunken;
         let copy = action(
             theme,
-            if copied {
-                backcord_iced_kit::i18n::tr("Copied")
-            } else {
-                backcord_iced_kit::i18n::tr("Copy")
-            },
+            if copied { tr("Copied") } else { tr("Copy") },
             if copied { Kind::Plain } else { Kind::Primary },
             (!link.is_empty()).then(|| message(Event::Copy(link.to_owned()))),
         );
-        let link_box = container(
+        container(
             row![
                 container(shown.size(15).wrapping(text::Wrapping::None))
                     .width(Length::Fill)
@@ -400,56 +585,56 @@ impl<'a> View<'a> {
         })
         .height(LINK)
         .align_y(Alignment::Center)
-        .style(move |_| rounded(sunken, 8));
+        .style(move |_| rounded(sunken, 8))
+        .into()
+    }
+
+    /// The choices for a new link: how long it lasts and how often it
+    /// works, with Cancel back and Generate a new link.
+    fn invite_settings_view(
+        self,
+        invite: &'a InviteDialog,
+        choice: &'a InviteChoice,
+    ) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let ages = AGES.map(tr);
+        let uses = USES.map(tr);
         let mut body = vec![
-            self.cx.look.dialog_head(
-                format!("Invite friends to {}", invite.server),
-                message(Event::CloseInvite),
-            ),
-            form::note(theme, format!("They'll land in {place}.")),
-            form::heading(theme, backcord_iced_kit::i18n::tr("INVITE LINK")),
-            link_box.into(),
-        ];
-        if invite.link.is_some() {
-            body.push(form::note(
-                theme,
-                format!(
-                    "This link {}{}.",
-                    lasts(invite.max_age),
-                    works(invite.max_uses)
-                ),
-            ));
-        }
-        if let Some(error) = &invite.error {
-            body.push(form::note_in(error.as_str(), theme.danger));
-        }
-        body.extend([
-            form::heading(theme, backcord_iced_kit::i18n::tr("EXPIRE AFTER")),
-            controls::choices(theme, &AGES, choice.age, |index| {
+            self.cx
+                .look
+                .dialog_head(tr("Invite link settings"), message(Event::CloseInvite)),
+            form::heading(theme, tr("EXPIRE AFTER")),
+            controls::choices_within(theme, &ages, choice.age, CHOICES_WIDTH, |index| {
                 message(Event::InviteAge(index))
             }),
-            form::heading(theme, backcord_iced_kit::i18n::tr("MAX NUMBER OF USES")),
-            controls::choices(theme, &USES, choice.uses, |index| {
+            form::heading(theme, tr("MAX NUMBER OF USES")),
+            controls::choices_within(theme, &uses, choice.uses, CHOICES_WIDTH, |index| {
                 message(Event::InviteUses(index))
             }),
-            buttons([
-                action(
-                    theme,
-                    backcord_iced_kit::i18n::tr("Done"),
-                    Kind::Ghost,
-                    Some(message(Event::CloseInvite)),
-                )
-                .into(),
-                action(
-                    theme,
-                    backcord_iced_kit::i18n::tr("Generate a new link"),
-                    Kind::Plain,
-                    (!invite.making).then(|| message(Event::Remake)),
-                )
-                .into(),
-            ]),
-        ]);
-        Some(self.cx.look.framed(body, WIDE, message(Event::CloseInvite)))
+        ];
+        if let Some(error) = &invite.error {
+            body.push(form::note_in(
+                backcord_iced_kit::i18n::t(error),
+                theme.danger,
+            ));
+        }
+        body.push(buttons([
+            action(
+                theme,
+                tr("Cancel"),
+                Kind::Ghost,
+                Some(message(Event::EditInvite)),
+            )
+            .into(),
+            action(
+                theme,
+                tr("Generate a new link"),
+                Kind::Primary,
+                (!invite.making).then(|| message(Event::Remake)),
+            )
+            .into(),
+        ]));
+        self.cx.look.framed(body, WIDE, message(Event::CloseInvite))
     }
 
     /// Join a Server, or the dialog a clicked invite link opens: the field
@@ -490,7 +675,7 @@ impl<'a> View<'a> {
         if let Some(preview) = preview {
             let detail = match (preview.members, preview.online) {
                 (Some(members), Some(online)) if members >= 5 || online > 0 => {
-                    format!("{online} online, {members} members")
+                    backcord_iced_kit::i18n::t(format!("{online} online, {members} members"))
                 }
                 _ if preview.voice => preview.channel.clone(),
                 _ => format!("#{}", preview.channel),
@@ -524,10 +709,13 @@ impl<'a> View<'a> {
             ""
         };
         if !status.is_empty() {
-            body.push(form::note(theme, status));
+            body.push(form::note(theme, backcord_iced_kit::i18n::t(status)));
         }
         if let Some(error) = &join.error {
-            body.push(form::note_in(error.as_str(), theme.danger));
+            body.push(form::note_in(
+                backcord_iced_kit::i18n::t(error),
+                theme.danger,
+            ));
         }
         let confirm = if join.form.is_some() {
             backcord_iced_kit::i18n::tr("Open in browser")
@@ -596,20 +784,20 @@ impl<'a> View<'a> {
         };
         let (title, detail, confirm) = match &asked.ask {
             ChannelAsk::Create { .. } => (
-                format!("Create {thing}"),
+                backcord_iced_kit::i18n::t(format!("Create {thing}")),
                 if asked.name.is_empty() {
                     format!("In {}", asked.server_name)
                 } else {
                     format!("In {}", asked.name)
                 },
-                format!("Create {thing}"),
+                backcord_iced_kit::i18n::t(format!("Create {thing}")),
             ),
             ChannelAsk::Duplicate(_) => (
                 backcord_iced_kit::i18n::tr("Duplicate channel").to_owned(),
-                format!(
+                backcord_iced_kit::i18n::t(format!(
                     "A copy of {}, with its settings and permissions, in the same category.",
                     named(&asked.name)
-                ),
+                )),
                 backcord_iced_kit::i18n::tr("Create channel").to_owned(),
             ),
             ChannelAsk::Status(_) => (
@@ -621,12 +809,12 @@ impl<'a> View<'a> {
                 backcord_iced_kit::i18n::tr("Imposta stato").to_owned(),
             ),
             ChannelAsk::Delete(_) => (
-                format!("Delete {thing}"),
-                format!(
+                backcord_iced_kit::i18n::t(format!("Delete {thing}")),
+                backcord_iced_kit::i18n::t(format!(
                     "Are you sure you want to delete {}? This cannot be undone.",
                     named(&asked.name)
-                ),
-                format!("Delete {thing}"),
+                )),
+                backcord_iced_kit::i18n::t(format!("Delete {thing}")),
             ),
         };
         let deleting = matches!(asked.ask, ChannelAsk::Delete(_));
@@ -655,7 +843,10 @@ impl<'a> View<'a> {
             let (field, placeholder) = if matches!(asked.ask, ChannelAsk::Status(_)) {
                 ("STATO DEL CANALE", "Imposta uno stato del canale")
             } else if category {
-                ("CATEGORY NAME", backcord_iced_kit::i18n::tr("New Category"))
+                (
+                    backcord_iced_kit::i18n::tr("CATEGORY NAME"),
+                    backcord_iced_kit::i18n::tr("New Category"),
+                )
             } else {
                 (backcord_iced_kit::i18n::tr("CHANNEL NAME"), "new-channel")
             };
@@ -669,7 +860,10 @@ impl<'a> View<'a> {
             ]);
         }
         if let Some(error) = &asked.error {
-            body.push(form::note_in(error.as_str(), theme.danger));
+            body.push(form::note_in(
+                backcord_iced_kit::i18n::t(error),
+                theme.danger,
+            ));
         }
         body.push(buttons([
             action(
@@ -707,15 +901,15 @@ impl<'a> View<'a> {
         let ready = !leave.leaving;
         let mut body = vec![
             self.cx.look.dialog_head(
-                format!("Leave '{}'", leave.name),
+                backcord_iced_kit::i18n::t(format!("Leave '{}'", leave.name)),
                 message(Event::CloseLeave),
             ),
             form::note(
                 theme,
-                format!(
+                backcord_iced_kit::i18n::t(format!(
                     "Are you sure you want to leave {}? You won't be able to rejoin this {what} unless you are re-invited.",
                     leave.name
-                ),
+                )),
             ),
         ];
         if leave.group {
@@ -745,7 +939,10 @@ impl<'a> View<'a> {
             );
         }
         if let Some(error) = &leave.error {
-            body.push(form::note_in(error.as_str(), theme.danger));
+            body.push(form::note_in(
+                backcord_iced_kit::i18n::t(error),
+                theme.danger,
+            ));
         }
         body.push(buttons([
             action(
@@ -757,7 +954,7 @@ impl<'a> View<'a> {
             .into(),
             action(
                 theme,
-                format!("Leave {what}"),
+                backcord_iced_kit::i18n::t(format!("Leave {what}")),
                 Kind::Danger,
                 ready.then(|| message(Event::Leave)),
             )
@@ -826,10 +1023,10 @@ impl<'a> View<'a> {
             ),
             form::note(
                 theme,
-                format!(
+                backcord_iced_kit::i18n::t(format!(
                     "Would you like to sync {} permissions with {}?",
                     asked.channel, asked.category
-                ),
+                )),
             ),
             buttons([
                 action(
@@ -857,22 +1054,27 @@ impl<'a> View<'a> {
 }
 
 /// How long an invite link lasts, as the dialog says it.
-fn lasts(age: u32) -> String {
-    match age {
-        0 => "never expires".to_owned(),
-        1800 => "expires in 30 minutes".to_owned(),
-        3600 => "expires in an hour".to_owned(),
-        86_400 => "expires in a day".to_owned(),
-        age if age % 86_400 == 0 => format!("expires in {} days", age / 86_400),
-        age => format!("expires in {} hours", age / 3600),
-    }
+fn lasts(age: u32) -> &'static str {
+    tr(match age {
+        0 => "Your invite link never expires",
+        1800 => "Your invite link expires in 30 minutes",
+        3600 => "Your invite link expires in 1 hour",
+        21_600 => "Your invite link expires in 6 hours",
+        43_200 => "Your invite link expires in 12 hours",
+        86_400 => "Your invite link expires in 1 day",
+        _ => "Your invite link expires in 7 days",
+    })
 }
 
 /// How often it works, after how long it lasts.
-fn works(uses: u32) -> String {
-    match uses {
-        0 => String::new(),
-        1 => " and works once".to_owned(),
-        uses => format!(" and works {uses} times"),
-    }
+fn works(uses: u32) -> &'static str {
+    tr(match uses {
+        0 => "",
+        1 => " and works once",
+        5 => " and works 5 times",
+        10 => " and works 10 times",
+        25 => " and works 25 times",
+        50 => " and works 50 times",
+        _ => " and works 100 times",
+    })
 }

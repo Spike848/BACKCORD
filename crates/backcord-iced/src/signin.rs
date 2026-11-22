@@ -317,9 +317,11 @@ pub fn view<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
     let rail = theme.rail;
     if cx.sign_in.starting {
         return container(
-            text(state.notice.clone().unwrap_or_default())
-                .size(14)
-                .color(theme.muted),
+            text(backcord_iced_kit::i18n::t(
+                state.notice.clone().unwrap_or_default(),
+            ))
+            .size(14)
+            .color(theme.muted),
         )
         .center(Length::Fill)
         .style(move |_| fill(rail))
@@ -608,7 +610,7 @@ fn backcord_view<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
             .push(
                 action(
                     theme,
-                    "QR CODE",
+                    backcord_iced_kit::i18n::tr("QR CODE"),
                     Kind::Plain,
                     open.then_some(Message::SignIn(Event::ShowCode)),
                 )
@@ -623,7 +625,7 @@ fn backcord_view<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
         }
         if let Some(notice) = &state.notice {
             card = card.push(
-                text(notice.clone())
+                text(backcord_iced_kit::i18n::t(notice))
                     .size(14)
                     .color(if busy { theme.secondary } else { theme.danger })
                     .align_x(Alignment::Center)
@@ -663,7 +665,7 @@ fn backcord_view<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
         None => Space::new().into(),
     };
     let footer = column![
-        text("BACKCORD v1.2.3").size(12).color(theme.muted),
+        text("BACKCORD v1.2.4").size(12).color(theme.muted),
         text("© BACKDOOR™ Tutti i diritti riservati.")
             .size(12)
             .color(theme.muted),
@@ -833,7 +835,10 @@ pub(crate) fn link_panel<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             .spacing(8)
             .width(Length::Fill);
             if let Some(error) = error {
-                panel = panel.push(crate::form::error(theme, error.clone()).width(Length::Fill));
+                panel = panel.push(
+                    crate::form::error(theme, backcord_iced_kit::i18n::t(error))
+                        .width(Length::Fill),
+                );
             }
             panel
                 .push(
@@ -992,7 +997,7 @@ fn matrix_form<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
     .width(Length::Fill);
     if let Some(notice) = &state.notice {
         form = form.push(
-            text(notice.clone())
+            text(backcord_iced_kit::i18n::t(notice))
                 .size(15)
                 .color(theme.danger)
                 .width(Length::Fill),

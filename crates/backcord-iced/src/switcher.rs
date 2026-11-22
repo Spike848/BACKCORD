@@ -226,9 +226,10 @@ impl Quick {
                     place: if room.direct {
                         backcord_iced_kit::i18n::tr("Direct message").to_owned()
                     } else {
-                        servers
-                            .get(room.id.as_str())
-                            .map_or_else(|| "Channel".to_owned(), |name| (*name).to_owned())
+                        servers.get(room.id.as_str()).map_or_else(
+                            || backcord_iced_kit::i18n::tr("Channel").to_owned(),
+                            |name| (*name).to_owned(),
+                        )
                     },
                     unread: room.unread > 0 && !room.muted,
                     mentions: room.mentions,
@@ -473,7 +474,8 @@ impl<'a> View<'a> {
             ""
         };
         if !note.is_empty() {
-            list = list.push(container(form::note(theme, note)).padding(8));
+            list = list
+                .push(container(form::note(theme, backcord_iced_kit::i18n::t(note))).padding(8));
         }
         let height = (self.cx.look.window.height - 48.0).min(520.0) - 40.0 - 28.0 - 36.0 - 24.0;
         let body = column![
@@ -611,7 +613,7 @@ impl<'a> View<'a> {
             .push(caps(backcord_iced_kit::i18n::tr("DURATION")))
             .push(controls::choices_within(
                 theme,
-                &DURATIONS,
+                &DURATIONS.map(backcord_iced_kit::i18n::tr),
                 draft.duration.min(POLL_HOURS.len() - 1),
                 460.0,
                 move |index| edit(PollEdit::Duration(index)),
@@ -656,7 +658,7 @@ impl<'a> View<'a> {
             ..Padding::ZERO
         });
         if let Some(problem) = draft.error.as_deref().or(draft.problem()) {
-            foot = foot.push(form::error(theme, problem));
+            foot = foot.push(form::error(theme, backcord_iced_kit::i18n::t(problem)));
         }
         foot = foot.push(
             row![

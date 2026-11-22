@@ -1098,14 +1098,18 @@ fn test_pattern(
     Ok(())
 }
 
-/// The largest frame shared at `resolution`; screens of another shape fit
-/// inside it.
+/// The largest frame shared at `resolution`: its lines, as "1080p" counts
+/// them, as wide as a 32:9 screen at most. A wider screen than 16:9 (an
+/// ultrawide, two side by side) keeps its lines rather than shrinking to
+/// fit 16:9's width: 3840 by 1080 shared at 1080p stays so, where it went
+/// out at 1920 by 540; a taller one fits the lines.
 fn bounds(resolution: Resolution) -> (u32, u32) {
-    match resolution {
-        Resolution::P720 => (1280, 720),
-        Resolution::P1080 => (SHARE_WIDTH, SHARE_HEIGHT),
-        Resolution::Source => (3840, 2160),
-    }
+    let lines = match resolution {
+        Resolution::P720 => 720,
+        Resolution::P1080 => SHARE_HEIGHT,
+        Resolution::Source => 2160,
+    };
+    (lines * 32 / 9, lines)
 }
 
 /// The size `width` by `height` takes when scaled down to fit `max_width`
@@ -2073,6 +2077,24 @@ mod tests {
         assert_eq!(fit(1920, 1080, 1280, 720), (1280, 720));
         assert_eq!(fit(3440, 1440, 1280, 720), (1280, 534));
         assert_eq!(fit(801, 601, 1280, 720), (800, 600), "never larger");
+    }
+
+    #[test]
+    fn a_resolution_keeps_its_lines_on_a_wide_screen() {
+        let at = |resolution, (width, height)| {
+            let (max_width, max_height) = bounds(resolution);
+            fit(width, height, max_width, max_height)
+        };
+        assert_eq!(at(Resolution::P1080, (1920, 1080)), (1920, 1080));
+        assert_eq!(at(Resolution::P1080, (2560, 1440)), (1920, 1080));
+        // Two 1080p screens side by side, or a 32:9 one: 1080 lines, not 540.
+        assert_eq!(at(Resolution::P1080, (3840, 1080)), (3840, 1080));
+        assert_eq!(at(Resolution::P1080, (5120, 1440)), (3840, 1080));
+        assert_eq!(at(Resolution::P1080, (3440, 1440)), (2580, 1080));
+        assert_eq!(at(Resolution::P720, (3840, 1080)), (2560, 720));
+        assert_eq!(at(Resolution::Source, (3840, 2160)), (3840, 2160));
+        // A tall window fits the lines.
+        assert_eq!(at(Resolution::P720, (1080, 1920)), (404, 720));
     }
 
     /// With the GPU, AV1 and H265 before H264 where they open, and an

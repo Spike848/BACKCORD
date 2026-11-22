@@ -232,12 +232,18 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
     };
     if let Some(error) = &voice.error {
         dock = dock.push(indent(
-            text(error.clone()).size(14).color(theme.text).into(),
+            text(backcord_iced_kit::i18n::t(error))
+                .size(14)
+                .color(theme.text)
+                .into(),
             LEAD,
         ));
     } else if let Some(warning) = &voice.warning {
         dock = dock.push(indent(
-            text(warning.clone()).size(13).color(theme.accent).into(),
+            text(backcord_iced_kit::i18n::t(warning))
+                .size(13)
+                .color(theme.accent)
+                .into(),
             LEAD,
         ));
     }
@@ -272,11 +278,11 @@ fn detail_line<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     let state = ctx.state;
     let voice = &state.voice;
     let detail = if state.preview {
-        format!("{} · Sample", voice.name)
+        backcord_iced_kit::i18n::t(format!("{} · Sample", voice.name))
     } else if voice.end_to_end {
-        format!("{} · End-to-end encrypted", voice.name)
+        backcord_iced_kit::i18n::t(format!("{} · End-to-end encrypted", voice.name))
     } else {
-        format!("{} · Secure connection", voice.name)
+        backcord_iced_kit::i18n::t(format!("{} · Secure connection", voice.name))
     };
     let (muted, lit) = (theme.muted, theme.text);
     let line = button(
@@ -334,9 +340,9 @@ fn sharing_line<'a>(
     let words = if !live {
         super::stage::share_status(voice).to_owned()
     } else if watchers > 0 {
-        format!("Streaming to {} · {watchers} watching", voice.name)
+        backcord_iced_kit::i18n::t(format!("Streaming to {} · {watchers} watching", voice.name))
     } else {
-        format!("Streaming to {}", voice.name)
+        backcord_iced_kit::i18n::t(format!("Streaming to {}", voice.name))
     };
     row![
         container(lead).width(LEAD).align_y(Alignment::Center),

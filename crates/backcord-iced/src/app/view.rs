@@ -267,7 +267,9 @@ impl App {
             .and_then(|menu| crate::menus::view(menu, self.ctx()))
         {
             layers = layers
-                .push(outside(Message::Menu(crate::menus::Event::Close), false))
+                .push(backcord_iced_kit::controls::menu_outside(Message::Menu(
+                    crate::menus::Event::Close,
+                )))
                 .push(menu);
         }
         if let Some(window) = crate::reactions::view(&self.reactions, self.ctx()) {

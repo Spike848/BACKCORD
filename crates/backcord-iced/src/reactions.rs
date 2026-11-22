@@ -228,8 +228,14 @@ impl<'a> View<'a> {
             );
         }
         if let Some(error) = &window.error {
-            people = people
-                .push(container(text(error.as_str()).size(14).color(theme.secondary)).padding(16));
+            people = people.push(
+                container(
+                    text(backcord_iced_kit::i18n::t(error))
+                        .size(14)
+                        .color(theme.secondary),
+                )
+                .padding(16),
+            );
         }
         let people = scroll_view(people)
             .width(Length::Fill)

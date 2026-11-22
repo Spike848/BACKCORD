@@ -622,6 +622,14 @@ pub(super) fn editor_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
         &editor.shown,
         false,
     ));
+    // The board's games and what's going on now, on the preview's tabs.
+    for widget in &profile.widgets {
+        urls.extend(widget.games.iter().filter_map(|game| game.icon.clone()));
+    }
+    for activity in &editor.shown.look.activities {
+        urls.extend(activity.large.clone());
+        urls.extend(activity.small.clone());
+    }
     urls
 }
 

@@ -297,11 +297,15 @@ impl<'a> View<'a> {
         if !note.is_empty() {
             shown = shown.over(
                 container(
-                    container(text(note).size(13).color(NOTE_INK))
-                        .padding([0, 12])
-                        .height(32)
-                        .align_y(Alignment::Center)
-                        .style(|_| rounded(crate::style::SMOKE, 6)),
+                    container(
+                        text(backcord_iced_kit::i18n::t(note))
+                            .size(13)
+                            .color(NOTE_INK),
+                    )
+                    .padding([0, 12])
+                    .height(32)
+                    .align_y(Alignment::Center)
+                    .style(|_| rounded(crate::style::SMOKE, 6)),
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)

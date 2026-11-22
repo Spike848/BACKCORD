@@ -35,6 +35,28 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
+## Novità della 1.2.4
+
+- **Interfaccia in italiano**: tradotte circa 2300 scritte rimaste in
+  inglese, comprese quelle con parti variabili (durate, conteggi, nomi) e
+  gli errori che arrivano da Discord.
+- **Invita amici** come in Discord: elenco di amici e membri del server con
+  *Invita*, ricerca, link con *Copia* e *Modifica il link d'invito*.
+- **Stream in riquadro**: si sposta ovunque nella finestra e si
+  ridimensiona da lati e angoli mantenendo le proporzioni.
+- **Richieste d'amicizia** come in Discord: username sotto il nome, pulsanti
+  tondi e menu col tasto destro.
+- **Menu col tasto destro**: con un menu aperto, un clic destro su un'altra
+  persona apre subito il suo.
+- **Qualità della diretta**: su schermi più larghi di 16:9 (ultrawide, due
+  monitor) la risoluzione scelta resta quella, invece di scendere a 540p.
+- **Nuove impostazioni predefinite**: rendering GPU, protezione stream nella
+  barra in alto (sfocatura locale e attivazione automatica) e i plugin
+  principali attivi.
+- **Correzioni**: copertine dei giochi nei widget del profilo, nome lungo
+  nello stile del nome, "Imposta stato del canale" offerto solo quando
+  Discord lo permette.
+
 ## Novità della 1.2.3
 
 - **Spostamenti in vocale corretti**: quando un bot (per esempio quello di un

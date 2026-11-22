@@ -87,10 +87,13 @@ pub fn device_rows(
                         .flatten()
                 })
                 .unwrap_or_else(|| {
-                    let name = chosen
-                        .strip_prefix(voice::NAMED)
-                        .map_or_else(|| "Chosen device".to_owned(), device_label);
-                    rows.push(format!("{name} (not connected)"));
+                    let name = chosen.strip_prefix(voice::NAMED).map_or_else(
+                        || backcord_iced_kit::i18n::tr("Chosen device").to_owned(),
+                        device_label,
+                    );
+                    rows.push(backcord_iced_kit::i18n::t(format!(
+                        "{name} (not connected)"
+                    )));
                     rows.len() - 1
                 }),
         ),
@@ -102,7 +105,7 @@ pub(super) const DEFAULT_DEVICE: &str = "name:default: ";
 
 pub(super) fn device_label(name: &str) -> String {
     match name.strip_prefix("default: ") {
-        Some(device) => format!("Default ({device})"),
+        Some(device) => backcord_iced_kit::i18n::t(format!("Default ({device})")),
         None => name.to_owned(),
     }
 }
@@ -136,23 +139,19 @@ pub(super) fn device_menu<'a>(ctx: crate::ctx::Ctx<'a>, input: bool) -> Element<
         (&voice.speakers, voice.speaker.as_deref())
     };
     let (rows, current) = device_rows(devices, chosen);
-    let kind = if input {
-        backcord_iced_kit::i18n::tr("Input")
-    } else {
-        backcord_iced_kit::i18n::tr("Output")
-    };
+    let kind = if input { "Input" } else { "Output" };
     let subtitle = if devices.is_empty() {
         backcord_iced_kit::i18n::tr("None found").to_owned()
     } else {
         current
             .and_then(|current| rows.get(current).cloned())
-            .unwrap_or_else(|| "System default".to_owned())
+            .unwrap_or_else(|| backcord_iced_kit::i18n::tr("System default").to_owned())
     };
     let mut menu = column![
         row![
             container(crate::call::popups::popup_row(
                 ctx,
-                format!("{kind} Device"),
+                backcord_iced_kit::i18n::t(format!("{kind} Device")),
                 Some(subtitle.into()),
                 None,
                 Check::None,
@@ -207,9 +206,12 @@ pub(super) fn device_menu<'a>(ctx: crate::ctx::Ctx<'a>, input: bool) -> Element<
     let volume = u32::from(volume);
     menu = menu.push(separator(theme)).push(
         container(
-            controls::slider(format!("{kind} Volume"), volume, 200, move |value| {
-                Message::Call(Event::DeviceVolume(input, value, false))
-            })
+            controls::slider(
+                backcord_iced_kit::i18n::t(format!("{kind} Volume")),
+                volume,
+                200,
+                move |value| Message::Call(Event::DeviceVolume(input, value, false)),
+            )
             .on_release(Message::Call(Event::DeviceVolume(input, volume, true)))
             .view(theme),
         )
@@ -308,7 +310,11 @@ pub(super) fn input_level<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> 
     .spacing(8)
     .padding([4, 8]);
     if let Some(note) = note {
-        level = level.push(text(note).size(13).color(theme.muted));
+        level = level.push(
+            text(backcord_iced_kit::i18n::t(note))
+                .size(13)
+                .color(theme.muted),
+        );
     }
     level.into()
 }

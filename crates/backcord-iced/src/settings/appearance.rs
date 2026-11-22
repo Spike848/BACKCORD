@@ -534,10 +534,12 @@ impl<'a> Page<'a> {
         let tiles: Element<'a, Message> = match &settings.theme_note {
             Some(note) => column![
                 tiles,
-                text(note.as_str()).size(13).color(Color {
-                    a: 0.7,
-                    ..theme.text
-                }),
+                text(backcord_iced_kit::i18n::t(note))
+                    .size(13)
+                    .color(Color {
+                        a: 0.7,
+                        ..theme.text
+                    }),
             ]
             .spacing(8)
             .into(),

@@ -214,7 +214,12 @@ fn browse_row<'a>(ctx: crate::ctx::Ctx<'a>, channel: &'a BrowsedChannel) -> Elem
     )
     .style(lit_style(None, theme.raised, 8.0));
     if channel.by_category {
-        tooltip(face, controls::tip(theme, LOCKED), tooltip::Position::Top).into()
+        tooltip(
+            face,
+            controls::tip(theme, backcord_iced_kit::i18n::tr(LOCKED)),
+            tooltip::Position::Top,
+        )
+        .into()
     } else {
         face.into()
     }

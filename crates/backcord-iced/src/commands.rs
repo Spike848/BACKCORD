@@ -330,7 +330,11 @@ pub fn command_pills<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             face = face.push(text(value.clone()).size(13).color(theme.text));
         }
         if let Some(error) = &error {
-            face = face.push(text(error.clone()).size(12).color(theme.danger_text));
+            face = face.push(
+                text(backcord_iced_kit::i18n::t(error))
+                    .size(12)
+                    .color(theme.danger_text),
+            );
         }
         let edge = if error.is_some() {
             theme.danger
@@ -373,9 +377,9 @@ pub fn command_pills<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
 pub fn command_placeholder(ctx: crate::ctx::Ctx<'_>) -> Option<String> {
     let command = ctx.state.command_draft()?;
     Some(match command.options.get(command.focused) {
-        None => format!("Press Enter to run /{}", command.name),
+        None => backcord_iced_kit::i18n::t(format!("Press Enter to run /{}", command.name)),
         Some(option) if option.is_attachment() => {
-            format!("Press Enter to choose a file for {}", option.name)
+            backcord_iced_kit::i18n::t(format!("Press Enter to choose a file for {}", option.name))
         }
         Some(option) => option.description.clone(),
     })

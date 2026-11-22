@@ -1681,6 +1681,7 @@ impl Tracker {
             .map(|(user, (incoming, spam, _))| FriendRequest {
                 user_id: user.clone(),
                 name: names.user_name(user).unwrap_or("Discord user").to_owned(),
+                username: names.username(user).map(str::to_owned),
                 avatar: names.avatar(None, user),
                 incoming: *incoming,
                 spam: *spam,

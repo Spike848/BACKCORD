@@ -507,9 +507,9 @@ fn staged_tile<'a>(
                 Icon::Eye
             },
             if file.spoiler {
-                format!("Stop covering {}", file.name)
+                backcord_iced_kit::i18n::t(format!("Stop covering {}", file.name))
             } else {
-                format!("Mark {} as a spoiler", file.name)
+                backcord_iced_kit::i18n::t(format!("Mark {} as a spoiler", file.name))
             },
             Message::Write(Write::Uploads(if aside {
                 Event::SpoilerAside(index)
@@ -521,7 +521,7 @@ fn staged_tile<'a>(
     buttons = buttons.push(disc_button(
         ctx,
         Icon::X,
-        format!("Remove {}", file.name),
+        backcord_iced_kit::i18n::t(format!("Remove {}", file.name)),
         Message::Write(Write::Uploads(if aside {
             Event::UnstageAside(index)
         } else {

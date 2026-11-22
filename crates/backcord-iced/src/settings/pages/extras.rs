@@ -44,9 +44,9 @@ impl<'a> Page<'a> {
         let roles = prefs.clickable_roles.unwrap_or(true);
         let icons = prefs.view_icons.unwrap_or(true);
         let proof = prefs.stream_proof.unwrap_or(true);
-        let logger = prefs.message_logger.unwrap_or(false);
-        let silent = !prefs.share_typing.unwrap_or(true);
-        let no_ptt = prefs.no_push_to_talk.unwrap_or(false);
+        let logger = prefs.message_logger.unwrap_or(true);
+        let silent = !prefs.share_typing.unwrap_or(false);
+        let no_ptt = prefs.no_push_to_talk.unwrap_or(true);
         let cards = vec![
             self.plugin(
                 tr("Clickable Roles"),
@@ -162,7 +162,7 @@ impl<'a> Page<'a> {
         let tr = backcord_iced_kit::i18n::tr;
         let (name, description, options): (&str, &str, Vec<Element<'a, Message>>) = match extra {
             Extra::MessageLogger => {
-                let own = prefs.message_logger_own.unwrap_or(false);
+                let own = prefs.message_logger_own.unwrap_or(true);
                 (
                     tr("Message Logger"),
                     tr("Temporarily logs deleted and edited messages."),
@@ -230,7 +230,7 @@ impl<'a> Page<'a> {
                         choices(
                             theme,
                             &LOCATIONS.map(tr),
-                            prefs.stream_proof_location.unwrap_or(0),
+                            prefs.stream_proof_location.unwrap_or(1),
                             |index| pref(Pref::StreamProofLocation(index)),
                         ),
                         switch(tr("Blackout Stream"), blackout, Some(pref(Pref::StreamProofBlackout(!blackout))))

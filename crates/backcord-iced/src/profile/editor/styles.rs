@@ -112,9 +112,12 @@ pub(super) fn customize<'a>(
         None,
         shop(),
     );
+    // The name as large as fits its tile on one line: a long one smaller,
+    // rather than wrapping and cut off.
+    let name_size = (180.0 / (profile.name.chars().count().max(1) as f32 * 0.62)).clamp(11.0, 24.0);
     let style = cell(
         ctx,
-        crate::profile::body::profile_name(ctx, shown, 24.0, theme.text),
+        crate::profile::body::profile_name(ctx, shown, name_size, theme.text),
         42.0,
         None,
         look_enabled.then(|| message(Event::Style(crate::profile::name_style::Event::Open))),

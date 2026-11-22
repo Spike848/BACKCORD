@@ -123,7 +123,7 @@ fn cells<'a>(
                 .look
                 .icon_button(
                     Icon::Download,
-                    format!("Save {}", attachment.name),
+                    backcord_iced_kit::i18n::t(format!("Save {}", attachment.name)),
                     Message::Image(crate::image_viewer::Event::Save(message.item.clone(), at)),
                 )
                 .size(SAVE_BUTTON, 20)
@@ -323,7 +323,9 @@ pub fn file_card<'a>(
     let theme = ctx.look.theme;
     let size = attachment.size.map(chat::file_size);
     let detail = match (attachment.image, attachment.preview_failed, size) {
-        (true, true, Some(size)) => format!("{size} · Preview unavailable"),
+        (true, true, Some(size)) => {
+            backcord_iced_kit::i18n::t(format!("{size} · Preview unavailable"))
+        }
         (true, true, None) => backcord_iced_kit::i18n::tr("Preview unavailable").to_owned(),
         (_, _, Some(size)) => size,
         _ => String::new(),

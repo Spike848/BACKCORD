@@ -260,7 +260,7 @@ pub(super) fn editor_top<'a>(
             banner_height - AVATAR / 2.0 - 6.0,
         ));
     } else {
-        let detail = format!("Your profile in {}", core.server_name);
+        let detail = backcord_iced_kit::i18n::t(format!("Your profile in {}", core.server_name));
         top = top.push(placed(
             container(text(detail).size(13).font(SEMIBOLD).color(Color::WHITE))
                 .padding([0, 10])
@@ -523,15 +523,15 @@ pub(super) fn editor_names<'a>(
     }
     // The core counts the limits; the bio's says so under the bio.
     let too_long = match core.too_long() {
-        Some(ProfileText::Name) if main => Some(format!(
+        Some(ProfileText::Name) if main => Some(backcord_iced_kit::i18n::t(format!(
             "A display name can be up to {NAME_LIMIT} characters."
-        )),
-        Some(ProfileText::Name) => {
-            Some(format!("A nickname can be up to {NAME_LIMIT} characters."))
-        }
-        Some(ProfileText::Pronouns) => Some(format!(
+        ))),
+        Some(ProfileText::Name) => Some(backcord_iced_kit::i18n::t(format!(
+            "A nickname can be up to {NAME_LIMIT} characters."
+        ))),
+        Some(ProfileText::Pronouns) => Some(backcord_iced_kit::i18n::t(format!(
             "Pronouns can be up to {PRONOUNS_LIMIT} characters."
-        )),
+        ))),
         _ => None,
     };
     if let Some(words) = too_long {
@@ -666,11 +666,13 @@ pub(super) fn editor_bio<'a>(
     }
     let left = BIO_LIMIT as i64 - core.bio.chars().count() as i64;
     let count = if left < 0 {
-        text(format!("Too long by {}", -left))
+        text(backcord_iced_kit::i18n::t(format!("Too long by {}", -left)))
             .size(12)
             .color(theme.danger)
     } else {
-        text(format!("{left} left")).size(12).color(inks.ink3)
+        text(backcord_iced_kit::i18n::t(format!("{left} left")))
+            .size(12)
+            .color(inks.ink3)
     };
     let mut bio = column![head].spacing(6);
     if editor.editing == Some(Text::Bio) {

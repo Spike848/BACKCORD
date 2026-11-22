@@ -552,7 +552,7 @@ Pinned	Fissati
 Pinned Messages	Messaggi fissati
 Play	Riproduci
 Play profile effects	Riproduci gli effetti del profilo
-Playing	In riproduzione
+Playing	Sta giocando
 Post	Pubblica
 Post Guidelines	Linee guida dei post
 Press a key...	Premi un tasto...
@@ -1353,3 +1353,2364 @@ Stop deleting	Ferma Cancella tutto
 Delete all in '{name}'	Cancella tutto in '{name}'
 Every message you sent in {name}, in all of its channels, will be deleted, one at a time. This can't be undone.	Tutti i messaggi che hai mandato in {name}, in tutti i suoi canali, verranno cancellati uno alla volta. Non si può annullare.
 Every message you sent in your DM with {name} will be deleted, one at a time. This can't be undone.	Tutti i messaggi che hai mandato a {name} in privato verranno cancellati uno alla volta. Non si può annullare.
+Invite friends to	Invita gli amici su
+Recipients will land in	I destinatari atterreranno in
+Search for friends	Cerca nuovi amici
+FRIENDS	AMICI
+SERVER MEMBERS	MEMBRI DEL SERVER
+No one found	Nessun risultato
+Or, send a server invite link to a friend	Oppure, manda un link d'invito al server ad un amico
+Edit invite link.	Modifica il link d'invito.
+Invite link settings	Impostazioni del link d'invito
+Invite	Invita
+Sent	Inviato
+30 min	30 minuti
+1 hr	1 ora
+6 hr	6 ore
+12 hr	12 ore
+1 day	1 giorno
+7 days	7 giorni
+Your invite link never expires	Il tuo link d'invito non scade mai
+Your invite link expires in 30 minutes	Il tuo link d'invito scade tra 30 minuti
+Your invite link expires in 1 hour	Il tuo link d'invito scade tra 1 ora
+Your invite link expires in 6 hours	Il tuo link d'invito scade tra 6 ore
+Your invite link expires in 12 hours	Il tuo link d'invito scade tra 12 ore
+Your invite link expires in 1 day	Il tuo link d'invito scade tra 1 giorno
+Your invite link expires in 7 days	Il tuo link d'invito scade tra 7 giorni
+ and works once	 e funziona una volta
+ and works 5 times	 e funziona 5 volte
+ and works 10 times	 e funziona 10 volte
+ and works 25 times	 e funziona 25 volte
+ and works 50 times	 e funziona 50 volte
+ and works 100 times	 e funziona 100 volte
+Received: {}	Ricevute: {}
+Sent: {}	Inviati: {}
+Spam: {}	Spam: {}
+{} elapsed	{} trascorsi
+{} left	{} rimanenti
+{} doesn't have any activity to share here	{} non ha attività da condividere qui
+Your profile in {}	Il tuo profilo in {}
+A display name can be up to {} characters.	Il nome visualizzato può avere al massimo {} caratteri.
+A nickname can be up to {} characters.	Il nickname può avere al massimo {} caratteri.
+Pronouns can be up to {} characters.	I pronomi possono avere al massimo {} caratteri.
+Too long by {}	{} caratteri di troppo
+{} Avatar	{} avatar
+{} Banner	{} banner
+Message @{}	Invia un messaggio a @{}
+{}'s profile is private, so some information is hidden. Add them as a friend to see more.	Il profilo di {} è privato, quindi alcune informazioni sono nascoste. Aggiungilo agli amici per vedere di più.
+Member since {}	Membro dal {}
+Sent {} a friend request.	Richiesta di amicizia inviata a {}.
+Favorite Game	Gioco preferito
+Games in Rotation	Giochi del momento
+Want to Play	Voglio giocarci
+Games I Like	Giochi che mi piacciono
+Application	Applicazione
+Personal	Personale
+Clips Gallery	Galleria clip
+Unknown game	Gioco sconosciuto
+Listening to {}	Ascolta {}
+Watching {}	Guarda {}
+Streaming {}	In diretta su {}
+Competing in {}	Compete in {}
+Jan {}, {}	{0} gen {1}
+Feb {}, {}	{0} feb {1}
+Mar {}, {}	{0} mar {1}
+Apr {}, {}	{0} apr {1}
+May {}, {}	{0} mag {1}
+Jun {}, {}	{0} giu {1}
+Jul {}, {}	{0} lug {1}
+Aug {}, {}	{0} ago {1}
+Sep {}, {}	{0} set {1}
+Oct {}, {}	{0} ott {1}
+Nov {}, {}	{0} nov {1}
+Dec {}, {}	{0} dic {1}
+{} is calling you.	{} ti sta chiamando.
+{} are calling you.	{} ti stanno chiamando.
+{} is in the call.	{} è nella chiamata.
+{} are in the call.	{} sono nella chiamata.
+{} is calling	{} sta chiamando
+{} are calling	{} stanno chiamando
+{}, {} and {} others	{}, {} e altri {}
+{}, {} and {}	{}, {} e {}
+{} and {}	{} e {}
+the other channel	l'altro canale
+someone	qualcuno
+Join {} to watch {}'s stream?	Entrare in {} per guardare la diretta di {}?
+You're already in {}. Leave it and join {} to watch {}'s stream? You'll join muted.	Sei già in {}. Vuoi uscire ed entrare in {} per guardare la diretta di {}? Entrerai silenziato.
+You're already in {}. Leave it and join {} to watch {}'s stream?	Sei già in {}. Vuoi uscire ed entrare in {} per guardare la diretta di {}?
+You're already in {}. Leave it and join {}? You'll join muted.	Sei già in {}. Vuoi uscire ed entrare in {}? Entrerai silenziato.
+You're already in {}. Leave it and join {}?	Sei già in {}. Vuoi uscire ed entrare in {}?
+You may notice delayed audio at 250 ms or higher. If the problem persists, disconnect and try again.	Potresti notare un ritardo nell'audio a 250 ms o più. Se il problema persiste, disconnettiti e riprova.
+You may notice delayed audio at 250 ms or higher. If the problem persists, disconnect and try again. You may sound robotic if your packet loss rate is over 10%.	Potresti notare un ritardo nell'audio a 250 ms o più. Se il problema persiste, disconnettiti e riprova. La tua voce potrebbe sembrare robotica se la perdita di pacchetti supera il 10%.
+{} · Sample	{} · Esempio
+{} · End-to-end encrypted	{} · Crittografia end-to-end
+{} · Secure connection	{} · Connessione sicura
+Streaming to {} · {} watching	In streaming su {} · {} spettatori
+Streaming to {}	In streaming su {}
+Calling {}...	Chiamata a {}...
+You're here alone. Stay as long as you like; others can join later.	Sei qui da solo. Resta quanto vuoi; gli altri possono unirsi più tardi.
+{} The channel stays here when empty.	{} Il canale resta qui anche quando è vuoto.
+{} is here. {}	{} è qui. {}
+{} are here. {}	{} sono qui. {}
+Connecting to {}'s stream...	Connessione alla diretta di {}...
+Waiting for {}'s picture...	In attesa dell'immagine di {}...
+Watching: {}	Spettatori: {}
+SOURCE {}FPS	ORIGINALE {}FPS
+Input Device	Dispositivo di ingresso
+Output Device	Dispositivo di uscita
+Input Volume	Volume di ingresso
+Output Volume	Volume di uscita
+{} (not connected)	{} (non connesso)
+Default ({})	Predefinito ({})
+Preview {}	Anteprima di {}
+{}'s screen	Schermo di {}
+Save {}	Salva {}
+{} · {} fps	{} · {} fps
+Update available · {}	Aggiornamento disponibile · {}
+Flute	Flauto
+Set how loud each one is, as a share of the volume above. 0% turns a sound off.	Imposta il volume di ciascuno, come quota del volume sopra. 0% disattiva un suono.
+discord:// links from other apps and shortcuts open here instead of Discord. Turning it off gives them back to the app that had them.	I link discord:// da altre app e scorciatoie si aprono qui invece che in Discord. Disattivandolo tornano all'app che li apriva prima.
+For new messages while BACKCORD isn't in front. {} which: usually DMs and mentions. Clicking one opens the conversation.	Per i nuovi messaggi mentre BACKCORD non è in primo piano. {} quali: di solito DM e menzioni. Cliccandone una si apre la conversazione.
+Takes out tags like utm_source and fbclid, and share ids from YouTube, Spotify and X. The links still go to the same page.	Rimuove tag come utm_source e fbclid e gli id di condivisione di YouTube, Spotify e X. I link portano comunque alla stessa pagina.
+1 account	1 account
+{} accounts	{} account
+See {} more	Mostra altri {}
+Up	Su
+Down	Giù
+Left	Sinistra
+Right	Destra
+Space	Spazio
+Unknown key	Tasto sconosciuto
+MEMBER SINCE	MEMBRO DA
+JOINED DISCORD	SU DISCORD DA
+JOIN METHOD	METODO DI INGRESSO
+SIGNALS	SEGNALI
+INVITER	INVITATO DA
+INVITE CODE	CODICE INVITO
+USES	UTILIZZI
+EXPIRES	SCADENZA
+1 hour	1 ora
+2 hours	2 ore
+4 hours	4 ore
+6 hours	6 ore
+12 hours	12 ore
+24 hours	24 ore
+{} min ago	{} min fa
+{} mins ago	{} min fa
+{} hr ago	{} h fa
+{} hrs ago	{} h fa
+1 day ago	1 giorno fa
+{} days ago	{} giorni fa
+1 month ago	1 mese fa
+{} months ago	{} mesi fa
+1 year ago	1 anno fa
+{} years ago	{} anni fa
+<1 day ago	<1 giorno fa
+just now	proprio ora
+YouTube (Integration)	YouTube (integrazione)
+Manual Verification ({})	Verifica manuale ({})
+Sent excessive DMs to non-friend server members in last 24 hrs	Ha inviato troppi DM a membri del server non amici nelle ultime 24 ore
+Timed out for {}	In timeout per {}
+members of {}	membri su {}
+Showing {} member	{} membro mostrato
+Showing {} members	{} membri mostrati
+Select up to 30 members to add to role {}	Seleziona fino a 30 membri da aggiungere al ruolo {}
+ROLES – {}	RUOLI – {}
+{} • applies to all server members	{} • si applica a tutti i membri del server
+Edit Role — {}	Modifica ruolo — {}
+Manage Members ({})	Gestisci membri ({})
+Note: Members with the "Mention @everyone, @here, and All Roles" permission will always be able to ping this role.	Nota: i membri con il permesso "Menziona @everyone, @here e tutti i ruoli" potranno sempre menzionare questo ruolo.
+Are you sure you want to delete the {} role? This action cannot be undone.	Vuoi davvero eliminare il ruolo {}? Questa azione non può essere annullata.
+Remove {} from role {}?	Rimuovere {} dal ruolo {}?
+Delete '{}'	Elimina '{}'
+? This action cannot be undone.	? Questa azione non può essere annullata.
+ to 	 a 
+. This cannot be undone!	. Non si può annullare!
+, it officially belongs to them.	, esso appartiene ufficialmente a questa persona.
+no slots available	nessuno slot disponibile
+1 slot available	1 slot disponibile
+{} slots available	{} slot disponibili
+Add up to {} custom emojis that anyone can use in this server. Animated GIF emojis may be used by members with Discord Nitro. Emoji names must be at least 2 characters long and can only contain alphanumeric characters and underscores. Emoji must be under 256 KB in size.	Aggiungi fino a {} emoji personalizzate che chiunque può usare in questo server. Le emoji GIF animate possono essere usate dai membri con Discord Nitro. I nomi delle emoji devono contenere almeno 2 caratteri e solo caratteri alfanumerici e trattini bassi. Le emoji devono pesare meno di 256 KB.
+Level {}	Livello {}
+{} of {} slot available	{} di {} slot disponibili
+{} of {} slots available	{} di {} slot disponibili
+{} Boosts	{} potenziamenti
+e.g.: cat hug	es.: abbraccio gatto
+1 minute	1 minuto
+5 minutes	5 minuti
+15 minutes	15 minuti
+30 minutes	30 minuti
+Unlocks at Level {}	Si sblocca al livello {}
+Moderators must have two-factor authentication enabled to ban, kick, or timeout members and delete messages. Only the server owner can change this setting if they have 2FA enabled.	I moderatori devono avere l'autenticazione a due fattori attiva per bannare, espellere o mettere in timeout i membri ed eliminare messaggi. Solo il proprietario del server può modificare questa impostazione, se ha attivato l'autenticazione a due fattori.
+Moderators must have two-factor authentication enabled to ban, kick, or timeout members and delete messages. To change this setting, first enable 2FA on your account.	I moderatori devono avere l'autenticazione a due fattori attiva per bannare, espellere o mettere in timeout i membri ed eliminare messaggi. Per modificare questa impostazione, attiva prima l'autenticazione a due fattori sul tuo account.
+In order to change this setting, you must have 2FA enabled on your account.	Per modificare questa impostazione devi avere l'autenticazione a due fattori attiva sul tuo account.
+Must also be registered on Discord for longer than 5 minutes.	Deve anche essere iscritto a Discord da più di 5 minuti.
+Must also be a member of this server for longer than 10 minutes.	Deve anche essere membro di questo server da più di 10 minuti.
+Page {} of {}	Pagina {} di {}
+PEOPLE	PERSONE
+MODERATION	MODERAZIONE
+CATEGORY NAME	NOME DELLA CATEGORIA
+Remove {}	Rimuovi {}
+Are you sure you want to delete {} permissions? This action cannot be undone.	Vuoi davvero eliminare i permessi di {}? Questa azione non può essere annullata.
+Would you like to sync {} permissions with {}?	Vuoi sincronizzare i permessi di {} con {}?
+You cannot deny this permission to {} because it will deny it to you as well. Allow another role or yourself before trying again.	Non puoi negare questo permesso a {} perché verrebbe negato anche a te. Concedilo a un altro ruolo o a te stesso prima di riprovare.
+{} online, {} members	{} online, {} membri
+A copy of {}, with its settings and permissions, in the same category.	Una copia di {}, con le sue impostazioni e i suoi permessi, nella stessa categoria.
+Are you sure you want to delete {}? This cannot be undone.	Vuoi davvero eliminare {}? Non si può annullare.
+Leave '{}'	Esci da '{}'
+Are you sure you want to leave {}? You won't be able to rejoin this server unless you are re-invited.	Vuoi davvero uscire da {}? Non potrai rientrare in questo server se non vieni invitato di nuovo.
+Are you sure you want to leave {}? You won't be able to rejoin this group unless you are re-invited.	Vuoi davvero uscire da {}? Non potrai rientrare in questo gruppo se non vieni invitato di nuovo.
+1 member	1 membro
+{} members	{} membri
+1 channel	1 canale
+{} channels	{} canali
+BACKCORD {} is available	BACKCORD {} è disponibile
+escape to	esc per
+cancel	annullare
+• enter to	• invio per
+save	salvare
+A card, "{}", hidden while link previews are off.	Una scheda, "{}", nascosta perché le anteprime dei link sono disattivate.
+{} reacted by {}	Reazione {0} di {1}
+{} reacted by {} and {}	Reazione {0} di {1} e {2}
+{} reacted by {}, {}, and {}	Reazione {0} di {1}, {2} e {3}
+{} reacted by {}, {}, {}, and {}	Reazione {0} di {1}, {2}, {3} e {4}
+1 other	un'altra persona
+{} others	altre {} persone
+{} people	{} persone
+this build can't start at sign-in	questa build non può avviarsi all'accesso
+this build can't open Discord links	questa build non può aprire i link di Discord
+Enter the 6-digit code from your authenticator app.	Inserisci il codice a 6 cifre della tua app di autenticazione.
+6-digit code	Codice a 6 cifre
+Enter the 6-digit code Discord sent to {}.	Inserisci il codice a 6 cifre che Discord ha inviato a {}.
+Enter one of your 8-digit backup codes. Each works only once.	Inserisci uno dei tuoi codici di backup a 8 cifre. Ognuno vale una sola volta.
+Maximum {} places at once.	Massimo {} destinazioni alla volta.
+The message you added will not be sent to slowmode channel: {}.	Il messaggio che hai aggiunto non verrà inviato al canale con modalità lenta: {}.
+The message you added will not be sent to slowmode channels: {}.	Il messaggio che hai aggiunto non verrà inviato ai canali con modalità lenta: {}.
+{} · Preview unavailable	{} · Anteprima non disponibile
+Press Enter to run /{}	Premi Invio per eseguire /{}
+Press Enter to choose a file for {}	Premi Invio per scegliere un file per {}
+Close {}	Chiudi {}
+Est. {}	Dal {}
+1 vote	1 voto
+{} votes	{} voti
+{}d left	Ancora {}g
+{}h left	Ancora {}h
+{}m left	Ancora {}m
+< 1m left	Meno di 1m
+VOICE CHANNELS	CANALI VOCALI
+TEXT CHANNELS	CANALI TESTUALI
+Submitting…	Invio in corso…
+Up to {}	Fino a {}
+Search {}	Cerca in {}
+CHANNELS	CANALI
+EMOJI MATCHING :{}	EMOJI CORRISPONDENTI A :{}
+Stop covering {}	Togli lo spoiler da {}
+Mark {} as a spoiler	Segna {} come spoiler
+less than a minute	meno di un minuto
+{} hr {} min	{} h {} min
+Frequently Used	Usate spesso
+Find an emoji	Trova un'emoji
+No emoji match "{}".	Nessuna emoji corrisponde a "{}".
+Pick an emoji for your message.	Scegli un'emoji per il tuo messaggio.
+Pick an emoji to react with.	Scegli un'emoji con cui reagire.
+Pick an emoji for your status.	Scegli un'emoji per il tuo stato.
+8 hours	8 ore
+3 days	3 giorni
+1 week	1 settimana
+2 weeks	2 settimane
+Server boosting since {}	Potenzia il server dal {}
+Time out {}	Metti in timeout {}
+Kick {}	Espelli {}
+Ban {}	Banna {}
+Note on {}	Nota su {}
+Nickname for {}	Soprannome per {}
+Remove {} as a friend?	Rimuovere {} dagli amici?
+You'll need to send {} a friend request to be friends again.	Dovrai inviare a {} una richiesta di amicizia per tornare amici.
+Block {}?	Bloccare {}?
+Blocking {} also removes them as a friend. Their messages show collapsed, and they can't message you.	Bloccare {} lo rimuove anche dagli amici. I suoi messaggi appariranno compressi e non potrà scriverti.
+Change {}'s nickname	Cambia il soprannome di {}
+Until it ends, {} can read the server but can't send messages, react, or join voice. The reason goes in the server's audit log.	Fino alla scadenza, {} può leggere il server ma non può inviare messaggi, reagire o entrare nei canali vocali. Il motivo finisce nel registro attività del server.
+Kick {}?	Espellere {}?
+{} can join again with a new invite. The reason goes in the server's audit log.	{} potrà rientrare con un nuovo invito. Il motivo finisce nel registro attività del server.
+Ban {}?	Bannare {}?
+{} can't join again until unbanned. The reason goes in the server's audit log.	{} non potrà rientrare finché non verrà sbannato. Il motivo finisce nel registro attività del server.
+DELETE THEIR MESSAGES FROM	ELIMINA I SUOI MESSAGGI DI
+The last {} hours	Le ultime {} ore
+The last {} days	Gli ultimi {} giorni
+1 second	1 secondo
+{} seconds	{} secondi
+{} minutes	{} minuti
+{} hours	{} ore
+{} days	{} giorni
+{} weeks	{} settimane
+{}, {}, and 1 other	{}, {} e un altro
+{}, {}, and {} others	{}, {} e altri {}
+{} People	{} persone
+with {}	con {}
+{}:{}:{} elapsed	{}:{}:{} trascorsi
+When a friend starts an activity — like playing a game or hanging out on voice — we'll show it here!	Quando un amico inizia un'attività — come giocare o stare in chat vocale — la mostreremo qui!
+1 new message	1 nuovo messaggio
+{} new messages	{} nuovi messaggi
+1 new message since {}	1 nuovo messaggio dalle {}
+{} new messages since {}	{} nuovi messaggi dalle {}
+1 new message since {} on {}	1 nuovo messaggio dalle {} del {}
+{} new messages since {} on {}	{} nuovi messaggi dalle {} del {}
+This is the beginning of your messages with {}.	Questo è l'inizio dei tuoi messaggi con {}.
+This is the start of the {} thread.	Questo è l'inizio del thread {}.
+This is the start of #{}.	Questo è l'inizio di #{}.
+Loading newer messages...	Caricamento dei messaggi più recenti...
+Loading earlier messages...	Caricamento dei messaggi precedenti...
+Couldn't load newer messages. Retry	Impossibile caricare i messaggi più recenti. Riprova
+Couldn't load earlier messages. Retry	Impossibile caricare i messaggi precedenti. Riprova
+Welcome to #{}!	Benvenuto in #{}!
+This is the start of the #{} channel.	Questo è l'inizio del canale #{}.
+Welcome to #{}	Benvenuto in #{}
+This is the start of the {} thread. No messages here yet.	Questo è l'inizio del thread {}. Ancora nessun messaggio.
+This is the start of #{}. No messages here yet.	Questo è l'inizio di #{}. Ancora nessun messaggio.
+NEW	NUOVO
+For 15 minutes	Per 15 minuti
+For 1 hour	Per 1 ora
+For {} hours	Per {} ore
+For {} minutes	Per {} minuti
+Muted until {}	Silenziato fino a {}
+Most played: {}h	Più giocato: {}h
+{} tracks this week	{} brani questa settimana
+just started	appena iniziato
+for {} min	da {} min
+for {} hr	da {} h
+for {} d	da {} g
+{}s ago	{}s fa
+{}m ago	{}m fa
+{}h ago	{}h fa
+{}d ago	{}g fa
+{}w ago	{} sett. fa
+{}mo ago	{} mesi fa
+>30d ago	>30g fa
+>1y ago	>1 anno fa
+Activity — {}	Attività — {}
+Remove date filter 1	Rimuovi filtro data 1
+Remove date filter 2	Rimuovi filtro data 2
+Remove date filter 3	Rimuovi filtro data 3
+Remove date filter 4	Rimuovi filtro data 4
+Clear Filters ({})	Cancella i filtri ({})
+ex. True	es. True
+1 message	1 messaggio
+{} messages	{} messaggi
+{}, archived	{}, archiviato
+{} is thinking…	{} sta pensando…
+(edited)	(modificato)
+link, embed or file	link, embed o file
+dates, author type, and more	date, tipo di autore e altro
+Su	Do
+Mo	Lu
+Tu	Ma
+We	Me
+Th	Gi
+Fr	Ve
+TAGS (REQUIRED)	TAG (OBBLIGATORI)
+{} (unavailable in a Discord outage)	{} (non disponibile per un'interruzione di Discord)
+Message {}	Scrivi in {}
+Message #{}	Scrivi in #{}
+Only people you invite and moderators can see. You can invite new people by @mentioning them.	Solo le persone che inviti e i moderatori possono vederlo. Puoi invitare altre persone @menzionandole.
+Searching…	Ricerca…
+1 Result	1 risultato
+{} Results	{} risultati
+{} results indexed so far. We’re still indexing older messages.	{} risultati indicizzati finora. Stiamo ancora indicizzando i messaggi meno recenti.
+Filters ({})	Filtri ({})
+1 result	1 risultato
+{} results	{} risultati
+Hide {} from blocked users	Nascondi {} di utenti bloccati
+Hide {} from ignored users	Nascondi {} di utenti ignorati
+Hide {} messages from blocked and ignored users	Nascondi {} messaggi di utenti bloccati e ignorati
+We've hidden {} from users you've blocked.	Abbiamo nascosto {} di utenti che hai bloccato.
+We’ve hidden {} from users you’ve ignored.	Abbiamo nascosto {} di utenti che hai ignorato.
+We’ve hidden {} messages from users you’ve blocked and ignored.	Abbiamo nascosto {} messaggi di utenti che hai bloccato e ignorato.
+You're timed out in this server until {}.	Sei in timeout in questo server fino a {}.
+Discord thinks {} may be spam	Discord pensa che {} possa essere spam
+{} wants to message you	{} vuole scriverti
+Discord · not end-to-end encrypted. Enter to send, Shift+Enter for a new line.	Discord · non crittografato end-to-end. Invio per inviare, Maiusc+Invio per andare a capo.
+ pinned {} to this channel. See all {}.	 ha fissato {} in questo canale. Vedi tutti i {}.
+a message	un messaggio
+pinned messages	messaggi fissati
+and {} more	e altri {}
+1 Event	1 evento
+{} Events	{} eventi
+QR CODE	CODICE QR
+1 joined thread	1 thread a cui partecipi
+{} joined threads	{} thread a cui partecipi
+1 other active thread	1 altro thread attivo
+{} other active threads	{} altri thread attivi
+OLDER THREADS	THREAD MENO RECENTI
+You can add 1 more friend.	Puoi aggiungere ancora 1 amico.
+You can add {} more friends.	Puoi aggiungere ancora {} amici.
+Last active {}	Ultima attività {}
+Users with the "Pin Messages" permission can pin a message from its context menu.	Gli utenti con il permesso "Fissa messaggi" possono fissare un messaggio dal suo menu contestuale.
+{} is typing...	{} sta scrivendo...
+{} and {} are typing...	{} e {} stanno scrivendo...
+{}, {} and {} are typing...	{}, {} e {} stanno scrivendo...
+Several people are typing...	Diverse persone stanno scrivendo...
+Couldn't load your note: {}	Impossibile caricare la tua nota: {}
+Couldn't change your status: {}	Impossibile cambiare il tuo stato: {}
+Couldn't change the soundboard volume: {}	Impossibile cambiare il volume della soundboard: {}
+Couldn't change your entrance sound: {}	Impossibile cambiare il tuo suono d'ingresso: {}
+Couldn't list the soundboard's sounds: {}	Impossibile elencare i suoni della soundboard: {}
+Couldn't change sharing the game you play: {}	Impossibile cambiare la condivisione del gioco a cui giochi: {}
+Saved {}.	{} salvato.
+This device is still unverified. Verify it in another client or enter your recovery key.	Questo dispositivo non è ancora verificato. Verificalo da un altro client o inserisci la tua chiave di recupero.
+Connecting to Matrix...	Connessione a Matrix...
+Connecting to Discord...	Connessione a Discord...
+You can have up to {} favourite emoji.	Puoi avere fino a {} emoji preferite.
+Keep messages under 16 KB.	I messaggi devono restare sotto i 16 KB.
+You	Tu
+Local preview	Anteprima locale
+A message carries up to {} files.	Un messaggio può contenere fino a {} file.
+Your roles on this Discord server don't let you read this channel.	I tuoi ruoli in questo server Discord non ti permettono di leggere questo canale.
+Pick one of the choices	Scegli una delle opzioni
+Must be at least {}	Deve essere almeno {}
+Must be at most {}	Deve essere al massimo {}
+Must be at least {} characters	Deve contenere almeno {} caratteri
+Must be at most {} characters	Deve contenere al massimo {} caratteri
+Must be a whole number	Deve essere un numero intero
+Must be a number	Deve essere un numero
+Pick True or False	Scegli True o False
+Pick a member	Scegli un membro
+Pick a role	Scegli un ruolo
+Pick a channel	Scegli un canale
+Pick a member or a role	Scegli un membro o un ruolo
+BACKCORD can't fill this option yet	BACKCORD non può ancora compilare questa opzione
+Required	Obbligatorio
+Loading commands…	Caricamento comandi…
+No commands match	Nessun comando corrispondente
+COMMANDS	COMANDI
+Discord didn't confirm this command was sent. Check for the app's answer before sending it again.	Discord non ha confermato l'invio del comando. Controlla la risposta dell'app prima di inviarlo di nuovo.
+Sending command…	Invio comando…
+Discord's login service closed the connection. Try again.	Il servizio di accesso di Discord ha chiuso la connessione. Riprova.
+A custom emoji in a status needs Discord Nitro.	Un'emoji personalizzata nello stato richiede Discord Nitro.
+None of your servers has that emoji.	Nessuno dei tuoi server ha quell'emoji.
+Discord isn't linked on this device.	Discord non è collegato su questo dispositivo.
+this member	questo membro
+General Channel Permissions	Permessi generali del canale
+Membership Permissions	Permessi di iscrizione
+Text Channel Permissions	Permessi del canale testuale
+Apps Permissions	Permessi delle app
+Voice Channel Permissions	Permessi del canale vocale
+Voice Channel Chat Permissions	Permessi della chat del canale vocale
+Events Permissions	Permessi degli eventi
+General Category Permissions	Permessi generali della categoria
+View Channel	Visualizza canale
+View Channels	Visualizza canali
+Allows members to view these channels by default. Disabling this for @everyone will make text channels private. Disabling this and the Connect permission for @everyone will make voice channels private.	Consente ai membri di visualizzare questi canali per impostazione predefinita. Disattivando questo permesso per @everyone i canali testuali diventeranno privati. Disattivando questo e il permesso Connettiti per @everyone i canali vocali diventeranno privati.
+Allows members to view this channel by default. Disabling this and the Connect permission for @everyone will make this channel private.	Consente ai membri di visualizzare questo canale per impostazione predefinita. Disattivando questo e il permesso Connettiti per @everyone questo canale diventerà privato.
+Allows members to view this channel by default. Disabling this for @everyone will make this channel private.	Consente ai membri di visualizzare questo canale per impostazione predefinita. Disattivando questo permesso per @everyone questo canale diventerà privato.
+Allows members to view this channel by default.	Consente ai membri di visualizzare questo canale per impostazione predefinita.
+Allows members to view these channels by default.	Consente ai membri di visualizzare questi canali per impostazione predefinita.
+Manage Channel	Gestisci canale
+Manage Channels	Gestisci canali
+Allows members to change these channels’ name, description, and text / voice settings. They can also delete these channels.	Consente ai membri di modificare nome, descrizione e impostazioni testuali / vocali di questi canali. Possono anche eliminarli.
+Allows members to change this channel’s name, description, and voice settings. They can also delete the channel.	Consente ai membri di modificare nome, descrizione e impostazioni vocali di questo canale. Possono anche eliminarlo.
+Allows members to change this channel’s name, description, and text settings. They can also delete the channel.	Consente ai membri di modificare nome, descrizione e impostazioni testuali di questo canale. Possono anche eliminarlo.
+Manage Permissions	Gestisci permessi
+Allows members to change this channel’s permissions.	Consente ai membri di modificare i permessi di questo canale.
+Allows members to change these channels’ permissions.	Consente ai membri di modificare i permessi di questi canali.
+Manage Webhooks	Gestisci webhook
+Allows members to create, edit, or delete webhooks in this channel, which can post messages from other apps or sites.	Consente ai membri di creare, modificare o eliminare i webhook in questo canale, che possono pubblicare messaggi da altre app o siti.
+Allows members to create, edit, or delete webhooks in these channels, which can post messages from other apps or sites.	Consente ai membri di creare, modificare o eliminare i webhook in questi canali, che possono pubblicare messaggi da altre app o siti.
+Create Invite	Crea invito
+Allows members to invite new people to this server via a direct invite link to these channels.	Consente ai membri di invitare nuove persone in questo server tramite un link d'invito diretto a questi canali.
+Allows members to invite new people to this server via a direct invite link to this channel. The recipient will automatically join the voice channel if they have permission to connect.	Consente ai membri di invitare nuove persone in questo server tramite un link d'invito diretto a questo canale. Il destinatario entrerà automaticamente nel canale vocale se ha il permesso di connettersi.
+Allows members to invite new people to this server via a direct invite link to this channel.	Consente ai membri di invitare nuove persone in questo server tramite un link d'invito diretto a questo canale.
+Send Messages	Invia messaggi
+Send Messages and Create Posts	Invia messaggi e crea post
+Allows members to send messages in this channel.	Consente ai membri di inviare messaggi in questo canale.
+Allow members to send messages and create posts in these channels.	Consenti ai membri di inviare messaggi e creare post in questi canali.
+Embed Links	Incorpora link
+Allows links that members share to show embedded content in this channel.	Consente ai link condivisi dai membri di mostrare contenuti incorporati in questo canale.
+Allows links that members share to show embedded content in these channels.	Consente ai link condivisi dai membri di mostrare contenuti incorporati in questi canali.
+Attach Files	Allega file
+Allows members to upload files or media in this channel.	Consente ai membri di caricare file o contenuti multimediali in questo canale.
+Allows members to upload files or media in these channels.	Consente ai membri di caricare file o contenuti multimediali in questi canali.
+Add Reactions	Aggiungi reazioni
+Allows members to add new emoji reactions to a message in these channels. If this permission is disabled, members can still react using any existing reactions on a message.	Consente ai membri di aggiungere nuove reazioni emoji a un messaggio in questi canali. Se questo permesso è disattivato, i membri possono comunque reagire usando le reazioni già presenti su un messaggio.
+Allows members to add new emoji reactions to a message in this channel and send reactions in voice channels. If this permission is disabled, members can still react using any existing reactions on a message.	Consente ai membri di aggiungere nuove reazioni emoji a un messaggio in questo canale e di inviare reazioni nei canali vocali. Se questo permesso è disattivato, i membri possono comunque reagire usando le reazioni già presenti su un messaggio.
+Allows members to add new emoji reactions to a message in this channel. If this permission is disabled, members can still react using any existing reactions on a message.	Consente ai membri di aggiungere nuove reazioni emoji a un messaggio in questo canale. Se questo permesso è disattivato, i membri possono comunque reagire usando le reazioni già presenti su un messaggio.
+Use External Emoji	Usa emoji esterne
+Allows members to use emoji from other servers in this channel, if they’re a Discord Nitro member.	Consente ai membri di usare emoji di altri server in questo canale, se sono abbonati a Discord Nitro.
+Allows members to use emoji from other servers in these channels, if they’re a Discord Nitro member.	Consente ai membri di usare emoji di altri server in questi canali, se sono abbonati a Discord Nitro.
+Use External Stickers	Usa adesivi esterni
+Allows members to use stickers from other servers in this channel, if they’re a Discord Nitro member.	Consente ai membri di usare adesivi di altri server in questo canale, se sono abbonati a Discord Nitro.
+Allows members to use stickers from other servers in these channels, if they’re a Discord Nitro member.	Consente ai membri di usare adesivi di altri server in questi canali, se sono abbonati a Discord Nitro.
+Mention @everyone, @here, and All Roles	Menziona @everyone, @here e tutti i ruoli
+Allows members to use @everyone or @here (only online members) in this channel. They can also @mention all roles in this channel, even if the role’s “Allow anyone to mention this role” permission is disabled.	Consente ai membri di usare @everyone o @here (solo membri online) in questo canale. Possono anche @menzionare tutti i ruoli in questo canale, anche se il permesso “Consenti a chiunque di menzionare questo ruolo” è disattivato.
+Allows members to use @everyone or @here (only online members) in these channels. They can also @mention all roles in these channels, even if the role’s “Allow anyone to mention this role” permission is disabled.	Consente ai membri di usare @everyone o @here (solo membri online) in questi canali. Possono anche @menzionare tutti i ruoli in questi canali, anche se il permesso “Consenti a chiunque di menzionare questo ruolo” è disattivato.
+Manage Messages	Gestisci messaggi
+Allows members to delete or remove embeds from messages by other members in this channel.	Consente ai membri di eliminare i messaggi di altri membri o rimuoverne gli elementi incorporati in questo canale.
+Allows members to delete or remove embeds from messages by other members in these channels.	Consente ai membri di eliminare i messaggi di altri membri o rimuoverne gli elementi incorporati in questi canali.
+Pin Messages	Fissa messaggi
+Allows members to pin or unpin any message in this channel.	Consente ai membri di fissare o rimuovere qualsiasi messaggio fissato in questo canale.
+Allows members to pin or unpin any message in these channels.	Consente ai membri di fissare o rimuovere qualsiasi messaggio fissato in questi canali.
+Bypass Slowmode	Ignora modalità lenta
+Allows members to send messages in this channel without being affected by slowmode.	Consente ai membri di inviare messaggi in questo canale senza essere limitati dalla modalità lenta.
+Allows members to send messages in these channels without being affected by slowmode.	Consente ai membri di inviare messaggi in questi canali senza essere limitati dalla modalità lenta.
+Read Message History	Leggi la cronologia dei messaggi
+Allows members to read previous messages sent in this channel. If this permission is disabled, members only see messages sent when they are online.	Consente ai membri di leggere i messaggi inviati in precedenza in questo canale. Se questo permesso è disattivato, i membri vedono solo i messaggi inviati mentre sono online.
+Allows members to read previous messages sent in these channels. If this permission is disabled, members only see messages sent when they are online.	Consente ai membri di leggere i messaggi inviati in precedenza in questi canali. Se questo permesso è disattivato, i membri vedono solo i messaggi inviati mentre sono online.
+Send Text-to-Speech Messages	Invia messaggi di sintesi vocale
+Allows members to send text-to-speech messages in this channel by starting a message with /tts. These messages can be heard by anyone focused on this channel.	Consente ai membri di inviare messaggi di sintesi vocale in questo canale iniziando un messaggio con /tts. Questi messaggi possono essere ascoltati da chiunque stia visualizzando questo canale.
+Allows members to send text-to-speech messages in these channels by starting a message with /tts. These messages can be heard by anyone focused on that channel.	Consente ai membri di inviare messaggi di sintesi vocale in questi canali iniziando un messaggio con /tts. Questi messaggi possono essere ascoltati da chiunque stia visualizzando quel canale.
+Use Application Commands	Usa i comandi delle applicazioni
+Allows members to use commands from applications in this channel, including slash commands and context menu commands.	Consente ai membri di usare i comandi delle applicazioni in questo canale, inclusi i comandi slash e quelli del menu contestuale.
+Allows members to use commands from applications in these channels, including slash commands and context menu commands.	Consente ai membri di usare i comandi delle applicazioni in questi canali, inclusi i comandi slash e quelli del menu contestuale.
+Send Voice Messages	Invia messaggi vocali
+Allows members to send voice messages in this channel. Requires the "Attach Files" permission as well.	Consente ai membri di inviare messaggi vocali in questo canale. Richiede anche il permesso "Allega file".
+Allows members to send voice messages in these channels. Requires the "Attach Files" permission as well.	Consente ai membri di inviare messaggi vocali in questi canali. Richiede anche il permesso "Allega file".
+Create Polls	Crea sondaggi
+Allows members to create polls in this channel.	Consente ai membri di creare sondaggi in questo canale.
+Allows members to create polls in these channels.	Consente ai membri di creare sondaggi in questi canali.
+Connect	Connettiti
+Allows members to join these voice channels and hear others. Disabling this and the View Channel permissions for @everyone will make these channels private.	Consente ai membri di entrare in questi canali vocali e ascoltare gli altri. Disattivando questo e il permesso Visualizza canale per @everyone questi canali diventeranno privati.
+Allows members to join this voice channel and hear others. Disabling this and the View Channel permissions for @everyone will make this channel private.	Consente ai membri di entrare in questo canale vocale e ascoltare gli altri. Disattivando questo e il permesso Visualizza canale per @everyone questo canale diventerà privato.
+Allows members to join these voice channels and hear others.	Consente ai membri di entrare in questi canali vocali e ascoltare gli altri.
+Allows members to join this voice channel and hear others.	Consente ai membri di entrare in questo canale vocale e ascoltare gli altri.
+Speak	Parla
+Allows members to talk in this voice channel. If this permission is disabled, members are default muted until somebody with the “Mute Members” permission un-mutes them.	Consente ai membri di parlare in questo canale vocale. Se questo permesso è disattivato, i membri sono silenziati per impostazione predefinita finché qualcuno con il permesso “Silenzia membri” non riattiva il loro microfono.
+Allows members to talk in these voice channels. If this permission is disabled, members are default muted until somebody with the “Mute Members” permission un-mutes them.	Consente ai membri di parlare in questi canali vocali. Se questo permesso è disattivato, i membri sono silenziati per impostazione predefinita finché qualcuno con il permesso “Silenzia membri” non riattiva il loro microfono.
+Allows members to share their video, screen share, or stream a game in this voice channel.	Consente ai membri di condividere il proprio video, lo schermo o trasmettere un gioco in questo canale vocale.
+Allows members to share their video, screen share, or stream a game in these voice channels.	Consente ai membri di condividere il proprio video, lo schermo o trasmettere un gioco in questi canali vocali.
+Use Activities	Usa le attività
+Allows members to use Activities in this channel.	Consente ai membri di usare le attività in questo canale.
+Allows members to use Activities in these channels.	Consente ai membri di usare le attività in questi canali.
+Use External Apps	Usa app esterne
+Allows apps that members have added to their account to post messages in this channel. When disabled, the messages will be private.	Consente alle app che i membri hanno aggiunto al proprio account di pubblicare messaggi in questo canale. Se disattivato, i messaggi saranno privati.
+Allows apps that members have added to their account to post messages in these channels. When disabled, the messages will be private.	Consente alle app che i membri hanno aggiunto al proprio account di pubblicare messaggi in questi canali. Se disattivato, i messaggi saranno privati.
+Use Soundboard	Usa soundboard
+Allows members to send sounds from server soundboard in this voice channel.	Consente ai membri di inviare suoni dalla soundboard del server in questo canale vocale.
+Allows members to send sounds from server soundboard in these voice channels.	Consente ai membri di inviare suoni dalla soundboard del server in questi canali vocali.
+Use External Sounds	Usa suoni esterni
+Allows members to use sounds from other servers, if they're a Discord Nitro member.	Consente ai membri di usare suoni di altri server, se sono abbonati a Discord Nitro.
+Use Voice Activity	Usa attività vocale
+Allows members to speak in this voice channel by simply talking. If this permission is disabled, members are required to use Push-to-talk. Good for controlling background noise or noisy members.	Consente ai membri di parlare in questo canale vocale semplicemente parlando. Se questo permesso è disattivato, i membri devono usare Premi per parlare. Utile per controllare il rumore di fondo o i membri rumorosi.
+Allows members to speak in these voice channels by simply talking. If this permission is disabled, members are required to use Push-to-talk. Good for controlling background noise or noisy members.	Consente ai membri di parlare in questi canali vocali semplicemente parlando. Se questo permesso è disattivato, i membri devono usare Premi per parlare. Utile per controllare il rumore di fondo o i membri rumorosi.
+Priority Speaker	Priorità di parola
+Allows members to be more easily heard in this voice channel. When activated, the volume of others without this permission will be automatically lowered. Priority Speaker is activated by using the Push to Talk (Priority) keybind.	Consente ai membri di essere ascoltati più facilmente in questo canale vocale. Quando è attivo, il volume degli altri senza questo permesso verrà abbassato automaticamente. La priorità di parola si attiva con la scorciatoia Premi per parlare (priorità).
+Allows members to be more easily heard in these voice channels. When activated, the volume of others without this permission will be automatically lowered. Priority Speaker is activated by using the Push to Talk (Priority) keybind.	Consente ai membri di essere ascoltati più facilmente in questi canali vocali. Quando è attivo, il volume degli altri senza questo permesso verrà abbassato automaticamente. La priorità di parola si attiva con la scorciatoia Premi per parlare (priorità).
+Mute Members	Silenzia membri
+Allows members to mute other members in this voice channel for everyone.	Consente ai membri di silenziare altri membri per tutti in questo canale vocale.
+Allows members to mute other members in these voice channels for everyone.	Consente ai membri di silenziare altri membri per tutti in questi canali vocali.
+Deafen Members	Disattiva audio dei membri
+Allows members to deafen other members in this voice channel, which means they won’t be able to speak or hear others.	Consente ai membri di disattivare l'audio di altri membri in questo canale vocale: non potranno parlare né ascoltare gli altri.
+Allows members to deafen other members in these voice channels, which means they won’t be able to speak or hear others.	Consente ai membri di disattivare l'audio di altri membri in questi canali vocali: non potranno parlare né ascoltare gli altri.
+Move Members	Sposta membri
+Allows members to disconnect other members from this channel. They will also be able to move somebody into other channels that they have this permission in.	Consente ai membri di disconnettere altri membri da questo canale. Potranno anche spostare qualcuno in altri canali in cui hanno questo permesso.
+Allows members to disconnect other members from these channels. They will also be able to move somebody into other channels that they have this permission in.	Consente ai membri di disconnettere altri membri da questi canali. Potranno anche spostare qualcuno in altri canali in cui hanno questo permesso.
+Manage Threads	Gestisci thread
+Manage Threads and Posts	Gestisci thread e post
+Allows members to rename, delete, close, and turn on slow mode for threads in this channel. They can also view private threads.	Consente ai membri di rinominare, eliminare, chiudere e attivare la modalità lenta per i thread in questo canale. Possono anche visualizzare i thread privati.
+Allows members to rename, delete, close, and turn on slow mode for threads and posts in these channels. They can also view private threads.	Consente ai membri di rinominare, eliminare, chiudere e attivare la modalità lenta per thread e post in questi canali. Possono anche visualizzare i thread privati.
+Create Public Threads	Crea thread pubblici
+Allow members to create threads that everyone in this channel can view.	Consenti ai membri di creare thread visibili a tutti in questo canale.
+Allow members to create threads that everyone in these channels can view.	Consenti ai membri di creare thread visibili a tutti in questi canali.
+Create Private Threads	Crea thread privati
+Allow members to create invite-only threads in this channel.	Consenti ai membri di creare thread solo su invito in questo canale.
+Allow members to create invite-only threads in these channels.	Consenti ai membri di creare thread solo su invito in questi canali.
+Send Messages in Threads	Invia messaggi nei thread
+Send Messages in Threads and Posts	Invia messaggi nei thread e nei post
+Allow members to send messages in threads under this channel.	Consenti ai membri di inviare messaggi nei thread di questo canale.
+Allow members to send messages in threads and posts under these channels.	Consenti ai membri di inviare messaggi nei thread e nei post di questi canali.
+Manage Events	Gestisci eventi
+Allows members to edit and cancel events in this channel.	Consente ai membri di modificare e annullare gli eventi in questo canale.
+Allows members to edit and cancel events in these channels.	Consente ai membri di modificare e annullare gli eventi in questi canali.
+Create Events	Crea eventi
+Allows members to create events in this channel.	Consente ai membri di creare eventi in questo canale.
+Allows members to create events in these channels.	Consente ai membri di creare eventi in questi canali.
+Set Voice Channel Status	Imposta stato del canale vocale
+Allows members to create and edit voice channel status.	Consente ai membri di creare e modificare lo stato del canale vocale.
+Give it a name.	Dagli un nome.
+Names can be up to {} characters.	I nomi possono avere al massimo {} caratteri.
+Topics can be up to {} characters.	Gli argomenti possono avere al massimo {} caratteri.
+Statuses can be up to {} characters.	Gli stati possono avere al massimo {} caratteri.
+Pick one of the slowmodes.	Scegli una delle modalità lente.
+The question can be at most 300 characters.	La domanda può avere al massimo 300 caratteri.
+Answers can be at most 55 characters.	Le risposte possono avere al massimo 55 caratteri.
+A title is required	Il titolo è obbligatorio
+A message is required	Il messaggio è obbligatorio
+A tag is required to create a post in this channel	Serve un tag per creare un post in questo canale
+Co-op crew	Squadra co-op
+Lounge	Salotto
+Party	Gruppo
+Friday crew	Squadra del venerdì
+Welcome to Co-op crew. This server has its own channels.	Benvenuto in Squadra co-op. Questo server ha i suoi canali.
+Looking for one more for co-op tonight.	Cerco un'altra persona per il co-op stasera.
+Anyone around tonight?	C'è qualcuno stasera?
+Thinking **co-op** after nine, if people are up for it.	Pensavo a un **co-op** dopo le nove, se qualcuno ci sta.
+Yep. I should be free after dinner.	Sì. Dovrei essere libero dopo cena.
+Nice, let's get a game going.	Bene, facciamo una partita.
+This is the local preview. Pick a conversation on the left, or send a message below to try it out.	Questa è l'anteprima locale. Scegli una conversazione a sinistra o invia un messaggio qui sotto per provarla.
+What are we playing next?	A cosa giochiamo dopo?
+Something co-op. I'm open to suggestions.	Qualcosa in co-op. Sono aperto a proposte.
+Hey! This is a sample DM. Your preview messages stay on this computer.	Ciao! Questo è un messaggio diretto di esempio. I tuoi messaggi di anteprima restano su questo computer.
+Who's joining on Friday?	Chi si unisce venerdì?
+Count me in.	Contate su di me.
+Discord is out of reach	Discord non è raggiungibile
+Thread Name is required	Il nome del thread è obbligatorio
+Starter Message is required	Il messaggio iniziale è obbligatorio
+Paste an invite link, such as https://discord.gg/backdoor666.	Incolla un link d'invito, ad esempio https://discord.gg/backdoor666.
+Answer	Risposta
+Role	Ruolo
+Category	Categoria
+Choose the required number of options.	Scegli il numero di opzioni richiesto.
+BACKCORD couldn't show this app's form.	BACKCORD non è riuscito a mostrare il modulo di questa app.
+{} takes up to {} files.	{} accetta fino a {} file.
+Complete the required fields before submitting.	Compila i campi obbligatori prima di inviare.
+The link adds it only to a server you can't add apps to.	Il link la aggiunge solo a un server in cui non puoi aggiungere app.
+Pick a server you manage first, or ask its admin to add it.	Scegli prima un server che gestisci, oppure chiedi a un suo amministratore di aggiungerla.
+{} interested	{} interessati
+Remove interest	Non mi interessa più
+Interested	Mi interessa
+Looking up the event...	Ricerca dell'evento...
+This event has ended.	Questo evento è terminato.
+This event is going on now.	Questo evento è in corso.
+You're interested in this event.	Sei interessato a questo evento.
+Event	Evento
+from {}	da {}
+Redeemed. Enjoy!	Riscattato. Buon divertimento!
+Redeeming...	Riscatto...
+Looking up the gift...	Ricerca del regalo...
+You've already redeemed this gift.	Hai già riscattato questo regalo.
+This gift has already been redeemed.	Questo regalo è già stato riscattato.
+This gift can only be redeemed in Discord. Open it in the browser to redeem it there.	Questo regalo può essere riscattato solo su Discord. Aprilo nel browser per riscattarlo lì.
+You've been sent a gift	Hai ricevuto un regalo
+Redeem Gift	Riscatta regalo
+Open in Browser	Apri nel browser
+- Bot permissions: {}	- Permessi del bot: {}
+Afterward, Discord sends you to {}.	Dopo, Discord ti porterà su {}.
+Afterward, Discord hands its answer to {}, which BACKCORD won't open.	Dopo, Discord passerà la risposta a {}, che BACKCORD non aprirà.
+It asks to control your Discord client, which can do nearly anything your account can. Authorize it only if you trust it with your account.	Chiede di controllare il tuo client Discord, che può fare quasi tutto ciò che può fare il tuo account. Autorizzala solo se le affideresti il tuo account.
+Its bot asks for Administrator: every permission in the server, in every channel, whatever its roles allow.	Il suo bot chiede il permesso Amministratore: ogni permesso nel server, in ogni canale, qualunque cosa consentano i suoi ruoli.
+Authorized. Discord sends you on to this address, which isn't a web page, so BACKCORD doesn't open it. Copy it if the app asks for it.	Autorizzata. Discord ti rimanda a questo indirizzo, che non è una pagina web, quindi BACKCORD non lo apre. Copialo se l'app te lo chiede.
+Looking up the application...	Ricerca dell'applicazione...
+Authorizing...	Autorizzazione...
+Authorized.	Autorizzata.
+You don't manage any server it can be added to.	Non gestisci nessun server a cui possa essere aggiunta.
+You've authorized this before. Authorizing again is fine.	L'hai già autorizzata in passato. Puoi autorizzarla di nuovo.
+Authorize {}	Autorizza {}
+Authorize	Autorizza
+1 permission BACKCORD can't name	1 permesso che BACKCORD non sa nominare
+{} permissions BACKCORD can't name	{} permessi che BACKCORD non sa nominare
+1 more permission	1 altro permesso
+{} more permissions	altri {} permessi
+Message deleted	Messaggio eliminato
+Message forwarded.	Messaggio inoltrato.
+Forwarded, but the message you added didn't go to {}: {}	Inoltrato, ma il messaggio che hai aggiunto non è arrivato a {}: {}
+The message couldn't be forwarded to {}: {}	Impossibile inoltrare il messaggio a {}: {}
+BACKCORD couldn't find that message. It may have been deleted.	BACKCORD non ha trovato quel messaggio. Potrebbe essere stato eliminato.
+An animated avatar takes Nitro.	Un avatar animato richiede Nitro.
+Admin	Amministratore
+Moderator	Moderatore
+Discord didn't share the rest of this profile.	Discord non ha condiviso il resto di questo profilo.
+Enter your homeserver, Matrix ID, and password.	Inserisci il tuo homeserver, l'ID Matrix e la password.
+Leave voice before recovering this device.	Esci dalla chiamata vocale prima di recuperare questo dispositivo.
+Enter your Matrix recovery key.	Inserisci la tua chiave di recupero Matrix.
+Recovering encryption keys...	Recupero delle chiavi di crittografia...
+Signing out...	Disconnessione...
+Voice is unavailable. Reconnect and retry.	La voce non è disponibile. Riconnettiti e riprova.
+Member Since (Newest first)	Membro da (prima i più recenti)
+Member Since (Oldest first)	Membro da (prima i meno recenti)
+Joined Discord (Newest first)	Iscritto a Discord (prima i più recenti)
+Joined Discord (Oldest first)	Iscritto a Discord (prima i meno recenti)
+This server does not have any open emoji slots!	Questo server non ha slot emoji liberi!
+General Server Permissions	Permessi generali del server
+Allows members to view channels by default (excluding private channels).	Consente ai membri di visualizzare i canali per impostazione predefinita (esclusi i canali privati).
+Allows members to create, edit, or delete channels.	Consente ai membri di creare, modificare o eliminare canali.
+Allows members to create new roles and edit or delete roles lower than their highest role. Also allows members to change permissions of individual channels that they have access to.	Consente ai membri di creare nuovi ruoli e di modificare o eliminare i ruoli inferiori al loro ruolo più alto. Consente inoltre di modificare i permessi dei singoli canali a cui hanno accesso.
+Allows members to add custom emoji, stickers, and sounds in this server.	Consente ai membri di aggiungere emoji, adesivi e suoni personalizzati in questo server.
+Allows members to edit or remove custom emoji, stickers, and sounds in this server.	Consente ai membri di modificare o rimuovere emoji, adesivi e suoni personalizzati in questo server.
+Allows members to view a record of who made which changes in this server.	Consente ai membri di vedere un registro di chi ha apportato quali modifiche in questo server.
+Allows members to view Server Insights, which shows data on community growth, engagement, and more. This will allow them to see certain data about channel activity, even for channels they cannot access.	Consente ai membri di visualizzare le statistiche del server, che mostrano dati su crescita della community, coinvolgimento e altro. Potranno vedere alcuni dati sull'attività dei canali, anche di quelli a cui non hanno accesso.
+Allows members to create, edit, or delete webhooks, which can post messages from other apps or sites into this server.	Consente ai membri di creare, modificare o eliminare webhook, che possono pubblicare in questo server messaggi da altre app o siti.
+Allow members to change this server's name, switch regions, view all invites, add apps to this server and create and update AutoMod rules.	Consenti ai membri di cambiare il nome del server, cambiare regione, vedere tutti gli inviti, aggiungere app al server e creare e aggiornare le regole AutoMod.
+Allows members to invite new people to this server.	Consente ai membri di invitare nuove persone in questo server.
+Allows members to change their own nickname, a custom name for just this server.	Consente ai membri di cambiare il proprio nickname, un nome personalizzato solo per questo server.
+Allows members to change the nicknames of other members.	Consente ai membri di cambiare i nickname degli altri membri.
+Kick, Approve, and Reject Members	Espelli, approva e rifiuta membri
+Kick will remove other members from this server. Kicked members will be able to rejoin if they have another invite. If the server enables Member Requirements, this permission enables the ability to approve or reject members who request to join.	Espelli rimuove altri membri da questo server. I membri espulsi potranno rientrare se hanno un altro invito. Se il server attiva i requisiti per i membri, questo permesso consente di approvare o rifiutare chi chiede di unirsi.
+Allows members to permanently ban and delete the message history of other members from this server.	Consente ai membri di bannare definitivamente altri membri da questo server ed eliminarne la cronologia dei messaggi.
+When you put a user in timeout they will not be able to send messages in chat, reply within threads, react to messages, or speak in voice or Stage channels.	Un utente in timeout non potrà inviare messaggi in chat, rispondere nei thread, reagire ai messaggi né parlare nei canali vocali o Stage.
+Allow members to send messages in text channels and create posts in forum channels.	Consenti ai membri di inviare messaggi nei canali testuali e creare post nei canali forum.
+Allow members to send messages in threads and in posts on forum channels.	Consenti ai membri di inviare messaggi nei thread e nei post dei canali forum.
+Allow members to create threads that everyone in a channel can view.	Consenti ai membri di creare thread visibili a tutti in un canale.
+Allow members to create invite-only threads.	Consenti ai membri di creare thread solo su invito.
+Allows links that members share to show embedded content in text channels.	Consente ai link condivisi dai membri di mostrare contenuti incorporati nei canali testuali.
+Allows members to upload files or media in text channels.	Consente ai membri di caricare file o contenuti multimediali nei canali testuali.
+Allows members to add new emoji reactions to a message. If this permission is disabled, members can still react using any existing reactions on a message.	Consente ai membri di aggiungere nuove reazioni emoji a un messaggio. Se questo permesso è disattivato, i membri possono comunque reagire usando le reazioni già presenti su un messaggio.
+Allows members to use emoji from other servers, if they’re a Discord Nitro member.	Consente ai membri di usare emoji di altri server, se sono abbonati a Discord Nitro.
+Allows members to use stickers from other servers, if they’re a Discord Nitro member.	Consente ai membri di usare adesivi di altri server, se sono abbonati a Discord Nitro.
+Allows members to use @everyone (everyone in the server) or @here (only online members in that channel). They can also @mention all roles, even if the role’s “Allow anyone to mention this role” permission is disabled.	Consente ai membri di usare @everyone (tutti nel server) o @here (solo i membri online in quel canale). Possono anche @menzionare tutti i ruoli, anche se il permesso “Consenti a chiunque di menzionare questo ruolo” è disattivato.
+Allows members to delete or remove embeds from messages by other members.	Consente ai membri di eliminare i messaggi di altri membri o rimuoverne gli elementi incorporati.
+Allows members to pin or unpin any message.	Consente ai membri di fissare o rimuovere qualsiasi messaggio fissato.
+Allows members to send messages without being affected by slowmode.	Consente ai membri di inviare messaggi senza essere limitati dalla modalità lenta.
+Allows members to rename, delete, close, and turn on slow mode for threads and posts. They can also view private threads.	Consente ai membri di rinominare, eliminare, chiudere e attivare la modalità lenta per thread e post. Possono anche visualizzare i thread privati.
+Allows members to read previous messages sent in channels. If this permission is disabled, members only see messages sent when they are online. This does not fully apply to threads and forum posts.	Consente ai membri di leggere i messaggi inviati in precedenza nei canali. Se questo permesso è disattivato, i membri vedono solo i messaggi inviati mentre sono online. Questo non vale del tutto per thread e post dei forum.
+Allows members to send text-to-speech messages by starting a message with /tts. These messages can be heard by anyone focused on the channel.	Consente ai membri di inviare messaggi di sintesi vocale iniziando un messaggio con /tts. Questi messaggi possono essere ascoltati da chiunque stia visualizzando il canale.
+Allows members to send voice messages.	Consente ai membri di inviare messaggi vocali.
+Allows members to create polls.	Consente ai membri di creare sondaggi.
+Allows members to join voice channels and hear others.	Consente ai membri di entrare nei canali vocali e ascoltare gli altri.
+Allows members to talk in voice channels. If this permission is disabled, members are default muted until somebody with the “Mute Members” permission un-mutes them.	Consente ai membri di parlare nei canali vocali. Se questo permesso è disattivato, i membri sono silenziati per impostazione predefinita finché qualcuno con il permesso “Silenzia membri” non riattiva il loro microfono.
+Allows members to share their video, screen share, or stream a game in this server.	Consente ai membri di condividere il proprio video, lo schermo o trasmettere un gioco in questo server.
+Allows members to send sounds from server soundboard.	Consente ai membri di inviare suoni dalla soundboard del server.
+Allows members to speak in voice channels by simply talking. If this permission is disabled, members are required to use Push-to-talk. Good for controlling background noise or noisy members.	Consente ai membri di parlare nei canali vocali semplicemente parlando. Se questo permesso è disattivato, i membri devono usare Premi per parlare. Utile per controllare il rumore di fondo o i membri rumorosi.
+Allows members to be more easily heard in voice channels. When activated, the volume of others without this permission will be automatically lowered.	Consente ai membri di essere ascoltati più facilmente nei canali vocali. Quando è attivo, il volume degli altri senza questo permesso verrà abbassato automaticamente.
+Allows members to mute other members in voice channels for everyone.	Consente ai membri di silenziare altri membri per tutti nei canali vocali.
+Allows members to deafen other members in voice channels, which means they won’t be able to speak or hear others.	Consente ai membri di disattivare l'audio di altri membri nei canali vocali: non potranno parlare né ascoltare gli altri.
+Allows members to use commands from applications, including slash commands and context menu commands.	Consente ai membri di usare i comandi delle applicazioni, inclusi i comandi slash e quelli del menu contestuale.
+Allows members to use Activities.	Consente ai membri di usare le attività.
+Allows apps that members have added to their account to post messages. When disabled, the messages will be private.	Consente alle app che i membri hanno aggiunto al proprio account di pubblicare messaggi. Se disattivato, i messaggi saranno privati.
+Stage Channel Permissions	Permessi del canale Stage
+Allow requests to speak in Stage channels. Stage moderators manually approve or deny each request.	Consenti le richieste di parola nei canali Stage. I moderatori dello Stage approvano o rifiutano manualmente ogni richiesta.
+Allows members to create events.	Consente ai membri di creare eventi.
+Allows members to edit and cancel events.	Consente ai membri di modificare e annullare eventi.
+Advanced Permissions	Permessi avanzati
+This is a dangerous permission to grant.	Concedere questo permesso è pericoloso.
+Members with this permission will have every permission and will also bypass all channel specific permissions or restrictions (for example, these members would get access to all private channels).	I membri con questo permesso avranno tutti i permessi e ignoreranno anche tutti i permessi o le restrizioni specifici dei canali (ad esempio, avranno accesso a tutti i canali privati).
+The server name must be between {} and {} characters.	Il nome del server deve avere tra {} e {} caratteri.
+The description can be up to {} characters.	La descrizione può avere al massimo {} caratteri.
+Give the role a name.	Dai un nome al ruolo.
+Role names can be up to {} characters.	I nomi dei ruoli possono avere al massimo {} caratteri.
+{} copy	{} copia
+2FA is required while this server is in Server Discovery	La 2FA è obbligatoria finché il server è in Scopri server
+To change this setting, first enable 2FA on your account.	Per cambiare questa impostazione, attiva prima la 2FA sul tuo account.
+This setting can only be changed by a server owner with 2FA enabled on their account.	Questa impostazione può essere cambiata solo da un proprietario del server con la 2FA attiva sul proprio account.
+An animated icon unlocks at boost level 1.	Un'icona animata si sblocca al livello di potenziamento 1.
+An animated banner unlocks at boost level 3.	Un banner animato si sblocca al livello di potenziamento 3.
+An invite background can't be animated.	Lo sfondo dell'invito non può essere animato.
+A role icon can't be animated.	L'icona di un ruolo non può essere animata.
+Role icons must be under 256 KB.	Le icone dei ruoli devono essere inferiori a 256 KB.
+Unknown Integration	Integrazione sconosciuta
+Unknown User	Utente sconosciuto
+Server Guide	Guida del server
+[empty]	[vuoto]
+Update Server	Aggiorna server
+Update Channel	Aggiorna canale
+Create Channel Permissions	Crea permessi del canale
+Update Channel Permissions	Aggiorna permessi del canale
+Delete Channel Permissions	Elimina permessi del canale
+Move Channel	Sposta canale
+Kick Member	Espelli membro
+Prune Members	Pulisci membri
+Ban Member	Banna membro
+Unban Member	Revoca ban membro
+Update Member	Aggiorna membro
+Update Member Roles	Aggiorna ruoli membro
+Move Member	Sposta membro
+Disconnect Member	Disconnetti membro
+Add Bot	Aggiungi bot
+Update Thread	Aggiorna thread
+Delete Thread	Elimina thread
+Update Role	Aggiorna ruolo
+Move Role	Sposta ruolo
+Create Customization Question	Crea domanda di personalizzazione
+Update Customization Question	Aggiorna domanda di personalizzazione
+Delete Customization Question	Elimina domanda di personalizzazione
+Create Onboarding	Crea onboarding
+Update Onboarding	Aggiorna onboarding
+Create Server Guide	Crea guida del server
+Update Server Guide	Aggiorna guida del server
+Update Invite	Aggiorna invito
+Delete Invite	Elimina invito
+Create Webhook	Crea webhook
+Update Webhook	Aggiorna webhook
+Delete Webhook	Elimina webhook
+Create Emoji	Crea emoji
+Update Emoji	Aggiorna emoji
+Delete Emoji	Elimina emoji
+Delete Messages	Elimina messaggi
+Bulk Delete Messages	Elimina messaggi in blocco
+Pin Message	Fissa messaggio
+Unpin Message	Rimuovi messaggio fissato
+Create Integration	Crea integrazione
+Update Integration	Aggiorna integrazione
+Delete Integration	Elimina integrazione
+Create Sticker	Crea adesivo
+Update Sticker	Aggiorna adesivo
+Delete Sticker	Elimina adesivo
+Start Stage	Avvia Stage
+Update Stage	Aggiorna Stage
+End Stage	Termina Stage
+Create Event	Crea evento
+Update Event	Aggiorna evento
+Cancel Event	Annulla evento
+Update Command Permissions	Aggiorna permessi dei comandi
+AutoMod Block Message	Messaggio bloccato da AutoMod
+Create AutoMod Rule	Crea regola AutoMod
+Update AutoMod Rule	Aggiorna regola AutoMod
+Cancel AutoMod Rule	Elimina regola AutoMod
+Feature Item on Home	Metti in evidenza nella Home
+Remove Item from Home	Rimuovi elemento dalla Home
+Create Soundboard Sound	Crea suono della soundboard
+Update Soundboard Sound	Aggiorna suono della soundboard
+Delete Soundboard Sound	Elimina suono della soundboard
+Create Voice Channel Status	Crea stato del canale vocale
+Delete Voice Channel Status	Elimina stato del canale vocale
+Kick Members	Espelli membri
+Ban Members	Banna membri
+Administrator	Amministratore
+Manage Server	Gestisci server
+View Server Insights	Visualizza statistiche del server
+View Server Subscription Insights	Visualizza statistiche abbonamenti al server
+Change Nickname	Cambia nickname
+Manage Nicknames	Gestisci nickname
+Manage Roles	Gestisci ruoli
+Create Expressions	Crea espressioni
+Manage Expressions	Gestisci espressioni
+View Audit Log	Visualizza registro attività
+Send TTS Messages	Invia messaggi TTS
+Request to Speak	Richiesta di parola
+Timeout Members	Metti in timeout i membri
+made changes to	ha apportato modifiche a
+ made changes to 	 ha apportato modifiche a 
+ made changes to	 ha apportato modifiche a
+created a stage channel	ha creato un canale Stage
+ created a stage channel 	 ha creato un canale Stage 
+ created a stage channel	 ha creato un canale Stage
+created a voice channel	ha creato un canale vocale
+ created a voice channel 	 ha creato un canale vocale 
+ created a voice channel	 ha creato un canale vocale
+created a category	ha creato una categoria
+ created a category 	 ha creato una categoria 
+ created a category	 ha creato una categoria
+created a forum channel	ha creato un canale forum
+ created a forum channel 	 ha creato un canale forum 
+ created a forum channel	 ha creato un canale forum
+created a media channel	ha creato un canale multimediale
+ created a media channel 	 ha creato un canale multimediale 
+ created a media channel	 ha creato un canale multimediale
+created an announcement channel	ha creato un canale annunci
+ created an announcement channel 	 ha creato un canale annunci 
+ created an announcement channel	 ha creato un canale annunci
+created a text channel	ha creato un canale testuale
+ created a text channel 	 ha creato un canale testuale 
+ created a text channel	 ha creato un canale testuale
+removed	ha rimosso
+ removed 	 ha rimosso 
+ removed	 ha rimosso
+created channel overrides for	ha creato eccezioni del canale per
+ created channel overrides for 	 ha creato eccezioni del canale per 
+ created channel overrides for	 ha creato eccezioni del canale per
+updated channel overrides for	ha aggiornato le eccezioni del canale per
+ updated channel overrides for 	 ha aggiornato le eccezioni del canale per 
+ updated channel overrides for	 ha aggiornato le eccezioni del canale per
+removed channel overrides for	ha rimosso le eccezioni del canale per
+ removed channel overrides for 	 ha rimosso le eccezioni del canale per 
+ removed channel overrides for	 ha rimosso le eccezioni del canale per
+moved	ha spostato
+ moved 	 ha spostato 
+ moved	 ha spostato
+kicked	ha espulso
+ kicked 	 ha espulso 
+ kicked	 ha espulso
+pruned	ha rimosso per inattività
+ pruned 	 ha rimosso per inattività 
+ pruned	 ha rimosso per inattività
+banned	ha bannato
+ banned 	 ha bannato 
+ banned	 ha bannato
+removed the ban for	ha revocato il ban a
+ removed the ban for 	 ha revocato il ban a 
+ removed the ban for	 ha revocato il ban a
+updated	ha aggiornato
+ updated 	 ha aggiornato 
+ updated	 ha aggiornato
+updated roles for	ha aggiornato i ruoli di
+ updated roles for 	 ha aggiornato i ruoli di 
+ updated roles for	 ha aggiornato i ruoli di
+added	ha aggiunto
+ added 	 ha aggiunto 
+ added	 ha aggiunto
+to the server	al server
+ to the server 	 al server 
+ to the server	 al server
+created the role	ha creato il ruolo
+ created the role 	 ha creato il ruolo 
+ created the role	 ha creato il ruolo
+updated the role	ha aggiornato il ruolo
+ updated the role 	 ha aggiornato il ruolo 
+ updated the role	 ha aggiornato il ruolo
+deleted the role	ha eliminato il ruolo
+ deleted the role 	 ha eliminato il ruolo 
+ deleted the role	 ha eliminato il ruolo
+created an invite	ha creato un invito
+ created an invite 	 ha creato un invito 
+ created an invite	 ha creato un invito
+updated an invite	ha aggiornato un invito
+ updated an invite 	 ha aggiornato un invito 
+ updated an invite	 ha aggiornato un invito
+deleted an invite	ha eliminato un invito
+ deleted an invite 	 ha eliminato un invito 
+ deleted an invite	 ha eliminato un invito
+created the webhook	ha creato il webhook
+ created the webhook 	 ha creato il webhook 
+ created the webhook	 ha creato il webhook
+updated the webhook	ha aggiornato il webhook
+ updated the webhook 	 ha aggiornato il webhook 
+ updated the webhook	 ha aggiornato il webhook
+deleted the webhook	ha eliminato il webhook
+ deleted the webhook 	 ha eliminato il webhook 
+ deleted the webhook	 ha eliminato il webhook
+created the emoji	ha creato l'emoji
+ created the emoji 	 ha creato l'emoji 
+ created the emoji	 ha creato l'emoji
+updated the emoji	ha aggiornato l'emoji
+ updated the emoji 	 ha aggiornato l'emoji 
+ updated the emoji	 ha aggiornato l'emoji
+deleted the emoji	ha eliminato l'emoji
+ deleted the emoji 	 ha eliminato l'emoji 
+ deleted the emoji	 ha eliminato l'emoji
+deleted	ha eliminato
+ deleted 	 ha eliminato 
+ deleted	 ha eliminato
+by	di
+ by 	 di 
+ by	 di
+pinned a message by	ha fissato un messaggio di
+ pinned a message by 	 ha fissato un messaggio di 
+ pinned a message by	 ha fissato un messaggio di
+unpinned a message by	ha tolto dai fissati un messaggio di
+ unpinned a message by 	 ha tolto dai fissati un messaggio di 
+ unpinned a message by	 ha tolto dai fissati un messaggio di
+added an integration for	ha aggiunto un'integrazione per
+ added an integration for 	 ha aggiunto un'integrazione per 
+ added an integration for	 ha aggiunto un'integrazione per
+updated the integration for	ha aggiornato l'integrazione per
+ updated the integration for 	 ha aggiornato l'integrazione per 
+ updated the integration for	 ha aggiornato l'integrazione per
+deleted the integration for	ha eliminato l'integrazione per
+ deleted the integration for 	 ha eliminato l'integrazione per 
+ deleted the integration for	 ha eliminato l'integrazione per
+started the stage for	ha avviato lo Stage per
+ started the stage for 	 ha avviato lo Stage per 
+ started the stage for	 ha avviato lo Stage per
+updated the stage for	ha aggiornato lo Stage per
+ updated the stage for 	 ha aggiornato lo Stage per 
+ updated the stage for	 ha aggiornato lo Stage per
+Discord ended the stage for	Discord ha terminato lo Stage per
+ Discord ended the stage for 	 Discord ha terminato lo Stage per 
+ Discord ended the stage for	 Discord ha terminato lo Stage per
+due to inactivity.	per inattività.
+ due to inactivity. 	 per inattività. 
+ due to inactivity.	 per inattività.
+ended the stage for	ha terminato lo Stage per
+ ended the stage for 	 ha terminato lo Stage per 
+ ended the stage for	 ha terminato lo Stage per
+created the sticker	ha creato l'adesivo
+ created the sticker 	 ha creato l'adesivo 
+ created the sticker	 ha creato l'adesivo
+updated the sticker	ha aggiornato l'adesivo
+ updated the sticker 	 ha aggiornato l'adesivo 
+ updated the sticker	 ha aggiornato l'adesivo
+deleted the sticker	ha eliminato l'adesivo
+ deleted the sticker 	 ha eliminato l'adesivo 
+ deleted the sticker	 ha eliminato l'adesivo
+scheduled the event	ha programmato l'evento
+ scheduled the event 	 ha programmato l'evento 
+ scheduled the event	 ha programmato l'evento
+updated the scheduled event	ha aggiornato l'evento programmato
+ updated the scheduled event 	 ha aggiornato l'evento programmato 
+ updated the scheduled event	 ha aggiornato l'evento programmato
+canceled the scheduled event	ha annullato l'evento programmato
+ canceled the scheduled event 	 ha annullato l'evento programmato 
+ canceled the scheduled event	 ha annullato l'evento programmato
+created a private thread	ha creato un thread privato
+ created a private thread 	 ha creato un thread privato 
+ created a private thread	 ha creato un thread privato
+created an announcement thread	ha creato un thread di annunci
+ created an announcement thread 	 ha creato un thread di annunci 
+ created an announcement thread	 ha creato un thread di annunci
+created a thread	ha creato un thread
+ created a thread 	 ha creato un thread 
+ created a thread	 ha creato un thread
+made changes to the thread	ha apportato modifiche al thread
+ made changes to the thread 	 ha apportato modifiche al thread 
+ made changes to the thread	 ha apportato modifiche al thread
+deleted the thread	ha eliminato il thread
+ deleted the thread 	 ha eliminato il thread 
+ deleted the thread	 ha eliminato il thread
+updated permissions for	ha aggiornato i permessi per
+ updated permissions for 	 ha aggiornato i permessi per 
+ updated permissions for	 ha aggiornato i permessi per
+uploaded a Soundboard sound	ha caricato un suono della soundboard
+ uploaded a Soundboard sound 	 ha caricato un suono della soundboard 
+ uploaded a Soundboard sound	 ha caricato un suono della soundboard
+updated a Soundboard sound	ha aggiornato un suono della soundboard
+ updated a Soundboard sound 	 ha aggiornato un suono della soundboard 
+ updated a Soundboard sound	 ha aggiornato un suono della soundboard
+deleted a Soundboard sound	ha eliminato un suono della soundboard
+ deleted a Soundboard sound 	 ha eliminato un suono della soundboard 
+ deleted a Soundboard sound	 ha eliminato un suono della soundboard
+created AutoMod rule	ha creato la regola AutoMod
+ created AutoMod rule 	 ha creato la regola AutoMod 
+ created AutoMod rule	 ha creato la regola AutoMod
+updated AutoMod rule	ha aggiornato la regola AutoMod
+ updated AutoMod rule 	 ha aggiornato la regola AutoMod 
+ updated AutoMod rule	 ha aggiornato la regola AutoMod
+deleted AutoMod rule	ha eliminato la regola AutoMod
+ deleted AutoMod rule 	 ha eliminato la regola AutoMod 
+ deleted AutoMod rule	 ha eliminato la regola AutoMod
+AutoMod blocked a message sent by	AutoMod ha bloccato un messaggio inviato da
+ AutoMod blocked a message sent by 	 AutoMod ha bloccato un messaggio inviato da 
+ AutoMod blocked a message sent by	 AutoMod ha bloccato un messaggio inviato da
+AutoMod flagged	AutoMod ha segnalato
+ AutoMod flagged 	 AutoMod ha segnalato 
+ AutoMod flagged	 AutoMod ha segnalato
+for violating content in their user profile	per contenuti non consentiti nel profilo utente
+ for violating content in their user profile 	 per contenuti non consentiti nel profilo utente 
+ for violating content in their user profile	 per contenuti non consentiti nel profilo utente
+AutoMod flagged a message sent by	AutoMod ha segnalato un messaggio inviato da
+ AutoMod flagged a message sent by 	 AutoMod ha segnalato un messaggio inviato da 
+ AutoMod flagged a message sent by	 AutoMod ha segnalato un messaggio inviato da
+AutoMod timed out	AutoMod ha messo in timeout
+ AutoMod timed out 	 AutoMod ha messo in timeout 
+ AutoMod timed out	 AutoMod ha messo in timeout
+for a message posted in	per un messaggio pubblicato in
+ for a message posted in 	 per un messaggio pubblicato in 
+ for a message posted in	 per un messaggio pubblicato in
+AutoMod quarantined	AutoMod ha messo in quarantena
+ AutoMod quarantined 	 AutoMod ha messo in quarantena 
+ AutoMod quarantined	 AutoMod ha messo in quarantena
+applied for monetization	ha richiesto la monetizzazione
+ applied for monetization 	 ha richiesto la monetizzazione 
+ applied for monetization	 ha richiesto la monetizzazione
+accepted terms for monetization	ha accettato i termini per la monetizzazione
+ accepted terms for monetization 	 ha accettato i termini per la monetizzazione 
+ accepted terms for monetization	 ha accettato i termini per la monetizzazione
+created a new customization question	ha creato una nuova domanda di personalizzazione
+ created a new customization question 	 ha creato una nuova domanda di personalizzazione 
+ created a new customization question	 ha creato una nuova domanda di personalizzazione
+updated the customization question	ha aggiornato la domanda di personalizzazione
+ updated the customization question 	 ha aggiornato la domanda di personalizzazione 
+ updated the customization question	 ha aggiornato la domanda di personalizzazione
+deleted the customization question	ha eliminato la domanda di personalizzazione
+ deleted the customization question 	 ha eliminato la domanda di personalizzazione 
+ deleted the customization question	 ha eliminato la domanda di personalizzazione
+started onboarding for this server	ha avviato l'onboarding per questo server
+ started onboarding for this server 	 ha avviato l'onboarding per questo server 
+ started onboarding for this server	 ha avviato l'onboarding per questo server
+updated onboarding for this server	ha aggiornato l'onboarding per questo server
+ updated onboarding for this server 	 ha aggiornato l'onboarding per questo server 
+ updated onboarding for this server	 ha aggiornato l'onboarding per questo server
+featured a message on Home	ha messo in evidenza un messaggio nella Home
+ featured a message on Home 	 ha messo in evidenza un messaggio nella Home 
+ featured a message on Home	 ha messo in evidenza un messaggio nella Home
+featured a forum post on Home	ha messo in evidenza un post del forum nella Home
+ featured a forum post on Home 	 ha messo in evidenza un post del forum nella Home 
+ featured a forum post on Home	 ha messo in evidenza un post del forum nella Home
+featured something on Home	ha messo in evidenza qualcosa nella Home
+ featured something on Home 	 ha messo in evidenza qualcosa nella Home 
+ featured something on Home	 ha messo in evidenza qualcosa nella Home
+removed an item from Home	ha rimosso un elemento dalla Home
+ removed an item from Home 	 ha rimosso un elemento dalla Home 
+ removed an item from Home	 ha rimosso un elemento dalla Home
+created the Server Guide for this server	ha creato la guida del server per questo server
+ created the Server Guide for this server 	 ha creato la guida del server per questo server 
+ created the Server Guide for this server	 ha creato la guida del server per questo server
+updated the Server Guide for this server	ha aggiornato la guida del server per questo server
+ updated the Server Guide for this server 	 ha aggiornato la guida del server per questo server 
+ updated the Server Guide for this server	 ha aggiornato la guida del server per questo server
+set a Voice Channel Status in	ha impostato uno stato del canale vocale in
+ set a Voice Channel Status in 	 ha impostato uno stato del canale vocale in 
+ set a Voice Channel Status in	 ha impostato uno stato del canale vocale in
+removed a Voice Channel Status in	ha rimosso uno stato del canale vocale in
+ removed a Voice Channel Status in 	 ha rimosso uno stato del canale vocale in 
+ removed a Voice Channel Status in	 ha rimosso uno stato del canale vocale in
+reset an event recurrence for	ha reimpostato la ricorrenza di un evento per
+ reset an event recurrence for 	 ha reimpostato la ricorrenza di un evento per 
+ reset an event recurrence for	 ha reimpostato la ricorrenza di un evento per
+updated an event recurrence for	ha aggiornato la ricorrenza di un evento per
+ updated an event recurrence for 	 ha aggiornato la ricorrenza di un evento per 
+ updated an event recurrence for	 ha aggiornato la ricorrenza di un evento per
+at	alle
+ at 	 alle 
+ at	 alle
+updated member application settings	ha aggiornato le impostazioni di candidatura dei membri
+ updated member application settings 	 ha aggiornato le impostazioni di candidatura dei membri 
+ updated member application settings	 ha aggiornato le impostazioni di candidatura dei membri
+updated server profile settings	ha aggiornato le impostazioni del profilo del server
+ updated server profile settings 	 ha aggiornato le impostazioni del profilo del server 
+ updated server profile settings	 ha aggiornato le impostazioni del profilo del server
+updated Pin Messages permission	ha aggiornato il permesso Fissa messaggi
+ updated Pin Messages permission 	 ha aggiornato il permesso Fissa messaggi 
+ updated Pin Messages permission	 ha aggiornato il permesso Fissa messaggi
+updated Bypass Slowmode permission	ha aggiornato il permesso Ignora modalità lenta
+ updated Bypass Slowmode permission 	 ha aggiornato il permesso Ignora modalità lenta 
+ updated Bypass Slowmode permission	 ha aggiornato il permesso Ignora modalità lenta
+made changes	ha apportato modifiche
+ made changes 	 ha apportato modifiche 
+ made changes	 ha apportato modifiche
+disconnected	ha disconnesso
+ disconnected 	 ha disconnesso 
+ disconnected	 ha disconnesso
+to	a
+ to	 a
+from voice	dalla chat vocale
+ from voice 	 dalla chat vocale 
+ from voice	 dalla chat vocale
+With reason	Con motivo
+ With reason 	 Con motivo 
+ With reason	 Con motivo
+for	per
+ for 	 per 
+ for	 per
+from	da
+ from 	 da 
+ from	 da
+of inactivity	di inattività
+ of inactivity 	 di inattività 
+ of inactivity	 di inattività
+ them 	 (membro) 
+ them	 (membro)
+uses	utilizzi
+ uses 	 utilizzi 
+ uses	 utilizzi
+expires	scade
+ expires 	 scade 
+ expires	 scade
+invite	per ospiti
+ invite 	 per ospiti 
+ invite	 per ospiti
+their nickname of	il soprannome
+ their nickname of 	 il soprannome 
+ their nickname of	 il soprannome
+the server description	la descrizione del server
+ the server description 	 la descrizione del server 
+ the server description	 la descrizione del server
+the inactive channel	il canale inattivo
+ the inactive channel 	 il canale inattivo 
+ the inactive channel	 il canale inattivo
+minutes	minuti
+ minutes 	 minuti 
+ minutes	 minuti
+the welcome notification messages	i messaggi di notifica di benvenuto
+ the welcome notification messages 	 i messaggi di notifica di benvenuto 
+ the welcome notification messages	 i messaggi di notifica di benvenuto
+the rules channel	il canale delle regole
+ the rules channel 	 il canale delle regole 
+ the rules channel	 il canale delle regole
+the Community Server updates channel	il canale aggiornamenti del server Community
+ the Community Server updates channel 	 il canale aggiornamenti del server Community 
+ the Community Server updates channel	 il canale aggiornamenti del server Community
+two-factor authentication requirement	il requisito di autenticazione a due fattori
+ two-factor authentication requirement 	 il requisito di autenticazione a due fattori 
+ two-factor authentication requirement	 il requisito di autenticazione a due fattori
+the widget	il widget
+ the widget 	 il widget 
+ the widget	 il widget
+the widget channel	il canale del widget
+ the widget channel 	 il canale del widget 
+ the widget channel	 il canale del widget
+the Custom Invite Link	il link d'invito personalizzato
+ the Custom Invite Link 	 il link d'invito personalizzato 
+ the Custom Invite Link	 il link d'invito personalizzato
+the explicit content filter	il filtro dei contenuti espliciti
+ the explicit content filter 	 il filtro dei contenuti espliciti 
+ the explicit content filter	 il filtro dei contenuti espliciti
+the Boost progress bar	la barra di avanzamento dei potenziamenti
+ the Boost progress bar 	 la barra di avanzamento dei potenziamenti 
+ the Boost progress bar	 la barra di avanzamento dei potenziamenti
+the topic	l'argomento
+ the topic 	 l'argomento 
+ the topic	 l'argomento
+the server tag	il tag del server
+ the server tag 	 il tag del server 
+ the server tag	 il tag del server
+copy	copia
+ copy 	 copia 
+ copy	 copia
+30 minutes 	30 minuti 
+1 hour 	1 ora 
+6 hours 	6 ore 
+12 hours 	12 ore 
+1 day 	1 giorno 
+7 days 	7 giorni 
+14 days	14 giorni
+14 days 	14 giorni 
+30 days	30 giorni
+30 days 	30 giorni 
+60 days	60 giorni
+60 days 	60 giorni 
+Never 	Mai 
+Auto	Automatica
+Auto 	Automatica 
+Text Channel	Canale testuale
+Text Channel 	Canale testuale 
+Voice Channel	Canale vocale
+Voice Channel 	Canale vocale 
+Announcement Channel	Canale annunci
+Announcement Channel 	Canale annunci 
+Stage Channel	Canale Stage
+Stage Channel 	Canale Stage 
+Forum Channel	Canale forum
+Forum Channel 	Canale forum 
+Media Channel	Canale multimediale
+Media Channel 	Canale multimediale 
+Granted	Concessi
+Granted 	Concessi 
+Denied	Negati
+Denied 	Negati 
+Reset 	Reimpostati 
+welcome messages	i messaggi di benvenuto
+welcome messages 	i messaggi di benvenuto 
+boost notifications	le notifiche dei potenziamenti
+boost notifications 	le notifiche dei potenziamenti 
+server setup tips	i suggerimenti per configurare il server
+server setup tips 	i suggerimenti per configurare il server 
+welcome stickers	gli adesivi di benvenuto
+welcome stickers 	gli adesivi di benvenuto 
+Removed channel from Home	Canale rimosso dalla Home
+Removed channel from Home 	Canale rimosso dalla Home 
+Added channel back to Home	Canale riaggiunto alla Home
+Added channel back to Home 	Canale riaggiunto alla Home 
+Pinned 	Fissato 
+Unpinned	Non più fissato
+Unpinned 	Non più fissato 
+Removed channel from Active Now	Canale rimosso da Attivi ora
+Removed channel from Active Now 	Canale rimosso da Attivi ora 
+Added channel back to Active Now	Canale riaggiunto ad Attivi ora
+Added channel back to Active Now 	Canale riaggiunto ad Attivi ora 
+Updated thread properties	Proprietà del thread aggiornate
+Updated thread properties 	Proprietà del thread aggiornate 
+Changed channel settings	Impostazioni del canale modificate
+Changed channel settings 	Impostazioni del canale modificate 
+Added	Aggiunto
+Added 	Aggiunto 
+Removed	Rimosso
+Removed 	Rimosso 
+some roles	alcuni ruoli
+some roles 	alcuni ruoli 
+With	Con
+With 	Con 
+all channels	tutti i canali
+all channels 	tutti i canali 
+permission for	permesso per
+permission for 	permesso per 
+Removed override	Eccezione rimossa
+Removed override 	Eccezione rimossa 
+None 	Nessuno 
+Set the server name to	Ha impostato il nome del server su
+Set the server name to 	Ha impostato il nome del server su 
+Cleared	Ha cancellato
+Cleared 	Ha cancellato 
+Set the server description to	Ha impostato la descrizione del server su
+Set the server description to 	Ha impostato la descrizione del server su 
+Set the server icon	Ha impostato l'icona del server
+Set the server icon 	Ha impostato l'icona del server 
+Set the server invite background	Ha impostato lo sfondo dell'invito del server
+Set the server invite background 	Ha impostato lo sfondo dell'invito del server 
+Set the Server Discovery background	Ha impostato lo sfondo di Scopri server
+Set the Server Discovery background 	Ha impostato lo sfondo di Scopri server 
+Removed the server banner	Ha rimosso il banner del server
+Removed the server banner 	Ha rimosso il banner del server 
+Set the server banner	Ha impostato il banner del server
+Set the server banner 	Ha impostato il banner del server 
+Passed ownership to	Ha trasferito la proprietà a
+Passed ownership to 	Ha trasferito la proprietà a 
+Set the voice region to	Ha impostato la regione vocale su
+Set the voice region to 	Ha impostato la regione vocale su 
+Set the preferred locale to	Ha impostato la lingua preferita su
+Set the preferred locale to 	Ha impostato la lingua preferita su 
+Set the inactive channel to	Ha impostato il canale inattivo su
+Set the inactive channel to 	Ha impostato il canale inattivo su 
+Set the inactive timeout to	Ha impostato il timeout di inattività su
+Set the inactive timeout to 	Ha impostato il timeout di inattività su 
+Disabled 	Disattivato 
+Set the welcome notification channel to	Ha impostato il canale delle notifiche di benvenuto su
+Set the welcome notification channel to 	Ha impostato il canale delle notifiche di benvenuto su 
+Set the rules channel to	Ha impostato il canale delle regole su
+Set the rules channel to 	Ha impostato il canale delle regole su 
+Set the Community Server updates channel to	Ha impostato il canale aggiornamenti del server Community su
+Set the Community Server updates channel to 	Ha impostato il canale aggiornamenti del server Community su 
+Enabled	Attivato
+Enabled 	Attivato 
+Set the widget channel to	Ha impostato il canale del widget su
+Set the widget channel to 	Ha impostato il canale del widget su 
+Set the server verification level to	Ha impostato il livello di verifica del server su
+Set the server verification level to 	Ha impostato il livello di verifica del server su 
+Low 	Basso 
+Medium 	Medio 
+High 	Alto 
+Very High	Molto alto
+Very High 	Molto alto 
+Set the default message notification setting to	Ha impostato le notifiche predefinite dei messaggi su
+Set the default message notification setting to 	Ha impostato le notifiche predefinite dei messaggi su 
+All Messages 	Tutti i messaggi 
+Only Mentions	Solo menzioni
+Only Mentions 	Solo menzioni 
+Set the Custom Invite Link to	Ha impostato il link d'invito personalizzato su
+Set the Custom Invite Link to 	Ha impostato il link d'invito personalizzato su 
+Set the explicit content filter to scan messages from	Ha impostato il filtro dei contenuti espliciti per analizzare i messaggi di
+Set the explicit content filter to scan messages from 	Ha impostato il filtro dei contenuti espliciti per analizzare i messaggi di 
+members without a role	membri senza ruolo
+members without a role 	membri senza ruolo 
+all members	tutti i membri
+all members 	tutti i membri 
+Turned	Ha
+Turned 	Ha 
+on 	attivato 
+off 	disattivato 
+Detected by rule	Rilevato dalla regola
+Detected by rule 	Rilevato dalla regola 
+Set the name to	Ha impostato il nome su
+Set the name to 	Ha impostato il nome su 
+Changed the name	Ha cambiato il nome
+Changed the name 	Ha cambiato il nome 
+In position	In posizione
+In position 	In posizione 
+Moved	Spostato
+Moved 	Spostato 
+Changed the topic to	Ha cambiato l'argomento in
+Changed the topic to 	Ha cambiato l'argomento in 
+Set the topic to	Ha impostato l'argomento su
+Set the topic to 	Ha impostato l'argomento su 
+Set the bitrate to	Ha impostato il bitrate su
+Set the bitrate to 	Ha impostato il bitrate su 
+Changed the bitrate to	Ha cambiato il bitrate in
+Changed the bitrate to 	Ha cambiato il bitrate in 
+Changed the region override	Ha cambiato la regione forzata
+Changed the region override 	Ha cambiato la regione forzata 
+Set the region override to	Ha impostato la regione forzata su
+Set the region override to 	Ha impostato la regione forzata su 
+Removed the region override	Ha rimosso la regione forzata
+Removed the region override 	Ha rimosso la regione forzata 
+Set the user limit to	Ha impostato il limite di utenti su
+Set the user limit to 	Ha impostato il limite di utenti su 
+Changed the user limit to	Ha cambiato il limite di utenti in
+Changed the user limit to 	Ha cambiato il limite di utenti in 
+Set slowmode disabled	Ha disattivato la modalità lenta
+Set slowmode disabled 	Ha disattivato la modalità lenta 
+Set slowmode to	Ha impostato la modalità lenta su
+Set slowmode to 	Ha impostato la modalità lenta su 
+Disabled slowmode	Ha disattivato la modalità lenta
+Disabled slowmode 	Ha disattivato la modalità lenta 
+Marked the channel as age-restricted	Ha contrassegnato il canale come soggetto a limiti di età
+Marked the channel as age-restricted 	Ha contrassegnato il canale come soggetto a limiti di età 
+Unmarked the channel as age-restricted	Ha tolto al canale i limiti di età
+Unmarked the channel as age-restricted 	Ha tolto al canale i limiti di età 
+Set the type to	Ha impostato il tipo su
+Set the type to 	Ha impostato il tipo su 
+Changed the type	Ha cambiato il tipo
+Changed the type 	Ha cambiato il tipo 
+Set the video quality mode to	Ha impostato la qualità video su
+Set the video quality mode to 	Ha impostato la qualità video su 
+Removed default hide duration	Ha rimosso la durata predefinita di occultamento
+Removed default hide duration 	Ha rimosso la durata predefinita di occultamento 
+Set default hide duration to	Ha impostato la durata predefinita di occultamento su
+Set default hide duration to 	Ha impostato la durata predefinita di occultamento su 
+Changed default hide duration to	Ha cambiato la durata predefinita di occultamento in
+Changed default hide duration to 	Ha cambiato la durata predefinita di occultamento in 
+Changed default thread slowmode to	Ha cambiato la modalità lenta predefinita dei thread in
+Changed default thread slowmode to 	Ha cambiato la modalità lenta predefinita dei thread in 
+Set default thread slowmode to	Ha impostato la modalità lenta predefinita dei thread su
+Set default thread slowmode to 	Ha impostato la modalità lenta predefinita dei thread su 
+Disabled default thread slowmode	Ha disattivato la modalità lenta predefinita dei thread
+Disabled default thread slowmode 	Ha disattivato la modalità lenta predefinita dei thread 
+Changed their nickname	Ha cambiato il proprio nickname
+Changed their nickname 	Ha cambiato il proprio nickname 
+Set their nickname to	Ha impostato il proprio nickname su
+Set their nickname to 	Ha impostato il proprio nickname su 
+Deafened 	Audio disattivato 
+Undeafened	Audio riattivato
+Undeafened 	Audio riattivato 
+Muted 	Silenziato 
+Unmuted	Riattivato
+Unmuted 	Riattivato 
+For	Per
+For 	Per 
+Set timeout for user until	Ha messo l'utente in timeout fino a
+Set timeout for user until 	Ha messo l'utente in timeout fino a 
+Removed timeout	Ha rimosso il timeout
+Removed timeout 	Ha rimosso il timeout 
+manually verified them	ha verificato manualmente l'utente
+manually verified them 	ha verificato manualmente l'utente 
+removed their manual verification	ha rimosso la verifica manuale dell'utente
+removed their manual verification 	ha rimosso la verifica manuale dell'utente 
+With the name	Con il nome
+With the name 	Con il nome 
+With the description	Con la descrizione
+With the description 	Con la descrizione 
+Changed the description	Ha cambiato la descrizione
+Changed the description 	Ha cambiato la descrizione 
+With no color	Senza colore
+With no color 	Senza colore 
+Set the color to	Ha impostato il colore su
+Set the color to 	Ha impostato il colore su 
+With no gradient	Senza gradiente
+With no gradient 	Senza gradiente 
+Set the gradient to [{}]	Ha impostato il gradiente su [{}]
+Set the gradient to [{}] 	Ha impostato il gradiente su [{}] 
+Hoisted	Mostrato separatamente
+Hoisted 	Mostrato separatamente 
+Not hoisted	Non mostrato separatamente
+Not hoisted 	Non mostrato separatamente 
+Mentionable	Menzionabile
+Mentionable 	Menzionabile 
+Not mentionable	Non menzionabile
+Not mentionable 	Non menzionabile 
+Set the icon	Ha impostato l'icona
+Set the icon 	Ha impostato l'icona 
+Set the unicode emoji	Ha impostato l'emoji unicode
+Set the unicode emoji 	Ha impostato l'emoji unicode 
+With code	Con codice
+With code 	Con codice 
+For channel	Per il canale
+For channel 	Per il canale 
+Which has	Con
+Which has 	Con 
+unlimited	illimitati
+unlimited 	illimitati 
+Which expires after	Che scade dopo
+Which expires after 	Che scade dopo 
+Which	Che
+Which 	Che 
+never	non
+never 	non 
+With temporary	Iscrizione temporanea:
+With temporary 	Iscrizione temporanea: 
+Which is a	Che è un
+Which is a 	Che è un 
+guest 	invito 
+With channel	Con il canale
+With channel 	Con il canale 
+Changed the channel to	Ha cambiato il canale in
+Changed the channel to 	Ha cambiato il canale in 
+With name	Con nome
+With name 	Con nome 
+Changed the avatar	Ha cambiato l'avatar
+Changed the avatar 	Ha cambiato l'avatar 
+With the tags	Con i tag
+With the tags 	Con i tag 
+Changed the tags	Ha cambiato i tag
+Changed the tags 	Ha cambiato i tag 
+Enabled emoticons	Ha attivato le emoticon
+Enabled emoticons 	Ha attivato le emoticon 
+Disabled custom emoticons	Ha disattivato le emoticon personalizzate
+Disabled custom emoticons 	Ha disattivato le emoticon personalizzate 
+Set the expired sub behavior to	Ha impostato il comportamento per gli abbonamenti scaduti su
+Set the expired sub behavior to 	Ha impostato il comportamento per gli abbonamenti scaduti su 
+Remove Role	Rimuovi ruolo
+Remove Role 	Rimuovi ruolo 
+Kick 	Espelli 
+Set the expire grace period to	Ha impostato il periodo di tolleranza alla scadenza su
+Set the expire grace period to 	Ha impostato il periodo di tolleranza alla scadenza su 
+Set the description to	Ha impostato la descrizione su
+Set the description to 	Ha impostato la descrizione su 
+Set the status to	Ha impostato lo stato su
+Set the status to 	Ha impostato lo stato su 
+Scheduled	Programmato
+Scheduled 	Programmato 
+Active	Attivo
+Active 	Attivo 
+Completed	Completato
+Completed 	Completato 
+Canceled	Annullato
+Canceled 	Annullato 
+Linked to	Collegato a
+Linked to 	Collegato a 
+Nothing 	Niente 
+Linked with a	Collegato a un
+Linked with a 	Collegato a un 
+Linked	Collegato
+Linked 	Collegato 
+externally	esternamente
+externally 	esternamente 
+Removed the channel	Ha rimosso il canale
+Removed the channel 	Ha rimosso il canale 
+Set the channel to	Ha impostato il canale su
+Set the channel to 	Ha impostato il canale su 
+Removed the location	Ha rimosso il luogo
+Removed the location 	Ha rimosso il luogo 
+Set the location to	Ha impostato il luogo su
+Set the location to 	Ha impostato il luogo su 
+Removed the cover image	Ha rimosso l'immagine di copertina
+Removed the cover image 	Ha rimosso l'immagine di copertina 
+Set the cover image	Ha impostato l'immagine di copertina
+Set the cover image 	Ha impostato l'immagine di copertina 
+Reset the start time	Ha reimpostato l'ora di inizio
+Reset the start time 	Ha reimpostato l'ora di inizio 
+Set the start time to	Ha impostato l'ora di inizio su
+Set the start time to 	Ha impostato l'ora di inizio su 
+Reset the end time	Ha reimpostato l'ora di fine
+Reset the end time 	Ha reimpostato l'ora di fine 
+Canceled this event	Ha annullato questo evento
+Canceled this event 	Ha annullato questo evento 
+Restored this event	Ha ripristinato questo evento
+Restored this event 	Ha ripristinato questo evento 
+Closed the thread	Ha chiuso il thread
+Closed the thread 	Ha chiuso il thread 
+Reopened the thread	Ha riaperto il thread
+Reopened the thread 	Ha riaperto il thread 
+Locked the thread, restricting it to only be opened by moderators	Ha bloccato il thread: solo i moderatori possono riaprirlo
+Locked the thread, restricting it to only be opened by moderators 	Ha bloccato il thread: solo i moderatori possono riaprirlo 
+Unlocked the thread, allowing it to be opened by non-moderators	Ha sbloccato il thread: anche i non moderatori possono riaprirlo
+Unlocked the thread, allowing it to be opened by non-moderators 	Ha sbloccato il thread: anche i non moderatori possono riaprirlo 
+Allowed non-moderators to add members to the thread	Ha consentito ai non moderatori di aggiungere membri al thread
+Allowed non-moderators to add members to the thread 	Ha consentito ai non moderatori di aggiungere membri al thread 
+Disallowed non-moderators from adding members to the thread	Ha impedito ai non moderatori di aggiungere membri al thread
+Disallowed non-moderators from adding members to the thread 	Ha impedito ai non moderatori di aggiungere membri al thread 
+Removed auto hide duration	Ha rimosso la durata di occultamento automatico
+Removed auto hide duration 	Ha rimosso la durata di occultamento automatico 
+Set auto hide duration to	Ha impostato la durata di occultamento automatico su
+Set auto hide duration to 	Ha impostato la durata di occultamento automatico su 
+Changed auto hide duration to	Ha cambiato la durata di occultamento automatico in
+Changed auto hide duration to 	Ha cambiato la durata di occultamento automatico in 
+Set the trigger type to	Ha impostato il tipo di attivatore su
+Set the trigger type to 	Ha impostato il tipo di attivatore su 
+Set the event type to	Ha impostato il tipo di evento su
+Set the event type to 	Ha impostato il tipo di evento su 
+Enabled rule	Ha attivato la regola
+Enabled rule 	Ha attivato la regola 
+Disabled rule	Ha disattivato la regola
+Disabled rule 	Ha disattivato la regola 
+Set exempt roles to	Ha impostato i ruoli esenti su
+Set exempt roles to 	Ha impostato i ruoli esenti su 
+Set exempt channels to	Ha impostato i canali esenti su
+Set exempt channels to 	Ha impostato i canali esenti su 
+Set trigger metadata	Ha impostato i metadati dell'attivatore:
+Set trigger metadata 	Ha impostato i metadati dell'attivatore: 
+keywords to {}	parole chiave su {}
+keywords to {} 	parole chiave su {} 
+added keywords	ha aggiunto le parole chiave
+added keywords 	ha aggiunto le parole chiave 
+removed keywords	ha rimosso le parole chiave
+removed keywords 	ha rimosso le parole chiave 
+added regex patterns	ha aggiunto i pattern regex
+added regex patterns 	ha aggiunto i pattern regex 
+removed regex patterns	ha rimosso i pattern regex
+removed regex patterns 	ha rimosso i pattern regex 
+added allow list keywords	ha aggiunto parole chiave consentite
+added allow list keywords 	ha aggiunto parole chiave consentite 
+removed allow list keywords	ha rimosso parole chiave consentite
+removed allow list keywords 	ha rimosso parole chiave consentite 
+With the volume set to	Con il volume impostato a
+With the volume set to 	Con il volume impostato a 
+Changed the volume	Ha cambiato il volume
+Changed the volume 	Ha cambiato il volume 
+Changed the emoji	Ha cambiato l'emoji
+Changed the emoji 	Ha cambiato l'emoji 
+With the emoji	Con l'emoji
+With the emoji 	Con l'emoji 
+Removed the emoji	Ha rimosso l'emoji
+Removed the emoji 	Ha rimosso l'emoji 
+Set to	Impostato su
+Set to 	Impostato su 
+Set the title to empty	Ha svuotato il titolo
+Set the title to empty 	Ha svuotato il titolo 
+Changed the title	Ha cambiato il titolo
+Changed the title 	Ha cambiato il titolo 
+Changed answers for customization question	Ha cambiato le risposte della domanda di personalizzazione
+Changed answers for customization question 	Ha cambiato le risposte della domanda di personalizzazione 
+Set the customization question to single select	Ha impostato la domanda di personalizzazione a scelta singola
+Set the customization question to single select 	Ha impostato la domanda di personalizzazione a scelta singola 
+Set the customization question to multi select	Ha impostato la domanda di personalizzazione a scelta multipla
+Set the customization question to multi select 	Ha impostato la domanda di personalizzazione a scelta multipla 
+Set the customization question to required	Ha reso obbligatoria la domanda di personalizzazione
+Set the customization question to required 	Ha reso obbligatoria la domanda di personalizzazione 
+Set the customization question to optional	Ha reso facoltativa la domanda di personalizzazione
+Set the customization question to optional 	Ha reso facoltativa la domanda di personalizzazione 
+Set default channels to enabled	Ha attivato i canali predefiniti
+Set default channels to enabled 	Ha attivato i canali predefiniti 
+Set default channels to disabled	Ha disattivato i canali predefiniti
+Set default channels to disabled 	Ha disattivato i canali predefiniti 
+Set customization questions to enabled	Ha attivato le domande di personalizzazione
+Set customization questions to enabled 	Ha attivato le domande di personalizzazione 
+Set customization questions to disabled	Ha disattivato le domande di personalizzazione
+Set customization questions to disabled 	Ha disattivato le domande di personalizzazione 
+Enabled Onboarding	Ha attivato l'onboarding
+Enabled Onboarding 	Ha attivato l'onboarding 
+Disabled Onboarding	Ha disattivato l'onboarding
+Disabled Onboarding 	Ha disattivato l'onboarding 
+Set onboarding to Advanced Mode	Ha impostato l'onboarding in modalità avanzata
+Set onboarding to Advanced Mode 	Ha impostato l'onboarding in modalità avanzata 
+Set onboarding to Regular Mode	Ha impostato l'onboarding in modalità normale
+Set onboarding to Regular Mode 	Ha impostato l'onboarding in modalità normale 
+Changed the welcome message	Ha cambiato il messaggio di benvenuto
+Changed the welcome message 	Ha cambiato il messaggio di benvenuto 
+Changed the new member To Dos	Ha cambiato le attività per i nuovi membri
+Changed the new member To Dos 	Ha cambiato le attività per i nuovi membri 
+Changed resource channels	Ha cambiato i canali delle risorse
+Changed resource channels 	Ha cambiato i canali delle risorse 
+Enabled join settings	Ha attivato le impostazioni di accesso
+Enabled join settings 	Ha attivato le impostazioni di accesso 
+Disabled join settings	Ha disattivato le impostazioni di accesso
+Disabled join settings 	Ha disattivato le impostazioni di accesso 
+Manual verification enabled	Verifica manuale attivata
+Manual verification enabled 	Verifica manuale attivata 
+Manual verification disabled	Verifica manuale disattivata
+Manual verification disabled 	Verifica manuale disattivata 
+Updated server description	Ha aggiornato la descrizione del server
+Updated server description 	Ha aggiornato la descrizione del server 
+Updated profile banner color	Ha aggiornato il colore del banner del profilo
+Updated profile banner color 	Ha aggiornato il colore del banner del profilo 
+Updated profile banner	Ha aggiornato il banner del profilo
+Updated profile banner 	Ha aggiornato il banner del profilo 
+Updated profile traits	Ha aggiornato le caratteristiche del profilo
+Updated profile traits 	Ha aggiornato le caratteristiche del profilo 
+Updated profile games played	Ha aggiornato i giochi del profilo
+Updated profile games played 	Ha aggiornato i giochi del profilo 
+Updated profile visibility	Ha aggiornato la visibilità del profilo
+Updated profile visibility 	Ha aggiornato la visibilità del profilo 
+Updated server tag to	Ha aggiornato il tag del server in
+Updated server tag to 	Ha aggiornato il tag del server in 
+Closed	Chiuso
+Closed 	Chiuso 
+Public	Pubblico
+Public 	Pubblico 
+Set the privacy level to	Ha impostato il livello di privacy su
+Set the privacy level to 	Ha impostato il livello di privacy su 
+Added tag	Ha aggiunto il tag
+Added tag 	Ha aggiunto il tag 
+Deleted tag	Ha eliminato il tag
+Deleted tag 	Ha eliminato il tag 
+Updated tag from	Ha aggiornato il tag da
+Updated tag from 	Ha aggiornato il tag da 
+Discord ended the stage for 	Discord ha terminato lo Stage per 
+AutoMod blocked a message sent by 	AutoMod ha bloccato un messaggio inviato da 
+AutoMod flagged 	AutoMod ha segnalato 
+AutoMod flagged a message sent by 	AutoMod ha segnalato un messaggio inviato da 
+AutoMod timed out 	AutoMod ha messo in timeout 
+AutoMod quarantined 	AutoMod ha messo in quarantena 
+With reason 	Con motivo 
+ permission for 	 permesso per 
+a channel	un canale
+a member	un membro
+a role	un ruolo
+{} roles	{} ruoli
+{}+ users	{}+ utenti
+{} user	{} utente
+{} users	{} utenti
+a user	un utente
+{} action	{} azione
+{} actions	{} azioni
+a permission	un permesso
+permissions	permessi
+{} second	{} secondo
+{} minute	{} minuto
+a day	un giorno
+Set {} default channel	Ha impostato {} canale predefinito
+Set {} default channels	Ha impostato {} canali predefiniti
+ a permission for 	 un permesso per 
+ permissions for 	 permessi per 
+ a role	 un ruolo
+ some roles	 alcuni ruoli
+Set system channel {} to 	Ha impostato {} del canale di sistema su 
+{} from 	{} da 
+{} from	{} da
+This is a default emoji. It can be used anywhere.	Questa è un'emoji predefinita. Può essere usata ovunque.
+This emoji is from one of your servers.	Questa emoji proviene da uno dei tuoi server.
+Invite-Only Server	Server solo su invito
+This is a default sticker. It can be used anywhere.	Questo è uno sticker predefinito. Può essere usato ovunque.
+This sticker is from one of your servers.	Questo sticker proviene da uno dei tuoi server.
+This emoji is from	Questa emoji proviene da
+This sticker is from	Questo sticker proviene da
+Discoverable Server	Server individuabile
+{} Online	{} online
+Join this channel in a Matrix client first.	Entra prima in questo canale con un client Matrix.
+Voice encryption is unavailable. This connection was refused.	La crittografia vocale non è disponibile. La connessione è stata rifiutata.
+Voice joining timed out. Check the calling service and retry.	Tempo scaduto per entrare in vocale. Controlla il servizio di chiamata e riprova.
+Voice departure timed out. Check the connection before retrying.	Tempo scaduto per uscire dalla vocale. Controlla la connessione prima di riprovare.
+Could not finish leaving voice. Check the connection before retrying.	Impossibile completare l'uscita dalla vocale. Controlla la connessione prima di riprovare.
+This homeserver doesn't advertise a MatrixRTC calling service (MSC4143). Ask its administrator to add one, or set BACKCORD_RTC_AUTHORIZATION_URL.	Questo homeserver non dichiara un servizio di chiamata MatrixRTC (MSC4143). Chiedi all'amministratore di aggiungerne uno, oppure imposta BACKCORD_RTC_AUTHORIZATION_URL.
+The calling service refused the voice connection. Check that it allows this homeserver, then retry.	Il servizio di chiamata ha rifiutato la connessione vocale. Verifica che consenta questo homeserver, poi riprova.
+Could not join or finish leaving voice. Check the calling service and connection, then retry.	Impossibile entrare o uscire dalla vocale. Controlla il servizio di chiamata e la connessione, poi riprova.
+Select a voice channel to join voice.	Seleziona un canale vocale per entrare in vocale.
+This voice channel has no available call. Ask its owner to set it up.	Questo canale vocale non ha una chiamata disponibile. Chiedi al proprietario di configurarla.
+This voice channel does not require encrypted audio. Ask its owner to enable it.	Questo canale vocale non richiede audio crittografato. Chiedi al proprietario di attivarlo.
+Invalid calling-service URL. Check BACKCORD's configuration.	URL del servizio di chiamata non valido. Controlla la configurazione di BACKCORD.
+The calling-service URL needs HTTPS.	L'URL del servizio di chiamata richiede HTTPS.
+The calling-service URL must not contain credentials.	L'URL del servizio di chiamata non deve contenere credenziali.
+Selected microphone is unavailable. Choose another device.	Il microfono selezionato non è disponibile. Scegli un altro dispositivo.
+Could not switch microphone. Refresh devices and choose another.	Impossibile cambiare microfono. Aggiorna i dispositivi e scegline un altro.
+Selected speakers are unavailable. Choose another device.	Gli altoparlanti selezionati non sono disponibili. Scegli un altro dispositivo.
+Could not switch speakers. Refresh devices and choose another.	Impossibile cambiare altoparlanti. Aggiorna i dispositivi e scegline altri.
+No speakers found. Connect an audio output and retry.	Nessun altoparlante trovato. Collega un'uscita audio e riprova.
+Their audio can't be decrypted. They may need to rejoin.	Impossibile decrittare il suo audio. Potrebbe dover rientrare.
+Their audio key hasn't arrived, so you can't hear them yet.	La sua chiave audio non è ancora arrivata, quindi non puoi ancora sentirlo.
+Leave your current voice channel before joining another.	Esci dal canale vocale attuale prima di entrare in un altro.
+Screen sharing works in Discord calls for now.	Per ora la condivisione schermo funziona nelle chiamate Discord.
+Voice ended. Join again to reconnect.	Vocale terminata. Rientra per riconnetterti.
+Voice disconnected. Check your connection and join again.	Vocale disconnessa. Controlla la connessione e rientra.
+Audio encryption failed. Your microphone is muted. Check device verification or rejoin.	Crittografia audio non riuscita. Il tuo microfono è disattivato. Controlla la verifica del dispositivo o rientra.
+A participant's audio key was refused. They may need to verify their device.	La chiave audio di un partecipante è stata rifiutata. Potrebbe dover verificare il dispositivo.
+Voice could not reconnect within 60 seconds. Join again when your connection returns.	Impossibile riconnettere la vocale entro 60 secondi. Rientra quando la connessione torna.
+Audio stopped, but departure could not be confirmed. Channel membership will expire.	L'audio si è fermato, ma l'uscita non è stata confermata. La partecipazione al canale scadrà.
+Unrecognized account; audio keys can't be exchanged.	Account non riconosciuto; impossibile scambiare le chiavi audio.
+Changed identity since you verified them. Nobody can receive your audio key until you verify them again in a Matrix client.	Ha cambiato identità da quando l'hai verificato. Nessuno può ricevere la tua chiave audio finché non lo verifichi di nuovo in un client Matrix.
+Unknown device; audio keys can't be exchanged.	Dispositivo sconosciuto; impossibile scambiare le chiavi audio.
+Unverified device. It can't receive your audio key, and BACKCORD refuses its key.	Dispositivo non verificato. Non può ricevere la tua chiave audio e BACKCORD rifiuta la sua.
+Unknown device; your audio key may not reach it.	Dispositivo sconosciuto; la tua chiave audio potrebbe non raggiungerlo.
+Could not stop microphone capture. Leave voice to release the device.	Impossibile fermare l'acquisizione del microfono. Esci dalla vocale per liberare il dispositivo.
+No microphone found. Connect a microphone and refresh devices.	Nessun microfono trovato. Collega un microfono e aggiorna i dispositivi.
+Could not start your microphone. Check permissions or choose another device.	Impossibile avviare il microfono. Controlla i permessi o scegli un altro dispositivo.
+BACKCORD microphone	Microfono BACKCORD
+Could not publish your microphone. Check permissions and connection, then retry.	Impossibile pubblicare il microfono. Controlla permessi e connessione, poi riprova.
+Connected	Connesso
+Entire screen	Schermo intero
+Screen {}	Schermo {}
+Lost the stream connection: {}	Connessione alla diretta persa: {}
+Lost the stream: {}	Diretta persa: {}
+Screen sharing was cancelled, or this desktop has no screen sharing dialog.	La condivisione schermo è stata annullata, oppure questo desktop non ha una finestra per condividere lo schermo.
+Screen sharing isn't available on this system.	La condivisione schermo non è disponibile su questo sistema.
+That screen or window is gone.	Quello schermo o quella finestra non c'è più.
+Screen sharing stopped.	Condivisione schermo interrotta.
+That screen is gone.	Quello schermo non c'è più.
+the stream worker has stopped	il processo della diretta si è fermato
+could not reach the stream worker	impossibile raggiungere il processo della diretta
+could not start the stream worker	impossibile avviare il processo della diretta
+The video stopped unexpectedly.	Il video si è interrotto inaspettatamente.
+Screen sharing stopped unexpectedly.	La condivisione schermo si è interrotta inaspettatamente.
+could not find BACKCORD to start streaming	impossibile trovare BACKCORD per avviare la diretta
+up to {}x{}	fino a {}x{}
+This homeserver doesn't support sticky events (MSC4354), which BACKCORD voice channels need. Ask its administrator to enable them (Synapse: experimental_features.msc4354_enabled), or use another homeserver.	Questo homeserver non supporta gli eventi sticky (MSC4354), necessari ai canali vocali di BACKCORD. Chiedi all'amministratore di attivarli (Synapse: experimental_features.msc4354_enabled), oppure usa un altro homeserver.
+sign in before joining voice	accedi prima di entrare in vocale
+recover or verify this device before joining encrypted voice	recupera o verifica questo dispositivo prima di entrare nella vocale crittografata
+BACKCORD calls require an encrypted room; upgrade encryption explicitly first	le chiamate BACKCORD richiedono una stanza crittografata; aggiorna prima la crittografia
+encrypted media keys did not reach both participants; check device trust and Matrix sync	le chiavi multimediali crittografate non hanno raggiunto entrambi i partecipanti; controlla la fiducia dei dispositivi e la sincronizzazione Matrix
+Could not start voice. Restart BACKCORD and try again.	Impossibile avviare la vocale. Riavvia BACKCORD e riprova.
+could not start voice worker	impossibile avviare il processo vocale
+This build of BACKCORD has no Matrix voice.	Questa build di BACKCORD non ha la vocale Matrix.
+Audio devices are unavailable. Check your system's audio service and permissions.	I dispositivi audio non sono disponibili. Controlla il servizio audio del sistema e i permessi.
+not a sound BACKCORD can play	non è un suono che BACKCORD può riprodurre
+the file has no sound	il file non contiene audio
+the sound is empty	il suono è vuoto
+could not start mixing the stream's sound	impossibile avviare il mixaggio dell'audio della diretta
+Stream sound	Audio della diretta
+could not open the speakers	impossibile aprire gli altoparlanti
+the stream's sound stopped before it started	l'audio della diretta si è fermato prima di iniziare
+Test pattern	Immagine di prova
+Could not start your camera. It may be in use by another app.	Impossibile avviare la videocamera. Potrebbe essere in uso da un'altra app.
+No camera found. Connect one and try again.	Nessuna videocamera trovata. Collegane una e riprova.
+Could not start your camera.	Impossibile avviare la videocamera.
+Cameras work on Linux and Windows for now.	Per ora le videocamere funzionano su Linux e Windows.
+this build of BACKCORD can't decode H265	questa build di BACKCORD non sa decodificare H265
+Sound	Suono
+could not play	impossibile riprodurre
+could not finish playing	impossibile completare la riproduzione
+BACKCORD couldn't download this voice message.	BACKCORD non è riuscito a scaricare questo messaggio vocale.
+Voice message	Messaggio vocale
+BACKCORD couldn't play this voice message.	BACKCORD non è riuscito a riprodurre questo messaggio vocale.
+Input level	Livello di ingresso
+could not open the microphone	impossibile aprire il microfono
+the microphone stopped	il microfono si è fermato
+Discord didn't send the audit log: {}	Discord non ha inviato il registro attività: {}
+That didn't work: {}	Non ha funzionato: {}
+Couldn't revoke the invite: {}	Impossibile revocare l'invito: {}
+Couldn't save the security actions: {}	Impossibile salvare le azioni di sicurezza: {}
+Discord didn't send the invites: {}	Discord non ha inviato gli inviti: {}
+Discord didn't send the members: {}	Discord non ha inviato i membri: {}
+Discord is still indexing the server's members. Try again in a while.	Discord sta ancora indicizzando i membri del server. Riprova tra un po'.
+Couldn't delete the server: {}	Impossibile eliminare il server: {}
+Discord didn't send your profile: {}	Discord non ha inviato il tuo profilo: {}
+There was a problem updating your server profile: {}	Si è verificato un problema durante l'aggiornamento del profilo del server: {}
+There was a problem updating your profile: {}	Si è verificato un problema durante l'aggiornamento del profilo: {}
+a profile picture	un'immagine del profilo
+BACKCORD could not read {}.	BACKCORD non è riuscito a leggere {}.
+{} is {}; {} can be up to {}.	{0} pesa {1}; il limite per {2} è {3}.
+{} isn't a PNG, JPG, GIF or WebP picture.	{} non è un'immagine PNG, JPG, GIF o WebP.
+Discord didn't send a code: {}	Discord non ha inviato un codice: {}
+Discord didn't send the server's settings: {}	Discord non ha inviato le impostazioni del server: {}
+a server icon	un'icona del server
+a server banner	un banner del server
+an invite background	uno sfondo dell'invito
+a role icon	un'icona del ruolo
+Couldn't save the changes: {}	Impossibile salvare le modifiche: {}
+Couldn't revoke the ban: {}	Impossibile revocare il ban: {}
+Discord didn't send the bans: {}	Discord non ha inviato i ban: {}
+That isn't a Discord room.	Questa non è una stanza Discord.
+Could not open this Discord channel.	Impossibile aprire questo canale Discord.
+Open this conversation again, then retry.	Riapri questa conversazione, poi riprova.
+That message is still sending, so it can't be cancelled.	Quel messaggio è ancora in invio, quindi non può essere annullato.
+BACKCORD couldn't find that message.	BACKCORD non ha trovato quel messaggio.
+Could not open this Discord thread.	Impossibile aprire questo thread Discord.
+Discord didn't send this channel's member list.	Discord non ha inviato l'elenco membri di questo canale.
+Couldn't post the poll: {}	Impossibile pubblicare il sondaggio: {}
+Forwarding doesn't cross between Discord and Matrix.	Non puoi inoltrare messaggi tra Discord e Matrix.
+You can forward that message once it has been sent.	Potrai inoltrare quel messaggio una volta inviato.
+The message you added is over 2,000 characters.	Il messaggio che hai aggiunto supera i 2.000 caratteri.
+Couldn't load apps' commands: {}	Impossibile caricare i comandi delle app: {}
+Oh no! Something went wrong. {}	Oh no! Qualcosa è andato storto. {}
+That emoji was too big! Emoji must be under {} KB.	Quell'emoji era troppo grande! Le emoji devono pesare meno di {} KB.
+an emoji	un'emoji
+That sticker was too big! Stickers must be under {}.	Quello sticker era troppo grande! Gli sticker devono pesare meno di {}.
+Unsupported file format	Formato file non supportato
+Invalid sticker file	File sticker non valido
+Couldn't load GIFs: {}	Impossibile caricare le GIF: {}
+Couldn't load your favourite GIFs: {}	Impossibile caricare le tue GIF preferite: {}
+Couldn't save your favourite GIFs: {}	Impossibile salvare le tue GIF preferite: {}
+Couldn't save your favourite emoji: {}	Impossibile salvare le tue emoji preferite: {}
+This interaction failed	Questa interazione non è riuscita
+Slow down! You're clicking too fast.	Rallenta! Stai cliccando troppo velocemente.
+Open a Discord channel first.	Apri prima un canale Discord.
+A command carries up to 25 files.	Un comando può contenere al massimo 25 file.
+Choose a file to send.	Scegli un file da inviare.
+This app opens a page BACKCORD can't show. Use it in Discord.	Questa app apre una pagina che BACKCORD non può mostrare. Usala su Discord.
+new role	nuovo ruolo
+Discord didn't send the role's members: {}	Discord non ha inviato i membri del ruolo: {}
+Discord friend	Amico su Discord
+On Discord	Su Discord
+Could not start the DM: {}	Impossibile avviare il messaggio diretto: {}
+Could not send or accept the friend request: {}	Impossibile inviare o accettare la richiesta di amicizia: {}
+Could not remove the friend request: {}	Impossibile rimuovere la richiesta di amicizia: {}
+Could not decline the call: {}	Impossibile rifiutare la chiamata: {}
+Could not accept the message request: {}	Impossibile accettare la richiesta di messaggio: {}
+Could not ignore the message request: {}	Impossibile ignorare la richiesta di messaggio: {}
+Couldn't load the threads: {}	Impossibile caricare i thread: {}
+Couldn't start the thread: {}	Impossibile avviare il thread: {}
+Couldn't create the post: {}	Impossibile creare il post: {}
+Couldn't load the posts: {}	Impossibile caricare i post: {}
+Could not add them: {}	Impossibile aggiungerli: {}
+Could not make the group: {}	Impossibile creare il gruppo: {}
+Could not make an invite: {}	Impossibile creare un invito: {}
+Couldn't send the invite: {}	Impossibile inviare l'invito: {}
+Couldn't join the server: {}	Impossibile unirsi al server: {}
+Couldn't change your interest: {}	Impossibile cambiare il tuo interesse: {}
+Couldn't redeem the gift: {}	Impossibile riscattare il regalo: {}
+That isn't an authorization link.	Questo non è un link di autorizzazione.
+Couldn't authorize it: {}	Impossibile autorizzarlo: {}
+Couldn't open the thread: {}	Impossibile aprire il thread: {}
+Discord isn't connected.	Discord non è connesso.
+Could not write the file. Choose another folder.	Impossibile scrivere il file. Scegli un'altra cartella.
+Could not download the file from Discord. Try again.	Impossibile scaricare il file da Discord. Riprova.
+Couldn't leave the server: {}	Impossibile abbandonare il server: {}
+Couldn't leave the group: {}	Impossibile abbandonare il gruppo: {}
+Couldn't load the channel: {}	Impossibile caricare il canale: {}
+Couldn't {}: {}	Impossibile {}: {}
+Could not {}: {}	Impossibile {}: {}
+make the channel	creare il canale
+save the channel	salvare il canale
+delete the channel	eliminare il canale
+set the channel status	impostare lo stato del canale
+Couldn't make the channel: {}	Impossibile creare il canale: {}
+Couldn't save the channel: {}	Impossibile salvare il canale: {}
+Couldn't delete the channel: {}	Impossibile eliminare il canale: {}
+Couldn't set the channel status: {}	Impossibile impostare lo stato del canale: {}
+change the nickname	cambiare il nickname
+give the role	assegnare il ruolo
+take the role away	rimuovere il ruolo
+time them out	applicare un timeout
+remove the timeout	rimuovere il timeout
+kick them	espellere l'utente
+ban them	bannare l'utente
+server mute them	silenziare l'utente nel server
+unmute them	riattivare l'audio dell'utente
+server deafen them	disattivare l'audio dell'utente nel server
+undeafen them	riattivare l'audio in uscita dell'utente
+move them	spostare l'utente
+disconnect them	disconnettere l'utente
+remove the friend	rimuovere l'amico
+block them	bloccare l'utente
+unblock them	sbloccare l'utente
+ignore them	ignorare l'utente
+stop ignoring them	smettere di ignorare l'utente
+close the DM	chiudere il messaggio diretto
+change the notification settings	cambiare le impostazioni delle notifiche
+pin the channel	fissare il canale
+unpin the channel	rimuovere il canale dai fissati
+move the channel	spostare il canale
+add it to the channel list	aggiungerlo all'elenco dei canali
+remove it from the channel list	rimuoverlo dall'elenco dei canali
+change which channels show	cambiare i canali visibili
+join the thread	unirsi al thread
+leave the thread	abbandonare il thread
+mute the DM	silenziare il messaggio diretto
+unmute the DM	riattivare il messaggio diretto
+Couldn't load the stickers: {}	Impossibile caricare gli sticker: {}
+Couldn't send the sticker: {}	Impossibile inviare lo sticker: {}
+Stickers aren't on Matrix.	Gli sticker non esistono su Matrix.
+Discord messages must contain text and be at most 2,000 characters.	I messaggi Discord devono contenere testo e avere al massimo 2.000 caratteri.
+A Discord message carries up to 10 files.	Un messaggio Discord può contenere al massimo 10 file.
+BACKCORD could not read a file.	BACKCORD non è riuscito a leggere un file.
+You can reply once that message has been sent.	Potrai rispondere una volta inviato quel messaggio.
+Only sent messages can be edited.	Solo i messaggi inviati possono essere modificati.
+Could not delete the message: {}	Impossibile eliminare il messaggio: {}
+Could not pin the message: {}	Impossibile fissare il messaggio: {}
+Could not unpin the message: {}	Impossibile rimuovere il messaggio dai fissati: {}
+Couldn't remove the reaction: {}	Impossibile rimuovere la reazione: {}
+That reaction is gone.	Quella reazione non c'è più.
+Couldn't load who reacted: {}	Impossibile caricare chi ha reagito: {}
+Couldn't vote: {}	Impossibile votare: {}
+Couldn't end the poll: {}	Impossibile terminare il sondaggio: {}
+That poll is gone.	Quel sondaggio non c'è più.
+Couldn't load who voted: {}	Impossibile caricare chi ha votato: {}
+That message has no file to save.	Quel messaggio non ha file da salvare.
+This picture is no longer available.	Questa immagine non è più disponibile.
+BACKCORD couldn't copy this picture. Save it instead.	BACKCORD non è riuscito a copiare questa immagine. Salvala invece.
+This image is no longer available.	Questa immagine non è più disponibile.
+BACKCORD can't show this image. Save it to open it elsewhere.	BACKCORD non può mostrare questa immagine. Salvala per aprirla altrove.
+Discord stopped sending this image. Try again.	Discord ha smesso di inviare questa immagine. Riprova.
+BACKCORD couldn't download this image from Discord. Try again.	BACKCORD non è riuscito a scaricare questa immagine da Discord. Riprova.
+The original message was deleted.	Il messaggio originale è stato eliminato.
+The original message couldn't be loaded.	Impossibile caricare il messaggio originale.
+Loading the original message...	Caricamento del messaggio originale...
+Sent a sticker	Ha inviato uno sticker
+Sent a picture	Ha inviato un'immagine
+Sent a file	Ha inviato un file
+[poll] {}	[sondaggio] {}
+Sent a message	Ha inviato un messaggio
+{} live	{} in diretta
+Pro Audio	Audio professionale
+these speakers are no longer connected	questi altoparlanti non sono più collegati
+the speakers stopped playing	gli altoparlanti hanno smesso di riprodurre
+this microphone is no longer connected	questo microfono non è più collegato
+the microphone went away	il microfono è stato scollegato
+could not start hearing other applications	impossibile iniziare ad ascoltare le altre applicazioni
+Windows won't share other applications' sound	Windows non condivide l'audio delle altre applicazioni
+could not hear other applications	impossibile ascoltare le altre applicazioni
+the sound stopped	l'audio si è fermato
+Windows didn't answer	Windows non ha risposto
+no audio device service	nessun servizio dei dispositivi audio
+no default device	nessun dispositivo predefinito
+device not found	dispositivo non trovato
+device not connected	dispositivo non collegato
+the device refused a stream	il dispositivo ha rifiutato un flusso
+the device refused the stream's format	il dispositivo ha rifiutato il formato del flusso
+the device wouldn't start	il dispositivo non si è avviato
+the device went away	il dispositivo è stato scollegato
+the device stopped	il dispositivo si è fermato
+could not reach the sound server	impossibile raggiungere il server audio
+the sound server refused BACKCORD	il server audio ha rifiutato BACKCORD
+the sound server connection ended	la connessione al server audio è terminata
+could not start capturing sound	impossibile avviare l'acquisizione audio
+sound capture stopped before it started	l'acquisizione audio si è fermata prima di iniziare
+could not reach PulseAudio	impossibile raggiungere PulseAudio
+PulseAudio's main loop failed	il ciclo principale di PulseAudio non è riuscito
+PulseAudio went away	PulseAudio non è più disponibile
+BACKCORD stream sound	Audio della diretta BACKCORD
+PulseAudio refused a capture stream	PulseAudio ha rifiutato un flusso di acquisizione
+BACKCORD has no sound on this system yet.	BACKCORD non ha ancora l'audio su questo sistema.
+BACKCORD shares sound on Linux only for now	per ora BACKCORD condivide l'audio solo su Linux
+Ringing	Sta squillando
+Smileys & emotion	Faccine ed emozioni
+People & body	Persone e corpo
+Animals & nature	Animali e natura
+Food & drink	Cibo e bevande
+Travel & places	Viaggi e luoghi
+Activities	Attività
+Objects	Oggetti
+Symbols	Simboli
+Flags	Bandiere
+Credentials are stored in the OS credential store.	Le credenziali sono salvate nell'archivio credenziali del sistema.
+Secret Service is unavailable. Credentials are in a private file readable by your Linux user.	Secret Service non è disponibile. Le credenziali sono in un file privato leggibile dal tuo utente Linux.
+this homeserver requires SSO or OAuth sign-in; this build supports password sign-in only	questo homeserver richiede l'accesso SSO o OAuth; questa build supporta solo l'accesso con password
+sign-in failed; check the homeserver, username and password	accesso non riuscito; controlla homeserver, nome utente e password
+not signed in	accesso non effettuato
+could not start Matrix sync; this homeserver needs Simplified Sliding Sync	impossibile avviare la sincronizzazione Matrix; questo homeserver richiede Simplified Sliding Sync
+recovery failed; check the recovery key and homeserver connection	recupero non riuscito; controlla la chiave di recupero e la connessione all'homeserver
+logout failed; credentials were kept so you can retry	disconnessione non riuscita; le credenziali sono state mantenute per riprovare
+Matrix sync stopped; check homeserver support and connection	sincronizzazione Matrix interrotta; controlla il supporto dell'homeserver e la connessione
+Matrix sync stopped before it loaded the account	la sincronizzazione Matrix si è interrotta prima di caricare l'account
+Matrix sync did not load the account before its deadline	la sincronizzazione Matrix non ha caricato l'account in tempo
+invalid homeserver URL	URL dell'homeserver non valido
+homeservers require HTTPS; HTTP is allowed only for the local development stack	gli homeserver richiedono HTTPS; HTTP è consentito solo per lo stack di sviluppo locale
+homeserver URLs must not contain credentials	gli URL degli homeserver non devono contenere credenziali
+could not check the homeserver's sign-in methods	impossibile verificare i metodi di accesso dell'homeserver
+Unassigned	Non assegnata
+Push to Talk (Normal)	Push to Talk (normale)
+Push to Mute	Premi per silenziare
+Toggle Mute	Attiva/disattiva microfono
+Toggle Deafen	Attiva/disattiva audio
+Toggle VAD	Attiva/disattiva VAD
+This action doesn't do anything! Please choose one from the drop down.	Questa azione non fa nulla! Scegline una dal menu a tendina.
+Hold to temporarily enable your microphone while in Push to Talk mode.	Tieni premuto per attivare temporaneamente il microfono in modalità Push to Talk.
+Hold to temporarily disable your microphone while in Voice Activity mode.	Tieni premuto per disattivare temporaneamente il microfono in modalità Attività vocale.
+Toggle your microphone's transmission on and off.	Attiva o disattiva la trasmissione del microfono.
+Toggle your speaker's playback on and off. Also disables your microphone while deafened.	Attiva o disattiva la riproduzione degli altoparlanti. Disattiva anche il microfono quando l'audio è disattivato.
+Toggle to switch between Push To Talk and Voice Activity mode.	Passa dalla modalità Push to Talk a quella Attività vocale e viceversa.
+Asking your desktop to let BACKCORD use the key in every app...	Richiesta al desktop di consentire a BACKCORD di usare il tasto in ogni app...
+Hold the key in any app to talk.	Tieni premuto il tasto in qualsiasi app per parlare.
+Your desktop gave push to talk the shortcut {}. Hold it in any app to talk; change it in your system's global shortcuts settings.	Il desktop ha assegnato al push to talk la scorciatoia {}. Tienila premuta in qualsiasi app per parlare; cambiala nelle impostazioni delle scorciatoie globali del sistema.
+Your desktop hasn't allowed this shortcut yet. Approve it in your system's global shortcuts settings.	Il desktop non ha ancora consentito questa scorciatoia. Approvala nelle impostazioni delle scorciatoie globali del sistema.
+{}, so push to talk works only while BACKCORD's window is in front.	{}, quindi il push to talk funziona solo con la finestra di BACKCORD in primo piano.
+Asking your desktop to let BACKCORD use these keybinds in every app...	Richiesta al desktop di consentire a BACKCORD di usare queste scorciatoie in ogni app...
+Keybinds work in any app.	Le scorciatoie funzionano in qualsiasi app.
+Your desktop runs these keybinds in every app: it may ask you to allow each, or give one other keys. Change them in your system's global shortcuts settings.	Il desktop esegue queste scorciatoie in ogni app: potrebbe chiederti di consentirle una per una, o assegnarne altri tasti. Cambiale nelle impostazioni delle scorciatoie globali del sistema.
+{}, so keybinds work only while BACKCORD's window is in front.	{}, quindi le scorciatoie funzionano solo con la finestra di BACKCORD in primo piano.
+Your desktop gave it the shortcut {}.	Il desktop le ha assegnato la scorciatoia {}.
+Your desktop hasn't allowed it yet.	Il desktop non l'ha ancora consentita.
+could not start the Discord microphone	impossibile avviare il microfono Discord
+Discord voice	Vocale Discord
+could not start Discord speakers	impossibile avviare gli altoparlanti Discord
+The speakers didn't open in time.	Gli altoparlanti non si sono aperti in tempo.
+Could not open your speakers. Choose another device.	Impossibile aprire gli altoparlanti. Scegli un altro dispositivo.
+The microphone didn't open in time.	Il microfono non si è aperto in tempo.
+Could not open your microphone. Check permissions or choose another device.	Impossibile aprire il microfono. Controlla i permessi o scegli un altro dispositivo.
+Discord microphone	Microfono Discord
+Couldn't connect to Discord voice: {}.	Impossibile connettersi alla vocale di Discord: {}.
+Someone	Qualcuno
+Discord voice has no sound on this system yet.	La vocale di Discord non ha ancora l'audio su questo sistema.
+Discord call	Chiamata Discord
+Discord voice took too long to connect. Try again.	La vocale di Discord ha impiegato troppo a connettersi. Riprova.
+Discord didn't play {}: {}	Discord non ha riprodotto {}: {}
+Couldn't change your favorite sounds: {}	Impossibile modificare i tuoi suoni preferiti: {}
+Discord doesn't let you ring {}. They'll see the call when they open the DM.	Discord non ti consente di far squillare {}. Vedrà la chiamata quando aprirà il messaggio diretto.
+Discord didn't ring them: {}	Discord non l'ha fatto squillare: {}
+Discord ended your stream.	Discord ha terminato la tua diretta.
+Discord moved the call to another voice server, and BACKCORD couldn't connect to it. Join again.	Discord ha spostato la chiamata su un altro server vocale e BACKCORD non è riuscito a connettersi. Rientra.
+Discord moved the call to another voice server, which took too long to answer. Join again.	Discord ha spostato la chiamata su un altro server vocale, che ha impiegato troppo a rispondere. Rientra.
+Lost the connection to Discord. Join again when it's back.	Connessione a Discord persa. Rientra quando torna.
+could not keep the video	impossibile conservare il video
+the server sent another part of the video	il server ha inviato un'altra parte del video
+the server sent none of the video	il server non ha inviato nulla del video
+the video's size is unknown	la dimensione del video è sconosciuta
+Could not start your camera's video.	Impossibile avviare il video della videocamera.
+BACKCORD camera	Videocamera BACKCORD
+Could not send your camera. Check your connection and try again.	Impossibile inviare la videocamera. Controlla la connessione e riprova.
+Today at {}	Oggi alle {}
+Yesterday at {}	Ieri alle {}
+Tomorrow at {}	Domani alle {}
+Last {} at {}	{} scorso alle {}
+Last Sunday at {}	Domenica scorsa alle {}
+Monday	Lunedì
+Tuesday	Martedì
+Wednesday	Mercoledì
+Thursday	Giovedì
+Friday	Venerdì
+Saturday	Sabato
+Sunday	Domenica
+NVENC on the GPU	NVENC sulla GPU
+AMF on the GPU	AMF sulla GPU
+VA-API on the GPU ({})	VA-API sulla GPU ({})
+VA-API on the GPU	VA-API sulla GPU
+{} on the CPU	{} sulla CPU
+{}×{} at {} fps	{}×{} a {} fps
+the download failed	il download non è riuscito
+could not open the video	impossibile aprire il video
+could not start decoding the video	impossibile avviare la decodifica del video
+could not start the video's sound	impossibile avviare l'audio del video
+a picture	un'immagine
+BACKCORD can't play this video.	BACKCORD non può riprodurre questo video.
+This voice message is no longer available.	Questo messaggio vocale non è più disponibile.
+This video is no longer available.	Questo video non è più disponibile.
+BACKCORD couldn't play this video.	BACKCORD non è riuscito a riprodurre questo video.
+the video's pictures are in a format BACKCORD doesn't show	le immagini del video sono in un formato che BACKCORD non mostra
+could not decode the video ({})	impossibile decodificare il video ({})
+could not convert the video's picture	impossibile convertire l'immagine del video
+could not move to {} ms in the video	impossibile spostarsi a {} ms nel video
+Discord didn't accept that token.	Discord non ha accettato quel token.
+BACKCORD couldn't link Discord: {}	BACKCORD non è riuscito a collegare Discord: {}
+Message requests	Richieste di messaggi
+Sent {} files	Ha inviato {} file
+Games	Giochi
+This room is no longer joined. Select another conversation.	Non fai più parte di questa stanza. Seleziona un'altra conversazione.
+Could not open this conversation. Select it again to retry.	Impossibile aprire questa conversazione. Selezionala di nuovo per riprovare.
+Could not change the reaction. Check your connection and try again.	Impossibile modificare la reazione. Controlla la connessione e riprova.
+Could not delete the message. Check your connection and try again.	Impossibile eliminare il messaggio. Controlla la connessione e riprova.
+That message was already sent, so it could not be cancelled.	Quel messaggio era già stato inviato, quindi non è stato possibile annullarlo.
+Could not load older messages. Check your connection and try again.	Impossibile caricare i messaggi precedenti. Controlla la connessione e riprova.
+Could not load newer messages. Check your connection and try again.	Impossibile caricare i messaggi più recenti. Controlla la connessione e riprova.
+Recovery failed. Check your recovery key and connection, then retry.	Recupero non riuscito. Controlla la chiave di recupero e la connessione, poi riprova.
+Could not check device verification. Check your connection and retry.	Impossibile verificare lo stato del dispositivo. Controlla la connessione e riprova.
+Sign-out failed. Your session is kept. Check the connection and try again.	Disconnessione non riuscita. La sessione è stata mantenuta. Controlla la connessione e riprova.
+Could not start the DM. Check the Matrix id and your connection.	Impossibile avviare il messaggio diretto. Controlla l'ID Matrix e la connessione.
+That isn't a Matrix id, such as @name:example.org.	Questo non è un ID Matrix, come @nome:example.org.
+Could not load the member list. Open the channel again to retry.	Impossibile caricare l'elenco membri. Riapri il canale per riprovare.
+Verify this device before sending. Use your recovery key or another Matrix client.	Verifica questo dispositivo prima di inviare. Usa la chiave di recupero o un altro client Matrix.
+Sending is available only in joined, encrypted rooms.	L'invio è disponibile solo nelle stanze crittografate di cui fai parte.
+Messages must contain text and be under 16 KB.	I messaggi devono contenere testo e pesare meno di 16 KB.
+BACKCORD could not find the message to reply to.	BACKCORD non ha trovato il messaggio a cui rispondere.
+BACKCORD could not queue this message. Your draft is kept.	BACKCORD non è riuscito a mettere in coda questo messaggio. La bozza è stata mantenuta.
+This message can no longer be edited.	Questo messaggio non può più essere modificato.
+BACKCORD could not queue the message you added. Check your connection.	BACKCORD non è riuscito a mettere in coda il messaggio che hai aggiunto. Controlla la connessione.
+Verify this device before forwarding. Use your recovery key or another Matrix client.	Verifica questo dispositivo prima di inoltrare. Usa la chiave di recupero o un altro client Matrix.
+This message can't be forwarded.	Questo messaggio non può essere inoltrato.
+That conversation is no longer joined.	Non fai più parte di quella conversazione.
+Forwarding is available only into joined, encrypted rooms.	L'inoltro è disponibile solo verso stanze crittografate di cui fai parte.
+BACKCORD could not queue the forwarded message. Check your connection and retry.	BACKCORD non è riuscito a mettere in coda il messaggio inoltrato. Controlla la connessione e riprova.
+BACKCORD could not read that file.	BACKCORD non è riuscito a leggere quel file.
+Files must be 50 MB or smaller.	I file devono pesare al massimo 50 MB.
+BACKCORD could not queue that file. Check that it is readable and retry.	BACKCORD non è riuscito a mettere in coda quel file. Verifica che sia leggibile e riprova.
+This image is too large to show here. Save it to open it elsewhere.	Questa immagine è troppo grande per essere mostrata qui. Salvala per aprirla altrove.
+BACKCORD couldn't download this image. Check your connection and try again.	BACKCORD non è riuscito a scaricare questa immagine. Controlla la connessione e riprova.
+This file is no longer available.	Questo file non è più disponibile.
+This file is larger than BACKCORD saves.	Questo file supera la dimensione che BACKCORD può salvare.
+BACKCORD could not write the file there. Choose another folder.	BACKCORD non è riuscito a scrivere il file lì. Scegli un'altra cartella.
+BACKCORD could not download or decrypt this file. Check your connection and retry.	BACKCORD non è riuscito a scaricare o decrittare questo file. Controlla la connessione e riprova.
+Encrypted message	Messaggio crittografato
+Image	Immagine
+Unable to decrypt. Recover your keys to read this message.	Impossibile decrittare. Recupera le chiavi per leggere questo messaggio.
+The original message could not be loaded.	Impossibile caricare il messaggio originale.
+{} encodes only on a GPU, and this one has no encoder for it	{} codifica solo su GPU, e questa non ha un codificatore adatto
+could not start the {} encoder	impossibile avviare il codificatore {}
+could not start the {} decoder	impossibile avviare il decodificatore {}
+{} is {}; files here can be up to {}.	{0} pesa {1}; qui i file possono pesare al massimo {2}.
+Invalid file type	Tipo di file non valido
+Too many uploads!	Troppi caricamenti!
+Your files are too powerful	I tuoi file sono troppo potenti
+That file type is not supported.	Quel tipo di file non è supportato.
+You can only upload {} files at a time!	Puoi caricare solo {} file alla volta!
+Max file size is {} MB please.	La dimensione massima dei file è {} MB.
+no Discord account is linked	nessun account Discord collegato
+could not save the token in the OS credential store	impossibile salvare il token nell'archivio credenziali del sistema
+could not read the token from the OS credential store	impossibile leggere il token dall'archivio credenziali del sistema
+could not remove the token from the OS credential store	impossibile rimuovere il token dall'archivio credenziali del sistema
+That doesn't look like a Discord token.	Non sembra un token Discord.
+SOCKS5 proxy: {}	Proxy SOCKS5: {}
+wrong name or password	nome o password errati
+no way to sign in it accepts	nessun metodo di accesso accettato
+refused the connection (code {})	ha rifiutato la connessione (codice {})
+answered strangely	ha risposto in modo anomalo
+HTTP proxy: no answer	Proxy HTTP: nessuna risposta
+HTTP proxy refused the connection ({})	Il proxy HTTP ha rifiutato la connessione ({})
+no address for {}	nessun indirizzo per {}
+Discord chose an encryption mode BACKCORD doesn't know: {}	Discord ha scelto una modalità di crittografia che BACKCORD non conosce: {}
+the call stopped while connecting	la chiamata si è interrotta durante la connessione
+the call has ended	la chiamata è terminata
+the call ended while moving	la chiamata è terminata durante lo spostamento
+could not connect to Discord voice	impossibile connettersi alla vocale di Discord
+Discord gave a voice server BACKCORD won't connect to	Discord ha indicato un server vocale a cui BACKCORD non si connette
+Discord closed the voice connection ({}: {})	Discord ha chiuso la connessione vocale ({}: {})
+Discord closed the voice connection	Discord ha chiuso la connessione vocale
+couldn't send address discovery to the voice server	impossibile inviare la richiesta di rilevamento indirizzo al server vocale
+the voice server's address discovery answer was malformed, after {} tries over {} s	la risposta al rilevamento indirizzo del server vocale era malformata, dopo {} tentativi in {} s
+the voice server didn't answer address discovery, asked {} times over {} s	il server vocale non ha risposto al rilevamento indirizzo, richiesto {} volte in {} s
+the voice server didn't answer	il server vocale non ha risposto
+couldn't reach the voice server	impossibile raggiungere il server vocale
+the voice server sent no SSRC	il server vocale non ha inviato l'SSRC
+the voice server sent no address	il server vocale non ha inviato l'indirizzo
+the voice server sent no port	il server vocale non ha inviato la porta
+the voice server offers no encryption BACKCORD knows	il server vocale non offre una crittografia nota a BACKCORD
+the voice server sent no key	il server vocale non ha inviato la chiave
+the voice server took too long to connect	il server vocale ha impiegato troppo a connettersi
+the voice server took too long to resume	il server vocale ha impiegato troppo a riprendere
+Custom Status	Stato personalizzato
+The code expired.	Il codice è scaduto.
+Linking was cancelled on the phone.	Il collegamento è stato annullato sul telefono.
+could not make a key to link with	impossibile creare una chiave per il collegamento
+could not encode the key to link with	impossibile codificare la chiave per il collegamento
+Can't reach Discord's login service.	Impossibile raggiungere il servizio di accesso di Discord.
+could not understand Discord's login service	impossibile interpretare il servizio di accesso di Discord
+Discord's login service sent no code	il servizio di accesso di Discord non ha inviato alcun codice
+Discord's login service sent no ticket	il servizio di accesso di Discord non ha inviato alcun ticket
+Discord didn't take the captcha. Try again.	Discord non ha accettato il captcha. Riprova.
+Discord's login service sent nothing to read	il servizio di accesso di Discord non ha inviato nulla da leggere
+could not read Discord's login service	impossibile leggere il servizio di accesso di Discord
+could not read what Discord's login service sent	impossibile leggere ciò che ha inviato il servizio di accesso di Discord
+Discord's login service sent a login BACKCORD can't read	il servizio di accesso di Discord ha inviato un accesso che BACKCORD non sa leggere
+Discord closed the gateway: {} {}	Discord ha chiuso il gateway: {} {}
+Discord ended the gateway session	Discord ha terminato la sessione del gateway
+BACKCORD started too many Discord gateway sessions within the hour	BACKCORD ha avviato troppe sessioni del gateway Discord nell'ultima ora
+Discord's gateway didn't answer	il gateway di Discord non ha risposto
+could not reach Discord's gateway	impossibile raggiungere il gateway di Discord
+the Discord gateway connection stopped	la connessione al gateway di Discord si è interrotta
+Discord's gateway stopped answering heartbeats	il gateway di Discord ha smesso di rispondere agli heartbeat
+Discord asked the gateway to reconnect	Discord ha chiesto al gateway di riconnettersi
+Discord asked the gateway to resume	Discord ha chiesto al gateway di riprendere
+Discord's gateway stopped taking commands	il gateway di Discord ha smesso di accettare comandi
+could not send to Discord's gateway	impossibile inviare al gateway di Discord
+Discord's gateway didn't greet	il gateway di Discord non ha salutato
+Discord's gateway didn't greet as expected	il gateway di Discord non ha salutato come previsto
+Discord's gateway sent no heartbeat interval	il gateway di Discord non ha inviato l'intervallo di heartbeat
+could not resume the gateway session	impossibile riprendere la sessione del gateway
+Discord closed the gateway	Discord ha chiuso il gateway
+lost the connection to Discord's gateway	connessione al gateway di Discord persa
+could not understand Discord's gateway	impossibile interpretare il gateway di Discord
+Discord's gateway sent too much at once	il gateway di Discord ha inviato troppi dati in una volta
+could not inflate what Discord's gateway sent	impossibile decomprimere ciò che ha inviato il gateway di Discord
+Discord's gateway sent a compressed stream that stopped	il gateway di Discord ha inviato un flusso compresso che si è interrotto
+Discord didn't list the commands. Try again in a moment.	Discord non ha elencato i comandi. Riprova tra poco.
+Discord is still listing the commands. Try again soon.	Discord sta ancora elencando i comandi. Riprova a breve.
+Members — {}	Membri — {}
+Discord user	Utente Discord
+Unnamed group	Gruppo senza nome
+Another voice join replaced this one.	Un altro ingresso in vocale ha sostituito questo.
+Discord didn't assign a voice server. Try again.	Discord non ha assegnato un server vocale. Riprova.
+Join the call before going live.	Entra nella chiamata prima di andare in diretta.
+Going live again replaced this attempt.	Una nuova diretta ha sostituito questo tentativo.
+Watching again replaced this attempt.	Una nuova visione ha sostituito questo tentativo.
+Join the call to watch its streams.	Entra nella chiamata per guardarne le dirette.
+That isn't a stream BACKCORD knows how to watch.	Questa non è una diretta che BACKCORD sa guardare.
+The stream was stopped before it started.	La diretta è stata interrotta prima di iniziare.
+The stream is full.	La diretta è piena.
+You aren't allowed to stream or watch here.	Non hai il permesso di trasmettere o guardare dirette qui.
+The stream ended before it started.	La diretta è terminata prima di iniziare.
+Discord didn't assign a stream server. Try again.	Discord non ha assegnato un server per la diretta. Riprova.
+Discord refused the saved login. Link your Discord account again.	Discord ha rifiutato l'accesso salvato. Collega di nuovo il tuo account Discord.
+Discord keeps ending the connection, so BACKCORD stopped reconnecting. Restart BACKCORD to try again.	Discord continua a chiudere la connessione, quindi BACKCORD ha smesso di riconnettersi. Riavvia BACKCORD per riprovare.
+Can't reach Discord. Reconnecting...	Impossibile raggiungere Discord. Riconnessione...
+Discord isn't connected right now. Try again in a moment.	Discord non è connesso al momento. Riprova tra poco.
+Discord disconnected while joining voice.	Discord si è disconnesso durante l'ingresso in vocale.
+Discord disconnected while opening the stream.	Discord si è disconnesso durante l'apertura della diretta.
+Discord rejected the login. Link Discord again.	Discord ha rifiutato l'accesso. Collega di nuovo Discord.
+Discord answered {}	Discord ha risposto {}
+the file is too large	il file è troppo grande
+Discord stopped sending the file	Discord ha smesso di inviare il file
+code {}: {}	codice {}: {}
+could not set up HTTPS	impossibile configurare HTTPS
+Discord didn't hand over the login.	Discord non ha consegnato l'accesso.
+could not understand Discord's answer	impossibile interpretare la risposta di Discord
+Can't reach Discord.	Impossibile raggiungere Discord.
+could not read Discord's answer	impossibile leggere la risposta di Discord
+Can't reach Discord's file storage.	Impossibile raggiungere l'archivio file di Discord.
+Discord's file storage answered {}.	L'archivio file di Discord ha risposto {}.
+Discord didn't open the DM.	Discord non ha aperto il messaggio diretto.
+Discord didn't make the group.	Discord non ha creato il gruppo.
+Discord's answer had no token	la risposta di Discord non conteneva un token
+Discord gave no token for the confirmation	Discord non ha fornito un token per la conferma
+This server has paused invites.	Questo server ha sospeso gli inviti.
+Discord made no invite.	Discord non ha creato alcun invito.
+could not keep the file	impossibile conservare il file
+Discord sent part of the file without saying which	Discord ha inviato una parte del file senza dire quale
+the download stopped	il download si è interrotto
+could not reach Discord	impossibile raggiungere Discord
+could not build the request	impossibile creare la richiesta
+Discord refused too many of BACKCORD's requests lately, so BACKCORD stopped asking. Try again in {} min.	Discord ha rifiutato troppe richieste di BACKCORD di recente, quindi BACKCORD ha smesso di inviarle. Riprova tra {} min.
+Discord asks BACKCORD to slow down. Try again in {} s.	Discord chiede a BACKCORD di rallentare. Riprova tra {} s.
+Discord has nobody by that username.	Su Discord non c'è nessuno con quel nome utente.
+They don't take friend requests from people they don't know.	Questo utente non accetta richieste di amicizia da sconosciuti.
+You're already friends.	Siete già amici.
+Discord doesn't know that application.	Discord non conosce quell'applicazione.
+This invite is invalid or has expired.	Questo invito non è valido o è scaduto.
+Discord rejected the QR sign-in ticket. Try again with a new code.	Discord ha rifiutato il ticket di accesso QR. Riprova con un nuovo codice.
+You're banned from this server.	Sei stato bannato da questo server.
+You're in as many servers as Discord allows. Leave one to join another.	Sei nel numero massimo di server consentito da Discord. Abbandonane uno per unirti a un altro.
+This server is full.	Questo server è pieno.
+This gift code is invalid or has expired.	Questo codice regalo non è valido o è scaduto.
+You already have what this gift grants.	Hai già ciò che offre questo regalo.
+You can't redeem a gift you made.	Non puoi riscattare un regalo creato da te.
+You subscribe to Nitro through another provider, such as an app store, so you can't redeem Nitro gifts.	Il tuo abbonamento Nitro è gestito da un altro fornitore, come un app store, quindi non puoi riscattare regali Nitro.
+You can't redeem this gift while you're subscribed to Nitro.	Non puoi riscattare questo regalo mentre sei abbonato a Nitro.
+You can't redeem this gift while your subscription has an open invoice.	Non puoi riscattare questo regalo mentre il tuo abbonamento ha una fattura in sospeso.
+Discord won't let this account use this gift.	Discord non consente a questo account di usare questo regalo.
+This event doesn't exist.	Questo evento non esiste.
+That didn't work. Check it and try again.	Non ha funzionato. Controlla e riprova.
+Discord asks for two-factor authentication, which BACKCORD can't do here.	Discord richiede l'autenticazione a due fattori, che BACKCORD non può gestire qui.
+You don't have permission to do that in this server.	Non hai il permesso di farlo in questo server.
+Discord refused: {}	Discord ha rifiutato: {}
+Discord answered {}.	Discord ha risposto {}.
+Discord says you don't have permission to do that here.	Secondo Discord non hai il permesso di farlo qui.
+Discord no longer has that message or channel.	Quel messaggio o canale non esiste più su Discord.
+Discord says the file is too large for your account.	Secondo Discord il file è troppo grande per il tuo account.
+Discord asked for a captcha. Do this in the Discord app for now.	Discord ha richiesto un captcha. Per ora completalo nell'app Discord.
+Missing Permissions	Permessi mancanti
+Discord is not connected	Discord non è connesso
+Discord didn't take the image's address	Discord non ha accettato l'indirizzo dell'immagine
+a few seconds	alcuni secondi
+a minute	un minuto
+an hour	un'ora
+a month	un mese
+{} months	{} mesi
+a year	un anno
+{} years	{} anni
+in a few seconds	tra alcuni secondi
+in a minute	tra un minuto
+in {} minutes	tra {} minuti
+in an hour	tra un'ora
+in {} hours	tra {} ore
+in a day	tra un giorno
+in {} days	tra {} giorni
+in a month	tra un mese
+in {} months	tra {} mesi
+in a year	tra un anno
+in {} years	tra {} anni
+{} ago	{} fa
+started a thread: {}.	ha avviato un thread: {}.
+{} started a thread: {}.	{} ha avviato un thread: {}.
+joined the server.	si è unito al server.
+{} joined the server.	{} si è unito al server.
+pinned a message.	ha fissato un messaggio.
+{} pinned a message.	{} ha fissato un messaggio.
+started a call that lasted {}.	ha avviato una chiamata durata {}.
+{} started a call that lasted {}.	{} ha avviato una chiamata durata {}.
+started a call.	ha avviato una chiamata.
+{} started a call.	{} ha avviato una chiamata.
+Winning answer: {}, {}.	Risposta vincente: {}, {}.
+There was no winner.	Non c'è stato nessun vincitore.
+'s poll “{}” has closed. {}	 ha chiuso il sondaggio “{}”. {}
+{}'s poll “{}” has closed. {}	Il sondaggio di {} “{}” si è chiuso. {}
+{} votes ({}%)	{} voti ({}%)
+1 vote ({}%)	1 voto ({}%)
+slow down	rallenta
+BACKCORD lost a file of this command. Choose it again.	BACKCORD ha perso un file di questo comando. Sceglilo di nuovo.
+Only a form carries files.	Solo un modulo può contenere file.
+BACKCORD lost a file of this form. Choose it again.	BACKCORD ha perso un file di questo modulo. Sceglilo di nuovo.
+Discord isn't connected. Restart BACKCORD and try again.	Discord non è connesso. Riavvia BACKCORD e riprova.
+Discord isn't connected yet. Try again in a moment.	Discord non è ancora connesso. Riprova tra poco.
+BACKCORD can't tell which DM to search.	BACKCORD non sa in quale messaggio diretto cercare.
+Type something to search for.	Scrivi qualcosa da cercare.
+BACKCORD doesn't know this account yet.	BACKCORD non conosce ancora questo account.
+Discord is still indexing these messages. Try again in a few minutes.	Discord sta ancora indicizzando questi messaggi. Riprova tra qualche minuto.
+BACKCORD doesn't know that forum.	BACKCORD non conosce quel forum.
+Two-factor authentication was cancelled.	L'autenticazione a due fattori è stata annullata.
+That confirmation is no longer waiting.	Quella conferma non è più in attesa.
+Discord hasn't said who this account is yet	Discord non ha ancora indicato chi è questo account
+Discord gave no id for the role	Discord non ha fornito un ID per il ruolo
+BACKCORD doesn't know that member's roles yet. Try again.	BACKCORD non conosce ancora i ruoli di quel membro. Riprova.
+Discord hasn't sent this account's settings yet	Discord non ha ancora inviato le impostazioni di questo account
+User Profile	Profilo utente
+Only a server has that setting.	Solo un server ha quell'impostazione.
+This invite isn't to a server.	Questo invito non è per un server.
+Discord didn't answer with a server.	Discord non ha risposto con un server.
+This event is not in that server.	Questo evento non è in quel server.
+Discord didn't answer with a gift.	Discord non ha risposto con un regalo.
+Discord authorized it without saying where to go next.	Discord l'ha autorizzato senza indicare dove andare dopo.
+Discord made no channel.	Discord non ha creato alcun canale.
+That isn't a thread of this server.	Questo non è un thread di questo server.
+Discord is still getting these threads ready to search. Try again in a moment.	Discord sta ancora preparando questi thread per la ricerca. Riprova tra poco.
+BACKCORD doesn't know that channel.	BACKCORD non conosce quel canale.
+An announcement channel has no private threads.	Un canale annunci non ha thread privati.
+Discord is offline.	Discord è offline.
+Discord didn't answer the search.	Discord non ha risposto alla ricerca.
+Discord disconnected during the search.	Discord si è disconnesso durante la ricerca.
+You started {} new DMs in the last few minutes, and Discord treats more as spam. Try again in {} min.	Hai avviato {} nuovi messaggi diretti negli ultimi minuti e Discord considera spam quelli in più. Riprova tra {} min.
+Discord disconnected while starting the stream.	Discord si è disconnesso durante l'avvio della diretta.
+Discord asks to confirm with two-factor authentication.	Discord chiede di confermare con l'autenticazione a due fattori.
+Add a bot to a server	Aggiungere un bot a un server
+Create commands	Creare comandi
+Update commands	Aggiornare i comandi
+Access your username, avatar, and banner	Accedere a nome utente, avatar e banner
+Access your Nitro status	Accedere al tuo stato Nitro
+Access your profile information	Accedere alle informazioni del profilo
+Access your email address	Accedere al tuo indirizzo email
+Access your third-party connections	Accedere ai tuoi collegamenti di terze parti
+Update your connection and metadata for this application	Aggiornare il collegamento e i metadati per questa applicazione
+Know what servers you're in	Sapere in quali server sei
+Join servers for you	Unirsi ai server al posto tuo
+Read your member info (nickname, avatar, roles, etc...) for servers you belong to	Leggere le tue informazioni da membro (nickname, avatar, ruoli, ecc...) nei server di cui fai parte
+Read the channel list for servers you belong to and some channel info (name, type, sort order, etc...)	Leggere l'elenco dei canali dei server di cui fai parte e alcune informazioni sui canali (nome, tipo, ordine, ecc...)
+Join group DMs for you	Unirsi ai messaggi diretti di gruppo al posto tuo
+Read all messages	Leggere tutti i messaggi
+See information about the DMs and GDMs you are in	Vedere informazioni sui messaggi diretti e di gruppo in cui sei
+Read your direct messages	Leggere i tuoi messaggi diretti
+Send messages in your DMs	Inviare messaggi nei tuoi messaggi diretti
+See your friends, pending friend requests, and blocked users	Vedere amici, richieste di amicizia in sospeso e utenti bloccati
+Manage your friends and blocked users	Gestire amici e utenti bloccati
+See who is online	Vedere chi è online
+Set your online status and current activity	Impostare il tuo stato online e l'attività attuale
+Access your Active Now activities	Accedere alle tue attività di Attivi ora
+Update your current activity	Aggiornare la tua attività attuale
+Send activity invites	Inviare inviti alle attività
+Connect to voice on your behalf and see others who are in any voice channel or call	Connettersi alla vocale al posto tuo e vedere chi è in qualsiasi canale vocale o chiamata
+Start a gateway session on your behalf	Avviare una sessione gateway al posto tuo
+Interface with your Discord client	Interagire con il tuo client Discord
+Listen to notifications over your Discord client	Ricevere le notifiche tramite il tuo client Discord
+Read your voice settings and listen for voice events	Leggere le impostazioni vocali e ricevere gli eventi vocali
+Alter your voice settings and use soundboard	Modificare le impostazioni vocali e usare la soundboard
+Read your video state	Leggere lo stato del video
+Alter your video settings and start video	Modificare le impostazioni video e avviare il video
+Read your screenshare state	Leggere lo stato della condivisione schermo
+Alter your screenshare settings and start screenshare	Modificare le impostazioni di condivisione schermo e avviarla
+Set your current activity	Impostare la tua attività attuale
+Playing {}	Sta giocando a {}
+Watching	Sta guardando
+Competing in	Sta gareggiando in
+Hanging out	In compagnia
+Chilling	Relax
+Focusing	Concentrato
+Be right back	Torno subito
+Eating	A tavola
+Watching stuff	Guardo qualcosa
+Discord asked for a captcha	Discord ha richiesto un captcha
+could not show the captcha	impossibile mostrare il captcha
+Sending it to BACKCORD...	Invio a BACKCORD...
+Done. You can close this page and go back to BACKCORD.	Fatto. Puoi chiudere questa pagina e tornare a BACKCORD.
+BACKCORD didn't take it. Start linking again in BACKCORD.	BACKCORD non l'ha accettato. Ricomincia il collegamento in BACKCORD.
+BACKCORD stopped waiting. Start linking again in BACKCORD.	BACKCORD ha smesso di attendere. Ricomincia il collegamento in BACKCORD.
+A gift	Un regalo
+the cookies file doesn't open with this device's key	il file dei cookie non si apre con la chiave di questo dispositivo
+user	utente
+channel	canale

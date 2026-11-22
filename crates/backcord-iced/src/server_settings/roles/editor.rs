@@ -81,7 +81,7 @@ impl<'a> View<'a> {
         let title = if everyone {
             backcord_iced_kit::i18n::tr("Default Permissions").to_owned()
         } else {
-            format!("Edit Role — {}", role.name)
+            backcord_iced_kit::i18n::t(format!("Edit Role — {}", role.name))
         };
         let notice = match (lock, role.managed) {
             (Some(_), _) => lock_text(lock),
@@ -124,7 +124,7 @@ impl<'a> View<'a> {
                     true
                 ),
                 tab(
-                    format!("Manage Members ({})", role.members),
+                    backcord_iced_kit::i18n::t(format!("Manage Members ({})", role.members)),
                     RoleTab::Members,
                     !everyone
                 ),
@@ -236,7 +236,7 @@ impl<'a> View<'a> {
                 editable.then(|| input(RoleInput::Mentionable)),
             )
             .description(
-                "Note: Members with the \"Mention @everyone, @here, and All Roles\" permission will always be able to ping this role.",
+                backcord_iced_kit::i18n::tr("Note: Members with the \"Mention @everyone, @here, and All Roles\" permission will always be able to ping this role."),
             )
             .view(self.cx.look),
         ]
@@ -548,7 +548,12 @@ impl<'a> View<'a> {
                 .locked(if locked { notice } else { why });
                 let mut entry = column![switch.view(self.cx.look)].spacing(4);
                 if let Some(warning) = info.warning {
-                    entry = entry.push(text(warning).size(14).font(BOLD).color(theme.text));
+                    entry = entry.push(
+                        text(backcord_iced_kit::i18n::t(warning))
+                            .size(14)
+                            .font(BOLD)
+                            .color(theme.text),
+                    );
                 }
                 entry = entry.push(form::rule(theme));
                 rows = rows.push(container(entry).padding(Padding {

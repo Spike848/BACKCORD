@@ -70,7 +70,7 @@ impl Client {
             sounds: Vec::new(),
             alerts: Vec::new(),
             copied_picture: None,
-            share_typing: true,
+            share_typing: false,
             #[cfg(test)]
             sent: Vec::new(),
         }

@@ -152,7 +152,7 @@ pub struct Switch<'a, M> {
 pub fn new_tag<'a, M: Clone + 'a>(theme: &crate::theme::Theme) -> Element<'a, M> {
     let accent = theme.accent;
     container(
-        text("NEW")
+        text(crate::i18n::tr("NEW"))
             .size(10)
             .font(crate::fonts::BOLD)
             .color(theme.on_accent),
@@ -1006,11 +1006,13 @@ pub fn area<'a, M: Clone + 'a>(
     .ring(crate::style::faded(theme.accent, 0.8));
     let sunken = theme.sunken;
     let count = if left < 0 {
-        text(format!("Too long by {}", -left))
+        text(crate::i18n::t(format!("Too long by {}", -left)))
             .size(12)
             .color(theme.danger)
     } else {
-        text(format!("{left} left")).size(12).color(theme.muted)
+        text(crate::i18n::t(format!("{left} left")))
+            .size(12)
+            .color(theme.muted)
     };
     column![
         container(field)

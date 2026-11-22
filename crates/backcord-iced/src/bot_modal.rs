@@ -211,10 +211,10 @@ impl<'a> View<'a> {
         .spacing(20)
         .padding(20);
         if let Some(error) = &modal.error {
-            body = body.push(crate::form::error(theme, error.as_str()));
+            body = body.push(crate::form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         let label = if saving {
-            "Submitting…"
+            backcord_iced_kit::i18n::tr("Submitting…")
         } else {
             backcord_iced_kit::i18n::tr("Submit")
         };
@@ -468,9 +468,12 @@ impl<'a> View<'a> {
                     .size(14)
                     .font(MEDIUM)
                     .color(theme.text),
-                text(format!("Up to {}", field.max_values))
-                    .size(13)
-                    .color(theme.secondary),
+                text(backcord_iced_kit::i18n::t(format!(
+                    "Up to {}",
+                    field.max_values
+                )))
+                .size(13)
+                .color(theme.secondary),
             ]
             .spacing(8)
             .align_y(Alignment::Center);

@@ -54,6 +54,7 @@ fn bits(permission: Permission) -> u64 {
         Permission::SendPolls => permission::SEND_POLLS,
         Permission::ManageThreads => permission::MANAGE_THREADS,
         Permission::Connect => permission::CONNECT,
+        Permission::SetVoiceStatus => permission::SET_VOICE_CHANNEL_STATUS,
         Permission::Settings => permission::SETTINGS,
         Permission::MuteMembers => permission::MUTE_MEMBERS,
         Permission::DeafenMembers => permission::DEAFEN_MEMBERS,

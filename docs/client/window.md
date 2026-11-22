@@ -15,7 +15,7 @@ instead of linking Discord. `--data-dir`, `--preview`, `--stream-worker`,
 `--background`, `--release-discord-links` and a `LINK` work in both.
 
 The renderer is chosen once as BACKCORD starts (`graphics::plan`):
-Settings → Advanced → Render with the GPU, off by default, unless
+Settings → Advanced → Render with the GPU, on by default, unless
 `--renderer gpu|software` says otherwise for that start.
 The window system allows one renderer per process, so a changed setting
 applies from the next start, which Advanced's Restart BACKCORD makes.

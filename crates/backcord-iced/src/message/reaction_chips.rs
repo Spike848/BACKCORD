@@ -33,7 +33,7 @@ pub fn reaction_words(emoji: &str, names: &[String], count: usize) -> String {
         ([one, two, three, ..], _) => format!("{one}, {two}, {three}, and {more}"),
         _ => format!("{count} people"),
     };
-    format!("{emoji} reacted by {people}")
+    backcord_iced_kit::i18n::t(format!("{emoji} reacted by {people}"))
 }
 
 /// A reaction's emoji as Discord's client names it: `:name:` for a custom

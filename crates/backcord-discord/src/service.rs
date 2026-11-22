@@ -201,6 +201,9 @@ pub struct Preview {
 pub struct FriendRequest {
     pub user_id: String,
     pub name: String,
+    /// Their username, such as `ann`, when their name is a display name.
+    #[serde(default)]
+    pub username: Option<String>,
     pub avatar: String,
     /// Sent to this account, rather than by it.
     pub incoming: bool,

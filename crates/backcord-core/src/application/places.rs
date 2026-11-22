@@ -98,8 +98,21 @@ pub const INVITE_USES: [u32; 7] = [0, 1, 5, 10, 25, 50, 100];
 /// number of times.
 const FIRST_INVITE: (u32, u32) = (604_800, 0);
 
-/// An invite dialog: where it invites to, and the link Discord made.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Someone the invite dialog lists to send the link to: a friend, or a
+/// member of the server known from the open channel's member list.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct InvitePerson {
+    /// Their Discord user id.
+    pub id: String,
+    pub name: String,
+    pub username: Option<String>,
+    pub avatar: Option<String>,
+    pub friend: bool,
+}
+
+/// An invite dialog: where it invites to, the link Discord made, and the
+/// people it lists to send it to, as Discord's.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct InviteDialog {
     /// The server's name.
     pub server: String,
@@ -115,6 +128,12 @@ pub struct InviteDialog {
     pub link: Option<String>,
     pub making: bool,
     pub error: Option<String>,
+    /// Friends first, then the server's members, each once; not this
+    /// account, bots or anyone blocked.
+    pub people: Vec<InvitePerson>,
+    /// Those whose invite is on its way, and those it reached.
+    pub sending: Vec<String>,
+    pub sent: Vec<String>,
 }
 
 impl Application {
@@ -371,14 +390,19 @@ impl Application {
                 },
             );
         }
-        // A voice channel's status goes after its link, as in Discord's menu.
+        // A voice channel's status goes after its link, as in Discord's menu:
+        // Discord lets it be set from inside the channel, with Set Voice
+        // Channel Status, or by those who manage channels.
+        let connected_here =
+            self.state.voice.active() && self.state.voice.room.as_deref() == Some(id);
         if self.state.discord_online
             && self
                 .state
                 .rooms
                 .iter()
                 .any(|room| room.id == id && room.voice && !room.direct)
-            && self.may(id, Permission::Connect)
+            && (connected_here && self.may(id, Permission::SetVoiceStatus)
+                || self.may(id, Permission::ManageChannels))
             && let Some(at) = choices
                 .iter()
                 .position(|choice| *choice == MenuChoice::CopyLink)
@@ -680,8 +704,75 @@ impl Application {
             link: None,
             making: false,
             error: None,
+            people: self.invite_people(server.map(|server| server.channels.as_slice())),
+            sending: vec![],
+            sent: vec![],
         });
         self.make_invite(FIRST_INVITE.0, FIRST_INVITE.1)
+    }
+
+    /// Who the invite dialog lists: friends, then the members of the open
+    /// channel when it's in the server, as Discord's lists them.
+    fn invite_people(&self, channels: Option<&[String]>) -> Vec<InvitePerson> {
+        let state = &self.state;
+        let invitable = |id: &str| {
+            !id.starts_with('@')
+                && !matches!(state.relation(id), Relation::Me | Relation::Bot)
+                && !state.is_blocked(id)
+        };
+        let mut people: Vec<InvitePerson> = state
+            .friends
+            .iter()
+            .filter(|friend| invitable(&friend.id))
+            .map(|friend| InvitePerson {
+                id: friend.id.clone(),
+                name: friend.name.clone(),
+                username: None,
+                avatar: friend.avatar.clone(),
+                friend: true,
+            })
+            .collect();
+        let in_server = state
+            .selected
+            .as_ref()
+            .is_some_and(|open| channels.is_some_and(|channels| channels.contains(open)));
+        if in_server && let Some(Ok(members)) = &state.members {
+            for member in members.iter() {
+                if member.bot || !invitable(&member.id) {
+                    continue;
+                }
+                if let Some(friend) = people.iter_mut().find(|known| known.id == member.id) {
+                    friend.username.clone_from(&member.username);
+                    continue;
+                }
+                people.push(InvitePerson {
+                    id: member.id.clone(),
+                    name: member.name.clone(),
+                    username: member.username.clone(),
+                    avatar: member.avatar.clone(),
+                    friend: false,
+                });
+            }
+        }
+        people
+    }
+
+    /// Sends someone the invite dialog lists an invite to its channel.
+    pub(super) fn invite_from_dialog(&mut self, user: String) -> Vec<Effect> {
+        let Some(invite) = self.state.invite.as_mut() else {
+            return vec![];
+        };
+        let listed = invite.people.iter().any(|person| person.id == user);
+        if !listed || invite.sending.contains(&user) || invite.sent.contains(&user) {
+            return vec![];
+        }
+        invite.sending.push(user.clone());
+        vec![Effect::Backend(Command::Discord(
+            DiscordCommand::SendInvite {
+                user,
+                room: invite.room.clone(),
+            },
+        ))]
     }
 
     /// Asks Discord for a new link for the invite dialog, unless one is on
@@ -844,7 +935,21 @@ impl Application {
 
     /// Says why an invite didn't go. One that went shows in the DM, which
     /// lists it, as Discord's client shows it.
-    pub(super) fn invite_sent(&mut self, result: Result<(), String>) {
+    /// The invite dialog marks it Sent, or says why not.
+    pub(super) fn invite_sent(&mut self, user: &str, room: &str, result: Result<(), String>) {
+        let dialog = self
+            .state
+            .invite
+            .as_mut()
+            .filter(|invite| invite.room == room && invite.sending.iter().any(|id| id == user));
+        if let Some(invite) = dialog {
+            invite.sending.retain(|id| id != user);
+            match result {
+                Ok(()) => invite.sent.push(user.to_owned()),
+                Err(error) => invite.error = Some(error),
+            }
+            return;
+        }
         if let Err(error) = result {
             self.state.notice = Some(error);
         }

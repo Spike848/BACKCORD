@@ -210,7 +210,7 @@ impl<'a> View<'a> {
         for (bit, words) in SYSTEM_MESSAGES {
             parts.push(
                 form::switch(
-                    words,
+                    backcord_iced_kit::i18n::tr(words),
                     page.sends(bit),
                     (ready && sends)
                         .then(|| message(Event::Toggle(SettingsToggle::SystemMessage(bit)))),
@@ -240,7 +240,10 @@ impl<'a> View<'a> {
             .position(|seconds| *seconds == page.afk_timeout)
             .unwrap_or(1);
         let timeout_drop = form::dropdown(
-            TIMEOUTS.iter().map(|name| (*name).to_owned()).collect(),
+            TIMEOUTS
+                .iter()
+                .map(|name| backcord_iced_kit::i18n::tr(name).to_owned())
+                .collect(),
             Some(timeout),
             open == Some(Drop::AfkTimeout),
             message(Event::Drop(Drop::AfkTimeout)),
@@ -295,7 +298,7 @@ impl<'a> View<'a> {
         let ready = !core.saving && core.reading.is_none();
         let level = match page.original.premium_tier {
             0 => backcord_iced_kit::i18n::tr("No Level").to_owned(),
-            tier => format!("Level {tier}"),
+            tier => backcord_iced_kit::i18n::t(format!("Level {tier}")),
         };
         form::page([
             row![
@@ -349,7 +352,7 @@ impl<'a> View<'a> {
         let empty = text(if unlocked {
             backcord_iced_kit::i18n::tr("No image").to_owned()
         } else {
-            format!("Unlocks at Level {level}")
+            backcord_iced_kit::i18n::t(format!("Unlocks at Level {level}"))
         })
         .size(13)
         .font(SEMIBOLD)

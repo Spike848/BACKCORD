@@ -635,12 +635,14 @@ pub fn mute_times(act: fn(Muting) -> MenuAct) -> Vec<MenuRow> {
         .into_iter()
         .map(|muting| {
             let label: String = match muting {
-                Muting::Minutes(15) => "For 15 minutes".into(),
-                Muting::Minutes(60) => "For 1 hour".into(),
+                Muting::Minutes(15) => backcord_iced_kit::i18n::tr("For 15 minutes").into(),
+                Muting::Minutes(60) => backcord_iced_kit::i18n::tr("For 1 hour").into(),
                 Muting::Minutes(minutes) if minutes % 60 == 0 => {
-                    format!("For {} hours", minutes / 60)
+                    backcord_iced_kit::i18n::t(format!("For {} hours", minutes / 60))
                 }
-                Muting::Minutes(minutes) => format!("For {minutes} minutes"),
+                Muting::Minutes(minutes) => {
+                    backcord_iced_kit::i18n::t(format!("For {minutes} minutes"))
+                }
                 Muting::Always | Muting::Off => {
                     backcord_iced_kit::i18n::tr("Until I turn it back on").into()
                 }
@@ -652,7 +654,7 @@ pub fn mute_times(act: fn(Muting) -> MenuAct) -> Vec<MenuRow> {
 
 /// When a mute ends, as its Unmute row says it.
 fn muted_until(seconds: u64, twelve_hour: bool) -> String {
-    format!("Muted until {}", until(seconds, twelve_hour))
+    backcord_iced_kit::i18n::t(format!("Muted until {}", until(seconds, twelve_hour)))
 }
 
 /// When something ends, a Unix time: the time today, or the day too.

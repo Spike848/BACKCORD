@@ -193,15 +193,15 @@ pub(super) fn dialog_field(page: &EmojiPage) -> Option<&'static str> {
 /// How many slots are left, in Discord's words.
 fn slots(free: usize) -> String {
     match free {
-        0 => "no slots available".to_owned(),
-        1 => "1 slot available".to_owned(),
-        free => format!("{free} slots available"),
+        0 => backcord_iced_kit::i18n::tr("no slots available").to_owned(),
+        1 => backcord_iced_kit::i18n::tr("1 slot available").to_owned(),
+        free => backcord_iced_kit::i18n::t(format!("{free} slots available")),
     }
 }
 
 /// An error under a dialog's fields.
 fn error_text<'a>(theme: &crate::theme::Theme, error: &'a str) -> Element<'a, Message> {
-    form::error(theme, error).into()
+    form::error(theme, backcord_iced_kit::i18n::t(error)).into()
 }
 
 /// A dialog's foot: Cancel, then what it does in `kind`.
@@ -289,10 +289,10 @@ impl<'a> View<'a> {
             form::title(theme, backcord_iced_kit::i18n::tr("Emoji")),
             form::note(
                 theme,
-                format!(
+                backcord_iced_kit::i18n::t(format!(
                     "Add up to {} custom emojis that anyone can use in this server. Animated GIF emojis may be used by members with Discord Nitro. Emoji names must be at least 2 characters long and can only contain alphanumeric characters and underscores. Emoji must be under 256 KB in size.",
                     page.slots()
-                ),
+                )),
             ),
         ]
         .spacing(form::GAP)
@@ -616,14 +616,14 @@ impl<'a> View<'a> {
         }
         let title = match card.level {
             0 => backcord_iced_kit::i18n::tr("Free Slots").to_owned(),
-            level => format!("Level {level}"),
+            level => backcord_iced_kit::i18n::t(format!("Level {level}")),
         };
         let status = if card.unlocked {
             let free = card.slots.saturating_sub(card.stickers.len());
             let word = if card.slots == 1 { "slot" } else { "slots" };
-            format!("{free} of {} {word} available", card.slots)
+            backcord_iced_kit::i18n::t(format!("{free} of {} {word} available", card.slots))
         } else {
-            format!("{} Boosts", LEVEL_BOOSTS[card.level])
+            backcord_iced_kit::i18n::t(format!("{} Boosts", LEVEL_BOOSTS[card.level]))
         };
         head = head
             .push(
@@ -901,7 +901,7 @@ impl<'a> View<'a> {
             .push(field(
                 backcord_iced_kit::i18n::tr("STICKER NAME"),
                 "sticker-name",
-                "e.g.: cat hug",
+                backcord_iced_kit::i18n::tr("e.g.: cat hug"),
                 &draft.form.name,
                 StickerInput::Name,
             ))

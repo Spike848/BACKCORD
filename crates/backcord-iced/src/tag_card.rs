@@ -106,8 +106,8 @@ pub fn card(shown: &Shown, state: &AppState) -> Card {
     let known = joined.map(|server| server.name.as_str());
     let name = match (profile, limited, failed) {
         (Some(profile), ..) => profile.name.as_str(),
-        (None, true, _) => known.unwrap_or("Private Server"),
-        (None, _, true) => known.unwrap_or("Unknown Server"),
+        (None, true, _) => known.unwrap_or(backcord_iced_kit::i18n::tr("Private Server")),
+        (None, _, true) => known.unwrap_or(backcord_iced_kit::i18n::tr("Unknown Server")),
         _ => known.unwrap_or_default(),
     };
     let icon = profile
@@ -145,7 +145,7 @@ pub fn card(shown: &Shown, state: &AppState) -> Card {
         established: profile
             .map(|profile| backcord_core::clock::month(profile.created_ms / 1000))
             .filter(|month| !month.is_empty())
-            .map(|month| format!("Est. {month}")),
+            .map(|month| backcord_iced_kit::i18n::t(format!("Est. {month}"))),
         description: profile.map_or_else(String::new, |profile| profile.description.clone()),
         note: match (limited, failed) {
             (true, _) => {

@@ -470,7 +470,11 @@ impl<'a> View<'a> {
             Some(_) => None,
         };
         if let Some(note) = note {
-            card = card.push(text(note).size(13).color(theme.muted));
+            card = card.push(
+                text(backcord_iced_kit::i18n::t(note))
+                    .size(13)
+                    .color(theme.muted),
+            );
         }
         if let Some(members) = role.members.as_ref().filter(|members| !members.is_empty()) {
             let hover = theme.hover;
@@ -618,5 +622,5 @@ impl<'a> View<'a> {
 
 /// "1 member", "12 members".
 fn count_of(count: u64, one: &str, many: &str) -> String {
-    format!("{count} {}", if count == 1 { one } else { many })
+    backcord_iced_kit::i18n::t(format!("{count} {}", if count == 1 { one } else { many }))
 }

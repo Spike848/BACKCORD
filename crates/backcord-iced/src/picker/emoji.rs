@@ -399,7 +399,10 @@ impl Picker {
             );
             section(
                 &mut grid,
-                Some(("Frequently Used".into(), Mark::Clock)),
+                Some((
+                    backcord_iced_kit::i18n::tr("Frequently Used").into(),
+                    Mark::Clock,
+                )),
                 listed(&frequent),
             );
             for set in &sets {
@@ -604,7 +607,11 @@ impl<'a> View<'a> {
         };
         tab.used.borrow_mut().clear();
         tab.players.begin();
-        let field = kit::search(&picker.field, "Find an emoji", theme);
+        let field = kit::search(
+            &picker.field,
+            backcord_iced_kit::i18n::tr("Find an emoji"),
+            theme,
+        );
         let searching = !picker.field.text().trim().is_empty();
         let rail = kit::rail(
             tab.grid
@@ -684,7 +691,10 @@ impl<'a> View<'a> {
             });
         let grid: Element<'a, Message> = if tab.grid.tiles.is_empty() {
             kit::note(
-                format!("No emoji match \"{}\".", picker.field.text().trim()),
+                backcord_iced_kit::i18n::t(format!(
+                    "No emoji match \"{}\".",
+                    picker.field.text().trim()
+                )),
                 theme,
             )
         } else {
@@ -718,10 +728,18 @@ impl<'a> View<'a> {
             .into(),
             (None, None) => kit::foot_words(
                 match picker.target {
-                    Target::Composer | Target::Edit => "Pick an emoji for your message.",
-                    Target::React(..) => "Pick an emoji to react with.",
-                    Target::Status(_) => "Pick an emoji for your status.",
-                    Target::Poll(..) => "Pick an emoji for your message.",
+                    Target::Composer | Target::Edit => {
+                        backcord_iced_kit::i18n::tr("Pick an emoji for your message.")
+                    }
+                    Target::React(..) => {
+                        backcord_iced_kit::i18n::tr("Pick an emoji to react with.")
+                    }
+                    Target::Status(_) => {
+                        backcord_iced_kit::i18n::tr("Pick an emoji for your status.")
+                    }
+                    Target::Poll(..) => {
+                        backcord_iced_kit::i18n::tr("Pick an emoji for your message.")
+                    }
                 }
                 .into(),
                 false,

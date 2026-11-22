@@ -106,8 +106,12 @@ fn call_invite<'a>(app: &'a App, room: &'a ChatRoom) -> Element<'a, Message> {
     let incoming = room.incoming;
     let note = match (incoming, room.people.is_empty()) {
         (true, true) => backcord_iced_kit::i18n::tr("Incoming call.").to_owned(),
-        (true, false) => format!("{} calling you.", who_is_here(&room.people)),
-        (false, _) => format!("{} in the call.", who_is_here(&room.people)),
+        (true, false) => {
+            backcord_iced_kit::i18n::t(format!("{} calling you.", who_is_here(&room.people)))
+        }
+        (false, _) => {
+            backcord_iced_kit::i18n::t(format!("{} in the call.", who_is_here(&room.people)))
+        }
     };
     let can_join = app.client.state().can_join_voice(&room.id);
     let mut buttons = row![].spacing(16);
@@ -158,7 +162,7 @@ pub fn incoming_view(app: &App) -> Option<Element<'_, Message>> {
     let detail = if room.person.is_some() || room.people.is_empty() {
         backcord_iced_kit::i18n::tr("Incoming call").to_owned()
     } else {
-        format!("{} calling", who_is_here(&room.people))
+        backcord_iced_kit::i18n::t(format!("{} calling", who_is_here(&room.people)))
     };
     // A ring that pulses while it rings.
     let ring = Pulse::new(
@@ -253,19 +257,22 @@ fn switch_prompt(app: &App) -> Option<(String, bool)> {
                 .map_or("someone", |person| person.name.as_str())
         });
     Some(match watch {
-        Some(name) if !voice.active() => (format!("Join {target} to watch {name}'s stream?"), true),
+        Some(name) if !voice.active() => (
+            backcord_iced_kit::i18n::t(format!("Join {target} to watch {name}'s stream?")),
+            true,
+        ),
         Some(name) => (
-            format!(
+            backcord_iced_kit::i18n::t(format!(
                 "You're already in {}. Leave it and join {target} to watch {name}'s stream?{muted}",
                 voice.name
-            ),
+            )),
             false,
         ),
         None => (
-            format!(
+            backcord_iced_kit::i18n::t(format!(
                 "You're already in {}. Leave it and join {target}?{muted}",
                 voice.name
-            ),
+            )),
             false,
         ),
     })

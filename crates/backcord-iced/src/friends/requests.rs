@@ -11,11 +11,10 @@ use iced::{
 
 use crate::{
     app::Message,
-    controls::{self, Kind, action},
+    controls,
     fonts::{BOLD, MEDIUM},
     pictures::Icon,
     style::{rounded, scrollbar},
-    theme::rgb,
 };
 
 use super::Event;
@@ -31,6 +30,7 @@ pub(super) struct Request<'a> {
     /// Their Discord user id, or a group's room id.
     pub(super) id: &'a str,
     pub(super) name: &'a str,
+    pub(super) username: Option<&'a str>,
     pub(super) avatar: Option<&'a str>,
     /// A friend request: sent to this account (true) or by it.
     pub(super) friend: Option<bool>,
@@ -85,6 +85,7 @@ pub(super) fn request_rows(
         let mut row = Request {
             id: &request.id,
             name: &request.name,
+            username: request.username.as_deref(),
             avatar: request.avatar.as_deref(),
             friend: Some(request.incoming),
             room: room.map(|room| room.id.as_str()),
@@ -120,6 +121,7 @@ pub(super) fn request_rows(
             let mut row = Request {
                 id: room.person.as_deref().unwrap_or(&room.id),
                 name: &room.name,
+                username: None,
                 avatar: room.avatar.as_deref(),
                 friend: None,
                 room: Some(&room.id),
@@ -156,13 +158,19 @@ pub fn requests_screen<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         bottom: 16.0,
     });
     if !rows.incoming.is_empty() {
-        list = list.push(ctx.list_heading(format!("REQUESTS — {}", rows.incoming.len())));
+        list = list.push(ctx.list_heading(backcord_iced_kit::i18n::t(format!(
+            "Received: {}",
+            rows.incoming.len()
+        ))));
     }
     for request in rows.incoming {
         list = list.push(request_item(ctx, request, false));
     }
     if !rows.sent.is_empty() {
-        list = list.push(ctx.list_heading(format!("SENT — {}", rows.sent.len())));
+        list = list.push(ctx.list_heading(backcord_iced_kit::i18n::t(format!(
+            "Sent: {}",
+            rows.sent.len()
+        ))));
     }
     for request in rows.sent {
         list = list.push(request_item(ctx, request, false));
@@ -179,9 +187,12 @@ pub fn requests_screen<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         list = list.push(
             button(
                 row![
-                    text(format!("SPAM — {}", rows.spam.len()))
-                        .size(12)
-                        .font(BOLD),
+                    text(backcord_iced_kit::i18n::t(format!(
+                        "Spam: {}",
+                        rows.spam.len()
+                    )))
+                    .size(12)
+                    .font(BOLD),
                     ctx.look.glyph(chevron, 14, muted),
                 ]
                 .spacing(4)
@@ -231,12 +242,18 @@ pub(super) fn request_item<'a>(
         (_, None, _) => backcord_iced_kit::i18n::tr("Wants to message you"),
     };
     let bold = request.unread || request.friend == Some(true);
+    // A friend request shows their username under their name, as
+    // Discord's list does; a message request what it is.
+    let under = match (spam, request.friend, request.username) {
+        (false, Some(_), Some(username)) if !messaged => username,
+        _ => about,
+    };
     let mut words = column![
         crate::elide::elide(request.name)
             .size(16)
             .font(if bold { BOLD } else { MEDIUM })
             .color(theme.text),
-        text(about)
+        text(under)
             .size(13)
             .color(if spam { theme.loud } else { theme.muted })
             .wrapping(text::Wrapping::None),
@@ -244,37 +261,47 @@ pub(super) fn request_item<'a>(
     .spacing(1)
     .width(Length::Fill);
     words = words.padding([2, 0]);
-    let mut top = row![words].spacing(8).align_y(Alignment::Center);
+    let mut top = row![words].spacing(10).align_y(Alignment::Center);
     let id = request.id.to_owned();
+    // Discord's round buttons: accept and ignore a request sent to this
+    // account, cancel one it sent.
+    let round = |icon, ink, label: &'static str, message: Message| {
+        let face = button(ctx.look.glyph(icon, 20, ink).boxed(36))
+            .padding(0)
+            .width(36)
+            .height(36)
+            .on_press(message)
+            .style(crate::controls::lit_style(
+                Some(theme.raised),
+                theme.active,
+                18.0,
+            ));
+        iced::widget::tooltip(
+            face,
+            controls::tip(theme, label),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(6)
+    };
     if request.friend == Some(true) {
-        let check = ctx.look.icon(Icon::Check, 16, rgb(theme.on_accent));
-        top = top.push(
-            action(
-                theme,
-                backcord_iced_kit::i18n::tr("Accept"),
-                Kind::Primary,
-                Some(Message::Friends(Event::Accept(id.clone()))),
-            )
-            .icon(check)
-            .small(),
-        );
+        top = top.push(round(
+            Icon::Check,
+            theme.secondary,
+            backcord_iced_kit::i18n::tr("Accept"),
+            Message::Friends(Event::Accept(id.clone())),
+        ));
     }
     if let Some(incoming) = request.friend {
-        let x = ctx.look.icon(Icon::X, 16, rgb(theme.text));
-        top = top.push(
-            action(
-                theme,
-                if incoming {
-                    backcord_iced_kit::i18n::tr("Ignore")
-                } else {
-                    backcord_iced_kit::i18n::tr("Cancel")
-                },
-                Kind::Plain,
-                Some(Message::Friends(Event::Remove(id))),
-            )
-            .icon(x)
-            .small(),
-        );
+        top = top.push(round(
+            Icon::X,
+            theme.secondary,
+            if incoming {
+                backcord_iced_kit::i18n::tr("Ignore")
+            } else {
+                backcord_iced_kit::i18n::tr("Cancel")
+            },
+            Message::Friends(Event::Remove(id)),
+        ));
     }
     let mut body = column![top].spacing(8).width(Length::Fill);
     if let Some(room) = request.room {
@@ -297,7 +324,7 @@ pub(super) fn request_item<'a>(
     )
     .style(move |_| rounded(ground, 10))
     .width(Length::Fill);
-    mouse_area(item)
+    let area = mouse_area(item)
         .on_enter(Message::Members(crate::members::Event::Point(
             request.id.to_owned(),
             true,
@@ -305,8 +332,17 @@ pub(super) fn request_item<'a>(
         .on_exit(Message::Members(crate::members::Event::Point(
             request.id.to_owned(),
             false,
-        )))
-        .into()
+        )));
+    // A right click opens their menu, as on Discord's Requests list; a
+    // group's message request has none.
+    if request.friend.is_some() {
+        let id = request.id.to_owned();
+        return crate::widgets::RightPress::new(area, move |_| {
+            Message::Friends(Event::Menu(id.clone()))
+        })
+        .into();
+    }
+    area.into()
 }
 
 /// A message request's latest message, under who sent it; a click

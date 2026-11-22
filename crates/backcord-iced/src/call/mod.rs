@@ -72,10 +72,13 @@ pub struct Call {
     pub share: Option<popups::Share>,
     pub share_listing: Option<u64>,
     pub listings: u64,
-    /// The corner picture's corner, and how far it's dragged from it.
-    pub left: bool,
-    pub bottom: bool,
+    /// Where the corner picture was left and how large, once moved or
+    /// resized; how far it's dragged, and the edges a resize holds.
+    pub pip: Option<Rectangle>,
     pub drag: Option<Vector>,
+    pub resize: Option<corner::Edges>,
+    /// What it keeps clear of when let go, as last drawn.
+    pub keep_clear: Cell<Rectangle>,
     /// The corner picture is held, and where the pointer first moved.
     pub grab: Option<Option<Point>>,
     /// The call was connected as the window last looked: it unmutes or
@@ -187,6 +190,8 @@ pub enum Event {
     /// The corner picture pressed, the pointer moved to here in the window
     /// while it's held, and let go.
     Grab,
+    /// One of its edges or corners pressed, to resize it.
+    Resize(corner::Edges),
     DragTo(Point),
     Drop,
 }
@@ -337,6 +342,11 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             app.call.grab = Some(None);
             return Task::none();
         }
+        Event::Resize(edges) => {
+            app.call.grab = Some(None);
+            app.call.resize = Some(edges);
+            return Task::none();
+        }
         Event::DragTo(at) => {
             match app.call.grab {
                 Some(None) => app.call.grab = Some(Some(at)),
@@ -352,7 +362,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             return Task::none();
         }
         Event::Drop => {
-            let dragged = app.call.drag.is_some();
+            let dragged = app.call.drag.is_some() || app.call.resize.is_some();
             app.call.grab = None;
             if !dragged {
                 return update(app, Event::OpenCall);

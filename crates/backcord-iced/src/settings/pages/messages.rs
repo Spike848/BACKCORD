@@ -130,7 +130,7 @@ impl<'a> Page<'a> {
             ),
             self.flip(
                 backcord_iced_kit::i18n::tr("Remove tracking from links you send"),
-                "Takes out tags like utm_source and fbclid, and share ids from YouTube, Spotify and X. The links still go to the same page.",
+                backcord_iced_kit::i18n::tr("Takes out tags like utm_source and fbclid, and share ids from YouTube, Spotify and X. The links still go to the same page."),
                 prefs.strip_tracking.unwrap_or(true),
                 Pref::StripTracking,
             ),

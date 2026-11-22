@@ -357,6 +357,116 @@ pub fn outside<'a, M: Clone + 'a>(message: M, dim: bool) -> Element<'a, M> {
     opaque(mouse_area(layer).on_press(message))
 }
 
+/// A full-window layer under a context menu: a left press outside the menu
+/// sends `message` and goes no further, as [`outside`]; a right press
+/// sends it too and goes on to what's under it, so a right press on
+/// someone else opens their menu at once in place of this one.
+pub fn menu_outside<'a, M: Clone + 'a>(message: M) -> Element<'a, M> {
+    Element::new(menu_outside::MenuOutside { message })
+}
+
+mod menu_outside {
+    use iced::{
+        Length, Rectangle, Size, Theme,
+        advanced::{
+            Clipboard, Layout, Shell, Widget, layout, mouse, renderer,
+            widget::{Tree, tree},
+        },
+    };
+
+    use crate::widgets::Renderer;
+
+    pub(super) struct MenuOutside<M> {
+        pub(super) message: M,
+    }
+
+    /// Whether the event just handled was a right press, which leaves
+    /// the pointer to what's under this layer.
+    struct Passing(bool);
+
+    impl<M: Clone> Widget<M, Theme, Renderer> for MenuOutside<M> {
+        fn tag(&self) -> tree::Tag {
+            tree::Tag::of::<Passing>()
+        }
+
+        fn state(&self) -> tree::State {
+            tree::State::new(Passing(false))
+        }
+
+        fn size(&self) -> Size<Length> {
+            Size::new(Length::Fill, Length::Fill)
+        }
+
+        fn layout(
+            &mut self,
+            _tree: &mut Tree,
+            _renderer: &Renderer,
+            limits: &layout::Limits,
+        ) -> layout::Node {
+            layout::Node::new(limits.max())
+        }
+
+        fn draw(
+            &self,
+            _tree: &Tree,
+            _renderer: &mut Renderer,
+            _theme: &Theme,
+            _style: &renderer::Style,
+            _layout: Layout<'_>,
+            _cursor: mouse::Cursor,
+            _viewport: &Rectangle,
+        ) {
+        }
+
+        fn update(
+            &mut self,
+            tree: &mut Tree,
+            event: &iced::Event,
+            layout: Layout<'_>,
+            cursor: mouse::Cursor,
+            _renderer: &Renderer,
+            _clipboard: &mut dyn Clipboard,
+            shell: &mut Shell<'_, M>,
+            _viewport: &Rectangle,
+        ) {
+            let passing = tree.state.downcast_mut::<Passing>();
+            passing.0 = false;
+            let iced::Event::Mouse(mouse_event) = event else {
+                return;
+            };
+            if !cursor.is_over(layout.bounds()) {
+                return;
+            }
+            match mouse_event {
+                mouse::Event::ButtonPressed(mouse::Button::Right) => {
+                    shell.publish(self.message.clone());
+                    passing.0 = true;
+                }
+                mouse::Event::ButtonPressed(_) => {
+                    shell.publish(self.message.clone());
+                    shell.capture_event();
+                }
+                _ => shell.capture_event(),
+            }
+        }
+
+        fn mouse_interaction(
+            &self,
+            tree: &Tree,
+            layout: Layout<'_>,
+            cursor: mouse::Cursor,
+            _viewport: &Rectangle,
+            _renderer: &Renderer,
+        ) -> mouse::Interaction {
+            if tree.state.downcast_ref::<Passing>().0 || !cursor.is_over(layout.bounds()) {
+                mouse::Interaction::None
+            } else {
+                mouse::Interaction::Idle
+            }
+        }
+    }
+}
+
 /// The id of every dimmed layer, by which the tests tell what's under one.
 pub const DIMMED: &str = "dimmed";
 

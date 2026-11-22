@@ -91,7 +91,10 @@ pub fn banner<'a>(
     container(
         row![
             ctx.look.glyph(Icon::TriangleAlert, 18, theme.accent),
-            text(words).size(15).color(theme.text).width(Length::Fill),
+            text(backcord_iced_kit::i18n::t(words))
+                .size(15)
+                .color(theme.text)
+                .width(Length::Fill),
             action(
                 theme,
                 backcord_iced_kit::i18n::tr("Dismiss"),

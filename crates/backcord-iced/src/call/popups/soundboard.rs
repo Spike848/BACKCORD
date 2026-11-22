@@ -47,7 +47,11 @@ pub(crate) fn sound_board<'a>(
             bottom: 4.0,
         });
     if let Some(note) = note {
-        top = top.push(text(note).size(13).color(theme.muted));
+        top = top.push(
+            text(backcord_iced_kit::i18n::t(note))
+                .size(13)
+                .color(theme.muted),
+        );
     }
     if groups.is_empty() {
         top = top.push(
@@ -231,7 +235,7 @@ fn sound_button<'a>(
         row![
             small(
                 Icon::Volume,
-                format!("Preview {}", sound.name),
+                backcord_iced_kit::i18n::t(format!("Preview {}", sound.name)),
                 theme.text,
                 lit,
                 Message::Call(Event::Preview(sound.id.clone())),

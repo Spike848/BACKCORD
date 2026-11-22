@@ -86,7 +86,7 @@ impl<'a> View<'a> {
     ) -> Element<'a, Message> {
         let (title, mut body, sending) = match ownership {
             Ownership::Delete(ask) => (
-                text(format!("Delete '{}'", ask.name)),
+                text(backcord_iced_kit::i18n::t(format!("Delete '{}'", ask.name))),
                 self.delete_body(ask),
                 ask.sending,
             ),
@@ -120,7 +120,7 @@ impl<'a> View<'a> {
             [
                 backcord_iced_kit::i18n::tr("Are you sure you want to delete "),
                 "",
-                "? This action cannot be undone.",
+                backcord_iced_kit::i18n::tr("? This action cannot be undone."),
             ],
             [&ask.name, ""],
             15,
@@ -150,7 +150,7 @@ impl<'a> View<'a> {
             body.push(name.into());
         }
         if let Some(error) = &ask.error {
-            body.push(form::error(theme, error.as_str()).into());
+            body.push(form::error(theme, backcord_iced_kit::i18n::t(error)).into());
         }
         body.push(answers(
             theme,
@@ -194,7 +194,11 @@ impl<'a> View<'a> {
             ]
             .spacing(6);
             if let Some(error) = &ask.error {
-                part = part.push(text(error.as_str()).size(12).color(theme.danger));
+                part = part.push(
+                    text(backcord_iced_kit::i18n::t(error))
+                        .size(12)
+                        .color(theme.danger),
+                );
             }
             let resend: Element<'a, Message> = if ask.resent {
                 text(backcord_iced_kit::i18n::tr("Verification code sent."))
@@ -226,8 +230,8 @@ impl<'a> View<'a> {
             body.push(sentence(
                 [
                     backcord_iced_kit::i18n::tr("This will transfer ownership of "),
-                    " to ",
-                    ". This cannot be undone!",
+                    backcord_iced_kit::i18n::tr(" to "),
+                    backcord_iced_kit::i18n::tr(". This cannot be undone!"),
                 ],
                 [name, tag],
                 15,
@@ -280,7 +284,7 @@ impl<'a> View<'a> {
                             "I acknowledge that by transferring ownership of this server to "
                         ),
                         "",
-                        ", it officially belongs to them.",
+                        backcord_iced_kit::i18n::tr(", it officially belongs to them."),
                     ],
                     [tag, ""],
                     14,
@@ -299,7 +303,7 @@ impl<'a> View<'a> {
                     .into(),
             );
             if let Some(error) = &ask.error {
-                body.push(form::error(theme, error.as_str()).into());
+                body.push(form::error(theme, backcord_iced_kit::i18n::t(error)).into());
             }
         }
         body.push(answers(

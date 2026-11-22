@@ -56,11 +56,11 @@ pub(super) fn picture_menu<'a>(
     let (change, reset) = match kind {
         ProfilePicture::Avatar => (
             backcord_iced_kit::i18n::tr("Change Avatar"),
-            format!("{word} Avatar"),
+            backcord_iced_kit::i18n::t(format!("{word} Avatar")),
         ),
         ProfilePicture::Banner => (
             backcord_iced_kit::i18n::tr("Change Banner"),
-            format!("{word} Banner"),
+            backcord_iced_kit::i18n::t(format!("{word} Banner")),
         ),
     };
     let list = (editor.pop == Some(pop)).then(|| {

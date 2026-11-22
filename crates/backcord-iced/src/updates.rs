@@ -101,7 +101,7 @@ fn announce_update(app: &mut App, offered: Option<desktop::Offered>) {
         notifier.show(
             backcord_core::chat::Alert {
                 room: ABOUT.into(),
-                title: format!("BACKCORD {} is available", offered.tag),
+                title: backcord_iced_kit::i18n::t(format!("BACKCORD {} is available", offered.tag)),
                 body: backcord_iced_kit::i18n::tr("Click to see what's new.").into(),
                 picture: None,
                 call: false,

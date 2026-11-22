@@ -263,6 +263,8 @@ pub struct FriendRequest {
     /// Their Discord user id.
     pub id: String,
     pub name: String,
+    /// Their username, such as `ann`, when their name is a display name.
+    pub username: Option<String>,
     /// The address of their avatar; see [`DiscordCommand::Pictures`].
     pub avatar: Option<String>,
     /// Sent to this account, rather than by it.
@@ -628,6 +630,8 @@ pub enum Permission {
     ManageThreads,
     /// Join a voice channel.
     Connect,
+    /// Set the status of a voice channel this account is connected to.
+    SetVoiceStatus,
     /// Any permission that opens the server's settings: Manage Server,
     /// Manage Roles, Ban Members and more, as Discord's client has them.
     Settings,

@@ -239,12 +239,15 @@ fn role_chip<'a>(
 /// Discord, which counts in days at least.
 fn ago(seconds: u64, account: bool) -> String {
     let plural = |count: u64, one: &str, other: &str| {
-        format!("{count} {} ago", if count == 1 { one } else { other })
+        backcord_iced_kit::i18n::t(format!(
+            "{count} {} ago",
+            if count == 1 { one } else { other }
+        ))
     };
     const DAY: u64 = 86_400;
     match seconds {
-        0..DAY if account => "<1 day ago".to_owned(),
-        0..60 => "just now".to_owned(),
+        0..DAY if account => backcord_iced_kit::i18n::tr("<1 day ago").to_owned(),
+        0..60 => backcord_iced_kit::i18n::tr("just now").to_owned(),
         60..3_600 => plural(seconds / 60, "min", "mins"),
         3_600..DAY => plural(seconds / 3_600, "hr", "hrs"),
         // Discord's months are 30 days, and its years 360.
@@ -290,17 +293,19 @@ fn countdown(expires: Option<u64>, now: u64) -> String {
 /// Discord doesn't say.
 fn join_method(joined: &JoinMethod) -> (String, bool) {
     let label = match joined {
-        JoinMethod::Unknown => return ("Unknown".to_owned(), true),
+        JoinMethod::Unknown => return (backcord_iced_kit::i18n::tr("Unknown").to_owned(), true),
         JoinMethod::Bot => backcord_iced_kit::i18n::tr("Bot Invite").to_owned(),
         JoinMethod::Integration(kind) => match kind.as_deref() {
             Some("twitch") => backcord_iced_kit::i18n::tr("Twitch (Integration)").to_owned(),
-            Some("youtube") => "YouTube (Integration)".to_owned(),
+            Some("youtube") => backcord_iced_kit::i18n::tr("YouTube (Integration)").to_owned(),
             _ => backcord_iced_kit::i18n::tr("Integration").to_owned(),
         },
         JoinMethod::Discovery => backcord_iced_kit::i18n::tr("Server Discovery").to_owned(),
         JoinMethod::Hub => backcord_iced_kit::i18n::tr("Student Hub").to_owned(),
         JoinMethod::Invite(code) | JoinMethod::Vanity(code) => code.clone(),
-        JoinMethod::Manual(Some(code)) => format!("Manual Verification ({code})"),
+        JoinMethod::Manual(Some(code)) => {
+            backcord_iced_kit::i18n::t(format!("Manual Verification ({code})"))
+        }
         JoinMethod::Manual(None) => backcord_iced_kit::i18n::tr("Manual Verification").to_owned(),
         JoinMethod::LinkedChannel => backcord_iced_kit::i18n::tr("Linked Channel").to_owned(),
     };
@@ -402,7 +407,9 @@ impl<'a> View<'a> {
                 .iter()
                 .enumerate()
                 .filter(|(index, _)| *index != JOIN_COLUMN || join_method)
-                .map(|(_, (words, share))| heading(theme, words, 11, *share))
+                .map(|(_, (words, share))| {
+                    heading(theme, backcord_iced_kit::i18n::tr(words), 11, *share)
+                })
                 .collect(),
             Space::new().width(BUTTON).into(),
         );
@@ -548,7 +555,10 @@ impl<'a> View<'a> {
             signals = signals.push(signal(
                 Icon::MessageCircle,
                 theme.muted,
-                "Sent excessive DMs to non-friend server members in last 24 hrs".to_owned(),
+                backcord_iced_kit::i18n::tr(
+                    "Sent excessive DMs to non-friend server members in last 24 hrs",
+                )
+                .to_owned(),
             ));
         }
         if listed.timed_out_until > now {
@@ -556,7 +566,7 @@ impl<'a> View<'a> {
             signals = signals.push(signal(
                 Icon::Clock,
                 theme.danger,
-                format!("Timed out for {}", time_left(left)),
+                backcord_iced_kit::i18n::t(format!("Timed out for {}", time_left(left))),
             ));
         }
         if listed.spammer {
@@ -632,12 +642,12 @@ impl<'a> View<'a> {
                         .color(theme.secondary),
                 )
                 .push(size);
-            format!("members of {count}")
+            backcord_iced_kit::i18n::t(format!("members of {count}"))
         } else {
-            format!(
+            backcord_iced_kit::i18n::t(format!(
                 "Showing {count} {}",
                 if total == 1 { "member" } else { "members" }
-            )
+            ))
         };
         footer =
             footer.push(container(text(words).size(14).color(theme.secondary)).width(Length::Fill));
@@ -716,7 +726,9 @@ impl<'a> View<'a> {
         let headings = columns(
             INVITE_COLUMNS
                 .iter()
-                .map(|(words, share)| heading(theme, words, 12, *share))
+                .map(|(words, share)| {
+                    heading(theme, backcord_iced_kit::i18n::tr(words), 12, *share)
+                })
                 .collect(),
             Space::new().width(BUTTON).into(),
         );
@@ -842,7 +854,10 @@ impl<'a> View<'a> {
         let theme = self.cx.look.theme;
         let ready = !draft.saving;
         let hours = form::dropdown(
-            PAUSES.iter().map(|name| (*name).to_owned()).collect(),
+            PAUSES
+                .iter()
+                .map(|name| backcord_iced_kit::i18n::tr(name).to_owned())
+                .collect(),
             Some(
                 PAUSE_HOURS
                     .iter()
@@ -883,7 +898,7 @@ impl<'a> View<'a> {
         .spacing(14)
         .padding(16);
         if let Some(error) = &draft.error {
-            body = body.push(form::error(theme, error.as_str()));
+            body = body.push(form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         body = body.push(
             row![

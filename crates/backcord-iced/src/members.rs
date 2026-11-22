@@ -388,19 +388,19 @@ pub fn activity_cards(
             let activity = member.and_then(|member| doing(member, entry));
             let since = match (entry.hours, entry.tracks) {
                 (Some(hours), _) if entry.kind == Kind::TopGame => {
-                    format!("Most played: {hours}h")
+                    backcord_iced_kit::i18n::t(format!("Most played: {hours}h"))
                 }
                 (_, Some(tracks)) if entry.kind == Kind::TopArtist => {
-                    format!("{tracks} tracks this week")
+                    backcord_iced_kit::i18n::t(format!("{tracks} tracks this week"))
                 }
-                _ if live => running_for(
+                _ if live => backcord_iced_kit::i18n::t(running_for(
                     activity
                         .as_ref()
                         .and_then(|activity| activity.start)
                         .unwrap_or(entry.at_ms),
                     now_ms,
-                ),
-                _ => finished_ago(entry.at_ms, now_ms),
+                )),
+                _ => backcord_iced_kit::i18n::t(finished_ago(entry.at_ms, now_ms)),
             };
             let picture = activity
                 .as_ref()
@@ -574,7 +574,7 @@ impl<'a> View<'a> {
         };
         let note = note.map(|note| {
             container(
-                text(note)
+                text(backcord_iced_kit::i18n::t(note))
                     .size(13)
                     .color(self.cx.look.theme.muted)
                     .width(Length::Fill),
@@ -798,11 +798,14 @@ impl<'a> View<'a> {
         let hidden = self.cx.state.activity_cards_hidden;
         let opens = self.s.activity_cards.len() > FIRST_CARDS || hidden;
         let mut head = row![
-            text(format!("Activity \u{2014} {}", self.s.activity_cards.len()))
-                .size(14)
-                .font(MEDIUM)
-                .color(theme.muted)
-                .width(Length::Fill),
+            text(backcord_iced_kit::i18n::t(format!(
+                "Activity \u{2014} {}",
+                self.s.activity_cards.len()
+            )))
+            .size(14)
+            .font(MEDIUM)
+            .color(theme.muted)
+            .width(Length::Fill),
         ]
         .spacing(4)
         .align_y(Alignment::Center);

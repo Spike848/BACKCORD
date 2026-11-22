@@ -370,7 +370,7 @@ fn connection_page<'a>(ctx: crate::ctx::Ctx<'a>, stats: &LinkStats) -> Element<'
         detail_row(
             ctx,
             backcord_iced_kit::i18n::tr("Average ping:"),
-            average.unwrap_or_else(|| "Unknown".to_owned())
+            average.unwrap_or_else(|| backcord_iced_kit::i18n::tr("Unknown").to_owned())
         )
     ]
     .spacing(8);
@@ -390,8 +390,11 @@ fn connection_page<'a>(ctx: crate::ctx::Ctx<'a>, stats: &LinkStats) -> Element<'
             loss,
         ));
     }
-    page.push(detail_note(connection_note(known), theme.muted))
-        .into()
+    page.push(detail_note(
+        backcord_iced_kit::i18n::t(connection_note(known)),
+        theme.muted,
+    ))
+    .into()
 }
 
 fn stream_page<'a>(ctx: crate::ctx::Ctx<'a>, stats: &LinkStats) -> Element<'a, Message> {
@@ -434,7 +437,10 @@ fn stream_page<'a>(ctx: crate::ctx::Ctx<'a>, stats: &LinkStats) -> Element<'a, M
             backcord_iced_kit::i18n::tr("Packets resent:"),
             stream.resent.to_string()
         ),
-        detail_note(STREAM_NOTE.to_owned(), ctx.look.theme.muted),
+        detail_note(
+            backcord_iced_kit::i18n::tr(STREAM_NOTE).to_owned(),
+            ctx.look.theme.muted
+        ),
     ]
     .spacing(8)
     .into()
@@ -472,13 +478,19 @@ fn privacy_page<'a>(ctx: crate::ctx::Ctx<'a>, code: Vec<String>) -> Element<'a, 
             .size(15)
             .font(BOLD)
             .color(theme.text),
-        detail_note(PRIVACY_NOTE.to_owned(), theme.secondary),
+        detail_note(
+            backcord_iced_kit::i18n::tr(PRIVACY_NOTE).to_owned(),
+            theme.secondary
+        ),
         container(rows)
             .width(Length::Fill)
             .style(move |_| rounded(sunken, 6)),
         container(copy).center_x(Length::Fill),
         controls::bar(theme.line, Length::Fill, 1.0),
-        detail_note(PRIVATE_NOTE.to_owned(), theme.secondary),
+        detail_note(
+            backcord_iced_kit::i18n::tr(PRIVATE_NOTE).to_owned(),
+            theme.secondary
+        ),
     ]
     .spacing(10)
     .into()

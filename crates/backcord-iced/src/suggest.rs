@@ -461,7 +461,7 @@ pub fn suggestions_view<'a>(
                         match (candidate.group, candidate.channel) {
                             (false, _) => backcord_iced_kit::i18n::tr("MEMBERS").to_owned(),
                             (true, false) => backcord_iced_kit::i18n::tr("ROLES").to_owned(),
-                            (true, true) => "CHANNELS".to_owned(),
+                            (true, true) => backcord_iced_kit::i18n::tr("CHANNELS").to_owned(),
                         },
                     ));
                 }
@@ -476,7 +476,10 @@ pub fn suggestions_view<'a>(
                 .as_ref()
                 .map(|(_, name)| name.as_str())
                 .unwrap_or_default();
-            list = list.push(heading(theme, format!("EMOJI MATCHING :{query}")));
+            list = list.push(heading(
+                theme,
+                backcord_iced_kit::i18n::t(format!("EMOJI MATCHING :{query}")),
+            ));
             let lit = ctx.composer.suggest.lit(ctx.composer.suggest.emoji.len());
             let pictures = &ctx.composer.suggest.emoji_pictures;
             for (index, found) in ctx.composer.suggest.emoji.iter().enumerate() {

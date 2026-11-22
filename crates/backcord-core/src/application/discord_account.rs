@@ -562,6 +562,7 @@ impl Application {
                 .map(|request| chat::FriendRequest {
                     id: request.user_id.clone(),
                     name: request.name.clone(),
+                    username: request.username.clone(),
                     avatar: Some(request.avatar.clone()),
                     incoming: request.incoming,
                     spam: request.spam,

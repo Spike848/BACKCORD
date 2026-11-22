@@ -878,10 +878,13 @@ fn aside_list<'a>(ctx: crate::ctx::Ctx<'a>, aside: &'a Aside) -> Element<'a, Mes
         if !aside.ready {
             return crate::timeline::view::messages_skeleton(ctx);
         }
-        let words = text(format!("This is the start of the {} thread.", aside.name))
-            .size(14)
-            .color(theme.muted)
-            .center();
+        let words = text(backcord_iced_kit::i18n::t(format!(
+            "This is the start of the {} thread.",
+            aside.name
+        )))
+        .size(14)
+        .color(theme.muted)
+        .center();
         return container(words)
             .padding([0, 16])
             .center(Length::Fill)
@@ -930,7 +933,7 @@ fn aside_composer<'a>(ctx: crate::ctx::Ctx<'a>, aside: &'a Aside) -> Element<'a,
     let placeholder = if reply.is_some() {
         backcord_iced_kit::i18n::tr("Write a reply").to_owned()
     } else {
-        format!("Message {}", aside.name)
+        backcord_iced_kit::i18n::t(format!("Message {}", aside.name))
     };
     let can_send = state.can_send_in(&aside.room);
     let sending = state.sending.is_some();
@@ -1015,7 +1018,9 @@ fn new_thread_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>>
     );
     if form.can_private {
         let words = if form.private {
-            "Only people you invite and moderators can see. You can invite new people by @mentioning them."
+            backcord_iced_kit::i18n::tr(
+                "Only people you invite and moderators can see. You can invite new people by @mentioning them.",
+            )
         } else {
             backcord_iced_kit::i18n::tr("Only people you invite and moderators can see")
         };
@@ -1031,11 +1036,11 @@ fn new_thread_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>>
         );
     }
     if let Some(error) = &form.error {
-        fields = fields.push(form::error(theme, error.as_str()));
+        fields = fields.push(form::error(theme, backcord_iced_kit::i18n::t(error)));
     }
     let composer = SideComposer::new(
         Writing::NewThread,
-        "Enter a message to start the conversation!".to_owned(),
+        backcord_iced_kit::i18n::tr("Enter a message to start the conversation!").to_owned(),
     )
     .enabled(!form.starting)
     .send(

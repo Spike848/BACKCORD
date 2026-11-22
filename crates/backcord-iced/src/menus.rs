@@ -562,7 +562,11 @@ fn apps_row(app: &App) -> Option<MenuRow> {
         .collect();
     (!apps.is_empty()).then(|| MenuRow {
         submenu: apps,
-        ..MenuRow::new(MenuAct::App, "Apps", Icon::Slash)
+        ..MenuRow::new(
+            MenuAct::App,
+            backcord_iced_kit::i18n::tr("Apps"),
+            Icon::Slash,
+        )
     })
 }
 

@@ -279,9 +279,9 @@ impl<'a> View<'a> {
                 let name = page.role(id).map_or("", |role| role.name.as_str());
                 (
                     backcord_iced_kit::i18n::tr("Delete Role"),
-                    format!(
+                    backcord_iced_kit::i18n::t(format!(
                         "Are you sure you want to delete the {name} role? This action cannot be undone."
-                    ),
+                    )),
                     backcord_iced_kit::i18n::tr("Delete"),
                 )
             }
@@ -289,7 +289,7 @@ impl<'a> View<'a> {
                 let role = page.open_role().map_or("", |role| role.name.as_str());
                 (
                     backcord_iced_kit::i18n::tr("Remove member"),
-                    format!("Remove {} from role {role}?", member.name),
+                    backcord_iced_kit::i18n::t(format!("Remove {} from role {role}?", member.name)),
                     backcord_iced_kit::i18n::tr("Remove"),
                 )
             }

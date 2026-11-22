@@ -254,7 +254,7 @@ fn card<'a>(
             }
             line = line
                 .push(
-                    text(votes_text(answer.votes))
+                    text(backcord_iced_kit::i18n::t(votes_text(answer.votes)))
                         .size(13)
                         .color(theme.secondary),
                 )
@@ -357,11 +357,11 @@ fn poll_footer<'a>(
         backcord_iced_kit::i18n::tr("Poll closed").to_owned()
     } else {
         poll.expiry
-            .map(|expiry| time_left(expiry.saturating_sub(ctx.minute)))
+            .map(|expiry| backcord_iced_kit::i18n::t(time_left(expiry.saturating_sub(ctx.minute))))
             .unwrap_or_default()
     };
     // The votes so far, which show who voted once the results do.
-    let votes = button(text(votes_text(total)).size(14))
+    let votes = button(text(backcord_iced_kit::i18n::t(votes_text(total))).size(14))
         .padding(0)
         .on_press_maybe(results.then(|| Message::Poll(Event::Voters(item.to_owned(), None))))
         .style(crate::controls::ink_style(theme.secondary, theme.text));
@@ -471,8 +471,19 @@ fn found_footer<'a>(ctx: crate::ctx::Ctx<'a>, closed: bool, total: usize) -> Ele
         .padding(Padding::ZERO.top(4));
     if closed {
         footer = footer
-            .push(text(votes_text(total)).size(14).color(theme.secondary))
-            .push(text("\u{00b7}  Poll closed").size(14).color(theme.muted));
+            .push(
+                text(backcord_iced_kit::i18n::t(votes_text(total)))
+                    .size(14)
+                    .color(theme.secondary),
+            )
+            .push(
+                text(format!(
+                    "\u{00b7}  {}",
+                    backcord_iced_kit::i18n::tr("Poll closed")
+                ))
+                .size(14)
+                .color(theme.muted),
+            );
     } else {
         footer = footer.push(
             text(backcord_iced_kit::i18n::tr(

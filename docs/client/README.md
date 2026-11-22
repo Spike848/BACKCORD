@@ -5,8 +5,8 @@ BACKCORD's window is `crates/backcord-iced`, written in
 drives `backcord-core` through `Action`s, `AppState`, effects and the
 backend's events ([architecture](../architecture.md)), so drafts, sending,
 the member list and voice are the core's and the window draws them. It draws
-with tiny-skia on the CPU, or with wgpu on the GPU when Settings → Advanced →
-Render with the GPU is on.
+with wgpu on the GPU while Settings → Advanced → Render with the GPU is on,
+as it starts, or with tiny-skia on the CPU.
 
 How it works, one doc per part:
 

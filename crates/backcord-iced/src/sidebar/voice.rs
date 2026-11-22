@@ -58,7 +58,11 @@ impl<'a> super::View<'a> {
         }
         let more = people.len().saturating_sub(VOICE_CARD_PEOPLE);
         if more > 0 {
-            card = card.push(text(format!("and {more} more")).size(12).color(theme.muted));
+            card = card.push(
+                text(backcord_iced_kit::i18n::t(format!("and {more} more")))
+                    .size(12)
+                    .color(theme.muted),
+            );
         }
         container(card).style(controls::tip_style(theme)).into()
     }

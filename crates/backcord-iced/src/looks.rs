@@ -274,10 +274,10 @@ pub fn member_lines(
             owner: owner == Some(member.id.as_str()),
             timed_out: member.timed_out_until.is_some_and(|until| until > now),
             boosting: member.boosting_since.map(|since| {
-                format!(
+                backcord_iced_kit::i18n::t(format!(
                     "Server boosting since {}",
                     backcord_core::clock::day(since / 1000)
-                )
+                ))
             }),
             presence: member.presence,
             status: Status {

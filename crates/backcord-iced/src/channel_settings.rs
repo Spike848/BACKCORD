@@ -303,10 +303,10 @@ impl<'a> View<'a> {
             page = page.push(self.channel_overview(core));
         }
         if let Some(problem) = core.problem() {
-            page = page.push(form::error(theme, problem));
+            page = page.push(form::error(theme, backcord_iced_kit::i18n::t(problem)));
         }
         if let Some(error) = &core.error {
-            page = page.push(form::error(theme, error.as_str()));
+            page = page.push(form::error(theme, backcord_iced_kit::i18n::t(error)));
         }
         let bar = (core.changed() || core.saving).then(|| {
             form::Unsaved {
@@ -355,7 +355,7 @@ impl<'a> View<'a> {
                 form::heading(
                     theme,
                     if category {
-                        "CATEGORY NAME"
+                        backcord_iced_kit::i18n::tr("CATEGORY NAME")
                     } else {
                         backcord_iced_kit::i18n::tr("CHANNEL NAME")
                     },
@@ -377,7 +377,7 @@ impl<'a> View<'a> {
                     form::entry(
                         theme,
                         TOPIC,
-                        "Let everyone know how to use this channel!",
+                        backcord_iced_kit::i18n::tr("Let everyone know how to use this channel!"),
                         &draft.topic,
                     )
                     .on_input_maybe(ready.then_some(|text| input(ChannelInput::Topic(text))))
@@ -388,7 +388,7 @@ impl<'a> View<'a> {
                     row![
                         self.cx.look.icon_button(Icon::ChevronLeft, backcord_iced_kit::i18n::tr("Shorter slowmode"), Some(to(step.saturating_sub(1)))).size(STEP, STEP_GLYPH).fill(iced::Color::TRANSPARENT),
                         container(
-                            text(SLOWMODE_NAMES[step.min(SLOWMODE_NAMES.len() - 1)])
+                            text(backcord_iced_kit::i18n::tr(SLOWMODE_NAMES[step.min(SLOWMODE_NAMES.len() - 1)]))
                                 .size(15)
                                 .color(theme.text)
                         )
@@ -521,7 +521,7 @@ impl<'a> View<'a> {
             backcord_iced_kit::i18n::tr("By making a channel private, only select members and roles will be able to view this channel.")
         });
         if locked {
-            switch = switch.locked(NOT_HELD);
+            switch = switch.locked(backcord_iced_kit::i18n::tr(NOT_HELD));
         }
         let raised = theme.raised;
         parts = parts
@@ -558,7 +558,9 @@ impl<'a> View<'a> {
                         title,
                         description,
                         tri(Overwrites::state(&shown, bit)),
-                        rules.locked(bit).then_some(NOT_HELD),
+                        rules
+                            .locked(bit)
+                            .then_some(backcord_iced_kit::i18n::tr(NOT_HELD)),
                         on,
                     ))
                     .padding(Padding {
@@ -578,7 +580,7 @@ impl<'a> View<'a> {
         if !everyone {
             right = right.push(action(
                 theme,
-                format!("Remove {}", app.overwrite_name(room, &shown)),
+                backcord_iced_kit::i18n::t(format!("Remove {}", app.overwrite_name(room, &shown))),
                 Kind::Danger,
                 ready.then(|| input(ChannelInput::Remove)),
             ));
@@ -713,21 +715,23 @@ impl<'a> View<'a> {
                     });
                 (
                     backcord_iced_kit::i18n::tr("Delete Permission Settings"),
-                    format!(
+                    backcord_iced_kit::i18n::t(format!(
                         "Are you sure you want to delete {} permissions? This action cannot be undone.",
                         app.overwrite_name(&core.room, &overwrite)
-                    ),
+                    )),
                 )
             }
             OverwriteConfirm::Sync => (
                 backcord_iced_kit::i18n::tr("Sync permissions?"),
-                format!("Would you like to sync {channel} permissions with {category}?"),
+                backcord_iced_kit::i18n::t(format!(
+                    "Would you like to sync {channel} permissions with {category}?"
+                )),
             ),
             OverwriteConfirm::DenySelf(name) => (
                 backcord_iced_kit::i18n::tr("Pretty sure you don't want to do this"),
-                format!(
+                backcord_iced_kit::i18n::t(format!(
                     "You cannot deny this permission to {name} because it will deny it to you as well. Allow another role or yourself before trying again."
-                ),
+                )),
             ),
         };
         let cancel = input(ChannelInput::Cancel);

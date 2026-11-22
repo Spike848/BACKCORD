@@ -356,10 +356,16 @@ pub fn sidebar(
                 })
             } else if room.voice && !listed_voice {
                 listed_voice = true;
-                Some(("VOICE CHANNELS".to_owned(), "VOICE CHANNELS".to_owned()))
+                Some((
+                    "VOICE CHANNELS".to_owned(),
+                    backcord_iced_kit::i18n::tr("VOICE CHANNELS").to_owned(),
+                ))
             } else if !room.voice && !listed_text {
                 listed_text = true;
-                Some(("TEXT CHANNELS".to_owned(), "TEXT CHANNELS".to_owned()))
+                Some((
+                    "TEXT CHANNELS".to_owned(),
+                    backcord_iced_kit::i18n::tr("TEXT CHANNELS").to_owned(),
+                ))
             } else {
                 None
             };
@@ -401,7 +407,10 @@ pub fn sidebar(
         }
         let status = if room.direct && room.network == Network::Discord {
             if room.person.is_none() {
-                Status::words(format!("{} members", room.members))
+                Status::words(backcord_iced_kit::i18n::t(format!(
+                    "{} members",
+                    room.members
+                )))
             } else {
                 Status::of(room.activity.as_deref())
             }

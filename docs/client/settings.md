@@ -115,7 +115,11 @@ it.
 
 Extra Features (`pages/extras.rs`), under its own group at the foot of the
 column, has a card for each feature, its switch with what it does and its
-own choices under it while it's on, each kept in `layout.json`:
+own choices under it while it's on, each kept in `layout.json`. All of
+them start on, Message Logger with Log my own messages, Silent Typing (not
+sharing this account's typing) and No Push To Talk included, and Stream
+Proof's button sits in the header bar, with Local Blur and Auto Stream
+Proof on:
 
 - Clickable Roles (`clickable_roles`): a role's chip on a profile opens the
   card of who holds it (`info_cards.rs`), as a role mention does.

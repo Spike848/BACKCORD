@@ -728,10 +728,12 @@ pub fn page_buttons(selected: u32, count: u32, visible: u32) -> Vec<PageButton> 
 /// what it says instead.
 fn count(search: &Search) -> String {
     match search {
-        search if search.loading && search.total == 0 => "Searching…".to_owned(),
+        search if search.loading && search.total == 0 => {
+            backcord_iced_kit::i18n::tr("Searching…").to_owned()
+        }
         search if search.total == 0 => backcord_iced_kit::i18n::tr("No Results").to_owned(),
-        search if search.total == 1 => "1 Result".to_owned(),
-        search => format!("{} Results", search.total),
+        search if search.total == 1 => backcord_iced_kit::i18n::tr("1 Result").to_owned(),
+        search => backcord_iced_kit::i18n::t(format!("{} Results", search.total)),
     }
 }
 
@@ -769,10 +771,10 @@ pub fn view<'a>(searching: &'a Searching, cx: Ctx<'a>) -> Option<Element<'a, Mes
                 indexing,
                 controls::tip(
                     theme,
-                    format!(
+                    backcord_iced_kit::i18n::t(format!(
                         "{} results indexed so far. We’re still indexing older messages.",
                         search.total
-                    ),
+                    )),
                 ),
                 iced::widget::tooltip::Position::Bottom,
             )
@@ -794,7 +796,7 @@ pub fn view<'a>(searching: &'a Searching, cx: Ctx<'a>) -> Option<Element<'a, Mes
         if set == 0 {
             backcord_iced_kit::i18n::tr("Filters").to_owned()
         } else {
-            format!("Filters ({set})")
+            backcord_iced_kit::i18n::t(format!("Filters ({set})"))
         },
         Kind::Ghost,
         Some(Message::Search(Event::Filters(
@@ -904,7 +906,7 @@ pub fn view<'a>(searching: &'a Searching, cx: Ctx<'a>) -> Option<Element<'a, Mes
         } else {
             (format!("{hidden} results"), format!("{hidden} messages"))
         };
-        let label = match (search.show_hidden, blocked, ignored) {
+        let label = backcord_iced_kit::i18n::t(match (search.show_hidden, blocked, ignored) {
             (true, _, 0) => format!("Hide {messages} from blocked users"),
             (true, 0, _) => format!("Hide {messages} from ignored users"),
             (true, ..) => format!("Hide {hidden} messages from blocked and ignored users"),
@@ -913,7 +915,7 @@ pub fn view<'a>(searching: &'a Searching, cx: Ctx<'a>) -> Option<Element<'a, Mes
             (false, ..) => {
                 format!("We’ve hidden {hidden} messages from users you’ve blocked and ignored.")
             }
-        };
+        });
         list = list.push(
             container(link(
                 cx,

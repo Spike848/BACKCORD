@@ -80,8 +80,8 @@ pub use new_post::{NewPost, POST_TAGS, POST_TITLE_LIMIT};
 pub use oauth::OAuthDialog;
 pub use place_search::Place;
 pub use places::{
-    ChannelAsk, ChannelDialog, INVITE_AGES, INVITE_USES, InviteDialog, LeaveDialog, ListedCategory,
-    SLOWMODES,
+    ChannelAsk, ChannelDialog, INVITE_AGES, INVITE_USES, InviteDialog, InvitePerson, LeaveDialog,
+    ListedCategory, SLOWMODES,
 };
 pub use polls::{
     ANSWER_LIMIT, DraftAnswer, POLL_ANSWERS, POLL_HOURS, PollDraft, PollEdit, QUESTION_LIMIT,
@@ -2131,6 +2131,8 @@ pub enum Action {
         user: String,
         server: String,
     },
+    /// Send someone the invite dialog lists an invite to its channel.
+    InviteFromDialog(String),
     /// Open Join a Server; look up the invite in what was typed or pasted
     /// into it; open it for a clicked invite link, by its code; join by
     /// the invite it shows, or open the server for a member; open the
@@ -3860,6 +3862,7 @@ impl Application {
                 vec![]
             }
             Action::InviteToServer { user, server } => self.invite_to_server(user, server),
+            Action::InviteFromDialog(user) => self.invite_from_dialog(user),
             Action::OpenJoinServer => self.open_join(),
             Action::FindInvite(typed) => self.find_invite(typed),
             Action::OpenInviteLink(code) => self.open_invite_link(code),
@@ -4616,7 +4619,7 @@ impl Application {
                     return self.invites_after(&room);
                 }
             }
-            Event::InviteSent { result, .. } => self.invite_sent(result),
+            Event::InviteSent { user, room, result } => self.invite_sent(&user, &room, result),
             Event::InviteResolved { code, result } => return self.invite_resolved(code, result),
             Event::JoinCaptcha { code, page } => return self.join_captcha(code, page),
             Event::ServerJoined { code, result } => return self.server_joined(code, result),

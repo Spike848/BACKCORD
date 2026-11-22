@@ -119,7 +119,7 @@ pub fn account(state: &AppState) -> Account {
     } else if let Some(playing) = playing {
         playing.name.clone()
     } else if let Some(status) = &state.account_status {
-        status.clone()
+        backcord_iced_kit::i18n::t(status)
     } else if state.online {
         backcord_iced_kit::i18n::tr("Online").to_owned()
     } else {

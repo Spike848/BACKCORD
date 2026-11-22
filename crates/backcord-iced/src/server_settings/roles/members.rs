@@ -81,7 +81,7 @@ impl<'a> View<'a> {
                 parts = parts.push(form::note(theme, backcord_iced_kit::i18n::tr("Loading...")));
             }
             Some(Err(error)) => {
-                parts = parts.push(form::error(theme, error.as_str()));
+                parts = parts.push(form::error(theme, backcord_iced_kit::i18n::t(error)));
             }
             Some(Ok(_)) if shown.is_empty() => {
                 parts = parts.push(form::note(
@@ -190,9 +190,11 @@ impl<'a> View<'a> {
                 .size(20)
                 .font(BOLD)
                 .color(theme.text),
-            text(format!("Select up to 30 members to add to role {role}"))
-                .size(14)
-                .color(theme.secondary),
+            text(backcord_iced_kit::i18n::t(format!(
+                "Select up to 30 members to add to role {role}"
+            )))
+            .size(14)
+            .color(theme.secondary),
             search(
                 theme,
                 CANDIDATES,

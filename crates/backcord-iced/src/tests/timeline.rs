@@ -1391,3 +1391,39 @@ fn reply_quotes_render_static_and_animated_custom_emoji_and_fall_back_until_load
         "composer reply bar renders inline custom emoji placeholder"
     );
 }
+
+#[test]
+fn a_right_click_elsewhere_opens_its_menu_in_place_of_the_open_one() {
+    let (mut app, _folder) = preview();
+    interact(&mut app, |ui| {
+        right_click(ui, "Yep. I should be free after dinner.");
+    });
+    let first = app
+        .win
+        .menu
+        .as_ref()
+        .and_then(|menu| menu.item.clone())
+        .expect("the first message's menu");
+    // With it open, a right click on another message opens that one's.
+    interact(&mut app, |ui| {
+        right_click(ui, "Nice, let's get a game going.");
+    });
+    let next = app
+        .win
+        .menu
+        .as_ref()
+        .and_then(|menu| menu.item.clone())
+        .expect("the next message's menu, at once");
+    assert_ne!(first, next);
+    // A left click outside only closes it.
+    interact(&mut app, |ui| {
+        ui.point_at(iced::Point::new(5.0, 5.0));
+        ui.simulate([
+            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left)),
+            iced::Event::Mouse(iced::mouse::Event::ButtonReleased(
+                iced::mouse::Button::Left,
+            )),
+        ]);
+    });
+    assert!(app.win.menu.is_none());
+}

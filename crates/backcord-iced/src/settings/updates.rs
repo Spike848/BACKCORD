@@ -24,11 +24,14 @@ impl<'a> Page<'a> {
             iced::Color { a: 0.22, ..accent },
         );
         let face = iced::widget::button(
-            text(format!("Update available · {}", shown.latest))
-                .size(13)
-                .font(crate::fonts::BOLD)
-                .color(accent)
-                .wrapping(text::Wrapping::None),
+            text(backcord_iced_kit::i18n::t(format!(
+                "Update available · {}",
+                shown.latest
+            )))
+            .size(13)
+            .font(crate::fonts::BOLD)
+            .color(accent)
+            .wrapping(text::Wrapping::None),
         )
         .padding([0, 12])
         .width(Length::Fill)

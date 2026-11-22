@@ -550,14 +550,22 @@ fn plus(app: &mut App) -> Task<Message> {
         disabled: !look.attach,
         subtitle: None,
         check: crate::controls::Check::None,
-        ..MenuRow::new(MenuAct::Upload, "Upload a File", Icon::File)
+        ..MenuRow::new(
+            MenuAct::Upload,
+            backcord_iced_kit::i18n::tr("Upload a File"),
+            Icon::File,
+        )
     }];
     if app.client.app.can_start_threads() {
         rows.push(MenuRow {
             disabled: false,
             subtitle: None,
             check: crate::controls::Check::None,
-            ..MenuRow::new(MenuAct::NewThread, "Create Thread", Icon::Thread)
+            ..MenuRow::new(
+                MenuAct::NewThread,
+                backcord_iced_kit::i18n::tr("Create Thread"),
+                Icon::Thread,
+            )
         });
     }
     if app.client.app.can_create_polls() {
@@ -565,7 +573,11 @@ fn plus(app: &mut App) -> Task<Message> {
             disabled: false,
             subtitle: None,
             check: crate::controls::Check::None,
-            ..MenuRow::new(MenuAct::NewPoll, "Create Poll", Icon::ChartBar)
+            ..MenuRow::new(
+                MenuAct::NewPoll,
+                backcord_iced_kit::i18n::tr("Create Poll"),
+                Icon::ChartBar,
+            )
         });
     }
     let at = iced::Point::new(
@@ -714,16 +726,16 @@ pub fn composer_look(ctx: crate::ctx::Ctx<'_>) -> Look {
         .and_then(|room| room.timed_out_until)
         .filter(|_| discord)
         .map(|until| {
-            format!(
+            backcord_iced_kit::i18n::t(format!(
                 "You're timed out in this server until {}.",
                 crate::place_menus::until(until / 1000, ctx.layout.prefs.twelve_hour_clock)
-            )
+            ))
         });
     let request = room.filter(|room| room.request).map(|room| {
         if room.category == backcord_core::discord::SPAM {
-            format!("Discord thinks {} may be spam", room.name)
+            backcord_iced_kit::i18n::t(format!("Discord thinks {} may be spam", room.name))
         } else {
-            format!("{} wants to message you", room.name)
+            backcord_iced_kit::i18n::t(format!("{} wants to message you", room.name))
         }
     });
     let locked = timed_out.is_none()
@@ -752,7 +764,9 @@ pub fn composer_look(ctx: crate::ctx::Ctx<'_>) -> Look {
     } else if discord_only {
         ""
     } else if discord {
-        "Discord · not end-to-end encrypted. Enter to send, Shift+Enter for a new line."
+        backcord_iced_kit::i18n::tr(
+            "Discord · not end-to-end encrypted. Enter to send, Shift+Enter for a new line.",
+        )
     } else if !state.trusted {
         backcord_iced_kit::i18n::tr("Sending is locked until this device is verified.")
     } else if room.is_some_and(|room| room.encrypted) {
@@ -851,9 +865,9 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
         backcord_iced_kit::i18n::tr("Write a reply").to_owned()
     } else {
         match (header.direct, header.one_to_one, header.thread) {
-            (true, true, _) => format!("Message @{name}"),
-            (false, _, false) => format!("Message #{name}"),
-            _ => format!("Message {name}"),
+            (true, true, _) => backcord_iced_kit::i18n::t(format!("Message @{name}")),
+            (false, _, false) => backcord_iced_kit::i18n::t(format!("Message #{name}")),
+            _ => backcord_iced_kit::i18n::t(format!("Message {name}")),
         }
     };
     let commanding = ctx.state.command_draft().is_some();
@@ -940,7 +954,7 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
     }
     // Stream Proof's button, on the chat bar.
     let prefs = &ctx.layout.prefs;
-    if prefs.stream_proof.unwrap_or(true) && prefs.stream_proof_location.unwrap_or(0) == 0 {
+    if prefs.stream_proof.unwrap_or(true) && prefs.stream_proof_location.unwrap_or(1) == 0 {
         buttons = buttons.push(lift(composer_button(
             ctx,
             if ctx.stream_proof {

@@ -24,7 +24,7 @@ pub const NOTICE: &str = "GPU rendering failed to start, so BACKCORD is using so
 /// The renderer `requested` (`--renderer`) or kept in `layout.json`; after
 /// a GPU failure (`failure`), the CPU, with the setting turned off.
 pub fn plan(root: &Path, requested: Option<bool>, failure: Option<String>) -> Plan {
-    let saved = Layout::read(root).prefs.gpu_rendering;
+    let saved = Layout::read(root).prefs.gpu_rendering.unwrap_or(true);
     let plan = choose(requested, saved, failure.is_some());
     if let Some(reason) = failure {
         tracing::warn!(%reason, "started on the CPU after the GPU failed");
@@ -76,6 +76,6 @@ mod tests {
         assert!(plan(folder.path(), None, None).gpu);
         let after = plan(folder.path(), Some(false), Some("no adapter".into()));
         assert!(after.failed && !after.gpu);
-        assert!(!Layout::read(folder.path()).prefs.gpu_rendering);
+        assert_eq!(Layout::read(folder.path()).prefs.gpu_rendering, Some(false));
     }
 }

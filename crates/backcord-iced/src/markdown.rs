@@ -487,15 +487,28 @@ pub fn notice(message: &ChatMessage, notice: &Notice, text: u32, muted: u32) -> 
     let what = match &notice.kind {
         NoticeKind::Pinned(item) => {
             let jump = item.as_ref().map(|item| format!("{JUMP_LINK}{item}"));
-            format!(
+            backcord_iced_kit::i18n::t(format!(
                 " pinned {} to this channel. See all {}.",
-                strong("a message", text, jump.as_deref()),
-                strong("pinned messages", text, Some(PINS_LINK)),
-            )
+                strong(
+                    backcord_iced_kit::i18n::tr("a message"),
+                    text,
+                    jump.as_deref()
+                ),
+                strong(
+                    backcord_iced_kit::i18n::tr("pinned messages"),
+                    text,
+                    Some(PINS_LINK)
+                ),
+            ))
         }
         // A possessive follows the name without a space.
-        _ if notice.text.starts_with('\'') => links::escape_markdown(&notice.text),
-        _ => format!(" {}", links::escape_markdown(&notice.text)),
+        _ if notice.text.starts_with('\'') => {
+            links::escape_markdown(&backcord_iced_kit::i18n::t(&notice.text))
+        }
+        _ => format!(
+            " {}",
+            links::escape_markdown(&backcord_iced_kit::i18n::t(&notice.text))
+        ),
     };
     let mut runs = inline(&format!("{author}{what}"));
     runs.push(Run {

@@ -215,7 +215,11 @@ pub fn message_content<'a>(
                 .color(theme.danger_text),
         );
     } else if message.edited && message.notice.is_none() && !editing {
-        content = content.push(text("(edited)").size(10).color(theme.muted));
+        content = content.push(
+            text(backcord_iced_kit::i18n::tr("(edited)"))
+                .size(10)
+                .color(theme.muted),
+        );
     }
     let gallery = Gallery::of(
         &message.attachments,
@@ -461,11 +465,14 @@ fn thinking<'a>(ctx: crate::ctx::Ctx<'a>, message: &ChatMessage) -> Element<'a, 
         .color(theme.danger)
         .into()
     } else {
-        text(format!("{} is thinking…", message.author))
-            .size(text_size(ctx))
-            .font(ITALIC)
-            .color(theme.muted)
-            .into()
+        text(backcord_iced_kit::i18n::t(format!(
+            "{} is thinking…",
+            message.author
+        )))
+        .size(text_size(ctx))
+        .font(ITALIC)
+        .color(theme.muted)
+        .into()
     }
 }
 
@@ -696,7 +703,11 @@ fn used_line<'a>(
     .spacing(4)
     .align_y(Alignment::Center);
     if let Some(target) = used.target.as_deref().filter(|target| !target.is_empty()) {
-        line = line.push(text(format!("on @{target}")).size(14).color(theme.muted));
+        line = line.push(
+            text(backcord_iced_kit::i18n::t(format!("on @{target}")))
+                .size(14)
+                .color(theme.muted),
+        );
     }
     container(line)
         .height(HEADER_LINE)
@@ -877,11 +888,11 @@ fn thread_chip<'a>(ctx: crate::ctx::Ctx<'a>, thread: &'a chat::ThreadLink) -> El
     let count = match thread.messages {
         None => None,
         Some(0) => Some(backcord_iced_kit::i18n::tr("No messages yet").to_owned()),
-        Some(1) => Some("1 message".to_owned()),
-        Some(count) => Some(format!("{count} messages")),
+        Some(1) => Some(backcord_iced_kit::i18n::tr("1 message").to_owned()),
+        Some(count) => Some(backcord_iced_kit::i18n::t(format!("{count} messages"))),
     };
     let detail = match (count, thread.archived) {
-        (Some(count), true) => format!("{count}, archived"),
+        (Some(count), true) => backcord_iced_kit::i18n::t(format!("{count}, archived")),
         (Some(count), false) => count,
         (None, true) => backcord_iced_kit::i18n::tr("Archived").into(),
         (None, false) => String::new(),

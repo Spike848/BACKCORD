@@ -285,7 +285,10 @@ fn empty_tab<'a>(
             ),
         ),
         Tab::Activity => (
-            format!("{} doesn't have any activity to share here", profile.name),
+            backcord_iced_kit::i18n::t(format!(
+                "{} doesn't have any activity to share here",
+                profile.name
+            )),
             backcord_iced_kit::i18n::tr(
                 "Looks like this profile is still a work in progress - send them a message to say hi!",
             ),
@@ -451,7 +454,7 @@ fn board_cards<'a>(
     let tile = inks.tile;
     for widget in &profile.widgets {
         let mut card = column![
-            text(widget.title.as_str())
+            text(backcord_iced_kit::i18n::t(&widget.title))
                 .size(14)
                 .font(SEMIBOLD)
                 .color(inks.ink)
@@ -460,7 +463,7 @@ fn board_cards<'a>(
         .spacing(10);
         for game in &widget.games {
             let mut words = column![
-                text(game.name.as_str())
+                text(backcord_iced_kit::i18n::t(&game.name))
                     .size(13)
                     .font(MEDIUM)
                     .color(inks.ink)

@@ -35,10 +35,10 @@ pub(super) fn hidden_card(message: &ChatMessage) -> Option<String> {
     Some(if embed.title.is_empty() {
         backcord_iced_kit::i18n::tr("A card, hidden while link previews are off.").to_owned()
     } else {
-        format!(
+        backcord_iced_kit::i18n::t(format!(
             "A card, \"{}\", hidden while link previews are off.",
             embed.title
-        )
+        ))
     })
 }
 

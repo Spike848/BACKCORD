@@ -287,13 +287,16 @@ pub fn forum_sync(app: &mut App) {
             Some(backcord_iced_kit::i18n::tr("Searching...").to_owned()),
             false,
         ),
-        Some(Some(Err(error))) => (Some(error.clone()), false),
+        Some(Some(Err(error))) => (Some(backcord_iced_kit::i18n::t(error)), false),
         Some(Some(Ok(found))) => (None, found.is_empty()),
         None if cards == 0 && forum.list.loading => (
             Some(backcord_iced_kit::i18n::tr("Loading posts...").into()),
             false,
         ),
-        None if cards == 0 => (forum.list.error.clone(), forum.list.error.is_none()),
+        None if cards == 0 => (
+            forum.list.error.as_ref().map(backcord_iced_kit::i18n::t),
+            forum.list.error.is_none(),
+        ),
         None => (None, false),
     };
     app.forum_post.note = note;
@@ -504,7 +507,7 @@ fn card(post: &ForumPost, info: &ForumInfo, now: u64) -> Card {
         text: words.to_owned(),
         reaction,
         replies: thread.replies,
-        time: crate::header_popovers::ago(at, now),
+        time: backcord_iced_kit::i18n::t(crate::header_popovers::ago(at, now)),
         picture: first.and_then(|first| first.picture.clone().map(|url| (url, first.spoiler))),
     }
 }
@@ -686,11 +689,16 @@ fn post_card<'a>(ctx: crate::ctx::Ctx<'a>, card: &'a Card) -> Element<'a, Messag
     if card.new {
         let accent = theme.accent;
         title = title.push(
-            container(text("NEW").size(10).font(BOLD).color(theme.on_accent))
-                .padding([0, 5])
-                .height(16)
-                .align_y(Alignment::Center)
-                .style(move |_| rounded(accent, 8)),
+            container(
+                text(backcord_iced_kit::i18n::tr("NEW"))
+                    .size(10)
+                    .font(BOLD)
+                    .color(theme.on_accent),
+            )
+            .padding([0, 5])
+            .height(16)
+            .align_y(Alignment::Center)
+            .style(move |_| rounded(accent, 8)),
         );
     }
     words = words.push(container(title).width(Length::Fill));
@@ -868,7 +876,7 @@ fn new_post_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
                 .outside(Message::Forum(Event::TagsMenu(false))),
         );
         let label = if info.require_tag {
-            "TAGS (REQUIRED)"
+            backcord_iced_kit::i18n::tr("TAGS (REQUIRED)")
         } else {
             backcord_iced_kit::i18n::tr("TAGS")
         };
@@ -877,15 +885,18 @@ fn new_post_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     if let Some((_, guidelines)) = &ctx.forum_post.guidelines {
         fields = fields.push(guidelines_view(ctx, guidelines));
     }
-    let mut composer = SideComposer::new(Writing::NewPost, "Enter a message...".into())
-        .enabled(!posting)
-        .attach((state.can_attach() && !posting).then_some(Message::Forum(Event::Attach)));
+    let mut composer = SideComposer::new(
+        Writing::NewPost,
+        backcord_iced_kit::i18n::tr("Enter a message...").into(),
+    )
+    .enabled(!posting)
+    .attach((state.can_attach() && !posting).then_some(Message::Forum(Event::Attach)));
     if let Some(tray) = crate::uploads::tray(ctx) {
         composer = composer.tray(tray);
     }
     fields = fields.push(composer.view(ctx));
     if let Some(error) = &post.error {
-        fields = fields.push(crate::form::error(theme, error.as_str()));
+        fields = fields.push(crate::form::error(theme, backcord_iced_kit::i18n::t(error)));
     }
     let label = if posting {
         backcord_iced_kit::i18n::tr("Posting...")

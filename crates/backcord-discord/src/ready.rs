@@ -89,6 +89,8 @@ pub mod permission {
     /// Playing other servers' sounds, for those with Nitro.
     pub const USE_EXTERNAL_SOUNDS: u64 = 1 << 45;
     /// Posting polls, besides sending messages.
+    /// Set the status of a voice channel one is connected to.
+    pub const SET_VOICE_CHANNEL_STATUS: u64 = 1 << 48;
     pub const SEND_POLLS: u64 = 1 << 49;
     /// Pinning messages and unpinning them, which `MANAGE_MESSAGES` once gave.
     pub const PIN_MESSAGES: u64 = 1 << 51;

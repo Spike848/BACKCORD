@@ -39,7 +39,15 @@ fn choose(app: &mut App, place: &str, header: bool, row: &str) {
 
 #[test]
 fn the_invite_dialog_shows_its_link_and_how_long_it_lasts() {
+    use backcord_core::application::InvitePerson;
     let (mut app, _folder) = discord_server(0, |_, _| {});
+    let person = |id: &str, name: &str, friend: bool| InvitePerson {
+        id: id.into(),
+        name: name.into(),
+        username: Some(format!("{}_", name.to_lowercase())),
+        avatar: None,
+        friend,
+    };
     let invite = InviteDialog {
         server: "Test".into(),
         room: "discord:10:14".into(),
@@ -47,24 +55,48 @@ fn the_invite_dialog_shows_its_link_and_how_long_it_lasts() {
         voice: true,
         max_age: 43_200,
         max_uses: 25,
-        link: None,
         making: true,
-        error: None,
+        people: vec![person("3", "Cara", true), person("4", "Dev", false)],
+        ..InviteDialog::default()
     };
     let show =
         |app: &mut App, invite: InviteDialog| change(app, |state| state.invite = Some(invite));
     show(&mut app, invite.clone());
     for words in [
         "Invite friends to Test",
-        "They'll land in Lounge.",
+        "Recipients will land in Lounge",
+        "FRIENDS",
+        "Cara",
+        "SERVER MEMBERS",
+        "Dev",
+        "Or, send a server invite link to a friend",
         "Making a link...",
+        "Edit invite link.",
     ] {
         assert!(shows(&app, words), "{words}");
     }
-    assert!(!shows(&app, "This link"), "no note before the link");
+    assert!(!shows(&app, "Your invite link"), "no note before the link");
+
+    // The search finds by name or username.
+    interact(&mut app, |ui| {
+        ui.click(Id::new("invite-search")).expect("the search");
+        ui.typewrite("dev");
+    });
+    assert!(shows(&app, "Dev") && !shows(&app, "Cara"));
+
+    // Invite sends them the link, once.
+    interact(&mut app, |ui| {
+        ui.click("Invite").expect("Invite");
+    });
+    let asked = app.client.state().invite.clone().expect("open");
+    assert_eq!(asked.sending, ["4"]);
 
     // Its choices start from the link's, and others chosen stay while the
     // dialog is open.
+    interact(&mut app, |ui| {
+        ui.click("Edit invite link.").expect("Edit invite link.");
+    });
+    assert!(shows(&app, "Invite link settings"));
     interact(&mut app, |ui| {
         ui.click("Never").expect("Never");
         ui.click("100").expect("100");
@@ -77,17 +109,27 @@ fn the_invite_dialog_shows_its_link_and_how_long_it_lasts() {
             ..invite.clone()
         },
     );
-    assert!(shows(&app, "https://discord.gg/abc"));
-    assert!(shows(
-        &app,
-        "This link expires in 12 hours and works 25 times."
-    ));
     interact(&mut app, |ui| {
         ui.click("Generate a new link")
             .expect("Generate a new link");
     });
     let asked = app.client.state().invite.clone().expect("open");
     assert_eq!((asked.max_age, asked.max_uses), (0, 100), "{asked:?}");
+    // Back to the people, and the link once made.
+    assert!(shows(&app, "Making a link...") && shows(&app, "Dev"));
+    show(
+        &mut app,
+        InviteDialog {
+            link: Some("https://discord.gg/abc".into()),
+            making: false,
+            ..invite.clone()
+        },
+    );
+    assert!(shows(&app, "https://discord.gg/abc"));
+    assert!(shows(
+        &app,
+        "Your invite link expires in 12 hours and works 25 times."
+    ));
 
     show(
         &mut app,
@@ -98,11 +140,16 @@ fn the_invite_dialog_shows_its_link_and_how_long_it_lasts() {
             voice: false,
             link: Some("https://discord.gg/abc".into()),
             making: false,
+            sent: vec!["4".into()],
             ..invite
         },
     );
-    assert!(shows(&app, "This link never expires and works once."));
-    assert!(shows(&app, "They'll land in #general."));
+    assert!(shows(
+        &app,
+        "Your invite link never expires and works once."
+    ));
+    assert!(shows(&app, "Recipients will land in #general"));
+    assert!(shows(&app, "Sent"), "Dev's went");
     interact(&mut app, |ui| {
         ui.click("Copy").expect("Copy");
     });

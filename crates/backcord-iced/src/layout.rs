@@ -195,9 +195,10 @@ pub struct Prefs {
     pub notifications: Option<bool>,
     pub notification_text: Option<bool>,
     pub flash_taskbar: Option<bool>,
-    /// Advanced: rendering with the GPU from the next start, closing to the
+    /// Advanced: rendering with the GPU from the next start (on unless
+    /// turned off, or a GPU that failed turned it off), closing to the
     /// tray, starting another BACKCORD rather than showing this one.
-    pub gpu_rendering: bool,
+    pub gpu_rendering: Option<bool>,
     pub close_to_tray: Option<bool>,
     pub multiple_windows: bool,
     /// Discord: channels this account can't see listed locked, reading

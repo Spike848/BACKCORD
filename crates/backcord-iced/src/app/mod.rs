@@ -240,14 +240,14 @@ impl App {
         layout.voice.apply();
         layout.prefs.apply_clock();
         backcord_core::discord::set_custom_games(&layout.prefs.game_executables);
-        client.share_typing = layout.prefs.share_typing.unwrap_or(true);
-        backcord_core::extras::set_message_logger(layout.prefs.message_logger.unwrap_or(false));
-        backcord_core::extras::set_log_own(layout.prefs.message_logger_own.unwrap_or(false));
+        client.share_typing = layout.prefs.share_typing.unwrap_or(false);
+        backcord_core::extras::set_message_logger(layout.prefs.message_logger.unwrap_or(true));
+        backcord_core::extras::set_log_own(layout.prefs.message_logger_own.unwrap_or(true));
         // The proxy and encrypted DNS Security set, before anything connects.
         let (proxy, dns) = crate::settings::network(&layout.prefs);
         backcord_core::discord::set_network(proxy, dns);
         backcord_core::push_to_talk::set_ignore_required(
-            layout.prefs.no_push_to_talk.unwrap_or(false),
+            layout.prefs.no_push_to_talk.unwrap_or(true),
         );
         // The window opens at its size in the desktop's pixels whatever the
         // zoom, and its layout gets fewer.

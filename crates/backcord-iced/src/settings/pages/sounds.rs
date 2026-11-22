@@ -59,7 +59,7 @@ impl<'a> Page<'a> {
             ),
             form::group([
                 form::heading(theme, backcord_iced_kit::i18n::tr("SOUND SET")),
-                crate::controls::choices_within(theme, &SOUND_SETS, set, 520.0, |index| {
+                crate::controls::choices_within(theme, &SOUND_SETS.map(backcord_iced_kit::i18n::tr), set, 520.0, |index| {
                     pref(Pref::SoundSet(index))
                 }),
             ]),
@@ -73,7 +73,9 @@ impl<'a> Page<'a> {
             .view(theme),
             self.flip(
                 backcord_iced_kit::i18n::tr("Adjust each sound"),
-                "Set how loud each one is, as a share of the volume above. 0% turns a sound off.",
+                backcord_iced_kit::i18n::tr(
+                    "Set how loud each one is, as a share of the volume above. 0% turns a sound off.",
+                ),
                 voice.adjust_each_sound,
                 Pref::AdjustEach,
             ),
@@ -85,9 +87,12 @@ impl<'a> Page<'a> {
                 each = each.push(
                     row![
                         container(
-                            slider(*name, value, 100, move |value| {
-                                pref(Pref::EachSound(index, value, false))
-                            })
+                            slider(
+                                backcord_iced_kit::i18n::tr(name),
+                                value,
+                                100,
+                                move |value| { pref(Pref::EachSound(index, value, false)) }
+                            )
                             .on_release(pref(Pref::EachSound(index, value, true)))
                             .view(theme)
                         )

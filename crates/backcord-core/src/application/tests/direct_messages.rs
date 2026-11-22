@@ -429,6 +429,7 @@ fn discord_friend_requests_are_sent_answered_and_cancelled() {
     let request = |id: &str, name: &str, incoming: bool| FriendRequest {
         user_id: id.into(),
         name: name.into(),
+        username: None,
         avatar: format!("{id}.png"),
         incoming,
         spam: false,

@@ -557,7 +557,10 @@ impl<'a> Page<'a> {
                 };
                 column![
                     self.cx.look.glyph(Icon::Video, 30, grey),
-                    text(note).size(14).color(grey).center()
+                    text(backcord_iced_kit::i18n::t(note))
+                        .size(14)
+                        .color(grey)
+                        .center()
                 ]
                 .spacing(10)
                 .padding(12)
@@ -858,7 +861,7 @@ impl<'a> Page<'a> {
             form::group([
                 form::heading(theme, backcord_iced_kit::i18n::tr("PUSH TO TALK KEYBIND")),
                 form::buttons([form::capture(theme, key, recorded, 200.0), button]),
-                form::note(theme, note),
+                form::note(theme, backcord_iced_kit::i18n::t(note)),
             ]),
             form::group([
                 form::heading(

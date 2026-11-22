@@ -162,7 +162,10 @@ pub fn activity_card_view<'a>(
         (Some(start), _) => {
             lines = lines.push(
                 crate::widgets::live_text(second, move || {
-                    format!("{} elapsed", clock(now_seconds().saturating_sub(start)))
+                    backcord_iced_kit::i18n::t(format!(
+                        "{} elapsed",
+                        clock(now_seconds().saturating_sub(start))
+                    ))
                 })
                 .size(12)
                 .color(inks.ink3),
@@ -171,7 +174,10 @@ pub fn activity_card_view<'a>(
         (None, Some(end)) => {
             lines = lines.push(
                 crate::widgets::live_text(second, move || {
-                    format!("{} left", clock(end.saturating_sub(now_seconds())))
+                    backcord_iced_kit::i18n::t(format!(
+                        "{} left",
+                        clock(end.saturating_sub(now_seconds()))
+                    ))
                 })
                 .size(12)
                 .color(inks.ink3),

@@ -163,8 +163,10 @@ in the core's state after each message.
 (selectable text, whose selection across the timeline `timeline/selection.rs` keeps),
 `animated.rs` and `video.rs` are the client's own widgets. Overlays
 (the card, suggestions, the picker, menus, a dialog) are layers of one
-stack, each over a layer that takes a click outside; a menu or a dialog
-takes the keys by moving focus to an id nothing has (`app::NOBODY`).
+stack, each over a layer that takes a click outside. A menu's
+(`controls::menu_outside`) lets a right press go on to what's under it as
+it closes the menu, so a right click on someone else opens their menu at
+once; a left press only closes it. A menu or a dialog takes the keys by moving focus to an id nothing has (`app::NOBODY`).
 What's open is one list, `app::layers::LAYERS`: the first open layer that takes
 the keys has them (a dialog, settings, the menu), Escape that nothing took
 closes the first open one that closes on it, and while one with a field

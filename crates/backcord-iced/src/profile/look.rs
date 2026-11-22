@@ -223,7 +223,7 @@ impl Look {
             note_editable: discord && !own,
             accent: profile.accent,
             message_hint: if can_message {
-                format!("Message @{}", profile.name)
+                backcord_iced_kit::i18n::t(format!("Message @{}", profile.name))
             } else {
                 String::new()
             },
@@ -364,7 +364,7 @@ fn activity_look(activity: &Activity) -> ActivityLook {
         )
     };
     ActivityLook {
-        heading: activity.heading().to_uppercase(),
+        heading: backcord_iced_kit::i18n::t(activity.heading()).to_uppercase(),
         game: activity.kind == backcord_core::chat::ActivityKind::Playing,
         name,
         name_emoji,
