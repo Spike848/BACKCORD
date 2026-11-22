@@ -1,8 +1,9 @@
 //! Voice & video: the microphone, speakers and camera with their volumes
-//! and a camera's preview, how calls start and sound, noise suppression,
-//! the soundboard's volume and entrance sounds, and how the microphone is
-//! sent (voice activity with the gate's sensitivity, or push to talk with
-//! its key and release delay).
+//! and a camera's preview; under the mic test how the microphone is sent
+//! (voice activity with the gate's sensitivity, or push to talk with its
+//! key and release delay), the soundboard's volume, studio mode, noise
+//! suppression and echo reduction; then how calls start, and entrance
+//! sounds.
 //!
 //! While it shows it may run three things, each gone when it's left: the
 //! camera being tried, the Discord gate's meter (while the gate's slider
@@ -81,8 +82,6 @@ pub enum Event {
     MicTest,
     Volume(bool, u32, bool),
     UnmuteOnJoin(bool),
-    LevelVoice(bool),
-    Dereverb(bool),
     /// The echo reduction chosen: off, normal or strong.
     Echo(usize),
     Studio(bool),
@@ -261,21 +260,11 @@ impl Settings {
                 cx.layout.unmute_on_join = Some(on);
                 crate::layout::store(&root, "unmute_on_join", on);
             }
-            Event::LevelVoice(on) => {
-                voice.level_voice = Some(on);
-                backcord_core::leveling::set_enabled(on);
-                crate::layout::store(&root, "level_voice", on);
-            }
             Event::Echo(level) => {
                 let level = level.min(2) as u8;
                 voice.echo_reduction = Some(level);
                 backcord_core::noise::set_echo(level);
                 crate::layout::store(&root, "echo_reduction", level);
-            }
-            Event::Dereverb(on) => {
-                voice.reduce_room_echo = on;
-                backcord_core::noise::set_dereverb(on);
-                crate::layout::store(&root, "reduce_room_echo", on);
             }
             Event::Studio(on) => {
                 voice.studio_voice = on;
@@ -434,6 +423,40 @@ impl<'a> Page<'a> {
         if backcord_core::discord_audio::AVAILABLE {
             parts.push(self.mic_test());
         }
+        // Under the test: how the microphone sends, then how it's processed.
+        let push = voice.input_mode == InputMode::PushToTalk;
+        parts.push(form::group([
+            form::heading(theme, backcord_iced_kit::i18n::tr("INPUT MODE")),
+            choices(
+                theme,
+                &[
+                    backcord_iced_kit::i18n::tr("Voice activity"),
+                    backcord_iced_kit::i18n::tr("Push to talk"),
+                ],
+                usize::from(push),
+                |index| voice_message(Event::InputMode(index)),
+            ),
+            form::note(
+                theme,
+                if push {
+                    backcord_iced_kit::i18n::tr(
+                        "BACKCORD sends your microphone only while you hold a key.",
+                    )
+                } else {
+                    backcord_iced_kit::i18n::tr(
+                        "BACKCORD sends your voice when it hears you speak.",
+                    )
+                },
+            ),
+        ]));
+        if push {
+            parts.extend(self.push_to_talk());
+        } else if linked {
+            parts.push(self.sensitivity());
+        }
+        if linked {
+            parts.extend(self.discord_processing());
+        }
         let mut camera_group = vec![
             form::heading(theme, backcord_iced_kit::i18n::tr("CAMERA")),
             device(Drop::Camera, cameras, camera),
@@ -489,48 +512,8 @@ impl<'a> Page<'a> {
             ))
             .view(self.cx.look),
         );
-        let level = voice.level_voice.unwrap_or(true);
-        parts.push(
-            switch(
-                backcord_iced_kit::i18n::tr("Even out your voice"),
-                level,
-                Some(voice_message(Event::LevelVoice(!level))),
-            )
-            .description(backcord_iced_kit::i18n::tr("Keeps your voice steady as you lean towards the microphone or away from it. Whispers and shouts still come through as they are."))
-            .view(self.cx.look),
-        );
         if linked {
-            parts.extend(self.discord_voice());
-        }
-        let push = voice.input_mode == InputMode::PushToTalk;
-        parts.push(form::group([
-            form::heading(theme, backcord_iced_kit::i18n::tr("INPUT MODE")),
-            choices(
-                theme,
-                &[
-                    backcord_iced_kit::i18n::tr("Voice activity"),
-                    backcord_iced_kit::i18n::tr("Push to talk"),
-                ],
-                usize::from(push),
-                |index| voice_message(Event::InputMode(index)),
-            ),
-            form::note(
-                theme,
-                if push {
-                    backcord_iced_kit::i18n::tr(
-                        "BACKCORD sends your microphone only while you hold a key.",
-                    )
-                } else {
-                    backcord_iced_kit::i18n::tr(
-                        "BACKCORD sends your voice when it hears you speak.",
-                    )
-                },
-            ),
-        ]));
-        if push {
-            parts.extend(self.push_to_talk());
-        } else if linked {
-            parts.push(self.sensitivity());
+            parts.extend(self.discord_extras());
         }
         form::page(parts)
     }
@@ -579,18 +562,52 @@ impl<'a> Page<'a> {
         .into()
     }
 
-    /// Discord's calls' own: noise suppression and its strength, the
-    /// soundboard's volume, entrance sounds, the room's echo and Windows'
-    /// effects.
-    fn discord_voice(self) -> Vec<Element<'a, Message>> {
+    /// Discord calls' microphone processing, in Settings' order: the
+    /// soundboard's volume, studio mode, then noise suppression and echo
+    /// reduction, which apply in studio mode too.
+    fn discord_processing(self) -> Vec<Element<'a, Message>> {
         let settings = self.s;
         let theme = self.cx.look.theme;
         let voice = &self.cx.layout.voice;
+        let state = self.cx.state;
+        let board = settings.voice.soundboard.unwrap_or_else(|| {
+            backcord_core::volume::to_slider(state.soundboard_volume / 100.0)
+                .round()
+                .clamp(0.0, 100.0) as u32
+        });
+        let mut parts = vec![form::group([
+            form::heading(theme, backcord_iced_kit::i18n::tr("SOUNDBOARD VOLUME")),
+            slider(
+                backcord_iced_kit::i18n::tr("Soundboard volume"),
+                board,
+                100,
+                |value| voice_message(Event::SoundboardVolume(value, false)),
+            )
+            .mark(false)
+            .on_release(voice_message(Event::SoundboardVolume(board, true)))
+            .view(theme),
+            form::note(
+                theme,
+                backcord_iced_kit::i18n::tr(
+                    "How loud soundboard sounds play in Discord calls, yours and everyone else's. Discord keeps it for all your devices.",
+                ),
+            ),
+        ])];
+        let studio = voice.studio_voice;
+        parts.push(
+            switch(
+                backcord_iced_kit::i18n::tr("Studio mode"),
+                studio,
+                Some(voice_message(Event::Studio(!studio))),
+            )
+            .description(backcord_iced_kit::i18n::tr("Sends your microphone in Discord calls at the best the codec offers: Opus at 320 kbit/s, fullband, tuned for music. Noise suppression and echo reduction below still apply as you choose them; with both off, your microphone goes out as it is."))
+            .view(self.cx.look),
+        );
         let noise = SUPPRESSORS
             .iter()
             .position(|kind| *kind == voice.noise_suppression)
             .unwrap_or(0);
-        let mut parts = vec![form::group([
+        parts.push(form::group([
             form::heading(
                 theme,
                 backcord_iced_kit::i18n::tr("NOISE SUPPRESSION IN DISCORD CALLS"),
@@ -611,7 +628,7 @@ impl<'a> Page<'a> {
                     "DeepFilterNet also takes out typing and other sudden noise. RNNoise uses less processing. Off sends your microphone as it is, for a quiet room. A call going on switches straight away.",
                 ),
             ),
-        ])];
+        ]));
         if voice.noise_suppression != Suppressor::Off {
             let strength = STRENGTHS
                 .iter()
@@ -646,48 +663,15 @@ impl<'a> Page<'a> {
                 backcord_iced_kit::i18n::tr("Keeps what your speakers play from going back out through your microphone, so others don't hear themselves. Strong also turns your microphone down while only that echo reaches it; your own voice still goes through. With headphones you can turn it off. A call going on switches straight away."),
             ),
         ]));
-        let state = self.cx.state;
-        let board = settings.voice.soundboard.unwrap_or_else(|| {
-            backcord_core::volume::to_slider(state.soundboard_volume / 100.0)
-                .round()
-                .clamp(0.0, 100.0) as u32
-        });
-        parts.push(form::group([
-            form::heading(theme, backcord_iced_kit::i18n::tr("SOUNDBOARD VOLUME")),
-            slider(backcord_iced_kit::i18n::tr("Soundboard volume"), board, 100, |value| {
-                voice_message(Event::SoundboardVolume(value, false))
-            })
-            .mark(false)
-            .on_release(voice_message(Event::SoundboardVolume(board, true)))
-            .view(theme),
-            form::note(
-                theme,
-                backcord_iced_kit::i18n::tr("How loud soundboard sounds play in Discord calls, yours and everyone else's. Discord keeps it for all your devices."),
-            ),
-        ]));
-        parts.push(self.entrance_sounds());
-        let dereverb = voice.reduce_room_echo;
-        parts.push(
-            switch(
-                backcord_iced_kit::i18n::tr("Take out your room's echo in Discord calls"),
-                dereverb,
-                Some(voice_message(Event::Dereverb(!dereverb))),
-            )
-            .description(backcord_iced_kit::i18n::tr("For a bare or echoey room that makes your voice sound far away. Uses a little more processing, and your voice goes out 10 ms later."))
-            .view(self.cx.look),
-        );
-        let studio = voice.studio_voice;
-        parts.push(
-            switch(
-                backcord_iced_kit::i18n::tr("Studio mode"),
-                studio,
-                Some(voice_message(Event::Studio(!studio))),
-            )
-            .description(backcord_iced_kit::i18n::tr("Sends your microphone untouched in Discord calls: no echo cancellation, noise suppression, gain control or leveling, and Opus at 320 kbit/s stereo, fullband, the best the codec offers. Use a good microphone and headphones, as nothing hides noise or echo."))
-            .view(self.cx.look),
-        );
+        parts
+    }
+
+    /// The rest of Discord calls' settings: entrance sounds, and on Windows
+    /// whether Windows' own microphone effects run.
+    fn discord_extras(self) -> Vec<Element<'a, Message>> {
+        let mut parts = vec![self.entrance_sounds()];
         if cfg!(windows) {
-            let effects = voice.windows_microphone_effects;
+            let effects = self.cx.layout.voice.windows_microphone_effects;
             parts.push(
                 switch(
                     backcord_iced_kit::i18n::tr("Let Windows process your microphone in Discord calls"),

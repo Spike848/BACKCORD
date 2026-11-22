@@ -57,7 +57,6 @@ pub const DEFAULT_SENSITIVITY: f32 = -60.0;
 static SUPPRESSOR: AtomicU8 = AtomicU8::new(0);
 static LIMIT: AtomicU32 = AtomicU32::new(Strength::Medium.limit().to_bits());
 static SENSITIVITY: AtomicU32 = AtomicU32::new(DEFAULT_SENSITIVITY.to_bits());
-static DEREVERB: AtomicBool = AtomicBool::new(false);
 static DECLICK: AtomicBool = AtomicBool::new(true);
 /// How far the microphone's echo is taken out: 0 not at all, 1 WebRTC's
 /// echo canceller, 2 that and what it leaves turned down.
@@ -114,17 +113,6 @@ pub fn set_sensitivity(decibels: f32) {
 #[cfg(feature = "discord")]
 pub(crate) fn sensitivity() -> f32 {
     f32::from_bits(SENSITIVITY.load(Ordering::Relaxed))
-}
-
-/// Takes a room's late reverb out of every call's microphone, before the
-/// noise; a call going on takes it at its next block.
-pub fn set_dereverb(on: bool) {
-    DEREVERB.store(on, Ordering::Relaxed);
-}
-
-#[cfg(feature = "discord")]
-pub(crate) fn dereverb() -> bool {
-    DEREVERB.load(Ordering::Relaxed)
 }
 
 /// Takes what DeepFilterNet leaves of clicks out of every call's microphone,

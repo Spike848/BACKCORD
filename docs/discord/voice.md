@@ -7,8 +7,8 @@ Scope for the beta:
 - DM and group DM calls, both incoming with ringing and outgoing.
 - One connection at a time across BACKCORD and Discord. Joining Discord voice asks
   to leave a BACKCORD call, and the other way round.
-- The same devices, push-to-talk, voice activation, echo cancellation and
-  voice leveling as BACKCORD calls. Noise suppression is DeepFilterNet, or
+- The same devices, push-to-talk, voice activation and echo cancellation as
+  BACKCORD calls. Noise suppression is DeepFilterNet, or
   RNNoise, rather than WebRTC's, as described under Microphone below.
 
 Clicking a voice channel joins through the same voice dock and one-call rule as
@@ -510,16 +510,28 @@ whose sounds are `testing/fixtures`' tones.
 
 Discord's own client suppresses noise with Krisp, a neural network, and
 WebRTC's suppressor sounded different from it. So BACKCORD's Discord microphone
-runs, in 10 ms blocks: WebRTC's echo cancellation and high-pass filter; if
-asked, taking the room's echo out; a noise suppressor, which also tells the
-gate which blocks are speech; WebRTC's gain control on what's left; then
-BACKCORD's leveling and the microphone's volume, from
+runs, in 10 ms blocks: a noise suppressor, which also tells the gate which
+blocks are speech; WebRTC's echo cancellation and high-pass filter; then the
+microphone's volume, from
 [Settings](../voice.md#sounds). On Windows the microphone skips the system's
 own effects unless asked; see [Windows](../windows-beta.md#discord-voice-on-windows).
 
-Echo cancellation takes each block as it's read, between what the speakers
-played before and after it; the rest takes the blocks two at a time, a call's
-20 ms frame (`PAIR` in `noise.rs`). DeepFilterNet runs its networks once for
+No automatic gain control runs: what's sent moves only with the
+microphone's volume.
+
+Studio mode (`studio_voice`) sends with Opus at its best: 320 kbit/s, complexity 10, fullband, in its music mode, rather
+than 128 kbit/s with the bandwidth and signal left to Opus. Noise
+suppression and echo reduction stay as chosen, so a noisy or echoey room can
+have it too; with both off the microphone goes out as it came, at its volume.
+The microphone is captured mono, so its two channels are the same.
+
+Noise comes out first and echo after it, as Settings order them: the
+blocks go two at a time, a call's 20 ms frame (`PAIR` in `noise.rs`),
+through the suppressor, then each through echo cancellation, which hears
+what the speakers played as each block is read. A suppressor ahead of it
+changes the microphone in ways the speakers' sound doesn't, which can leave
+more echo than cancelling first would, and DeepFilterNet puts the
+microphone 30 ms later, a delay AEC3's own search finds. DeepFilterNet runs its networks once for
 both, which took it from 188 µs to 143 µs per 10 ms on a Ryzen 9 9900X, and
 each block comes out as it would alone. The call sends only whole 20 ms
 frames, so the first block waited for the second anyway, and what's sent is
@@ -595,8 +607,8 @@ giggles: the network's own gains silence them, and the last two found at most
 half of each while firing on typing over a hum. libDF mixes the microphone back
 into its output spectrum to keep to the limit; RNNoise's output gets the same
 mix of the input it lines up with, a block earlier. Below 20 dB, typing that
-DeepFilterNet left got past the gate's level after gain control, so there's no
-lighter step.
+DeepFilterNet left got past the gate's level (measured with the gain control
+BACKCORD then had), so there's no lighter step.
 
 The voice gate opens on three blocks in a row that the suppressor takes for
 speech and that are louder than the input sensitivity, -60 dBFS unless changed,
@@ -605,8 +617,8 @@ or that are 18 dB louder still. While open, each such block holds it another
 since its frames overlap, louder than the sensitivity, and its estimate takes
 it for speech, so fewer than three blocks let clicks open the gate. Under
 speech, DeepFilterNet turns clicks down far less than in pauses; the declicker,
-below, takes out more. Levels are RMS over the block, after gain control and
-at the microphone's volume, so at 0% the gate stays shut and a boosted quiet
+below, takes out more. Levels are RMS over the block, after echo cancellation
+and at the microphone's volume, so at 0% the gate stays shut and a boosted quiet
 microphone opens it sooner.
 "Input sensitivity in Discord calls" sets it from -80 to 0 dBFS
 (`input_sensitivity`); behind its handle, the microphone's level goes from
@@ -635,25 +647,6 @@ that shifts phase left much of a click between 4 and 10 kHz. Rebuilding the
 click's samples from the speech around them (least-squares AR interpolation)
 did worse: at 48 kHz an order of 32 spans less than a pitch period.
 
-"Take out your room's echo in Discord calls" (`reduce_room_echo`, off unless
-turned on) is for a voice that sounds far away in a bare room: the reverb the
-room puts on it, which echo cancellation doesn't touch, since that only takes
-out what the speakers play. It's online weighted prediction error (WPE;
-Yoshioka and Nakatani 2012, in Caroselli et al.'s 2017 recursive least squares
-form), in `crates/backcord-core/src/dereverb.rs`: in each band up to 5 kHz, the
-reverb in a 20 ms frame is predicted from the 200 ms of frames starting 20 ms
-before it, and subtracted. The first 20 ms of the room, which the voice needs
-to sound whole, stay. It puts the voice 10 ms later. DeepFilterNet takes some
-of a room out on its own, more than RNNoise, but its short view of the past
-limits it on late reverb. Its post-filter cut tails a little more without
-bringing speech closer to the dry speech, and cost quality on noise, so BACKCORD
-leaves it off. No open model takes a room out at 48 kHz in real time on a
-processor; LocalVQE does at 16 kHz.
-
-`scripts/compare-room-echo` runs the noise comparison's speech through
-synthetic rooms (a direct sound, then a decaying diffuse tail) and the whole
-microphone.
-
 Echo cancellation is WebRTC's AEC3 with its defaults, fed the speakers' mix
 as it's written to PulseAudio. It takes no echo out with the speakers 600 ms
 or more behind, past what its delay search covers. A room reverberating for
@@ -672,14 +665,13 @@ DeepFilterNet is 21 ms later than RNNoise. Both lag by half their 20 ms window,
 10 ms, DeepFilterNet also looks two blocks ahead, and the declicker adds 1 ms.
 With the gate's 100 ms, speech goes out 131 ms late. The speech it doesn't send
 is mostly the first second after the microphone opens, while its normalization
-and WebRTC's gain control settle, and 10-50 ms at the quiet ends of words.
+settles, and 10-50 ms at the quiet ends of words.
 
 To hear the processing, run a recording through it: raw mono 16-bit 48 kHz in
 `BACKCORD_AUDIO_IN`, with `BACKCORD_AUDIO_OUT` and optionally `BACKCORD_AUDIO_SENT`, then
 `cargo test -p backcord-core processes_a_recording -- --ignored --nocapture`.
 `BACKCORD_SUPPRESSOR=rnnoise` or `off` chooses the suppressor,
-`BACKCORD_NOISE_LIMIT` limits it in dB, `BACKCORD_DEREVERB=on` takes the room's echo
-out and `BACKCORD_LEVELING=off` turns leveling off. `BACKCORD_AUDIO_FAR`, in the same
+`BACKCORD_NOISE_LIMIT` limits it in dB. `BACKCORD_AUDIO_FAR`, in the same
 format and as long, is what the speakers played, for echo cancellation;
 `BACKCORD_AUDIO_ECHOED` then gets the microphone with only echo cancelled.
 

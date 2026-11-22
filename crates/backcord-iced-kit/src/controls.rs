@@ -1371,7 +1371,7 @@ pub fn choices<'a, M: Clone + 'a>(
     current: usize,
     on_choose: impl Fn(usize) -> M,
 ) -> Element<'a, M> {
-    choices_within(theme, options, current, 360.0, on_choose)
+    choice_row(theme, options, current, 360.0, true, on_choose)
 }
 
 /// [`choices`] at most `widest` across, for a row of many.
@@ -1382,6 +1382,27 @@ pub fn choices_within<'a, M: Clone + 'a>(
     widest: f32,
     on_choose: impl Fn(usize) -> M,
 ) -> Element<'a, M> {
+    choice_row(theme, options, current, widest, true, on_choose)
+}
+
+fn choice_row<'a, M: Clone + 'a>(
+    theme: &Theme,
+    options: &[&'a str],
+    current: usize,
+    widest: f32,
+    enabled: bool,
+    on_choose: impl Fn(usize) -> M,
+) -> Element<'a, M> {
+    let faded = |color: Color| {
+        if enabled {
+            color
+        } else {
+            Color {
+                a: color.a * 0.45,
+                ..color
+            }
+        }
+    };
     let mut row = row![].spacing(3).padding(3);
     for (index, option) in options.iter().enumerate() {
         let chosen = index == current;
@@ -1391,6 +1412,7 @@ pub fn choices_within<'a, M: Clone + 'a>(
         } else {
             (theme.secondary, theme.text)
         };
+        let (ink, lit_ink, active) = (faded(ink), faded(lit_ink), faded(active));
         row = row.push(
             button(
                 container(
@@ -1406,9 +1428,9 @@ pub fn choices_within<'a, M: Clone + 'a>(
             .padding([0, 4])
             .width(Length::FillPortion(option.len() as u16 + 6))
             .height(Length::Fill)
-            .on_press(on_choose(index))
+            .on_press_maybe(enabled.then(|| on_choose(index)))
             .style(move |_, status| {
-                let lit = lights(status);
+                let lit = enabled && lights(status);
                 button::Style {
                     background: if chosen {
                         Some(active.into())

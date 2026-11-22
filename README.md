@@ -35,6 +35,20 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
+## Novità della 1.2.6
+
+- **Voce e video riorganizzata**: subito sotto il test del microfono ci sono
+  la modalità d'ingresso (attività vocale / push to talk) con la
+  sensibilità, poi il volume della soundboard, la Modalità studio, la
+  riduzione del rumore e la riduzione dell'eco.
+- **Modalità studio**: Opus a 320 kbit/s, banda piena, ottimizzato per la
+  musica. Riduzione del rumore e dell'eco si possono usare anche in
+  Modalità studio; con entrambe disattivate il microfono esce così com'è.
+- **Catena audio**: prima la riduzione del rumore, poi quella dell'eco, poi
+  il volume. Niente più controllo automatico del guadagno: il livello della
+  voce cambia solo con il volume del microfono.
+- **Rimossi** "Uniforma la tua voce" ed "Elimina l'eco della stanza".
+
 ## Novità della 1.2.5
 
 - **Spostamenti in vocale**: quando un bot ti sposta (per esempio da un

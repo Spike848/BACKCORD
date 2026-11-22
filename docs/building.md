@@ -104,7 +104,7 @@ dependency in Cargo.toml:
 
 - `matrix-rtc-livekit`: Element's matrix-rust-rtc at `5831af8`, with native
   audio tracks and cancellable joins.
-- `webrtc-sys`: webrtc-sys 0.3.35 with a Windows link fix, capture leveling,
+- `webrtc-sys`: webrtc-sys 0.3.35 with a Windows link fix, a capture gain hook,
   remote track volume and camera capture from pooled buffers.
 - `davey`: davey 0.1.4, keeping its key packages when a Go Live stream's group
   id changes, and reading a frame's overlong nonce without panicking.

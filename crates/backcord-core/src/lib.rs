@@ -29,8 +29,6 @@ pub mod clock;
 mod declick;
 #[cfg(feature = "discord")]
 pub mod decode;
-#[cfg(feature = "discord")]
-mod dereverb;
 pub mod discord;
 #[cfg(feature = "discord")]
 pub mod discord_audio;
@@ -52,7 +50,6 @@ pub mod extras;
 pub mod frames;
 pub mod keybinds;
 pub mod layout_file;
-pub mod leveling;
 pub mod links;
 pub mod logging;
 #[cfg(feature = "discord")]
@@ -67,6 +64,7 @@ mod matrix_video;
 mod matrix_voice;
 pub mod mention;
 pub mod meter;
+pub mod mic_gain;
 pub mod network;
 pub mod new_tags;
 pub mod noise;

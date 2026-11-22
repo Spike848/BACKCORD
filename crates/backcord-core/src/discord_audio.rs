@@ -1,9 +1,9 @@
 //! Discord voice's audio on this machine. LiveKit's device module only serves
 //! its own calls, so Discord voice opens the chosen microphone and speakers
-//! itself, through [`crate::audio_io`]. The microphone goes through WebRTC's
-//! echo cancellation, DeepFilterNet's noise suppression (or RNNoise's), WebRTC's
-//! gain control, BACKCORD's leveling and the microphone's volume, and a gate
-//! that speech opens.
+//! itself, through [`crate::audio_io`]. The microphone goes through
+//! DeepFilterNet's noise suppression (or RNNoise's), WebRTC's echo
+//! cancellation and the microphone's volume, each as chosen, and a gate
+//! that speech opens. Nothing controls its gain on its own.
 use std::{
     collections::{HashMap, VecDeque},
     sync::{
@@ -731,10 +731,10 @@ pub fn speakers(
     Ok((Speakers { stop }, frames))
 }
 
-/// The microphone's processing, block by block: WebRTC cancels echo and
-/// filters out rumble, the chosen suppressor takes out noise and hears
-/// speech, WebRTC controls the gain of what's left, and BACKCORD levels it and
-/// sets its volume. The gate decides what's sent.
+/// The microphone's processing, block by block: the chosen suppressor
+/// takes out noise and hears speech, WebRTC cancels echo and filters out
+/// rumble, and its volume is set.
+/// The gate decides what's sent.
 struct Processing {
     echo: AudioProcessingModule,
     /// What the speakers last played loudly, in RMS dBFS, how many blocks
@@ -742,11 +742,8 @@ struct Processing {
     far_level: f32,
     far_age: u32,
     echo_gain: f32,
-    /// Takes out the room's reverb while asked to.
-    dereverb: Option<crate::dereverb::Dereverb>,
     denoiser: Denoiser,
-    gain: AudioProcessingModule,
-    leveler: crate::leveling::Leveler,
+    volume: crate::mic_gain::MicGain,
     gate: Gate,
     /// Sends instead of the gate in push-to-talk.
     talk: crate::push_to_talk::Talk,
@@ -772,12 +769,10 @@ impl Processing {
             far_level: f32::NEG_INFINITY,
             far_age: u32::MAX,
             echo_gain: 1.0,
-            dereverb: None,
             denoiser: denoiser
                 .filter(|denoiser| denoiser.suppressor() == chosen)
                 .unwrap_or_else(|| Denoiser::new(chosen, crate::noise::limit())),
-            gain: AudioProcessingModule::new(false, true, false, false),
-            leveler: crate::leveling::Leveler::default(),
+            volume: crate::mic_gain::MicGain::default(),
             gate: Gate::default(),
             talk: crate::push_to_talk::Talk::default(),
             preview: false,
@@ -790,7 +785,7 @@ impl Processing {
 
     /// Notes what the speakers played, for echo cancellation.
     fn played(&mut self, frame: &mut [i16]) {
-        if crate::studio::on() || crate::noise::echo() == 0 {
+        if crate::noise::echo() == 0 {
             return;
         }
         let level = decibels(frame);
@@ -803,11 +798,13 @@ impl Processing {
             .process_reverse_stream(frame, SAMPLE_RATE as i32, i32::from(CHANNELS));
     }
 
-    /// Cancels the echo in 10 ms of mono microphone, in place, as it's
-    /// read, between what the speakers played before and after it.
-    fn hear(&mut self, block: &mut [i16]) {
+    /// Cancels the echo in 10 ms of mono microphone, in place, after the
+    /// noise suppressor: noise first, then echo, as Settings' order has
+    /// them. AEC3 finds the delay the suppressor adds (DeepFilterNet's
+    /// 30 ms) on its own.
+    fn cancel_echo(&mut self, block: &mut [i16]) {
         let level = crate::noise::echo();
-        if crate::studio::on() || level == 0 {
+        if level == 0 {
             return;
         }
         let _ = self.echo.process_stream(block, SAMPLE_RATE as i32, 1);
@@ -838,9 +835,9 @@ impl Processing {
         }
     }
 
-    /// Processes two blocks of mono microphone that [`Self::hear`] took, in
-    /// place, and returns the blocks to send, as f32 in full scale: none
-    /// while the gate is shut, or in push-to-talk while the key is up. Push
+    /// Processes two blocks of mono microphone, in place: noise, then echo,
+    /// then the volume, and returns the blocks to send, as f32 in full
+    /// scale: none while the gate is shut, or in push-to-talk while the key is up. Push
     /// to talk and push to mute go by the key as the pair comes, and send
     /// both blocks or neither, so what's sent starts and ends with a whole
     /// pair, as the call's 20 ms frames do. `lightly`, the suppressor does
@@ -852,19 +849,9 @@ impl Processing {
             self.denoiser = Denoiser::new(chosen, crate::noise::limit());
         }
         self.denoiser.limit(crate::noise::limit());
-        let studio = crate::studio::on();
-        let dereverb = crate::noise::dereverb() && !studio;
-        if !dereverb {
-            self.dereverb = None;
-        }
         for (samples, block) in self.samples.iter_mut().zip(blocks.iter()) {
             for (value, sample) in samples.iter_mut().zip(block) {
                 *value = f32::from(*sample);
-            }
-            if dereverb {
-                self.dereverb
-                    .get_or_insert_with(crate::dereverb::Dereverb::new)
-                    .block(samples);
             }
         }
         // A push-to-mute key held sends nothing in either mode.
@@ -888,57 +875,43 @@ impl Processing {
             Some(false) if self.preview => Sent::Always,
             Some(false) => Sent::Never,
         };
-        // In studio mode the suppressor only listens, to tell the gate when
-        // you speak; what's sent is the microphone as it came.
-        let untouched = (studio && talking.is_none()).then_some(self.samples);
-        let speech = if studio && talking.is_some() {
-            [true; PAIR]
-        } else {
-            self.denoiser.pair(&mut self.samples, sent, lightly)
-        };
-        // The gate keeps hearing the suppressed voice, so a room's noise
-        // doesn't hold it open; only what's sent stays untouched.
-        let heard = untouched.map(|untouched| {
-            let levels = self.samples.map(|samples| {
-                let quantized: Vec<i16> = samples
-                    .iter()
-                    .map(|value| value.clamp(-32768.0, 32767.0) as i16)
-                    .collect();
-                decibels(&quantized)
-            });
-            self.samples = untouched;
-            levels
-        });
+        // The suppressor chosen takes out noise and tells the gate when you
+        // speak; Off leaves the microphone as it came.
+        let speech = self.denoiser.pair(&mut self.samples, sent, lightly);
+        // Then the echo, on what the suppressor left.
+        for (block, samples) in blocks.iter_mut().zip(self.samples) {
+            for (sample, value) in block.iter_mut().zip(samples.iter()) {
+                *sample = value.clamp(-32768.0, 32767.0) as i16;
+            }
+        }
+        for block in blocks.iter_mut() {
+            self.cancel_echo(block);
+        }
+        for (samples, block) in self.samples.iter_mut().zip(blocks.iter()) {
+            for (value, sample) in samples.iter_mut().zip(block) {
+                *value = f32::from(*sample);
+            }
+        }
         self.gate.sensitivity = crate::noise::sensitivity();
         self.sent.clear();
-        for (index, (((block, samples), speech), sent_by)) in blocks
+        for (((block, samples), speech), sent_by) in blocks
             .iter_mut()
             .zip(&mut self.samples)
             .zip(speech)
             .zip(&mut self.sent_by)
-            .enumerate()
         {
             for (sample, value) in block.iter_mut().zip(samples.iter()) {
                 *sample = value.clamp(-32768.0, 32767.0) as i16;
             }
-            if !studio {
-                let _ = self.gain.process_stream(block, SAMPLE_RATE as i32, 1);
-            }
             // The gate hears the voice at its volume, as it's sent, but
-            // before leveling, which could lift noise past it.
+            // before the volume's ramp.
             let volume = crate::volume::microphone();
-            let level = heard.map_or_else(|| decibels(block), |levels| levels[index])
-                + 20.0 * volume.log10();
+            let level = decibels(block) + 20.0 * volume.log10();
             self.level = level;
             for (value, sample) in samples.iter_mut().zip(block.iter()) {
                 *value = f32::from(*sample);
             }
-            self.leveler.process(
-                samples,
-                SAMPLE_RATE,
-                crate::leveling::enabled() && !studio,
-                volume,
-            );
+            self.volume.process(samples, volume);
             for (sample, value) in block.iter_mut().zip(samples.iter()) {
                 *sample = value.clamp(-32768.0, 32767.0) as i16;
             }
@@ -983,7 +956,6 @@ fn measure(
             } else {
                 0
             };
-            processing.hear(block);
         }
         processing.pair(&mut blocks, false);
         // Heard even in push to talk, or with the gate shut.
@@ -1074,7 +1046,6 @@ impl CaptureRequest {
                     processing.played(&mut played);
                     recycle(played);
                 }
-                processing.hear(block);
                 *time = (read - reading, read);
             }
             // What the track and the ring last showed, not the gate's own
@@ -1115,7 +1086,7 @@ impl CaptureRequest {
 /// mono 16-bit 48 kHz as long as the input, is what the speakers played,
 /// for echo cancellation, given a 20 ms stereo frame at a time as a call
 /// gives it; then `BACKCORD_AUDIO_ECHOED` gets the microphone with only echo
-/// cancelled. `BACKCORD_LEVELING=off` turns off evening out the voice.
+/// cancelled.
 /// `BACKCORD_PUSH_TO_TALK`, a byte for each block, not 0 while the key is
 /// down, puts the microphone in push-to-talk.
 #[test]
@@ -1127,14 +1098,8 @@ fn processes_a_recording() {
     if let Ok(limit) = std::env::var("BACKCORD_NOISE_LIMIT") {
         crate::noise::set_limit(limit.parse().unwrap());
     }
-    if std::env::var("BACKCORD_DEREVERB").is_ok_and(|value| value == "on") {
-        crate::noise::set_dereverb(true);
-    }
     if std::env::var("BACKCORD_DECLICK").is_ok_and(|value| value == "off") {
         crate::noise::set_declick(false);
-    }
-    if std::env::var("BACKCORD_LEVELING").is_ok_and(|value| value == "off") {
-        crate::leveling::set_enabled(false);
     }
     let input = std::fs::read(std::env::var("BACKCORD_AUDIO_IN").unwrap()).unwrap();
     let read = |name| -> Vec<i16> {
@@ -1188,7 +1153,6 @@ fn processes_a_recording() {
                 let _ = echo.process_stream(&mut alone, SAMPLE_RATE as i32, 1);
                 echoed.extend(alone);
             }
-            processing.hear(block);
         }
         // The key as the pair's last block comes, as the microphone's
         // thread reads it.

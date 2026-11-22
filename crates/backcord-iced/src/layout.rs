@@ -285,11 +285,8 @@ impl Prefs {
 #[derive(Default, serde::Deserialize)]
 #[serde(default)]
 pub struct Voice {
-    /// Your voice is evened out in calls; on unless turned off.
-    pub level_voice: Option<bool>,
     pub noise_suppression: backcord_core::noise::Suppressor,
     pub noise_strength: backcord_core::noise::Strength,
-    pub reduce_room_echo: bool,
     /// How far calls take the speakers' echo out of the microphone: 0 off,
     /// 1 normal, 2 strong (the default).
     pub echo_reduction: Option<u8>,
@@ -337,11 +334,9 @@ pub enum InputMode {
 impl Voice {
     /// Tells the core how calls send and play.
     pub fn apply(&self) {
-        use backcord_core::{leveling, noise, push_to_talk, volume};
-        leveling::set_enabled(self.level_voice.unwrap_or(true));
+        use backcord_core::{noise, push_to_talk, volume};
         noise::set(self.noise_suppression);
         noise::set_strength(self.noise_strength);
-        noise::set_dereverb(self.reduce_room_echo);
         noise::set_echo(self.echo_reduction.unwrap_or(2));
         backcord_core::studio::set(self.studio_voice);
         backcord_core::set_windows_effects(self.windows_microphone_effects);
@@ -738,5 +733,20 @@ pub(crate) mod tests {
         let held = Held(lock());
         HOLDING.set(true);
         held
+    }
+}
+
+#[cfg(test)]
+mod voice_tests {
+    /// A `layout.json` from before "Even out your voice" and "Take out your
+    /// room's echo" went still loads, the rest of its voice kept.
+    #[test]
+    fn voice_settings_load_with_the_switches_that_went() {
+        let voice: super::Voice = serde_json::from_str(
+            r#"{"level_voice": false, "reduce_room_echo": true, "studio_voice": true, "echo_reduction": 1}"#,
+        )
+        .unwrap();
+        assert!(voice.studio_voice);
+        assert_eq!(voice.echo_reduction, Some(1));
     }
 }

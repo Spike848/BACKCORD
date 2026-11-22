@@ -47,8 +47,7 @@ another microphone or speakers restarts it on them. Wear headphones, or it
 echoes.
 
 It plays the microphone as a Discord call's processing leaves it (noise
-suppression and its strength, the room's echo, leveling, the microphone's
-volume) before the gate, so it plays without holding push to talk, and at
+suppression and its strength, the microphone's volume) before the gate, so it plays without holding push to talk, and at
 the speakers' volume. The gate's meter (`GateMeter`) runs it: started with
 playback, it sends each processed block to a playback thread through a
 channel four blocks deep, dropping blocks rather than falling behind.
@@ -253,22 +252,12 @@ and letting go saves the value in `layout.json` (`microphone_volume`,
 `speaker_volume`). Everyone in a call, and their stream's sound, plays at
 their own volume times the speakers' (`volume::heard`), so BACKCORD calls
 set it on each track as above and Discord voice mixes with it. The
-microphone's volume applies with leveling, as one gain ramped across each
-10 ms block, and like leveling it never pushes a peak past 90% of full
-scale, so a boosted microphone doesn't clip on a shout; leveling hears the
-voice before the volume, so changing it doesn't move your usual level.
+microphone's volume (`mic_gain.rs`) is one gain ramped across each 10 ms
+block that never pushes a peak past 90% of full scale, so a boosted
+microphone doesn't clip on a shout. BACKCORD calls apply it inside LiveKit's
+WebRTC, through a capture hook in BACKCORD's patch to `webrtc-sys`; Discord
+voice in its own microphone thread, after the gate has heard the level.
 BACKCORD's own sounds keep their volume in Settings › Sounds.
-
-Settings' "Even out your voice", on unless turned off, levels the microphone
-after WebRTC's processing. BACKCORD follows your usual speaking level over the last
-half minute or so, and undoes up to 8 dB of drift from it as you lean towards
-the microphone or away from it. Drifts of more than 12 dB, such as whispers and
-shouts, pass through as they are, and a shout lets go of any correction at once.
-Pauses hold the gain, and raising never pushes a peak past 90% of full scale.
-BACKCORD calls level inside LiveKit's WebRTC, through a capture hook in BACKCORD's patch
-to `webrtc-sys`. Discord voice levels in its own microphone thread; its voice
-activation gate still opens on the level before leveling, so held gain can't
-lift noise past it.
 
 BACKCORD calls suppress noise with WebRTC's own suppressor, inside LiveKit's
 WebRTC. Discord calls use DeepFilterNet, which also takes out typing; see the
