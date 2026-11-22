@@ -938,3 +938,96 @@ async fn lists_who_reacted_as_discords_client_does() {
     let removed = self::control(server, "GET", "/_control/reactor-removals", "");
     assert!(removed.contains(&format!("🎉 {}", rest[1].id)), "{removed}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn deletes_all_of_its_own_messages_in_a_dm_or_a_server() {
+    use backcord_discord::service::Purged;
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+    };
+    let Fixture {
+        _fake,
+        discord,
+        snapshot,
+        guild,
+        general,
+        ..
+    } = Fixture::start("deletes_all_of_its_own_messages_in_a_dm_or_a_server").await;
+    let dm_bob = snapshot
+        .conversations
+        .iter()
+        .find(|dm| dm.name == "Bob")
+        .unwrap()
+        .id
+        .clone();
+    let counts = Mutex::new(vec![]);
+    let progress = |done: Purged| counts.lock().unwrap().push(done.deleted);
+    let stop = AtomicBool::new(false);
+
+    // A DM's: Alice's go, one at a time, after Discord indexed the DM;
+    // Bob's stay, and a second time finds none.
+    let done = discord
+        .delete_own_messages(None, &dm_bob, &stop, &progress)
+        .await
+        .unwrap();
+    assert!(done.deleted > 0, "{done:?}");
+    assert_eq!(
+        std::mem::take(&mut *counts.lock().unwrap()),
+        (1..=done.deleted).collect::<Vec<_>>()
+    );
+    let left = discord
+        .history(PRIVATE, &dm_bob, Span::Latest)
+        .await
+        .unwrap()
+        .messages;
+    assert!(
+        left.iter()
+            .any(|message| message.content == "See you at nine")
+    );
+    assert!(
+        left.iter()
+            .all(|message| message.content != "Yes, bringing snacks")
+    );
+    let again = discord
+        .delete_own_messages(None, &dm_bob, &stop, &progress)
+        .await
+        .unwrap();
+    assert_eq!(again.deleted, 0);
+
+    // A server's, across its channels; stopped, it deletes nothing more.
+    for words in ["one", "two"] {
+        let nonce = backcord_discord::message::nonce();
+        discord
+            .send(&guild, &general, words, sending(&nonce, None), vec![])
+            .await
+            .unwrap();
+    }
+    stop.store(true, Ordering::Relaxed);
+    let stopped = discord
+        .delete_own_messages(Some(&guild), "", &stop, &progress)
+        .await
+        .unwrap();
+    assert_eq!(stopped, Purged::default());
+    stop.store(false, Ordering::Relaxed);
+    let done = discord
+        .delete_own_messages(Some(&guild), "", &stop, &progress)
+        .await
+        .unwrap();
+    assert_eq!(done.deleted, 2, "{done:?}");
+    let left = discord
+        .history(&guild, &general, Span::Latest)
+        .await
+        .unwrap()
+        .messages;
+    assert!(
+        left.iter()
+            .all(|message| message.content != "one" && message.content != "two")
+    );
+    let again = discord
+        .delete_own_messages(Some(&guild), "", &stop, &progress)
+        .await
+        .unwrap();
+    assert_eq!(again.deleted, 0);
+}

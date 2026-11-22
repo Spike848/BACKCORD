@@ -35,6 +35,14 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
+## Novità della 1.2.2
+
+- **Cancella tutto**: tasto destro su un DM o su un server → *Cancella
+  tutto* cancella, dopo una conferma, tutti i messaggi che hai mandato lì
+  (in un server, in tutti i canali), uno alla volta con il ritardo minimo
+  che Discord accetta. L'avviso in alto mostra quanti ne ha cancellati; dal
+  menu si può fermare.
+
 ## Novità della 1.2.1
 
 - **Più dirette insieme** (fino a 4), come su Discord

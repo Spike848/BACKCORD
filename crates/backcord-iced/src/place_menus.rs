@@ -44,6 +44,29 @@ pub fn open_place_menu(app: &mut App, id: &str, at: Point, header: bool) -> Task
             .unwrap_or(choices.len());
         choices.insert(at_end, MenuChoice::ViewIcon);
     }
+    // Cancella tutto: a DM's and a server's menu, before View Icons and
+    // copying; Stop while it's going on.
+    if !header {
+        let offered = if core.state.deleting_all(id).is_some() {
+            Some(MenuChoice::StopDeleteAll)
+        } else {
+            core.state
+                .may_delete_all(id)
+                .then_some(MenuChoice::DeleteAll)
+        };
+        if let Some(choice) = offered {
+            let at_end = choices
+                .iter()
+                .position(|choice| {
+                    matches!(
+                        choice,
+                        MenuChoice::ViewIcon | MenuChoice::CopyLink | MenuChoice::CopyId
+                    )
+                })
+                .unwrap_or(choices.len());
+            choices.insert(at_end, choice);
+        }
+    }
     place_menu(app, id, at, header, choices)
 }
 
@@ -184,6 +207,13 @@ fn place_menu(
                     crate::person_menu::submenu(core, &mut row, choice, person, Some(id), None);
                 }
                 MenuChoice::Unmute => row.act = MenuAct::MuteDm(Muting::Off),
+                MenuChoice::StopDeleteAll => {
+                    row.subtitle = state.deleting_all(id).map(|going| {
+                        backcord_iced_kit::i18n::tr("{count} deleted")
+                            .replace("{count}", &going.deleted.to_string())
+                            .into()
+                    });
+                }
                 _ => {}
             }
             row
@@ -289,6 +319,8 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
         },
         MenuChoice::CloseDm => Action::CloseDm(place),
         MenuChoice::LeaveGroup => Action::AskLeaveGroup(place),
+        MenuChoice::DeleteAll => Action::AskDeleteAll(place),
+        MenuChoice::StopDeleteAll => Action::StopDeleteAll(place),
         MenuChoice::EditServerProfile => Action::EditServerProfile(place),
         MenuChoice::ServerSettings => Action::OpenServerSettings(place),
         MenuChoice::EditChannel => Action::OpenChannelSettings(place),
@@ -693,7 +725,11 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         | MenuChoice::CreateCategory
         | MenuChoice::EditChannel
         | MenuChoice::DuplicateChannel => 6,
-        MenuChoice::DeleteChannel | MenuChoice::LeaveServer | MenuChoice::LeaveGroup => 7,
+        MenuChoice::DeleteChannel
+        | MenuChoice::LeaveServer
+        | MenuChoice::LeaveGroup
+        | MenuChoice::DeleteAll
+        | MenuChoice::StopDeleteAll => 7,
         _ => 0,
     }
 }
@@ -703,6 +739,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
     use MenuChoice as C;
     match choice {
         C::MarkRead => Icon::Check,
+        C::DeleteAll | C::StopDeleteAll => Icon::Trash,
         C::JoinVoice | C::Call => Icon::Phone,
         C::OpenChat => Icon::ForumPost,
         C::Profile => Icon::User,
@@ -769,6 +806,8 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::EditNickname => backcord_iced_kit::i18n::tr("Change friend nickname"),
         MenuChoice::CloseDm => backcord_iced_kit::i18n::tr("Close DM"),
         MenuChoice::LeaveGroup => backcord_iced_kit::i18n::tr("Leave group"),
+        MenuChoice::DeleteAll => backcord_iced_kit::i18n::tr("Delete all"),
+        MenuChoice::StopDeleteAll => backcord_iced_kit::i18n::tr("Stop deleting"),
         MenuChoice::InviteToServer => backcord_iced_kit::i18n::tr("Invite to server"),
         MenuChoice::Apps => backcord_iced_kit::i18n::tr("Apps"),
         MenuChoice::Unfriend => backcord_iced_kit::i18n::tr("Remove friend"),

@@ -42,6 +42,7 @@ mod app_commands;
 mod audit_log;
 mod channels;
 mod commands;
+mod delete_all;
 mod expressions;
 mod gifs;
 mod interactions;

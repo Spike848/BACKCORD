@@ -90,6 +90,9 @@ pub enum Event {
     Leave,
     ToggleSilent,
     CloseLeave,
+    /// Cancella tutto's dialog: delete, or close it.
+    DeleteAll,
+    CloseDeleteAll,
     /// The moved channel takes its category's permissions (true), keeps
     /// its own (false), or stays where it was (none).
     MoveSync(Option<bool>),
@@ -105,6 +108,7 @@ pub fn is_open(state: &AppState) -> bool {
         || state.join.is_some()
         || state.channel_dialog.is_some()
         || state.leave.is_some()
+        || state.delete_all.is_some()
         || state.move_sync.is_some()
 }
 
@@ -166,10 +170,11 @@ impl Dialogs {
             Some(_) => {}
             None => local.channel = None,
         }
-        if state.leave.is_some() && !local.leave_shown {
+        let asking = state.leave.is_some() || state.delete_all.is_some();
+        if asking && !local.leave_shown {
             focus = Some(NOBODY);
         }
-        local.leave_shown = state.leave.is_some();
+        local.leave_shown = asking;
         match focus {
             Some(id) => operation::focus(Id::new(id)),
             None => Task::none(),
@@ -276,6 +281,8 @@ impl Dialogs {
             Event::Leave => Action::Leave,
             Event::ToggleSilent => Action::ToggleSilentLeave,
             Event::CloseLeave => Action::CloseLeave,
+            Event::DeleteAll => Action::DeleteAll,
+            Event::CloseDeleteAll => Action::CloseDeleteAll,
             Event::MoveSync(sync) => Action::AnswerMoveSync(sync),
         };
         cx.dispatch(action);
@@ -293,6 +300,8 @@ impl Dialogs {
             (Event::MoveSync(None), Some(Event::MoveSync(Some(true))))
         } else if state.leave.is_some() {
             (Event::CloseLeave, Some(Event::Leave))
+        } else if state.delete_all.is_some() {
+            (Event::CloseDeleteAll, Some(Event::DeleteAll))
         } else if state.channel_dialog.is_some() {
             (Event::CloseChannel, Some(Event::SaveChannel))
         } else if state.join.is_some() {
@@ -332,6 +341,9 @@ impl<'a> View<'a> {
         }
         if state.leave.is_some() {
             return self.leave_view();
+        }
+        if state.delete_all.is_some() {
+            return self.delete_all_view();
         }
         if state.channel_dialog.is_some() {
             return self.channel_dialog_view();
@@ -756,6 +768,50 @@ impl<'a> View<'a> {
 }
 
 impl<'a> View<'a> {
+    /// Asks before Cancella tutto in a DM or server, in red.
+    fn delete_all_view(self) -> Option<Element<'a, Message>> {
+        let asked = self.cx.state.delete_all.as_ref()?;
+        let theme = self.cx.look.theme;
+        let tr = backcord_iced_kit::i18n::tr;
+        let note = if asked.server {
+            tr(
+                "Every message you sent in {name}, in all of its channels, will be deleted, one at a time. This can't be undone.",
+            )
+        } else {
+            tr(
+                "Every message you sent in your DM with {name} will be deleted, one at a time. This can't be undone.",
+            )
+        };
+        let body = vec![
+            self.cx.look.dialog_head(
+                tr("Delete all in '{name}'").replace("{name}", &asked.name),
+                message(Event::CloseDeleteAll),
+            ),
+            form::note(theme, note.replace("{name}", &asked.name)),
+            buttons([
+                action(
+                    theme,
+                    tr("Cancel"),
+                    Kind::Ghost,
+                    Some(message(Event::CloseDeleteAll)),
+                )
+                .into(),
+                action(
+                    theme,
+                    tr("Delete all"),
+                    Kind::Danger,
+                    Some(message(Event::DeleteAll)),
+                )
+                .into(),
+            ]),
+        ];
+        Some(
+            self.cx
+                .look
+                .framed(body, WIDE, message(Event::CloseDeleteAll)),
+        )
+    }
+
     /// Asks whether a channel dragged into a category takes its
     /// permissions, as Discord's client does (the core's `MoveSync`):
     /// Sync Permissions, or Keep Current Permissions; closing it leaves

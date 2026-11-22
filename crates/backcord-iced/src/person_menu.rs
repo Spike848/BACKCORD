@@ -679,6 +679,7 @@ pub(crate) fn danger(choice: MenuChoice) -> bool {
             | MenuChoice::DeleteChannel
             | MenuChoice::LeaveServer
             | MenuChoice::LeaveGroup
+            | MenuChoice::DeleteAll
             | MenuChoice::TransferOwnership
     )
 }

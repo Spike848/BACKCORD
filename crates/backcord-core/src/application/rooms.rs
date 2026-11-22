@@ -33,6 +33,11 @@ pub enum MenuChoice {
     CloseDm,
     /// Leave a Discord group DM, asking first.
     LeaveGroup,
+    /// Cancella tutto: delete every message this account sent in a Discord
+    /// DM or server, asking first; or stop the one going on. The window
+    /// adds them to a DM's and a server's menu; see `delete_all.rs`.
+    DeleteAll,
+    StopDeleteAll,
     /// Send someone an invite to one of this account's Discord servers, in
     /// a submenu of them; see `places.rs`.
     InviteToServer,

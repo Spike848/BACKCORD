@@ -924,3 +924,92 @@ fn a_dm_search_closes_in_another_dm() {
     app.dispatch(Action::SelectRoom("discord:@me:31".into()));
     assert!(app.state.search.is_none());
 }
+
+#[test]
+#[cfg(feature = "discord")]
+fn cancella_tutto_asks_first_counts_and_stops() {
+    let mut app = discord_dms(vec![]);
+    let dm = "discord:@me:30".to_owned();
+    assert!(app.state.may_delete_all(&dm));
+    assert!(
+        app.dispatch(Action::DeleteAll).is_empty(),
+        "nothing asked yet"
+    );
+
+    app.dispatch(Action::AskDeleteAll(dm.clone()));
+    let dialog = app.state.delete_all.clone().unwrap();
+    assert_eq!(dialog.place, dm);
+    assert!(!dialog.server);
+    app.dispatch(Action::CloseDeleteAll);
+    assert!(app.state.delete_all.is_none());
+
+    app.dispatch(Action::AskDeleteAll(dm.clone()));
+    assert!(matches!(
+        app.dispatch(Action::DeleteAll).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::DeleteAll { place }))] if *place == dm
+    ));
+    assert!(app.state.delete_all.is_none());
+    assert!(
+        app.dispatch(Action::AskDeleteAll(dm.clone())).is_empty() && app.state.delete_all.is_none(),
+        "one at a time in each place"
+    );
+
+    app.apply(Event::DeletedAll {
+        place: dm.clone(),
+        deleted: 3,
+        ended: false,
+        error: None,
+    });
+    assert_eq!(app.state.deleting_all(&dm).unwrap().deleted, 3);
+    assert!(app.state.notice.as_deref().unwrap().contains("3 messaggi"));
+    assert!(matches!(
+        app.dispatch(Action::StopDeleteAll(dm.clone())).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::StopDeleteAll { place }))] if *place == dm
+    ));
+    assert!(
+        app.dispatch(Action::StopDeleteAll(dm.clone())).is_empty(),
+        "asked once"
+    );
+    app.apply(Event::DeletedAll {
+        place: dm.clone(),
+        deleted: 4,
+        ended: true,
+        error: None,
+    });
+    assert!(app.state.deleting_all(&dm).is_none());
+    assert!(
+        app.state
+            .notice
+            .as_deref()
+            .unwrap()
+            .contains("fermato: 4 messaggi")
+    );
+
+    // An error ends it, keeping the count so far.
+    app.dispatch(Action::AskDeleteAll(dm.clone()));
+    app.dispatch(Action::DeleteAll);
+    app.apply(Event::DeletedAll {
+        place: dm.clone(),
+        deleted: 2,
+        ended: false,
+        error: None,
+    });
+    app.apply(Event::DeletedAll {
+        place: dm.clone(),
+        deleted: 0,
+        ended: true,
+        error: Some("no".into()),
+    });
+    assert!(app.state.deleting_all(&dm).is_none());
+    assert!(
+        app.state
+            .notice
+            .as_deref()
+            .unwrap()
+            .contains("dopo 2 messaggi: no")
+    );
+
+    // Discord takes it only while connected.
+    app.state.discord_online = false;
+    assert!(!app.state.may_delete_all(&dm));
+}

@@ -129,6 +129,7 @@ fn a_servers_menu_shows_and_changes_its_notifications() {
             "Hide muted channels",
             "Edit server profile",
             "Leave server",
+            "Delete all",
             "Copy link",
         ]
     );
@@ -384,6 +385,21 @@ fn a_channels_management_choices_ask_first() {
     let leave = index(&app, "Leave server");
     let _ = app.update(Message::Menu(crate::menus::Event::Choose(leave)));
     assert!(app.client.state().leave.is_some(), "Leave server asks");
+    app.client.app.state.leave = None;
+
+    // Cancella tutto asks too; while it goes on, the menu stops it.
+    let _ = crate::place_menus::open_place_menu(&mut app, SERVER, Point::new(100.0, 100.0), false);
+    let delete_all = index(&app, "Delete all");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(delete_all)));
+    assert!(app.client.state().delete_all.is_some(), "Delete all asks");
+    let _ = app.update(Message::ServerDialog(
+        crate::server_dialogs::Event::DeleteAll,
+    ));
+    assert!(app.client.state().delete_all.is_none());
+    assert!(app.client.state().deleting_all(SERVER).is_some());
+    let _ = crate::place_menus::open_place_menu(&mut app, SERVER, Point::new(100.0, 100.0), false);
+    assert!(labels(&app).contains(&"Stop deleting".to_owned()));
+    assert!(!labels(&app).contains(&"Delete all".to_owned()));
 }
 
 #[test]

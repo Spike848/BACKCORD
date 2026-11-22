@@ -1347,3 +1347,9 @@ A DNS over HTTPS server's address starts with https://.	L'indirizzo di un server
 Its JSON API, as Cloudflare and Google answer it.	La sua API JSON, come quella di Cloudflare e Google.
 The new settings take effect when BACKCORD restarts. Restarting leaves any call.	Le nuove impostazioni valgono dal riavvio di BACKCORD. Il riavvio chiude la chiamata in corso.
 Start watching multiple streams	Guarda più dirette insieme
+Delete all	Cancella tutto
+Stop deleting	Ferma Cancella tutto
+{count} deleted	{count} cancellati
+Delete all in '{name}'	Cancella tutto in '{name}'
+Every message you sent in {name}, in all of its channels, will be deleted, one at a time. This can't be undone.	Tutti i messaggi che hai mandato in {name}, in tutti i suoi canali, verranno cancellati uno alla volta. Non si può annullare.
+Every message you sent in your DM with {name} will be deleted, one at a time. This can't be undone.	Tutti i messaggi che hai mandato a {name} in privato verranno cancellati uno alla volta. Non si può annullare.

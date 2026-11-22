@@ -314,6 +314,73 @@ const SEARCH_ATTEMPTS: u32 = 5;
 const SEARCH_RETRY: Duration = Duration::from_secs(5);
 const SEARCH_RETRY_MOST: Duration = Duration::from_secs(60);
 
+/// What [`Discord::delete_own_messages`] has done so far: the messages it
+/// deleted, and those it found but Discord wouldn't delete.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Purged {
+    pub deleted: u32,
+    pub skipped: u32,
+}
+
+/// The pause [`Discord::delete_own_messages`] takes after each deletion,
+/// beyond any wait Discord's limits ask for; the wait after a 429 or a
+/// failure of Discord's own; and how many of those, or of Discord's
+/// "still indexing", it takes in a row before giving up.
+const PURGE_GAP: Duration = Duration::from_millis(250);
+const PURGE_BACKOFF: Duration = Duration::from_secs(5);
+const PURGE_PATIENCE: u32 = 12;
+
+/// A message a search for this account's own found.
+struct OwnHit {
+    id: u64,
+    channel: String,
+    author: String,
+    kind: u64,
+}
+
+/// The messages of a page of search results: each group's hit, or its
+/// only message.
+fn own_hits(page: &Value) -> Vec<OwnHit> {
+    page["messages"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|group| {
+            let found = group.as_array()?;
+            let message = found
+                .iter()
+                .find(|message| message["hit"] == true)
+                .or_else(|| found.first())?;
+            Some(OwnHit {
+                id: message["id"].as_str()?.parse().ok()?,
+                channel: message["channel_id"].as_str()?.to_owned(),
+                author: message["author"]["id"].as_str()?.to_owned(),
+                kind: message["type"].as_u64().unwrap_or_default(),
+            })
+        })
+        .collect()
+}
+
+/// Whether a request failed for now only: Discord limited it, after
+/// [`crate::api`] tried again, or failed on its side.
+fn slowed(error: &anyhow::Error) -> bool {
+    error
+        .downcast_ref::<crate::api::Refused>()
+        .is_some_and(|refused| refused.rate_limited() || refused.0.is_server_error())
+        || error.to_string().contains("slow down")
+}
+
+/// Whether Discord refused one deletion for that message alone: a system
+/// message, one in an archived thread or a channel no longer open to this
+/// account.
+fn refused_here(error: &anyhow::Error) -> bool {
+    error
+        .downcast_ref::<crate::api::Refused>()
+        .is_some_and(|refused| {
+            refused.0.is_client_error() && !refused.rate_limited() && refused.0.as_u16() != 401
+        })
+}
+
 /// What a search's text is checked against: see [`Service::search_query`].
 /// Without `people`, it notes who's named and takes them all, to look them
 /// up before reading the text again.
@@ -1577,6 +1644,107 @@ impl Discord {
                 threads,
                 messages: self.learn_authors(guild, &values).await,
             }));
+        }
+    }
+
+    /// Deletes every message this account sent in a server, with `guild`,
+    /// or in the DM `channel`, one after another, newest first: Cancella
+    /// tutto. Discord's search finds them, a page at a time, each page
+    /// older than the last one's oldest, so a message it still lists after
+    /// its deletion doesn't come back. Each deletion waits for Discord's
+    /// limits and [`PURGE_GAP`] more; a 429, or Discord still indexing,
+    /// waits and goes again, up to [`PURGE_PATIENCE`] times in a row. What
+    /// Discord refuses to delete (a system message, one in an archived
+    /// thread) is skipped. `progress` hears the count after each one, and
+    /// `stop` ends it after the deletion going on.
+    pub async fn delete_own_messages(
+        &self,
+        guild: Option<&str>,
+        channel: &str,
+        stop: &std::sync::atomic::AtomicBool,
+        progress: &(dyn Fn(Purged) + Send + Sync),
+    ) -> Result<Purged> {
+        use std::sync::atomic::Ordering;
+        let Some(me) = self.snapshots.borrow().user_id.clone() else {
+            bail!("BACKCORD doesn't know this account yet.");
+        };
+        let mut done = Purged::default();
+        let mut older_than: Option<u64> = None;
+        let (mut attempts, mut waits) = (0, 0);
+        loop {
+            if stop.load(Ordering::Relaxed) {
+                return Ok(done);
+            }
+            let mut params = vec![("author_id", me.clone())];
+            if guild.is_some() {
+                params.push(("include_nsfw", "true".to_owned()));
+            }
+            if let Some(id) = older_than {
+                params.push(("max_id", id.to_string()));
+            }
+            let page = match self
+                .api
+                .search(guild, channel, &params, search::Sort::Newest, 0, attempts)
+                .await
+            {
+                Ok(crate::api::Searched::Page(page)) => {
+                    attempts = 0;
+                    waits = 0;
+                    page
+                }
+                Ok(crate::api::Searched::Indexing(seconds)) => {
+                    attempts += 1;
+                    if attempts > PURGE_PATIENCE {
+                        bail!(
+                            "Discord is still indexing these messages. Try again in a few minutes."
+                        );
+                    }
+                    let wait = seconds
+                        .filter(|seconds| *seconds > 0)
+                        .map_or(SEARCH_RETRY, Duration::from_secs);
+                    tokio::time::sleep(wait.min(SEARCH_RETRY_MOST)).await;
+                    continue;
+                }
+                Err(error) if slowed(&error) && waits < PURGE_PATIENCE => {
+                    waits += 1;
+                    tokio::time::sleep(PURGE_BACKOFF).await;
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
+            let hits = own_hits(&page);
+            let Some(oldest) = hits.iter().map(|hit| hit.id).min() else {
+                return Ok(done);
+            };
+            older_than = Some(oldest);
+            for hit in hits {
+                if hit.author != me || !matches!(hit.kind, 0 | 19) {
+                    done.skipped += 1;
+                    continue;
+                }
+                let mut waits = 0;
+                loop {
+                    if stop.load(Ordering::Relaxed) {
+                        return Ok(done);
+                    }
+                    match self.api.delete(&hit.channel, &hit.id.to_string()).await {
+                        Ok(()) => done.deleted += 1,
+                        Err(error) if slowed(&error) && waits < PURGE_PATIENCE => {
+                            waits += 1;
+                            tokio::time::sleep(PURGE_BACKOFF).await;
+                            continue;
+                        }
+                        Err(error) if refused_here(&error) => {
+                            tracing::debug!(error = format!("{error:#}"), "skipped a message");
+                            done.skipped += 1;
+                        }
+                        Err(error) => return Err(error),
+                    }
+                    break;
+                }
+                progress(done);
+                tokio::time::sleep(PURGE_GAP).await;
+            }
         }
     }
 

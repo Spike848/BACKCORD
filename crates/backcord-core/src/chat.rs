@@ -3253,6 +3253,17 @@ pub enum DiscordCommand {
         room: String,
         silent: bool,
     },
+    /// Cancella tutto: delete every message this account sent in a Discord
+    /// DM, by its room id, or server, by its server id, one at a time;
+    /// [`Event::DeletedAll`] follows with each one, and when it ends.
+    DeleteAll {
+        place: String,
+    },
+    /// Stop the Cancella tutto going on in a DM or server, after the
+    /// deletion going on.
+    StopDeleteAll {
+        place: String,
+    },
     /// Delete a Discord server this account owns, confirming with
     /// two-factor authentication if Discord asks; [`Event::ServerDeleted`]
     /// follows.
@@ -4640,6 +4651,15 @@ pub enum Event {
     Left {
         place: String,
         result: Result<(), String>,
+    },
+    /// How Cancella tutto goes in a DM or server: how many of this
+    /// account's messages it deleted so far, and once it `ended`, why it
+    /// stopped early, if it did.
+    DeletedAll {
+        place: String,
+        deleted: u32,
+        ended: bool,
+        error: Option<String>,
     },
     /// Whether Discord deleted a server, or why not.
     ServerDeleted {

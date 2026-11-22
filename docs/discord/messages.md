@@ -1196,6 +1196,32 @@ disabled bar in place of the box and its toolbar, with Discord's words "You do
 not have permission to send messages in this channel."
 A timed-out account keeps its own banner.
 
+## Cancella tutto
+
+A DM's menu (one-to-one or group, not a message request) and a server's
+menu in the rail offer **Cancella tutto** while Discord is connected, before
+View Icons and Copy link. It asks first, in red, then deletes every message
+this account sent there, newest first, one at a time: in a server, in all
+of its channels and threads.
+
+It finds them with Discord's search (`GET /channels/{id}/messages/search`
+for a DM, `GET /guilds/{id}/messages/search` with `include_nsfw=true` for a
+server), `author_id` this account's, newest first, 25 at a time; each next
+page asks with `max_id` the last page's oldest, so a message the index still
+lists after its deletion doesn't come back. It deletes `DEFAULT` (0) and
+`REPLY` (19) messages with `DELETE /channels/{id}/messages/{id}`, each
+waiting for Discord's limits ([`crate::limits`]) and 250 ms more. A 429, a
+5xx, or Discord answering that it is still indexing (202) waits and asks
+again, up to 12 times in a row; Discord refusing one message (a system
+message, an archived thread, a channel no longer open to the account) skips
+it. The notice says how many went so far and how it ended; while it runs,
+the menu offers **Stop deleting** with the count, which stops it after the
+deletion going on. One runs at a time in each place.
+
+The service's `Discord::delete_own_messages` does the work;
+`discord_text/delete_all.rs` runs it and keeps each run's stop, and the
+core's `application/delete_all.rs` the dialog and the counts.
+
 ## Dates
 
 A day divider reads 12px semibold. With a 12-hour clock dates are month-first

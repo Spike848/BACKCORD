@@ -26,6 +26,7 @@ mod channel_settings;
 mod commands;
 mod compose;
 mod cosmetics;
+mod delete_all;
 mod discord_account;
 mod ephemeral;
 mod forum;
@@ -64,6 +65,7 @@ pub use channel_settings::{
 };
 pub use commands::{AppCommands, CommandTarget, SlashCommand};
 pub use cosmetics::Cosmetics;
+pub use delete_all::{DeleteAllDialog, DeletingAll};
 pub use forum::{ForumInfo, ForumPost, ForumPosts, ForumView};
 pub use gifs::{AskedPicture, GifPicker, GifPicture, GifView};
 pub use gift::GiftDialog;
@@ -532,6 +534,10 @@ pub struct AppState {
     pub channel_dialog: Option<ChannelDialog>,
     /// Asks before leaving a Discord server or group DM, while it's open.
     pub leave: Option<LeaveDialog>,
+    /// Asks before Cancella tutto in a Discord DM or server, while it's open.
+    pub delete_all: Option<DeleteAllDialog>,
+    /// Cancella tutto going on, in each DM or server.
+    pub deleting_all: Vec<DeletingAll>,
     /// Asks whether a channel dragged into a category takes its
     /// permissions, while it's open.
     pub move_sync: Option<MoveSync>,
@@ -1001,6 +1007,7 @@ impl AppState {
             || self.gift.is_some()
             || self.channel_dialog.is_some()
             || self.leave.is_some()
+            || self.delete_all.is_some()
             || self.move_sync.is_some()
             || self.profile_editor.is_some()
             || self.server_settings.is_some()
@@ -2187,6 +2194,13 @@ pub enum Action {
     ToggleSilentLeave,
     Leave,
     CloseLeave,
+    /// Cancella tutto in a Discord DM, by its room id, or server, by its
+    /// server id: ask first; delete where it asked; close the dialog; or
+    /// stop the one going on.
+    AskDeleteAll(String),
+    DeleteAll,
+    CloseDeleteAll,
+    StopDeleteAll(String),
     /// Open the editor of this account's main Discord profile, or of its
     /// profile in a Discord server, by its server id or one of its
     /// channels' room ids; change a text in it; read a picture chosen for
@@ -3899,6 +3913,13 @@ impl Application {
                 vec![]
             }
             Action::Leave => self.leave(),
+            Action::AskDeleteAll(place) => self.ask_delete_all(place),
+            Action::DeleteAll => self.delete_all(),
+            Action::CloseDeleteAll => {
+                self.state.delete_all = None;
+                vec![]
+            }
+            Action::StopDeleteAll(place) => self.stop_delete_all(place),
             Action::CloseLeave => {
                 self.state.leave = None;
                 vec![]
@@ -4620,6 +4641,12 @@ impl Application {
             Event::OverwritesChanged { room, result } => self.overwrites_changed(room, result),
             Event::OverwriteNames { room, members } => self.overwrite_names(room, members),
             Event::Left { place, result } => self.left(place, result),
+            Event::DeletedAll {
+                place,
+                deleted,
+                ended,
+                error,
+            } => self.deleted_all(place, deleted, ended, error),
             Event::ServerDeleted { server, result } => self.server_deleted(server, result),
             Event::ServerTransferred { server, result } => self.server_transferred(server, result),
             Event::ServerPincodeSent { server, result } => self.server_pincode_sent(server, result),
