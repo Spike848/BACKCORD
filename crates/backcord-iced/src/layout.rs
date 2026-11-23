@@ -59,6 +59,8 @@ pub struct Layout {
     pub profile_panel_hidden: bool,
     pub hide_blocked: bool,
     pub skip_call_prompt: bool,
+    /// Switching voice channels no longer asks first.
+    pub skip_switch_prompt: bool,
     pub activity_cards_hidden: bool,
     /// How wide the sidebar and the member list were dragged; unset, each
     /// has its own width.
@@ -404,6 +406,7 @@ impl Layout {
             Action::ShowProfilePanel(!self.profile_panel_hidden),
             Action::HideBlocked(self.hide_blocked),
             Action::SkipCallPrompt(self.skip_call_prompt),
+            Action::SkipSwitchPrompt(self.skip_switch_prompt),
             Action::ActivityCardsHidden(self.activity_cards_hidden),
             Action::SetPinned(self.pinned.clone()),
             Action::ShowHiddenChannels(self.prefs.show_hidden_channels),

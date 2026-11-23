@@ -849,6 +849,8 @@ enum Request {
     Status(String),
     /// Sharing the game played changed in the settings.
     ShowGame(bool),
+    /// The server list's order and folders, as this session set them.
+    ServerList(Vec<settings::Folder>),
     /// Nobody has used BACKCORD since then, in Unix milliseconds, or someone
     /// is using it again; and whether it may show idle.
     Inactive(Option<u64>, bool),
@@ -903,6 +905,8 @@ struct FeedPlace {
 #[derive(Clone)]
 pub struct Discord {
     requests: mpsc::UnboundedSender<Request>,
+    /// The server list last moved, on its way to the account's settings.
+    server_lists: Arc<watch::Sender<Option<Vec<settings::Folder>>>>,
     snapshots: watch::Receiver<Arc<Snapshot>>,
     live: broadcast::Sender<Live>,
     api: Arc<Api>,
@@ -1097,8 +1101,11 @@ impl Discord {
             },
         ));
         let kept_commands = commands::Kept::watching(live.subscribe());
+        let (server_lists, lists) = watch::channel(None);
+        tokio::spawn(write_server_lists(api.clone(), lists));
         Ok(Self {
             requests,
+            server_lists: Arc::new(server_lists),
             snapshots: watcher,
             live,
             api,
@@ -2807,6 +2814,38 @@ impl Discord {
         )
     }
 
+    /// Moves a server or a folder, by its id, before another (or last), as
+    /// dragging it on Discord's server list does: shown at once, then kept
+    /// in the account's settings, everywhere it's signed in.
+    pub fn move_server(
+        &self,
+        moved: &str,
+        before: Option<&str>,
+        into: Option<&str>,
+    ) -> impl Future<Output = Result<()>> + Send + 'static {
+        let moved_list = {
+            let snapshot = self.snapshots.borrow();
+            let entries = settings::server_entries(
+                snapshot
+                    .servers
+                    .iter()
+                    .map(|server| server.server.id.as_str()),
+                &snapshot.folders,
+            );
+            match into {
+                // Dropped onto a server or folder: into a folder.
+                Some(target) => settings::join_in_list(&entries, moved, target, new_folder_id()),
+                None => settings::move_in_list(&entries, moved, before),
+            }
+        };
+        if let Some(list) = moved_list {
+            let _ = self.requests.send(Request::ServerList(list.clone()));
+            // Moves close together go to Discord as one, the last.
+            self.server_lists.send_replace(Some(list));
+        }
+        std::future::ready(Ok(()))
+    }
+
     /// Changes the settings' `status` with `change`, then has the session
     /// show `then` of them. As Discord's client does, the change starts from
     /// the settings Discord last sent, not from a request for them, and
@@ -4458,4 +4497,48 @@ fn overwrite_body(overwrite: &ready::Overwrite) -> Value {
         "allow": overwrite.allow.to_string(),
         "deny": overwrite.deny.to_string(),
     })
+}
+
+/// Each server list moved on the rail, put in the account's settings: the
+/// moves made close together as one, the last, and one Discord asks to wait
+/// for sent again after the wait, as whatever was moved last by then.
+async fn write_server_lists(
+    api: Arc<Api>,
+    mut lists: watch::Receiver<Option<Vec<settings::Folder>>>,
+) {
+    while lists.changed().await.is_ok() {
+        tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+        let mut tries = 0;
+        loop {
+            let Some(list) = lists.borrow_and_update().clone() else {
+                break;
+            };
+            match api
+                .set_user_settings(&settings::write_server_list(&list))
+                .await
+            {
+                Ok(_) => break,
+                Err(error) => {
+                    tries += 1;
+                    tracing::warn!(
+                        error = format!("{error:#}"),
+                        tries,
+                        "could not move a server"
+                    );
+                    if tries >= 4 {
+                        break;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                }
+            }
+        }
+    }
+}
+
+/// An id for a folder made here: Discord's client picks one at random.
+fn new_folder_id() -> u64 {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_nanos());
+    u64::try_from(nanos % 4_000_000_000).unwrap_or_default() + 1
 }

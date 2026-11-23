@@ -60,6 +60,10 @@ impl App {
             crate::window_bar::history_keys(),
             Self::shell_subscription(),
         ];
+        // A server held on the rail follows the pointer anywhere.
+        if self.rail.drag.is_some() {
+            subscriptions.push(crate::rail::drag_subscription());
+        }
         // A look at the releases every six hours while the check is on.
         if self.layout.prefs.check_for_updates {
             subscriptions.push(

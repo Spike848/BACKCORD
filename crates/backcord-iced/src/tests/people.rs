@@ -759,14 +759,37 @@ fn a_note_typed_on_a_profile_is_kept_as_it_changes_without_enter() {
             .profile
             .id = "77".into();
     });
+    // The full profile, where the note is written.
+    let _ = app.update(Message::Profile(profile::Event::Enlarge(None, false)));
     let _ = app.update(Message::Profile(profile::Event::Note(
         "met at RustConf".into(),
     )));
-    // Shown large without Enter: the note went first.
-    let _ = app.update(Message::Profile(profile::Event::Enlarge(None, false)));
+    // Another tab without Enter: the note went first.
+    let _ = app.update(Message::Profile(profile::Event::Enlarge(
+        Some(crate::profile::look::Tab::Activity),
+        false,
+    )));
     let state = app.client.state();
     let view = state.profile.as_ref().expect("the profile");
     assert_eq!(view.profile.note, "met at RustConf");
+    // Someone else's profile starts from their own note, not that one.
+    change(&mut app, |state| {
+        let view = state
+            .profile
+            .as_mut()
+            .map(Arc::make_mut)
+            .expect("the profile");
+        view.profile.id = "78".into();
+        view.profile.note = String::new();
+    });
+    assert_eq!(app.profiles.note, "");
+    let _ = app.update(Message::Profile(profile::Event::Enlarge(None, false)));
+    let state = app.client.state();
+    let view = state.profile.as_ref().expect("the profile");
+    assert_eq!(
+        view.profile.note, "",
+        "nothing typed on them, nothing saved"
+    );
 }
 
 #[test]

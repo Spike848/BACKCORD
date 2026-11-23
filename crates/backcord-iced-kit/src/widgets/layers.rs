@@ -326,7 +326,12 @@ impl<M> Hooks<M> for Above {
         child: &mut dyn FnMut(&mut Renderer),
     ) {
         use iced::advanced::Renderer as _;
-        renderer.with_layer(at.bounds.expand(self.reach), |renderer| child(renderer));
+        // A layer's clip replaces the one around it, so it keeps to what
+        // shows of it: a tile scrolled under the call's controls draws its
+        // ring and name there no more than its picture.
+        if let Some(shown) = at.bounds.expand(self.reach).intersection(&at.viewport) {
+            renderer.with_layer(shown, |renderer| child(renderer));
+        }
     }
 }
 

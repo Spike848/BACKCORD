@@ -264,6 +264,117 @@ pub fn server_list(encoded: &str) -> Option<ServerList> {
     Some(list)
 }
 
+/// The server list as its settings hold it, from the servers in their
+/// order and the folders they sit in: each folder whole, each server outside
+/// one an entry of its own with no id.
+pub fn server_entries<'a>(
+    order: impl IntoIterator<Item = &'a str>,
+    folders: &[Folder],
+) -> Vec<Folder> {
+    let mut entries: Vec<Folder> = Vec::new();
+    for id in order {
+        let folder = folders
+            .iter()
+            .find(|folder| folder.servers.iter().any(|server| server == id));
+        match folder {
+            Some(folder) => {
+                if !entries.iter().any(|entry| entry.id == folder.id) {
+                    entries.push(folder.clone());
+                }
+            }
+            None => entries.push(Folder {
+                servers: vec![id.to_owned()],
+                ..Folder::default()
+            }),
+        }
+    }
+    entries
+}
+
+/// The server list with `moved`, a server or a folder by its id, put before
+/// `before` (or last, without one). A server goes into the folder `before`
+/// sits in, there; a folder goes before that folder. `None` when nothing
+/// changes.
+pub fn move_in_list(entries: &[Folder], moved: &str, before: Option<&str>) -> Option<Vec<Folder>> {
+    if before == Some(moved) {
+        return None;
+    }
+    let (mut list, entry) = take_out(entries, moved)?;
+    let folder = !entry.id.is_empty();
+    let Some(before) = before else {
+        list.push(entry);
+        return (list != entries).then_some(list);
+    };
+    let to = list.iter().position(|entry| holds(entry, before))?;
+    let inside = !list[to].id.is_empty() && list[to].id != before;
+    if inside && !folder {
+        let servers = &mut list[to].servers;
+        let at = servers.iter().position(|server| server == before)?;
+        servers.insert(at, moved.to_owned());
+    } else {
+        list.insert(to, entry);
+    }
+    (list != entries).then_some(list)
+}
+
+/// The server list with the server `moved` dropped onto `target`: into the
+/// folder `target` is or sits in, last, or with a server outside any into a
+/// new folder where that server was, as Discord makes one. `None` for a
+/// folder dropped, or when nothing changes.
+pub fn join_in_list(
+    entries: &[Folder],
+    moved: &str,
+    target: &str,
+    new_id: u64,
+) -> Option<Vec<Folder>> {
+    if moved == target {
+        return None;
+    }
+    let (mut list, entry) = take_out(entries, moved)?;
+    if !entry.id.is_empty() {
+        return None;
+    }
+    let to = list.iter().position(|entry| holds(entry, target))?;
+    if list[to].id.is_empty() {
+        list[to] = Folder {
+            id: new_id.to_string(),
+            name: None,
+            color: None,
+            servers: vec![target.to_owned(), moved.to_owned()],
+        };
+    } else {
+        list[to].servers.push(moved.to_owned());
+    }
+    (list != entries).then_some(list)
+}
+
+/// Whether an entry is the folder or server `id`, or holds that server.
+fn holds(entry: &Folder, id: &str) -> bool {
+    (!entry.id.is_empty() && entry.id == id) || entry.servers.iter().any(|server| server == id)
+}
+
+/// The list without `moved`, and `moved` as an entry of its own: a folder
+/// whole, a server alone, its folder gone if it was the last in it.
+fn take_out(entries: &[Folder], moved: &str) -> Option<(Vec<Folder>, Folder)> {
+    let mut list = entries.to_vec();
+    let from = list.iter().position(|entry| holds(entry, moved))?;
+    if list[from].id == moved || list[from].id.is_empty() {
+        let entry = list.remove(from);
+        return Some((list, entry));
+    }
+    list[from].servers.retain(|server| server != moved);
+    if list[from].servers.is_empty() {
+        list.remove(from);
+    }
+    Some((
+        list,
+        Folder {
+            servers: vec![moved.to_owned()],
+            ..Folder::default()
+        },
+    ))
+}
+
 /// The value of a wrapper such as `Int64Value`, whose field 1 is a varint;
 /// 0, protobuf's default, when it's left out.
 fn wrapped_varint(wrapper: &[u8]) -> u64 {
@@ -289,10 +400,10 @@ pub(crate) fn write_server_order(folders: &[&[u64]]) -> String {
     write_server_list(&entries)
 }
 
-/// Base64 settings holding only a server list. An entry with an empty `id`
-/// is a server outside any folder.
-#[cfg(test)]
-pub(crate) fn write_server_list(entries: &[Folder]) -> String {
+/// Base64 settings holding only a server list, as a PATCH of them puts it
+/// in place of the old. An entry with an empty `id` is a server outside
+/// any folder.
+pub fn write_server_list(entries: &[Folder]) -> String {
     let mut message = Vec::new();
     for entry in entries {
         let packed: Vec<u8> = entry
@@ -624,6 +735,96 @@ pub(crate) fn put_field(out: &mut Vec<u8>, number: u64, field: &Field<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn servers_and_folders_move_as_the_list_is_dragged() {
+        let alone = |id: &str| Folder {
+            servers: vec![id.into()],
+            ..Folder::default()
+        };
+        let games = Folder {
+            id: "9".into(),
+            name: Some("Games".into()),
+            color: None,
+            servers: vec!["3".into(), "4".into()],
+        };
+        let list = vec![alone("1"), alone("2"), games.clone(), alone("5")];
+        let ids = |list: &[Folder]| -> Vec<String> {
+            list.iter()
+                .map(|entry| {
+                    if entry.id.is_empty() {
+                        entry.servers.join(",")
+                    } else {
+                        format!("[{}]", entry.servers.join(","))
+                    }
+                })
+                .collect()
+        };
+        // A server before another, and last.
+        assert_eq!(
+            ids(&move_in_list(&list, "5", Some("1")).unwrap()),
+            ["5", "1", "2", "[3,4]"]
+        );
+        assert_eq!(
+            ids(&move_in_list(&list, "1", None).unwrap()),
+            ["2", "[3,4]", "5", "1"]
+        );
+        // A whole folder; a server before one in a folder goes into it there.
+        assert_eq!(
+            ids(&move_in_list(&list, "9", Some("1")).unwrap()),
+            ["[3,4]", "1", "2", "5"]
+        );
+        assert_eq!(
+            ids(&move_in_list(&list, "5", Some("4")).unwrap()),
+            ["1", "2", "[3,5,4]"]
+        );
+        assert_eq!(
+            ids(&move_in_list(&list, "5", Some("9")).unwrap()),
+            ["1", "2", "5", "[3,4]"]
+        );
+        // Dropped onto a folder, into it last; onto a server, a new folder
+        // of the two where that one was; a folder doesn't go into one.
+        assert_eq!(
+            ids(&join_in_list(&list, "1", "9", 77).unwrap()),
+            ["2", "[3,4,1]", "5"]
+        );
+        assert_eq!(
+            ids(&join_in_list(&list, "5", "3", 77).unwrap()),
+            ["1", "2", "[3,4,5]"]
+        );
+        let joined = join_in_list(&list, "5", "2", 77).unwrap();
+        assert_eq!(ids(&joined), ["1", "[2,5]", "[3,4]"]);
+        assert_eq!(joined[1].id, "77");
+        assert_eq!(
+            ids(&join_in_list(&list, "4", "1", 77).unwrap()),
+            ["[1,4]", "2", "[3]", "5"]
+        );
+        assert_eq!(join_in_list(&list, "9", "1", 77), None);
+        assert_eq!(
+            join_in_list(&list, "4", "9", 77),
+            None,
+            "already last in it"
+        );
+        // Within the folder, and out of it.
+        assert_eq!(
+            ids(&move_in_list(&list, "4", Some("3")).unwrap()),
+            ["1", "2", "[4,3]", "5"]
+        );
+        assert_eq!(
+            ids(&move_in_list(&list, "3", Some("1")).unwrap()),
+            ["3", "1", "2", "[4]", "5"]
+        );
+        // Nothing changes.
+        assert_eq!(move_in_list(&list, "2", Some("2")), None);
+        assert_eq!(move_in_list(&list, "1", Some("2")), None);
+        // The order and folders give the entries back.
+        let order = ["1", "2", "3", "4", "5"];
+        assert_eq!(server_entries(order, &[games]), list);
+        // Written and read back, the same list.
+        let read = server_list(&write_server_list(&list)).unwrap();
+        assert_eq!(read.order, order);
+        assert_eq!(read.folders.len(), 1);
+    }
 
     #[test]
     fn reads_the_server_list_with_its_folders() {

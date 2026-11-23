@@ -397,3 +397,25 @@ fn going_idle_while_signed_out_tells_nobody() {
         ))]
     ));
 }
+
+#[test]
+#[cfg(feature = "discord")]
+fn a_server_dragged_on_the_rail_moves_by_discords_own_ids() {
+    use backcord_discord::service::{Snapshot, Status};
+    let mut app = Application::default();
+    app.apply(discord_event(Snapshot {
+        status: Status::Online,
+        user_id: Some("1".into()),
+        ..Default::default()
+    }));
+    let effects = app.dispatch(Action::MoveServer {
+        moved: "discord:20".into(),
+        before: Some("discord-folder:9".into()),
+        into: None,
+    });
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::MoveServer { moved, before, into: None }))]
+            if moved == "20" && before.as_deref() == Some("9")
+    ));
+}

@@ -40,7 +40,48 @@ pub struct Rail {
     pub home: Home,
     pub items: Vec<RailItem>,
     pub scroll: crate::sync::Scroll,
+    /// A server or folder held down, which a move drags.
+    pub drag: Option<Drag>,
 }
+
+/// A server or folder held down on the rail: by its id, where the pointer
+/// first moved and where it is now, down the rail's rows, and whether it
+/// moved far enough to be dragged rather than clicked.
+#[derive(Clone, Debug)]
+pub struct Drag {
+    pub id: String,
+    /// The middle of what's held, down the rail's rows.
+    start: f32,
+    /// Where the pointer was first seen and is now, in the window.
+    from: Option<f32>,
+    at: f32,
+    moved: bool,
+}
+
+impl Drag {
+    /// Where what's held is now, down the rail's rows.
+    fn y(&self) -> f32 {
+        self.start + self.from.map_or(0.0, |from| self.at - from)
+    }
+}
+
+/// While something is held on the rail, where the pointer goes and where
+/// it's let go, in the window: the rail's own widgets see neither once the
+/// pointer leaves the tile pressed.
+pub fn drag_subscription() -> iced::Subscription<Message> {
+    iced::event::listen_with(|event, _, _| match event {
+        iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
+            Some(Message::Rail(Event::DragTo(position)))
+        }
+        iced::Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
+            Some(Message::Rail(Event::Release))
+        }
+        _ => None,
+    })
+}
+
+/// How far the pointer moves before a press drags.
+const DRAG_START: f32 = 6.0;
 
 /// The rail, down the window's left edge.
 pub fn view<'a>(rail: &'a Rail, cx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
@@ -60,6 +101,7 @@ impl Rail {
             home: Home::default(),
             items: Vec::new(),
             scroll: crate::sync::Scroll::new(height),
+            drag: None,
         }
     }
 }
@@ -108,6 +150,74 @@ pub enum Event {
     /// A right click on a server, a folder or an unread DM: its menu, where
     /// the pointer was pressed.
     Menu(String, iced::Point),
+    /// A server or folder pressed: a click once let go, or a drag.
+    Press(String),
+    /// The pointer moved while one is held, down the rail's rows.
+    DragTo(iced::Point),
+    /// Let go: a click where it didn't move, else a drop.
+    Release,
+    /// The pointer left the rail while one was held.
+    Leave,
+}
+
+/// Where a server or folder dragged to `y`, down the rail's rows, would
+/// drop.
+struct Drop {
+    /// The server or folder it goes before; none after the last.
+    before: Option<String>,
+    /// The server or folder it's dropped onto, to go into a folder with.
+    into: Option<String>,
+    /// Down the rows, the gap it goes into, or the top and height of the
+    /// tile it's dropped onto.
+    line: f32,
+    tile: (f32, f32),
+}
+
+/// Where `moved` dragged to `y` drops: onto the middle of another server
+/// or a folder, a server goes into a folder with it, as on Discord;
+/// otherwise before the row whose top half it's in.
+fn drop_target(items: &[RailItem], moved: &str, y: f32) -> Drop {
+    let folder = items
+        .iter()
+        .any(|item| item.id == moved && matches!(item.kind, Kind::Folder { .. }));
+    let mut top = 0.0;
+    for (index, item) in items.iter().enumerate() {
+        let height = item.height(index);
+        let movable = matches!(
+            item.kind,
+            Kind::Server | Kind::Folder { .. } | Kind::Nested { .. } | Kind::Add
+        );
+        let joins = !folder
+            && item.id != moved
+            && matches!(
+                item.kind,
+                Kind::Server | Kind::Folder { .. } | Kind::Nested { .. }
+            );
+        let face = height - GAP;
+        if joins && y >= top + face * 0.25 && y < top + face * 0.75 {
+            return Drop {
+                before: None,
+                into: Some(item.id.clone()),
+                line: 0.0,
+                tile: (top, face),
+            };
+        }
+        if movable && y < top + height / 2.0 {
+            return Drop {
+                before: (item.kind != Kind::Add).then(|| item.id.clone()),
+                into: None,
+                line: top - GAP / 2.0,
+                tile: (0.0, 0.0),
+            };
+        }
+        top += height;
+    }
+    Drop {
+        before: None,
+        into: None,
+        line: top - GAP / 2.0,
+        tile: (0.0, 0.0),
+    }
 }
 
 /// The DM home's marks.
@@ -245,6 +355,49 @@ pub(crate) fn home_logo(side: u32) -> Option<iced::advanced::image::Handle> {
         Some(iced::advanced::image::Handle::from_rgba(side, side, pixels))
     })
     .clone()
+}
+
+/// The DM home's face for the theme `theme`: a built-in theme's own
+/// picture, or BACKCORD's logo; `side` pixels square, made once.
+pub(crate) fn theme_logo(theme: &str, side: u32) -> Option<iced::advanced::image::Handle> {
+    use std::{cell::RefCell, collections::HashMap};
+    let (key, bytes): (&'static str, &'static [u8]) = match theme {
+        "discord" => (
+            "discord",
+            include_bytes!("../../../packaging/themes/discord.png"),
+        ),
+        "vencord" => (
+            "vencord",
+            include_bytes!("../../../packaging/themes/vencord.png"),
+        ),
+        "testcord" => (
+            "testcord",
+            include_bytes!("../../../packaging/themes/testcord.png"),
+        ),
+        _ => return home_logo(side),
+    };
+    thread_local! {
+        static LOGOS: RefCell<HashMap<(&'static str, u32), Option<iced::advanced::image::Handle>>> =
+            RefCell::default();
+    }
+    LOGOS.with(|logos| {
+        logos
+            .borrow_mut()
+            .entry((key, side))
+            .or_insert_with(|| {
+                let picture = image::load_from_memory(bytes).ok()?.to_rgba8();
+                let fitted = image::imageops::resize(
+                    &picture,
+                    side,
+                    side,
+                    image::imageops::FilterType::Lanczos3,
+                );
+                let mut pixels = fitted.into_raw();
+                crate::paint::to_native(&mut pixels);
+                Some(iced::advanced::image::Handle::from_rgba(side, side, pixels))
+            })
+            .clone()
+    })
 }
 
 /// BACKCORD's logo at a larger size (the sign-in screen's), cached.
@@ -589,6 +742,75 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Menu(id, at) => {
             return crate::place_menus::open_place_menu(app, &id, at, false);
         }
+        Event::Press(id) => {
+            // The middle of the tile held, down the rows.
+            let mut top = 0.0;
+            let mut start = 0.0;
+            for (index, item) in app.rail.items.iter().enumerate() {
+                let height = item.height(index);
+                if item.id == id {
+                    start = top + height / 2.0;
+                    break;
+                }
+                top += height;
+            }
+            app.rail.drag = Some(Drag {
+                id,
+                start,
+                from: None,
+                at: 0.0,
+                moved: false,
+            });
+            return Task::none();
+        }
+        Event::DragTo(at) => {
+            if let Some(drag) = &mut app.rail.drag {
+                let from = *drag.from.get_or_insert(at.y);
+                drag.at = at.y;
+                drag.moved |= (at.y - from).abs() > DRAG_START;
+            }
+            return Task::none();
+        }
+        Event::Leave => {
+            app.rail.drag = None;
+            return Task::none();
+        }
+        Event::Release => {
+            let Some(drag) = app.rail.drag.take() else {
+                return Task::none();
+            };
+            if !drag.moved {
+                // A click: what the tile opens.
+                let folder = app
+                    .rail
+                    .items
+                    .iter()
+                    .any(|item| item.id == drag.id && matches!(item.kind, Kind::Folder { .. }));
+                return update(
+                    app,
+                    if folder {
+                        Event::Folder(drag.id)
+                    } else {
+                        Event::Server(drag.id)
+                    },
+                );
+            }
+            let Drop { before, into, .. } = drop_target(&app.rail.items, &drag.id, drag.y());
+            tracing::debug!(
+                moved = drag.id,
+                ?before,
+                ?into,
+                "a server dropped on the rail"
+            );
+            if into.is_none() && before.as_deref() == Some(drag.id.as_str()) {
+                return Task::none();
+            }
+            app.client.dispatch(Action::MoveServer {
+                moved: drag.id,
+                before,
+                into,
+            });
+        }
     }
     app.sync()
 }
@@ -623,6 +845,54 @@ impl<'a> View<'a> {
                 self.rail_row(index, item, height),
             );
         }
+        // While one is held, where the pointer goes and where it's let go;
+        // dragged, a line where it would drop.
+        let rows: Element<'a, Message> = match &self.s.drag {
+            Some(drag) => {
+                if drag.moved {
+                    let drop = drop_target(&self.s.items, &drag.id, drag.y());
+                    if drop.into.is_some() {
+                        // A ring round the tile it goes into a folder with.
+                        let (top, height) = drop.tile;
+                        let accent = theme.accent;
+                        rows.push(
+                            key("rail-drop"),
+                            top - 3.0,
+                            height + 6.0,
+                            container(
+                                container(column![])
+                                    .width(height + 6.0)
+                                    .height(height + 6.0)
+                                    .style(move |_| iced::widget::container::Style {
+                                        border: iced::Border {
+                                            color: accent,
+                                            width: 2.0,
+                                            radius: 18.0.into(),
+                                        },
+                                        ..Default::default()
+                                    }),
+                            )
+                            .center_x(WIDTH),
+                        );
+                    } else {
+                        rows.push(
+                            key("rail-drop"),
+                            drop.line - 1.0,
+                            2.0,
+                            container(bar::<Message>(theme.accent, FOLDER, 2)).center_x(WIDTH),
+                        );
+                    }
+                }
+                mouse_area(rows)
+                    .interaction(if drag.moved {
+                        iced::mouse::Interaction::Grabbing
+                    } else {
+                        iced::mouse::Interaction::Pointer
+                    })
+                    .into()
+            }
+            None => rows.into(),
+        };
         let list = scroll_view(rows)
             .on_scroll(|viewport| Message::Rail(Event::Scrolled(viewport)))
             .height(Length::Fill)
@@ -645,7 +915,7 @@ impl<'a> View<'a> {
         let home = &self.s.home;
         let pointed = self.cx.pointed.rail.as_deref() == Some("");
         let lit = home.selected || pointed;
-        let face: Element<'a, Message> = match home_logo(TILE as u32) {
+        let face: Element<'a, Message> = match theme_logo(self.cx.themes.chosen_id(), TILE as u32) {
             // The logo alone, on no ground.
             Some(logo) => container(Pic::square(logo, TILE)).center(TILE).into(),
             None => self.glyph_tile(Icon::Logo, lit),
@@ -829,7 +1099,8 @@ impl<'a> View<'a> {
             } => (
                 self.folder_face(*open, *tint, preview, pointed),
                 FOLDER,
-                Message::Rail(Event::Folder(item.id.clone())),
+                // Opens once let go where it was pressed, else drags.
+                Message::Rail(Event::Press(item.id.clone())),
             ),
             Kind::Dm => (
                 self.server_face(item, lit),
@@ -840,7 +1111,7 @@ impl<'a> View<'a> {
             _ => (
                 self.server_face(item, lit),
                 TILE,
-                Message::Rail(Event::Server(item.id.clone())),
+                Message::Rail(Event::Press(item.id.clone())),
             ),
         };
         let open_folder = matches!(item.kind, Kind::Folder { open: true, .. });

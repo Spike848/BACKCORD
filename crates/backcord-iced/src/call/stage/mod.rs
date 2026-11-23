@@ -506,6 +506,9 @@ fn stage_tile(
             .and_then(|watching| stream_viewers(app, &watching.viewers, Some(&watching.user)))
     };
     let mut stop_user: Option<String> = None;
+    // A watched stream's right click opens its own menu, Stop Watching
+    // first, rather than its streamer's.
+    let mut stream_right: Option<String> = None;
     let mut viewers = None;
     let mut on_press = Message::Call(Event::Focus(Some(place)));
     let mut right = None;
@@ -539,6 +542,7 @@ fn stage_tile(
             let content = if watched {
                 viewers = watch_viewers(&person.id);
                 stop_user = Some(person.id.clone());
+                stream_right = Some(person.id.clone());
                 frame(app, &format!("stream:{}", person.id), corners)
                     .unwrap_or_else(|| tile::note(app.look(), None, watch_status(app, &person.id)))
             } else {
@@ -635,7 +639,9 @@ fn stage_tile(
     // menu at the bottom, as Discord's.
     let mut corner_buttons = Vec::new();
     if let Some(user) = &stop_user {
-        if let Some(badge) = quality_badge(app, user) {
+        // A narrow tile keeps LIVE and its viewers, not the quality, so
+        // nothing runs past its edge.
+        if let Some(badge) = quality_badge(app, user, size.width < QUALITY_ROOM) {
             tile = tile.top_right(badge);
         }
         if pointed || large {
@@ -695,7 +701,9 @@ fn stage_tile(
             on_press = Message::Call(Event::Focus(None));
         }
     }
-    if let (Some(user), Some(room)) = (right, voice.room.clone()) {
+    if let Some(user) = stream_right {
+        tile = tile.on_right(move |at| Message::Call(Event::StreamMenuAt(user.clone(), at)));
+    } else if let (Some(user), Some(room)) = (right, voice.room.clone()) {
         tile =
             tile.on_right(move |at| Message::Call(Event::Person(room.clone(), user.clone(), at)));
     }
@@ -908,6 +916,10 @@ fn call_controls(app: &App) -> Element<'_, Message> {
 /// The frames of the screen this account shares, by their key.
 pub const OWN_SCREEN: &str = "share:own";
 
+/// How wide a watched stream's tile is before its quality shows beside
+/// LIVE and its viewers.
+const QUALITY_ROOM: f32 = 340.0;
+
 /// Who watches a stream, over its top right: an eye and how many, the first
 /// three's avatars overlapping and how many more; their names in a tooltip.
 pub fn viewers<'a>(
@@ -1050,8 +1062,18 @@ fn stream_invite<'a>(app: &'a App, user: &str, size: iced::Size) -> Element<'a, 
 
 /// The quality a watched stream's streamer chose, beside LIVE:
 /// "720P 30FPS", or "SOURCE 60FPS" at their screen's own size.
-fn quality_badge<'a>(app: &'a App, user: &str) -> Option<Element<'a, Message>> {
+fn quality_badge<'a>(app: &'a App, user: &str, narrow: bool) -> Option<Element<'a, Message>> {
     let theme = &app.theme;
+    let live = || {
+        tile::pill(
+            backcord_iced_kit::i18n::tr("LIVE"),
+            theme.danger,
+            theme.on_danger,
+        )
+    };
+    if narrow {
+        return Some(live());
+    }
     let (height, fps) = app
         .client
         .state()
@@ -1080,16 +1102,9 @@ fn quality_badge<'a>(app: &'a App, user: &str) -> Option<Element<'a, Message>> {
         ..Default::default()
     });
     Some(
-        row![
-            quality,
-            tile::pill(
-                backcord_iced_kit::i18n::tr("LIVE"),
-                theme.danger,
-                theme.on_danger
-            )
-        ]
-        .spacing(4)
-        .align_y(Alignment::Center)
-        .into(),
+        row![quality, live()]
+            .spacing(4)
+            .align_y(Alignment::Center)
+            .into(),
     )
 }

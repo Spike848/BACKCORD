@@ -1462,6 +1462,21 @@ impl Tracker {
         }
     }
 
+    /// The server list as this session just set it, before Discord's
+    /// settings update says the same.
+    pub(super) fn set_server_list(&mut self, entries: &[settings::Folder]) {
+        self.order = entries
+            .iter()
+            .flat_map(|entry| entry.servers.iter().cloned())
+            .collect();
+        self.folders = entries
+            .iter()
+            .filter(|entry| !entry.id.is_empty())
+            .cloned()
+            .collect();
+        self.sort_servers();
+    }
+
     /// A server to change, copied first if a snapshot shares it.
     fn server_mut(&mut self, id: &str) -> Option<&mut Server> {
         self.servers

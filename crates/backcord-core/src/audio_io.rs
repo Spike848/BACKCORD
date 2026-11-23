@@ -440,18 +440,22 @@ pub enum Heard<'a> {
 /// Hears what every other application plays, at [`RATE`] in stereo, on a
 /// thread of its own until `stop`. BACKCORD's own processes are left out. On
 /// Linux each application comes on its own, and those whose name or program
-/// `skip` picks are left out too; Windows mixes them all into one.
+/// `skip` picks are left out too; Windows mixes them all into one. With a
+/// `window` shared (its handle, on Windows), only the application it
+/// belongs to is heard, with the processes it started, as a browser plays
+/// from one of its own.
 /// Returns once it hears, or with why it can't.
 #[cfg(feature = "discord")]
 pub fn others(
     skip: fn(&str) -> bool,
+    window: Option<u64>,
     heard: impl FnMut(Heard<'_>) + Send + 'static,
     stop: Arc<AtomicBool>,
 ) -> Result<JoinHandle<()>> {
     if !devices() {
         anyhow::bail!("BACKCORD hears no other applications in tests");
     }
-    platform::others(skip, Box::new(heard), stop)
+    platform::others(skip, window, Box::new(heard), stop)
 }
 
 #[cfg(feature = "discord")]
@@ -613,6 +617,7 @@ mod tests {
         let into = heard.clone();
         let hearing = others(
             |_| false,
+            None,
             move |heard| {
                 if let Heard::Samples { samples, .. } = heard {
                     into.lock().unwrap().extend_from_slice(samples);

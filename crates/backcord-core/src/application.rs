@@ -608,6 +608,9 @@ pub struct AppState {
     pub hide_blocked: bool,
     /// A call from someone's menu starts without asking first.
     pub skip_call_prompt: bool,
+    /// Joining another voice channel while in a call switches without
+    /// asking first.
+    pub skip_switch_prompt: bool,
     /// The member list's Activity panel's feed, in Discord's order: what
     /// everyone this account knows is doing, not just one server.
     pub activity_feed: Arc<[crate::chat::FeedEntry]>,
@@ -2423,6 +2426,16 @@ pub enum Action {
     HideBlocked(bool),
     /// Whether a call from someone's menu starts without asking first.
     SkipCallPrompt(bool),
+    /// Switching voice channels no longer asks, or asks again.
+    SkipSwitchPrompt(bool),
+    /// A server or folder on the rail, by its id, dropped before another,
+    /// or after the last.
+    MoveServer {
+        moved: String,
+        before: Option<String>,
+        /// Dropped onto this server or folder instead: into a folder.
+        into: Option<String>,
+    },
     /// The window gained or lost focus.
     WindowFocused(bool),
     /// Hides or shows the cards in the member list's Activity panel.
@@ -4405,6 +4418,32 @@ impl Application {
             Action::SkipCallPrompt(skip) => {
                 self.state.skip_call_prompt = skip;
                 vec![]
+            }
+            Action::SkipSwitchPrompt(skip) => {
+                self.state.skip_switch_prompt = skip;
+                vec![]
+            }
+            Action::MoveServer {
+                moved,
+                before,
+                into,
+            } => {
+                if self.state.preview || self.state.discord_user.is_none() {
+                    return vec![];
+                }
+                // Discord knows a server and a folder by its own id.
+                let discord_id = |id: String| {
+                    id.strip_prefix(crate::discord::FOLDER_PREFIX)
+                        .or_else(|| id.strip_prefix(crate::discord::PREFIX))
+                        .map_or_else(|| id.clone(), str::to_owned)
+                };
+                vec![Effect::Backend(Command::Discord(
+                    DiscordCommand::MoveServer {
+                        moved: discord_id(moved),
+                        before: before.map(discord_id),
+                        into: into.map(discord_id),
+                    },
+                ))]
             }
             Action::HideBlocked(hide) => {
                 if self.state.hide_blocked == hide {

@@ -479,6 +479,7 @@ fn serve(mut input: Box<dyn BufRead + Send>, report: &mut dyn FnMut(Report)) {
                 reopen: false,
                 requested: None,
                 previewed: None,
+                window: None,
             };
             report(Report::Ready);
             match source {
@@ -575,6 +576,9 @@ struct Sink {
     requested: Option<(u32, u32)>,
     /// When BACKCORD's view of it was last drawn.
     previewed: Option<Instant>,
+    /// The window shared, whose application alone the stream's sound is
+    /// of; none for a screen.
+    window: Option<u64>,
 }
 
 struct Video {
@@ -659,7 +663,7 @@ impl Sink {
             let (offers, encoder) = self.offers(width, height)?;
             let sender = StreamSender::start(server, width, height, self.fps, offers)?;
             let sound = if self.sound {
-                stream_audio::Capture::start(sender.sound())
+                stream_audio::Capture::start(sender.sound(), self.window)
                     .inspect_err(|error| {
                         tracing::warn!(error = format!("{error:#}"), "sharing without sound");
                     })
@@ -791,6 +795,30 @@ impl Sink {
             self.effort,
             self.hardware,
         )
+    }
+
+    /// What's shared is now `source`: a window's sound is its application's
+    /// alone, a screen's every application's, heard again when that changes.
+    fn sound_of(&mut self, source: &Source) {
+        let window = match source {
+            Source::Window(id) => Some(*id),
+            _ => None,
+        };
+        if window == self.window {
+            return;
+        }
+        self.window = window;
+        if let Some(video) = self.video.as_mut()
+            && video._sound.is_some()
+        {
+            // The old capture stops before the new one starts.
+            video._sound = None;
+            video._sound = stream_audio::Capture::start(video.sender.sound(), window)
+                .inspect_err(|error| {
+                    tracing::warn!(error = format!("{error:#}"), "sharing without sound");
+                })
+                .ok();
+        }
     }
 
     /// Takes BACKCORD's controls, reports the stream starting, and fails once
@@ -1186,6 +1214,8 @@ fn capture_screen(
     report: &mut dyn FnMut(Report),
 ) -> Result<()> {
     let mut fps = sink.fps;
+    let mut sink = sink;
+    sink.sound_of(&source);
     let sink = Arc::new(Mutex::new(sink));
     // What's shared, to capture again at another quality.
     let mut current = source.clone();
@@ -1235,9 +1265,10 @@ fn capture_screen(
                 drop(seen);
                 let (next, source) = switching.take().expect("switching");
                 capture = next;
-                current = source;
-                // Discord shows what's shared now.
+                // Discord shows what's shared now, and hears its sound.
                 let mut sink = sink.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                sink.sound_of(&source);
+                current = source;
                 if sink.streaming {
                     sink.preview_due = Some(Instant::now());
                 }
@@ -2120,6 +2151,7 @@ mod tests {
             reopen: false,
             requested: None,
             previewed: None,
+            window: None,
         };
         let (offers, encoder) = sink.offers(320, 180).unwrap();
         eprintln!("offering {offers:?}, encoding with {}", encoder.engine());
@@ -2156,6 +2188,7 @@ mod tests {
             reopen: false,
             requested: None,
             previewed: None,
+            window: None,
         };
         // A 1080p picture, mid-grey: luma and chroma halfway.
         let mut picture = I420Buffer::new(SHARE_WIDTH, SHARE_HEIGHT);
@@ -2196,6 +2229,7 @@ mod tests {
             reopen: false,
             requested: None,
             previewed: None,
+            window: None,
         };
         let mut report = |_| {};
         assert_eq!(sink.check(&mut report).unwrap(), None);
@@ -2226,6 +2260,7 @@ mod tests {
             reopen: false,
             requested: None,
             previewed: None,
+            window: None,
         };
         let mut picture = I420Buffer::new(SHARE_WIDTH, SHARE_HEIGHT);
         let (y, u, v) = picture.data_mut();

@@ -518,6 +518,22 @@ pub(super) fn command(
         }
         return None;
     }
+    if let Command::Discord(DiscordCommand::MoveServer {
+        moved,
+        before,
+        into,
+    }) = command
+    {
+        if let Ok(discord) = discord {
+            let change = discord.move_server(&moved, before.as_deref(), into.as_deref());
+            tokio::spawn(async move {
+                if let Err(error) = change.await {
+                    tracing::warn!(error = format!("{error:#}"), "could not move a server");
+                }
+            });
+        }
+        return None;
+    }
     if let Command::Discord(DiscordCommand::SetStatus(status)) = command {
         match discord {
             Ok(discord) => {

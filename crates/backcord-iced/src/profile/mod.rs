@@ -207,6 +207,9 @@ pub struct Profiles {
     pub field: String,
     pub note: String,
     note_of: String,
+    /// Whether `note` was typed in since it was the profile's: only then
+    /// is it saved, and until then it follows the profile's as it loads.
+    note_typed: bool,
     pub pointed: bool,
     pub panel_pointed: bool,
     /// All their roles show, not the first few and how many more.
@@ -281,7 +284,9 @@ impl Profiles {
             return;
         };
         let profile = shown.look.profile();
-        if self.note != profile.note {
+        // Only what was typed on this person: never a note that was
+        // someone else's, nor one still loading.
+        if self.note_typed && self.note_of == profile.id && self.note != profile.note {
             let (user, note) = (profile.id.clone(), self.note.clone());
             cx.dispatch(Action::SaveNote { user, note });
         }
@@ -292,6 +297,7 @@ impl Profiles {
         if let Some(shown) = &self.shown {
             self.note = shown.look.profile().note.clone();
         }
+        self.note_typed = false;
     }
 
     /// What's done on a profile. Its More, an activity's menu, Manage
@@ -376,9 +382,13 @@ impl Profiles {
             }
             Event::Note(text) => {
                 self.note = text;
+                self.note_typed = true;
                 return Task::none();
             }
-            Event::SaveNote => self.save_note(cx),
+            Event::SaveNote => {
+                self.save_note(cx);
+                self.note_typed = false;
+            }
             Event::Tab(tab) => {
                 self.tab = Some(tab);
                 self.tell_tab(cx);
@@ -465,20 +475,30 @@ pub fn profile_sync(app: &mut App) -> Task<Message> {
         editor::follow(&mut app.profiles.editor, &mut cx);
     }
     let account_effect = account_card_sync(app, link);
-    // The note follows the profile's while it isn't being written.
-    if let Some(profile) = app
+    // The note follows the profile's while it isn't being written, and
+    // starts again from the next person's: what was typed stays theirs.
+    if let Some((profile, loading)) = app
         .profiles
         .shown
         .as_ref()
         .filter(|shown| shown.look.view.large)
-        .map(|shown| shown.look.profile())
+        .map(|shown| (shown.look.profile(), shown.look.view.loading))
     {
         if app.profiles.note_of != profile.id {
             app.profiles.note_of = profile.id.clone();
-            app.profiles.note = profile.note.clone();
+            app.profiles.note_typed = false;
+        }
+        if !app.profiles.note_typed {
+            app.profiles.note = if loading {
+                String::new()
+            } else {
+                profile.note.clone()
+            };
         }
     } else {
         app.profiles.note_of.clear();
+        app.profiles.note_typed = false;
+        app.profiles.note.clear();
     }
     let mut cx = crate::ctx::cx!(app);
     app.profiles.tell_tab(&mut cx);

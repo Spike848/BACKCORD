@@ -304,6 +304,11 @@ pub fn switch_view(app: &App) -> Option<Element<'_, Message>> {
             .width(Length::Fill),
         ]
         .spacing(14),
+        if joins {
+            Element::from(Space::new())
+        } else {
+            don_t_show_again(app)
+        },
         row![
             Space::new().width(Length::Fill),
             Element::from(controls::action(
@@ -334,6 +339,38 @@ pub fn switch_view(app: &App) -> Option<Element<'_, Message>> {
         width,
         Message::Call(Event::Switch(false)),
     ))
+}
+
+/// The switch question's Don't show again: ticked, switching from then on
+/// doesn't ask.
+fn don_t_show_again(app: &App) -> Element<'_, Message> {
+    let theme = &app.theme;
+    let ticked = app.call.switch_ticked;
+    let (accent, edge) = (theme.accent, theme.edge);
+    let tick = container(if ticked {
+        Element::from(app.look().glyph(Icon::Check, 14, iced::Color::WHITE))
+    } else {
+        Element::from(Space::new())
+    })
+    .center(18)
+    .style(move |_| container::Style {
+        background: ticked.then(|| accent.into()),
+        border: crate::style::edge(if ticked { accent } else { edge }, 4.0),
+        ..Default::default()
+    });
+    iced::widget::mouse_area(
+        row![
+            tick,
+            text(backcord_iced_kit::i18n::tr("Don't show again"))
+                .size(14)
+                .color(theme.secondary),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    )
+    .interaction(iced::mouse::Interaction::Pointer)
+    .on_press(Message::Call(Event::SwitchTick))
+    .into()
 }
 
 /// The call's layers over the window: the stage full screen, the

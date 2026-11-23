@@ -93,6 +93,8 @@ pub struct Call {
     /// dock's channel line under the pointer.
     pub since: Option<(String, std::time::Instant)>,
     pub detail_lit: bool,
+    /// The switch question's Don't show again is ticked.
+    pub switch_ticked: bool,
     /// The noise suppression the dock's toggle turns back on.
     pub noise_last: backcord_core::noise::Suppressor,
     /// The connection's details, while they or the signal's tooltip show.
@@ -132,12 +134,16 @@ pub enum Event {
     Watch(String),
     /// Stop watching this person's stream, or every one.
     StopWatching(Option<String>),
+    /// The switch question's Don't show again, ticked or not.
+    SwitchTick,
     /// Watch this person's stream alone, as Watch Stream does.
     WatchOnly(String),
     /// A watched stream's sound muted or back, by its streamer.
     MuteStream(String),
     /// A watched stream's menu, by its streamer, at the press.
     StreamMenu(String),
+    /// A watched stream's menu, from a right click on its tile, there.
+    StreamMenuAt(String, iced::Point),
     /// A tile shown large, by its place, or none.
     Focus(Option<usize>),
     Full(bool),
@@ -324,8 +330,21 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 Action::RequestJoinVoice(room)
             }
         }
-        Event::Switch(true) => Action::ConfirmVoiceSwitch,
-        Event::Switch(false) => Action::CancelVoiceSwitch,
+        Event::SwitchTick => {
+            app.call.switch_ticked = !app.call.switch_ticked;
+            return Task::none();
+        }
+        Event::Switch(true) => {
+            if std::mem::take(&mut app.call.switch_ticked) {
+                app.client.dispatch(Action::SkipSwitchPrompt(true));
+                crate::ctx::cx!(app).keep("skip_switch_prompt", true);
+            }
+            Action::ConfirmVoiceSwitch
+        }
+        Event::Switch(false) => {
+            app.call.switch_ticked = false;
+            Action::CancelVoiceSwitch
+        }
         Event::WatchOnly(user) => {
             app.client
                 .dispatch(Action::Voice(Command::StopWatching(None)));
@@ -338,6 +357,10 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             return Task::none();
         }
         Event::StreamMenu(user) => return open_stream_menu(app, user),
+        Event::StreamMenuAt(user, at) => {
+            app.pressed.set(at);
+            return open_stream_menu(app, user);
+        }
         Event::Grab => {
             app.call.grab = Some(None);
             return Task::none();

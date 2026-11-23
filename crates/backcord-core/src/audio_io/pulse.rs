@@ -328,6 +328,9 @@ mod others {
     /// (`pa_stream_set_monitor_stream`, as pavucontrol's level meters do).
     pub fn others(
         skip: fn(&str) -> bool,
+        // Each application comes on its own here; the shared window's
+        // isn't told apart yet.
+        _window: Option<u64>,
         heard: Hear,
         stop: Arc<AtomicBool>,
     ) -> Result<JoinHandle<()>> {

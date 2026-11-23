@@ -124,7 +124,8 @@ pub enum Event {
     /// A theme file: picked to import, its text (none when no file was
     /// picked); the chosen theme to export, and what came of it.
     Import,
-    Imported(Option<String>),
+    /// A file picked to import: its name and its text.
+    Imported(Option<(String, String)>),
     Export,
     Exported(Option<String>),
 }
@@ -164,37 +165,12 @@ impl Settings {
     /// Adds the themes in an imported file among the person's own, and
     /// chooses the last: one theme as Export writes it, a list of them, or
     /// a whole `layout.json`.
-    fn imported_theme(&mut self, text: Option<String>, cx: &mut Cx<'_>) {
+    fn imported_theme(&mut self, text: Option<(String, String)>, cx: &mut Cx<'_>) {
         let Some(text) = text else {
             return;
         };
-        let value: serde_json::Value = match serde_json::from_str(&text) {
-            Ok(value) => value,
-            Err(_) => {
-                self.theme_note = Some(
-                    backcord_iced_kit::i18n::tr("This file is not a BACKCORD theme.").to_owned(),
-                );
-                return;
-            }
-        };
-        let items = match value {
-            serde_json::Value::Array(items) => items,
-            serde_json::Value::Object(ref object) => match object.get("custom_themes") {
-                Some(serde_json::Value::Array(items)) => items.clone(),
-                _ => vec![value],
-            },
-            _ => vec![],
-        };
-        let themes: Vec<Custom> = items
-            .into_iter()
-            .filter(|item| {
-                item["colours"]
-                    .as_object()
-                    .is_some_and(|colours| !colours.is_empty())
-            })
-            .filter_map(|item| serde_json::from_value(item).ok())
-            .take(32)
-            .collect();
+        let (file_name, text) = text;
+        let themes = palette::import(&text, &file_name);
         if themes.is_empty() {
             self.theme_note =
                 Some(backcord_iced_kit::i18n::tr("This file is not a BACKCORD theme.").to_owned());
@@ -421,9 +397,12 @@ fn import_theme() -> iced::Task<Message> {
             const MOST: usize = 512 << 10;
             let bytes = file.read().await;
             if bytes.len() > MOST {
-                return Some(String::new());
+                return Some((file.file_name(), String::new()));
             }
-            Some(String::from_utf8_lossy(&bytes).into_owned())
+            Some((
+                file.file_name(),
+                String::from_utf8_lossy(&bytes).into_owned(),
+            ))
         },
         |text| theme_message(Event::Imported(text)),
     )

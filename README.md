@@ -34,23 +34,24 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.2.7
+## Novità della 1.2.8
 
-- **Più veloce**: all'avvio scarica solo emoji e sticker del server aperto e
-  i tuoi preferiti; cache delle immagini da 256 MB.
-- **Videocamere in chiamata** di nuovo visibili.
-- **Profilo**: il popover del tuo account mostra la tua scheda con effetto e
-  cornice; la bacheca mostra i giochi in griglia.
-- **Avatar**: si aprono a dimensione fissa, con zoom dalla rotellina e tasto
-  destro per scaricarli o aprirli a piena risoluzione.
-- **Allegati audio** riproducibili direttamente nella chat.
+- **Server trascinabili**: riordina server e cartelle, mettili in una cartella
+  o creane una nuova lasciando un server su un altro; l'ordine si salva su Discord.
+- **Temi integrati Discord, Vencord e Testcord**, ognuno col suo logo in alto
+  a sinistra; l'importazione accetta anche file con i soli colori.
+- **Dirette**: condividendo una finestra si sente solo il suo audio; tasto
+  destro su una diretta per smettere di guardare solo quella.
+- **Chiamate**: riquadri e testi non finiscono più sotto i comandi; l'avviso di
+  cambio canale vocale ha "Non mostrare più".
+- **Note nei profili**: ognuna resta sulla persona giusta.
 
 ## Cosa fa
 
 - Server, canali, messaggi diretti, thread, forum, sondaggi, reazioni, emoji e GIF
 - Chiamate vocali e video, condivisione schermo e visione delle dirette altrui
 - Stati dei canali vocali, profili, ruoli, decorazioni e targhette
-- Tema **BACKDOOR** (nero e rosso), con editor per creare i tuoi temi
+- Temi **BACKDOOR** (nero e rosso), **Discord**, **Vencord** e **Testcord**, con editor per creare i tuoi temi
 
 ### Funzioni aggiuntive
 

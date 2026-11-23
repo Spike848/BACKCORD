@@ -124,8 +124,12 @@ impl Application {
             return vec![];
         }
         if self.state.voice.active() {
-            if self.state.voice.room.as_ref() != Some(&id) {
-                self.state.switch_voice = Some(id);
+            if self.state.voice.room.as_ref() == Some(&id) {
+                return vec![];
+            }
+            self.state.switch_voice = Some(id);
+            if self.state.skip_switch_prompt {
+                return self.confirm_voice_switch();
             }
             vec![]
         } else {
@@ -232,6 +236,10 @@ impl Application {
         } else if self.state.can_join_voice(&room) {
             self.state.switch_voice = Some(room.clone());
             self.state.pending_watch = Some((room, user));
+            // From another call, a switch that no longer asks goes at once.
+            if self.state.skip_switch_prompt && self.state.voice.active() {
+                effects.extend(self.confirm_voice_switch());
+            }
         }
         effects
     }

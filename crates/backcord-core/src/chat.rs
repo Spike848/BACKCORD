@@ -3337,6 +3337,14 @@ pub enum DiscordCommand {
     /// Share the game the Discord account plays, or stop;
     /// [`Event::ShowGameSet`] follows.
     ShowGame(bool),
+    /// Move a server or a folder (Discord's ids) before another, or last,
+    /// in the account's server list.
+    MoveServer {
+        moved: String,
+        before: Option<String>,
+        /// Dropped onto this server or folder instead: into a folder.
+        into: Option<String>,
+    },
     /// Set how loud the soundboard plays, as Discord keeps it, from 0 to
     /// 100; [`Event::SoundboardVolumeSet`] follows.
     SoundboardVolume(f32),

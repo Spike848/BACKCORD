@@ -357,7 +357,8 @@ fn sharing_line<'a>(
                 .color(theme.muted)
                 .wrapping(text::Wrapping::None),
         ]
-        .width(Length::Fill),
+        .width(Length::Fill)
+        .clip(true),
         dock_icon(
             ctx,
             Icon::ScreenShareOff,

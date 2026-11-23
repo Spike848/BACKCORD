@@ -95,10 +95,12 @@ fn mix(inputs: &mut HashMap<u32, Input>, out: &mut [f32]) -> bool {
     heard
 }
 
-/// Hears the other applications into `inputs` until `stop`.
-fn listen(inputs: Inputs, stop: Arc<AtomicBool>) -> Result<JoinHandle<()>> {
+/// Hears the other applications into `inputs` until `stop`: only the
+/// shared `window`'s, when one is.
+fn listen(inputs: Inputs, stop: Arc<AtomicBool>, window: Option<u64>) -> Result<JoinHandle<()>> {
     crate::audio_io::others(
         is_discord_client,
+        window,
         move |heard| {
             let mut inputs = inputs
                 .lock()
@@ -139,11 +141,12 @@ pub struct Capture {
 }
 
 impl Capture {
-    /// Starts capturing other applications' sound and sending it as Opus.
-    pub fn start(sound: SoundSender) -> Result<Self> {
+    /// Starts capturing other applications' sound, or a shared window's
+    /// application's alone, and sending it as Opus.
+    pub fn start(sound: SoundSender, window: Option<u64>) -> Result<Self> {
         let inputs = Inputs::default();
         let stop = Arc::new(AtomicBool::new(false));
-        let capture = listen(inputs.clone(), stop.clone())?;
+        let capture = listen(inputs.clone(), stop.clone(), window)?;
         let mut encoder = opus::Encoder::new(2, opus::Application::Audio, BITRATE)?;
         let stopping = stop.clone();
         let mixer = std::thread::Builder::new()
@@ -375,7 +378,7 @@ mod tests {
         let tone = std::env::var("BACKCORD_TONE").expect("BACKCORD_TONE names a WAV file");
         let inputs = Inputs::default();
         let stop = Arc::new(AtomicBool::new(false));
-        let capture = listen(inputs.clone(), stop.clone()).unwrap();
+        let capture = listen(inputs.clone(), stop.clone(), None).unwrap();
         let mut player = std::process::Command::new("paplay")
             .args(["--volume=100", &tone])
             .spawn()
@@ -408,7 +411,7 @@ mod tests {
     fn leaves_out_backcords_own_sound() {
         let inputs = Inputs::default();
         let stop = Arc::new(AtomicBool::new(false));
-        let capture = listen(inputs.clone(), stop.clone()).unwrap();
+        let capture = listen(inputs.clone(), stop.clone(), None).unwrap();
         let mut player =
             crate::audio_io::Output::<f32>::open(None, "Discord voice", RATE, 2, None).unwrap();
         // A second of a 440 Hz tone at about -56 dB.

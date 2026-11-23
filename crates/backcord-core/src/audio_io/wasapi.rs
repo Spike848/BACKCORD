@@ -588,8 +588,9 @@ pub use others::others;
 
 /// Other applications' sound, through process loopback: one stream of
 /// everything the system plays but BACKCORD's own processes, from Windows 10's
-/// 2004 update on. It can't leave out other applications, so `skip` has no
-/// effect here.
+/// 2004 update on, or, sharing a window, of its application's processes
+/// alone. It can't leave out other applications, so `skip` has no effect
+/// here.
 #[cfg(feature = "discord")]
 mod others {
     use std::{
@@ -611,6 +612,7 @@ mod others {
                 IActivateAudioInterfaceAsyncOperation, IActivateAudioInterfaceCompletionHandler,
                 IActivateAudioInterfaceCompletionHandler_Impl,
                 PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE,
+                PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE,
                 VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK,
             },
             System::{
@@ -640,6 +642,7 @@ mod others {
 
     pub fn others(
         _skip: fn(&str) -> bool,
+        window: Option<u64>,
         mut heard: Hear,
         stop: Arc<AtomicBool>,
     ) -> Result<JoinHandle<()>> {
@@ -653,16 +656,22 @@ mod others {
                     channels: 2,
                     float: true,
                 };
-                let stream = activate(backcord_process())
-                    .and_then(|client| {
-                        Stream::initialize(client, format, LISTENING, AUDCLNT_STREAMFLAGS_LOOPBACK)
-                    })
-                    .and_then(|mut stream| {
-                        // SAFETY: an initialized client.
-                        let capture = unsafe { stream.client.GetService::<IAudioCaptureClient>() }?;
-                        stream.start()?;
-                        Ok((stream, capture))
-                    });
+                // A window's application alone, else all but BACKCORD.
+                let only = window.and_then(window_process);
+                tracing::debug!(?window, process = ?only, "hearing the stream's sound");
+                let stream = match only {
+                    Some(process) => activate(process, true),
+                    None => activate(backcord_process(), false),
+                }
+                .and_then(|client| {
+                    Stream::initialize(client, format, LISTENING, AUDCLNT_STREAMFLAGS_LOOPBACK)
+                })
+                .and_then(|mut stream| {
+                    // SAFETY: an initialized client.
+                    let capture = unsafe { stream.client.GetService::<IAudioCaptureClient>() }?;
+                    stream.start()?;
+                    Ok((stream, capture))
+                });
                 let (stream, capture) = match stream {
                     Ok(stream) => {
                         let _ = opened.send(Ok(()));
@@ -766,15 +775,28 @@ mod others {
         }
     }
 
-    /// A loopback stream of everything but `process` and the processes it
-    /// started.
-    fn activate(process: u32) -> Result<IAudioClient> {
+    /// The process a window belongs to, by its handle.
+    fn window_process(window: u64) -> Option<u32> {
+        use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::GetWindowThreadProcessId};
+        let mut process = 0u32;
+        // SAFETY: a window handle libwebrtc listed; a closed one gives 0.
+        unsafe { GetWindowThreadProcessId(HWND(window as usize as *mut _), Some(&mut process)) };
+        (process != 0).then_some(process)
+    }
+
+    /// A loopback stream of `process` and the processes it started, when
+    /// `include`; else of everything but them.
+    fn activate(process: u32, include: bool) -> Result<IAudioClient> {
         let mut parameters = AUDIOCLIENT_ACTIVATION_PARAMS {
             ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
             Anonymous: AUDIOCLIENT_ACTIVATION_PARAMS_0 {
                 ProcessLoopbackParams: AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS {
                     TargetProcessId: process,
-                    ProcessLoopbackMode: PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE,
+                    ProcessLoopbackMode: if include {
+                        PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE
+                    } else {
+                        PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE
+                    },
                 },
             },
         };

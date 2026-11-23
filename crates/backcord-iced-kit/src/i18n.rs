@@ -112,8 +112,10 @@ fn fit<'a>(pieces: &[&str], text: &'a str) -> Option<Vec<&'a str>> {
         } else if piece.is_empty() {
             return None;
         } else {
-            // The first that leaves a word before it.
-            left.get(1..)?.find(piece)? + 1
+            // The first that leaves a word before it: past its first
+            // character, whatever its length (a name may start with an emoji).
+            let first = left.chars().next()?.len_utf8();
+            left[first..].find(piece)? + first
         };
         let word = &left[..at];
         if word.is_empty() {
