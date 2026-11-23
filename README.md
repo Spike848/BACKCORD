@@ -195,9 +195,3 @@ nix develop path:./nix#windows --command bash -c '
 Documentazione tecnica in [`docs/`](docs/). Per proporre modifiche leggi
 [`CONTRIBUTING.md`](CONTRIBUTING.md) o passa sul
 [server Discord di BACKCORD](https://discord.gg/backdoor666).
-
-## Crediti e licenza
-
-BACKCORD è distribuito sotto licenza
-[GNU GPL v3.0](LICENSE): puoi usarlo, studiarlo, modificarlo e ridistribuirlo,
-a patto che anche le versioni modificate restino libere con il loro sorgente.
