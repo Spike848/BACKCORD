@@ -219,7 +219,7 @@ fn preferences_are_kept_across_a_restart() {
     );
     open(&mut app, Section::Notifications);
     interact(&mut app, |ui| {
-        ui.click("Flash the taskbar").expect("the switch");
+        ui.click("Show desktop notifications").expect("the switch");
     });
     open(&mut app, Section::Advanced);
     interact(&mut app, |ui| {
@@ -230,11 +230,52 @@ fn preferences_are_kept_across_a_restart() {
     assert!(prefs.twelve_hour_clock && prefs.clock_seconds);
     assert!(again.layout.collapse_long && again.layout.developer_mode);
     assert_eq!(prefs.text_size, Some(2));
-    assert_eq!(prefs.flash_taskbar, Some(false));
+    assert_eq!(prefs.notifications, Some(false));
     // `layout.json` keeps them under the keys older versions wrote.
     let layout = stored(&folder);
     assert_eq!(layout["twelve_hour_clock"], true);
-    assert_eq!(layout["flash_taskbar"], false);
+    assert_eq!(layout["notifications"], false);
+}
+
+/// A file chosen for a sound under Discord's makes a preset that plays it
+/// for that sound alone, kept across a restart; deleting the preset plays
+/// Discord's again and lets go of its copy.
+#[test]
+fn a_file_chosen_for_a_sound_makes_a_preset_that_deleting_lets_go() {
+    use backcord_core::sounds::Sound;
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Notifications);
+    let root = folder.path();
+    let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../testing/fixtures");
+    assert!(crate::settings::copy_sound(root, &fixtures.join("../fake_discord.ts")).is_err());
+    let chosen = crate::settings::copy_sound(root, &fixtures.join("soundboard-tone.mp3"))
+        .expect("an MP3 BACKCORD plays");
+    assert_eq!(chosen.name, "soundboard-tone.mp3");
+    let copy = root.join("sounds").join(&chosen.file);
+    assert!(copy.exists());
+    let _ = app.update(Message::Settings(Event::SoundPicked(
+        6,
+        Some(Ok(chosen.clone())),
+    )));
+    let voice = &app.layout.voice;
+    assert_eq!(voice.sound_preset, Some(0));
+    assert_eq!(voice.sound_presets[0].name, "Preset 1");
+    assert_eq!(voice.sound_presets[0].files[&Sound::Message], chosen);
+    assert_eq!(voice.sound_file(root, Sound::Message), Some(copy.clone()));
+    assert_eq!(voice.sound_file(root, Sound::Join), None);
+    assert!(shows(&app, "soundboard-tone.mp3"));
+    let again = start(&folder, true);
+    assert_eq!(
+        again.layout.voice.sound_presets,
+        app.layout.voice.sound_presets
+    );
+    assert_eq!(again.layout.voice.sound_preset, Some(0));
+    interact(&mut app, |ui| {
+        ui.click("Delete preset").expect("the button");
+    });
+    assert!(app.layout.voice.sound_presets.is_empty());
+    assert_eq!(app.layout.voice.sound_preset, None);
+    assert!(!copy.exists(), "no preset chooses it");
 }
 
 #[test]
@@ -489,7 +530,6 @@ fn every_tagged_setting_has_its_tag() {
         include_str!("../settings/pages/games.rs"),
         include_str!("../settings/pages/messages.rs"),
         include_str!("../settings/pages/notifications.rs"),
-        include_str!("../settings/pages/sounds.rs"),
     ]
     .concat();
     for tag in &backcord_core::new_tags::NEW {

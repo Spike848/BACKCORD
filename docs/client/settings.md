@@ -76,8 +76,11 @@ recording. Each change is kept at once in
   folding, boost gems in the member list, sharing that this account types
   (off, the core's typing commands go nowhere), mentioning those replied
   to and tracking taken out of links.
-- Notifications, Sounds (the set, which plays a sound when chosen, the
-  volume, and each sound's own with its play button) and Advanced.
+- Notifications (desktop notifications on or off, then the sounds: the
+  volume, the preset playing, which plays a sound when chosen, New preset,
+  and for a preset its name and Delete preset; each sound's own volume with
+  its play button, a button choosing a file for it, one going back to
+  Discord's, and the file it plays) and Advanced.
   Advanced holds Start when you sign in, Open Discord
   links in BACKCORD (outside the preview), Close to tray, saying where
   there's no tray, and the renderer's switch: while it differs from the
@@ -103,7 +106,7 @@ recording. Each change is kept at once in
   it costs no message, only a time noted; one timer checks it.
 - Game Activity: sharing the game played (Discord keeps it), and the games
   named by hand, added, edited and removed, which detection takes at once.
-- About: the build with Copy version, the update switches, the releases
+- Updates (Aggiornamento in Italian; the About page in the code): the build with Copy version, the update switches, the releases
   (Updates in [the window](window.md#the-window-and-the-desktop)), and
   the links.
 

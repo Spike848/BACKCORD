@@ -432,29 +432,40 @@ fn a_middle_click_under_the_own_title_bar_scrolls_only_as_the_pointer_moves() {
     assert!(now < end, "scrolled up from {end} to {now}");
 }
 
+/// A press on the title bar moves the window once the pointer goes 3 px,
+/// wherever in the window the move lands: a quick drag leaves the bar's
+/// few pixels at once. A release disarms it, so no move with the button
+/// up drags.
 #[test]
-fn the_pointer_passing_over_the_title_bar_sends_nothing_until_pressed() {
-    use iced::{Point, mouse};
+fn a_title_bar_press_drags_from_anywhere_and_a_release_disarms_it() {
+    use crate::window_bar::Event as Bar;
+    use iced::Point;
     let (mut app, _folder) = preview();
     own_bar(&mut app);
-    let moves = |app: &App| {
-        let mut ui =
-            iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
-        // Over the bar's ground, left of the middle's search.
-        for x in [200.0, 210.0, 220.0] {
-            let at = Point::new(x, 12.0);
-            ui.point_at(at);
-            ui.simulate([iced::Event::Mouse(mouse::Event::CursorMoved {
-                position: at,
-            })]);
-        }
-        ui.into_messages()
-            .filter(|message| matches!(message, Message::Bar(crate::window_bar::Event::Moved(_))))
-            .count()
-    };
-    assert_eq!(moves(&app), 0, "passing over");
-    let _ = app.update(Message::Bar(crate::window_bar::Event::Press));
-    assert_eq!(moves(&app), 3, "pressed, its moves may drag the window");
+    app.shell.window = Some(iced::window::Id::unique());
+    let send = |app: &mut App, event| app.update(Message::Bar(event)).units();
+    assert_eq!(
+        send(&mut app, Bar::Moved(Point::new(200.0, 300.0))),
+        0,
+        "not pressed"
+    );
+    send(&mut app, Bar::Press);
+    assert_eq!(send(&mut app, Bar::Moved(Point::new(200.0, 12.0))), 0);
+    // The next move is already far below the bar.
+    assert!(
+        send(&mut app, Bar::Moved(Point::new(200.0, 300.0))) > 0,
+        "drags"
+    );
+    assert!(app.bar_drag.armed.is_none());
+    send(&mut app, Bar::Press);
+    send(&mut app, Bar::Release);
+    assert!(app.bar_drag.armed.is_none());
+    send(&mut app, Bar::Moved(Point::new(200.0, 12.0)));
+    assert_eq!(
+        send(&mut app, Bar::Moved(Point::new(400.0, 300.0))),
+        0,
+        "released"
+    );
 }
 
 #[test]

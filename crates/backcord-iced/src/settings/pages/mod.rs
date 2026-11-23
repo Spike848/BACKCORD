@@ -2,10 +2,7 @@
 //! Notifications, Sounds, Advanced, About, Discord and Game Activity; and
 //! what their preferences do when changed.
 
-use backcord_core::{
-    application::Action,
-    sounds::{Sound, SoundSet},
-};
+use backcord_core::{application::Action, sounds::Sound};
 use iced::Element;
 
 use super::{Event, Page, Settings};
@@ -28,7 +25,6 @@ mod messages;
 mod notifications;
 mod security;
 pub use security::network;
-mod sounds;
 
 /// The choices of Messages' animations, of the date's order, of the sound
 /// set and of the text's size, in the order they show.
@@ -50,13 +46,17 @@ pub enum Pref {
     ReplyPing(bool),
     StripTracking(bool),
     Notifications(bool),
-    NotificationText(bool),
-    FlashTaskbar(bool),
-    SoundSet(usize),
+    /// A preset of sounds chosen: 0 Discord's, then those made.
+    SoundPreset(usize),
+    NewPreset,
+    DeletePreset,
+    PresetName(String),
     SoundVolume(u32, bool),
-    AdjustEach(bool),
     EachSound(usize, u32, bool),
     PlaySound(usize),
+    /// The file chosen for a sound, by its place in `Sound::ALL`, let go:
+    /// it plays Discord's again.
+    ClearSound(usize),
     GpuRendering(bool),
     GpuEncoding(bool),
     CloseToTray(bool),
@@ -191,19 +191,47 @@ impl Settings {
                 prefs.notifications = Some(on);
                 cx.keep("notifications", on);
             }
-            Pref::NotificationText(on) => {
-                prefs.notification_text = Some(on);
-                cx.keep("notification_text", on);
+            Pref::SoundPreset(index) => {
+                let voice = &mut cx.layout.voice;
+                voice.sound_preset = index
+                    .checked_sub(1)
+                    .filter(|&preset| preset < voice.sound_presets.len());
+                cx.keep("sound_preset", cx.layout.voice.sound_preset);
+                try_sound(cx, Sound::Join);
             }
-            Pref::FlashTaskbar(on) => {
-                prefs.flash_taskbar = Some(on);
-                cx.keep("flash_taskbar", on);
+            Pref::NewPreset => {
+                new_preset(cx);
             }
-            Pref::SoundSet(index) => {
-                let set = SoundSet::ALL[index.min(SoundSet::ALL.len() - 1)];
-                cx.layout.voice.sound_set = set;
-                cx.keep("sound_set", set);
-                try_sound(cx, Sound::ALL[0]);
+            Pref::DeletePreset => {
+                let voice = &mut cx.layout.voice;
+                if let Some(index) = voice.sound_preset.take()
+                    && index < voice.sound_presets.len()
+                {
+                    voice.sound_presets.remove(index);
+                }
+                keep_presets(cx);
+            }
+            Pref::PresetName(name) => {
+                let voice = &mut cx.layout.voice;
+                if let Some(preset) = voice
+                    .sound_preset
+                    .and_then(|index| voice.sound_presets.get_mut(index))
+                {
+                    preset.name = name.chars().take(PRESET_NAME).collect();
+                    cx.keep("sound_presets", &cx.layout.voice.sound_presets);
+                }
+            }
+            Pref::ClearSound(index) => {
+                let voice = &mut cx.layout.voice;
+                if let Some(&sound) = Sound::ALL.get(index)
+                    && let Some(preset) = voice
+                        .sound_preset
+                        .and_then(|index| voice.sound_presets.get_mut(index))
+                {
+                    preset.files.remove(&sound);
+                    keep_presets(cx);
+                    try_sound(cx, sound);
+                }
             }
             Pref::SoundVolume(value, done) => {
                 cx.layout.voice.sound_volume = Some(value.min(200) as u8);
@@ -211,10 +239,6 @@ impl Settings {
                     cx.keep("sound_volume", value.min(200));
                     try_sound(cx, Sound::Message);
                 }
-            }
-            Pref::AdjustEach(on) => {
-                cx.layout.voice.adjust_each_sound = on;
-                cx.keep("adjust_each_sound", on);
             }
             Pref::EachSound(index, value, done) => {
                 let Some(&sound) = Sound::ALL.get(index) else {
@@ -379,11 +403,144 @@ impl Settings {
     }
 }
 
+/// A preset's name, at its longest.
+pub(super) const PRESET_NAME: usize = 40;
+
+/// A new preset, a copy of the one playing (empty for Discord's), named
+/// after its place, which then plays. Its place.
+fn new_preset(cx: &mut Cx<'_>) -> usize {
+    let voice = &mut cx.layout.voice;
+    let files = voice
+        .preset()
+        .map(|preset| preset.files.clone())
+        .unwrap_or_default();
+    let name = (voice.sound_presets.len() + 1..)
+        .map(|number| format!("Preset {number}"))
+        .find(|name| {
+            voice
+                .sound_presets
+                .iter()
+                .all(|preset| &preset.name != name)
+        })
+        .unwrap_or_default();
+    voice
+        .sound_presets
+        .push(crate::layout::SoundPreset { name, files });
+    let index = voice.sound_presets.len() - 1;
+    voice.sound_preset = Some(index);
+    keep_presets(cx);
+    index
+}
+
+/// Keeps the presets and the one playing, and lets go of the files no
+/// preset chooses any more.
+fn keep_presets(cx: &Cx<'_>) {
+    let voice = &cx.layout.voice;
+    cx.keep("sound_presets", &voice.sound_presets);
+    cx.keep("sound_preset", voice.sound_preset);
+    let folder = cx.client.root().join(backcord_core::sounds::FOLDER);
+    let Ok(files) = std::fs::read_dir(&folder) else {
+        return;
+    };
+    for file in files.flatten() {
+        let name = file.file_name();
+        let name = name.to_string_lossy();
+        let chosen = voice
+            .sound_presets
+            .iter()
+            .any(|preset| preset.files.values().any(|kept| kept.file == name));
+        if name.starts_with(CHOSEN)
+            && !chosen
+            && let Err(error) = std::fs::remove_file(file.path())
+        {
+            tracing::warn!(%error, "could not delete a sound no preset chooses");
+        }
+    }
+}
+
+/// How the copies of chosen files start their names in the sounds' folder.
+const CHOSEN: &str = "chosen-";
+
+/// Copies the file at `path` into the data folder `root`'s sounds, once
+/// it's a sound BACKCORD can play of at most [`LARGEST_FILE`]. Off the
+/// window's thread: it reads and decodes the file.
+///
+/// [`LARGEST_FILE`]: backcord_core::sounds::LARGEST_FILE
+pub fn copy_sound(
+    root: &std::path::Path,
+    path: &std::path::Path,
+) -> Result<crate::layout::ChosenSound, String> {
+    use backcord_iced_kit::i18n::tr;
+    let large = std::fs::metadata(path)
+        .map_err(|error| error.to_string())?
+        .len();
+    if large > backcord_core::sounds::LARGEST_FILE as u64 {
+        return Err(tr("That file is over 4 MB.").to_owned());
+    }
+    let data = std::fs::read(path).map_err(|error| error.to_string())?;
+    backcord_core::sounds::check(&data)
+        .map_err(|_| tr("That file isn't a sound BACKCORD can play.").to_owned())?;
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .filter(|extension| extension.chars().all(|c| c.is_ascii_alphanumeric()))
+        .unwrap_or("mp3")
+        .to_ascii_lowercase();
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let file = format!("{CHOSEN}{stamp}.{extension}");
+    let folder = root.join(backcord_core::sounds::FOLDER);
+    std::fs::create_dir_all(&folder)
+        .and_then(|()| std::fs::write(folder.join(&file), &data))
+        .map_err(|error| error.to_string())?;
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| file.clone());
+    Ok(crate::layout::ChosenSound { file, name })
+}
+
+impl Settings {
+    /// A file chosen for the sound at `index` in `Sound::ALL`, copied in:
+    /// it goes in the preset playing, or in a new one in place of
+    /// Discord's.
+    pub(in crate::settings) fn sound_picked(
+        &mut self,
+        index: usize,
+        picked: Result<crate::layout::ChosenSound, String>,
+        cx: &mut Cx<'_>,
+    ) {
+        let Some(&sound) = Sound::ALL.get(index) else {
+            return;
+        };
+        match picked {
+            Err(why) => self.sound_note = Some(why),
+            Ok(chosen) => {
+                self.sound_note = None;
+                let preset = match cx.layout.voice.sound_preset {
+                    Some(preset) if preset < cx.layout.voice.sound_presets.len() => preset,
+                    _ => new_preset(cx),
+                };
+                cx.layout.voice.sound_presets[preset]
+                    .files
+                    .insert(sound, chosen);
+                keep_presets(cx);
+                try_sound(cx, sound);
+            }
+        }
+        cx.touch();
+    }
+}
+
 /// One of BACKCORD's sounds, to try a setting, on the call's speakers.
 fn try_sound(cx: &Cx<'_>, sound: Sound) {
     let voice = &cx.state().voice;
+    let root = cx.client.root();
     backcord_core::sounds::play(
-        cx.layout.voice.sound_set,
+        root,
+        cx.layout.voice.sound_file(root, sound),
         sound,
         cx.layout.voice.sound_gain(sound),
         voice.speaker.as_deref(),

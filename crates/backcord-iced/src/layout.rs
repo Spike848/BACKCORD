@@ -192,11 +192,8 @@ pub struct Prefs {
     pub name_styles: Option<bool>,
     pub server_tags: Option<bool>,
     pub profile_frames: Option<bool>,
-    /// Notifications: shown, saying what messages say, flashing the
-    /// taskbar.
+    /// Desktop notifications, shown unless turned off.
     pub notifications: Option<bool>,
-    pub notification_text: Option<bool>,
-    pub flash_taskbar: Option<bool>,
     /// Advanced: rendering with the GPU from the next start (on unless
     /// turned off, or a GPU that failed turned it off), closing to the
     /// tray, starting another BACKCORD rather than showing this one.
@@ -325,12 +322,31 @@ pub struct Voice {
     pub stream_muted_people: BTreeSet<String>,
     /// Encoding a shared screen on the GPU; on unless turned off.
     pub gpu_encoding: Option<bool>,
-    /// BACKCORD's sounds: their instrument, how loud as a slider's
-    /// percentage, and each one's own volume while adjusted.
-    pub sound_set: backcord_core::sounds::SoundSet,
+    /// BACKCORD's sounds: how loud as a slider's percentage, each one's own
+    /// volume where it isn't 100%, the presets made of files chosen in
+    /// place of Discord's, and the preset playing (none: Discord's).
     pub sound_volume: Option<u8>,
-    pub adjust_each_sound: bool,
     pub each_sound: std::collections::BTreeMap<backcord_core::sounds::Sound, u8>,
+    pub sound_presets: Vec<SoundPreset>,
+    pub sound_preset: Option<usize>,
+}
+
+/// A preset of sounds: its name, and the files chosen for some of them,
+/// the rest playing Discord's.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct SoundPreset {
+    pub name: String,
+    pub files: std::collections::BTreeMap<backcord_core::sounds::Sound, ChosenSound>,
+}
+
+/// A file chosen for a sound: its copy in the data folder's sounds, and
+/// the name it had, which Settings shows.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct ChosenSound {
+    pub file: String,
+    pub name: String,
 }
 
 /// How calls decide when to send the microphone, as Discord's Input Mode.
@@ -398,13 +414,24 @@ impl Voice {
     /// How loud one of BACKCORD's sounds plays, as a gain.
     pub fn sound_gain(&self, sound: backcord_core::sounds::Sound) -> f32 {
         use backcord_core::sounds::gain;
-        let each = self
-            .each_sound
-            .get(&sound)
-            .copied()
-            .filter(|_| self.adjust_each_sound)
-            .unwrap_or(100);
+        let each = self.each_sound.get(&sound).copied().unwrap_or(100);
         gain(self.sound_volume.unwrap_or(100)) * gain(each)
+    }
+
+    /// The preset playing, when it's one of those made.
+    pub fn preset(&self) -> Option<&SoundPreset> {
+        self.sound_presets.get(self.sound_preset?)
+    }
+
+    /// The file chosen for `sound` in the preset playing, in the data folder
+    /// `root`; none plays Discord's.
+    pub fn sound_file(
+        &self,
+        root: &Path,
+        sound: backcord_core::sounds::Sound,
+    ) -> Option<std::path::PathBuf> {
+        let chosen = self.preset()?.files.get(&sound)?;
+        Some(root.join(backcord_core::sounds::FOLDER).join(&chosen.file))
     }
 }
 

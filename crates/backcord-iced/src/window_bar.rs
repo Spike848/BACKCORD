@@ -176,6 +176,22 @@ pub fn history_keys() -> iced::Subscription<Message> {
     })
 }
 
+/// While the bar is pressed, the pointer's moves and the button let go,
+/// anywhere in the window: a quick drag leaves the bar's few pixels at
+/// once, and heard only over the bar, the window didn't move, and the
+/// press stayed armed for a move with the button up.
+pub fn drag_subscription() -> iced::Subscription<Message> {
+    iced::event::listen_with(|event, _, _| match event {
+        iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
+            Some(Message::Bar(Event::Moved(position)))
+        }
+        iced::Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
+            Some(Message::Bar(Event::Release))
+        }
+        _ => None,
+    })
+}
+
 /// The room under the title bar is what the window's content lays out
 /// in (`Below`), so it's the window's size to everything under it.
 pub fn fit_window(app: &mut App) {
@@ -598,17 +614,14 @@ pub fn window_bar(app: &App) -> Option<Element<'_, Message>> {
             false,
         ))
         .push(caption_button(app, Icon::CaptionClose, Event::Close, true));
-    // The bar's ground moves the window; its buttons sit over it. Its
-    // moves are messages only once pressed: a pointer passing over it
-    // sends none.
-    let mut ground = mouse_area(container(Space::new()).width(Length::Fill).height(HEIGHT))
+    // The bar's ground moves the window; its buttons sit over it. Once
+    // pressed, the pointer's moves come from `drag_subscription`, over
+    // the whole window: a pointer passing over it sends none.
+    let ground = mouse_area(container(Space::new()).width(Length::Fill).height(HEIGHT))
         .interaction(Interaction::Idle)
         .on_press(Message::Bar(Event::Press))
         .on_release(Message::Bar(Event::Release))
         .on_double_click(Message::Bar(Event::Maximize));
-    if app.bar_drag.armed.is_some() {
-        ground = ground.on_move(|at| Message::Bar(Event::Moved(at)));
-    }
     let rail = theme.rail;
     let bar = stack![
         ground,

@@ -467,8 +467,10 @@ pub(crate) fn play(app: &App, sound: Sound) {
     if voice.active() && voice.deafened && !matches!(sound, Sound::Deafen | Sound::Undeafen) {
         return;
     }
+    let root = app.client.root();
     backcord_core::sounds::play(
-        app.layout.voice.sound_set,
+        root,
+        app.layout.voice.sound_file(root, sound),
         sound,
         app.layout.voice.sound_gain(sound),
         voice.speaker.as_deref(),

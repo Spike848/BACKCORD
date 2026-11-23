@@ -60,6 +60,10 @@ impl App {
             crate::window_bar::history_keys(),
             Self::shell_subscription(),
         ];
+        // The title bar pressed: the pointer anywhere may move the window.
+        if self.bar_drag.armed.is_some() {
+            subscriptions.push(crate::window_bar::drag_subscription());
+        }
         // A server held on the rail follows the pointer anywhere.
         if self.rail.drag.is_some() {
             subscriptions.push(crate::rail::drag_subscription());

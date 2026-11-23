@@ -19,6 +19,8 @@
 mod appearance;
 pub mod keybinds;
 mod pages;
+#[cfg(test)]
+pub(crate) use pages::copy_sound;
 pub mod updates;
 
 pub use pages::message_size;
@@ -74,7 +76,6 @@ pub enum Section {
     Messages,
     Notifications,
     Discord,
-    Sounds,
     Advanced,
     Security,
     Appearance,
@@ -101,13 +102,12 @@ impl Section {
             Section::Messages => backcord_iced_kit::i18n::tr("Messages"),
             Section::Notifications => backcord_iced_kit::i18n::tr("Notifications"),
             Section::Discord => backcord_iced_kit::i18n::tr("Discord"),
-            Section::Sounds => backcord_iced_kit::i18n::tr("Sounds"),
             Section::Advanced => backcord_iced_kit::i18n::tr("Advanced"),
             Section::Security => backcord_iced_kit::i18n::tr("Security"),
             Section::Appearance => backcord_iced_kit::i18n::tr("Appearance"),
             Section::Games => backcord_iced_kit::i18n::tr("Game Activity"),
             Section::Keybinds => backcord_iced_kit::i18n::tr("Keybinds"),
-            Section::About => backcord_iced_kit::i18n::tr("About"),
+            Section::About => backcord_iced_kit::i18n::tr("Updates"),
             Section::Extras => backcord_iced_kit::i18n::tr("Extra Features"),
         }
     }
@@ -119,13 +119,12 @@ impl Section {
             Section::Messages => Icon::MessageCircle,
             Section::Notifications => Icon::Bell,
             Section::Discord => Icon::Discord,
-            Section::Sounds => Icon::Volume,
             Section::Advanced => Icon::Settings,
             Section::Security => Icon::Lock,
             Section::Appearance => Icon::Palette,
             Section::Games => Icon::Play,
             Section::Keybinds => Icon::Keyboard,
-            Section::About => Icon::Help,
+            Section::About => Icon::Refresh,
             Section::Extras => Icon::CirclePlus,
         }
     }
@@ -141,7 +140,6 @@ const GROUPS: [(&str, &[Section]); 4] = [
             Section::Voice,
             Section::Messages,
             Section::Notifications,
-            Section::Sounds,
             Section::Appearance,
         ],
     ),
@@ -190,6 +188,8 @@ pub struct Settings {
     pub voice: voice::Voice,
     /// Game Activity's draft of a game.
     pub game: pages::GameDraft,
+    /// Why the last file chosen for a sound wasn't taken.
+    pub sound_note: Option<String>,
     /// The keybind being recorded, and the keys pressed so far.
     pub record: Option<keybinds::Recording>,
     /// How many people blocked the Discord page lists.
@@ -229,6 +229,10 @@ pub enum Event {
     EditProfile,
     /// A preference changed: see [`pages::Pref`].
     Pref(pages::Pref),
+    /// Choosing a file for a sound, by its place in `Sound::ALL`, and
+    /// the file chosen, copied in (none when the dialog was closed).
+    PickSound(usize),
+    SoundPicked(usize, Option<Result<crate::layout::ChosenSound, String>>),
     /// My Account's and the Discord page's buttons.
     Account(pages::AccountEvent),
     Game(pages::GameEvent),
@@ -324,6 +328,27 @@ impl Settings {
             Event::EditProfile => cx.dispatch(Action::EditProfile),
             Event::Restart => cx.request(Request::Restart),
             Event::Pref(pref) => self.pref(pref, cx),
+            Event::PickSound(index) => {
+                let root = cx.client.root().to_owned();
+                return Task::perform(
+                    async move {
+                        let file = rfd::AsyncFileDialog::new()
+                            .set_title(backcord_iced_kit::i18n::tr("Choose a sound"))
+                            .add_filter("MP3, Ogg, WAV", &["mp3", "ogg", "wav"])
+                            .pick_file()
+                            .await?;
+                        let path = file.path().to_owned();
+                        Some(
+                            tokio::task::spawn_blocking(move || pages::copy_sound(&root, &path))
+                                .await
+                                .unwrap_or_else(|error| Err(error.to_string())),
+                        )
+                    },
+                    move |picked| Message::Settings(Event::SoundPicked(index, picked)),
+                );
+            }
+            Event::SoundPicked(_, None) => {}
+            Event::SoundPicked(index, Some(picked)) => self.sound_picked(index, picked, cx),
             Event::Account(event) => self.account_event(event, cx),
             Event::Game(event) => self.game_event(event, cx),
             Event::Voice(event) => self.voice_event(event, cx),
@@ -443,7 +468,6 @@ impl<'a> Page<'a> {
             Section::Messages => self.messages_page(),
             Section::Notifications => self.notifications_page(),
             Section::Discord => self.discord_page(),
-            Section::Sounds => self.sounds_page(),
             Section::Advanced => self.advanced_page(),
             Section::Security => self.security_page(),
             Section::Appearance => self.appearance_page(),

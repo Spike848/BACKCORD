@@ -110,7 +110,7 @@ own, which a stream hands to the event loop as messages; nothing polls.
   the focus changes, so what comes while BACKCORD is behind stays unread.
 - New messages: a sound unless it's
   the conversation in front; while BACKCORD isn't in front the taskbar
-  flashes and a notification shows, as the settings allow. A click on the
+  flashes and a notification shows, as Settings › Notifications allows. A click on the
   notification opens its conversation, closing Settings, and brings the
   window back.
 - A later start of BACKCORD on the same data folder hands over to the
@@ -131,7 +131,10 @@ own, which a stream hands to the event loop as messages; nothing polls.
   of the rooms the core knows, a click going there) and Help (18 px
   glyphs in 32 px boxes), and minimize,
   maximize and close, drawn as 10 px strokes the way Discord's frame draws
-  them; its ground moves the window after a 3 px drag and a
+  them; its ground moves the window after a 3 px drag, the pointer's
+  moves heard over the whole window once it's pressed
+  (`window_bar::drag_subscription`), since a quick drag leaves the bar at
+  once, and a
   double click maximizes it, and its edges resize it. It goes while the
   window or a video is full screen. The content under it is laid out in
   the room below (`widgets::Below`), so overlays placed by the layout's

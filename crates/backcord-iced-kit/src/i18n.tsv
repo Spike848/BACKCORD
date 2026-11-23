@@ -5,7 +5,7 @@ ADD TO SERVER	AGGIUNGI AL SERVER
 ADMINS	AMMINISTRATORI
 ADVANCED PERMISSIONS	PERMESSI AVANZATI
 ANSWERS	RISPOSTE
-About	Informazioni
+Updates	Aggiornamento
 Accept	Accetta
 Accept Request	Accetta richiesta
 Accept friend request	Accetta richiesta di amicizia
@@ -36,7 +36,6 @@ Add to channel list	Aggiungi all'elenco dei canali
 Add your pronouns	Aggiungi i tuoi pronomi
 Add:	Aggiungi:
 Adding more from BACKCORD is coming soon.	Presto potrai aggiungerne altri da BACKCORD.
-Adjust each sound	Regola ogni suono
 Advanced	Avanzate
 After 10 minutes without using BACKCORD, as in Discord. Either way, your phone gets notifications while you're away.	Dopo 10 minuti senza usare BACKCORD, come su Discord. In ogni caso, il telefono riceve le notifiche mentre sei via.
 Age-Restricted Channel	Canale con limiti di età
@@ -253,14 +252,12 @@ Find a conversation	Trova una conversazione
 Find a friend	Trova un amico
 Find a friend, or type a Matrix id	Trova un amico o scrivi un ID Matrix
 Find the perfect sticker	Trova lo sticker perfetto
-Flash the taskbar	Fai lampeggiare la barra delle applicazioni
 Follow	Segui
 Follow category	Segui categoria
 Following	Seguiti
 Following(none)	Seguiti(nessuno)
 Font	Carattere
 For a bare or echoey room that makes your voice sound far away. Uses a little more processing, and your voice goes out 10 ms later.	Per una stanza spoglia o con eco che fa sembrare la voce lontana. Usa un po' più di risorse e la voce esce 10 ms dopo.
-For a message that notifies while BACKCORD isn't in front. The window's title counts mentions and DMs waiting either way.	Per un messaggio che notifica mentre BACKCORD non è in primo piano. Il titolo della finestra conta comunque menzioni e DM in attesa.
 Forward	Inoltra
 Forward To	Inoltra a
 Forwarded	Inoltrato
@@ -623,7 +620,6 @@ SENSITIVE CONTENT FILTERS	FILTRI PER CONTENUTI SENSIBILI
 SERVER BANNER BACKGROUND	SFONDO DEL BANNER DEL SERVER
 SERVER INVITE BACKGROUND	SFONDO DELL'INVITO AL SERVER
 SLOWMODE	SLOWMODE
-SOUND SET	SET DI SUONI
 SOUNDBOARD VOLUME	VOLUME DELLA SOUNDBOARD
 SPEAKERS	ALTOPARLANTI
 SPOILER	SPOILER
@@ -711,7 +707,6 @@ Show results	Mostra risultati
 Show seconds	Mostra i secondi
 Show server tags	Mostra i tag dei server
 Show the code	Mostra il codice
-Show what messages say	Mostra cosa dicono i messaggi
 ShowCode	ShowCode
 Showing	In mostra
 Sign in	Accedi
@@ -729,7 +724,6 @@ Soundboard	Soundboard
 Soundboard disabled when deafened	Soundboard disattivata con audio disattivato
 Soundboard disabled when server muted	Soundboard disattivata quando il server ti silenzia
 Soundboard volume	Volume della soundboard
-Sounds	Suoni
 Speaker volume	Volume degli altoparlanti
 Start Video Call	Avvia videochiamata
 Start Voice Call	Avvia chiamata vocale
@@ -1021,7 +1015,6 @@ Everyone in this server sees it. Leave it empty to reset it to their name.	Lo ve
 Everyone online here	Tutti gli online qui
 False	Falso
 Favorites	Preferiti
-Felt piano	Felt piano
 Filter messages from all members	Filtra i messaggi di tutti i membri
 Filter messages from server members without roles	Filtra i messaggi dei membri del server senza ruoli
 Free Slots	Slot liberi
@@ -1229,7 +1222,6 @@ Write a reply	Scrivi una risposta
 BACKCORD can't play your voice back.	BACKCORD non riesce a riprodurre la tua voce.
 BACKCORD can't read this microphone.	BACKCORD non riesce a leggere questo microfono.
 BACKCORD isn't detecting any input from your mic.	BACKCORD non rileva nessun segnale dal microfono.
-BACKCORD plays these as you and others join and leave a call, as you mute and deafen, as others start and stop streaming, as they start and stop watching your stream or the one you watch, and for messages that notify, except in the conversation in front of you. They play on the speakers chosen for calls.	BACKCORD li riproduce quando tu e gli altri entrate e uscite da una chiamata, quando silenzi o disattivi l'audio, quando altri avviano o fermano una trasmissione, quando iniziano o smettono di guardare la tua trasmissione o quella che guardi, e per i messaggi che notificano, tranne nella conversazione che hai davanti. Escono dagli altoparlanti scelti per le chiamate.
 BACKCORD sends your microphone only while you hold a key.	BACKCORD invia il microfono solo mentre tieni premuto un tasto.
 BACKCORD switches to the GPU when it restarts. Restarting leaves any call.	BACKCORD passa alla GPU al riavvio. Il riavvio chiude qualsiasi chiamata.
 Year-Month-Day	AAAA-MM-GG
@@ -1471,8 +1463,6 @@ Preview {}	Anteprima di {}
 Save {}	Salva {}
 {} · {} fps	{} · {} fps
 Update available · {}	Aggiornamento disponibile · {}
-Flute	Flauto
-Set how loud each one is, as a share of the volume above. 0% turns a sound off.	Imposta il volume di ciascuno, come quota del volume sopra. 0% disattiva un suono.
 For new messages while BACKCORD isn't in front. {} which: usually DMs and mentions. Clicking one opens the conversation.	Per i nuovi messaggi mentre BACKCORD non è in primo piano. {} quali: di solito DM e menzioni. Cliccandone una si apre la conversazione.
 Takes out tags like utm_source and fbclid, and share ids from YouTube, Spotify and X. The links still go to the same page.	Rimuove tag come utm_source e fbclid e gli id di condivisione di YouTube, Spotify e X. I link portano comunque alla stessa pagina.
 1 account	1 account
@@ -3744,3 +3734,14 @@ BACKCORD can't write to its own folder.	BACKCORD non può scrivere nella sua car
 Downloading {}%	Download {}%
 Downloading	Download in corso
 SAVED ACCOUNTS	ACCOUNT SALVATI
+PRESET	PRESET
+SOUNDS	SUONI
+New preset	Nuovo preset
+Delete preset	Elimina preset
+Preset name	Nome del preset
+Choose a sound	Scegli un suono
+Play Discord's	Usa quello di Discord
+Discord's	Di Discord
+That file is over 4 MB.	Il file supera i 4 MB.
+That file isn't a sound BACKCORD can play.	Il file non è un suono che BACKCORD può riprodurre.
+BACKCORD plays Discord's sounds as you and others join and leave a call, as you mute and deafen, as others start and stop streaming, as they start and stop watching your stream or the one you watch, and for messages that notify, except in the conversation in front of you. They play on the speakers chosen for calls. A preset plays your own files in place of some of them: choose a file for a sound to make one.	BACKCORD riproduce i suoni di Discord quando tu e gli altri entrate e uscite da una chiamata, quando silenzi il microfono o l'audio, quando gli altri avviano e fermano una trasmissione, quando iniziano e smettono di guardare la tua o quella che guardi, e per i messaggi che notificano, tranne nella conversazione che hai davanti. Suonano sugli altoparlanti scelti per le chiamate. Un preset riproduce i tuoi file al posto di alcuni: scegli un file per un suono per crearne uno.

@@ -695,7 +695,6 @@ impl App {
         let mut task = Task::none();
         if !focused
             && !alert.call
-            && prefs.flash_taskbar.unwrap_or(true)
             && let Some(id) = self.shell.window
         {
             task = window::request_user_attention(id, Some(window::UserAttention::Informational));
@@ -704,7 +703,7 @@ impl App {
             && !focused
             && let Some(notifier) = &self.shell.notifier
         {
-            notifier.show(alert, prefs.notification_text.unwrap_or(true));
+            notifier.show(alert, true);
         }
         task
     }

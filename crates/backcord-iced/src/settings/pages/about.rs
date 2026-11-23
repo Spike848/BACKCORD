@@ -71,7 +71,7 @@ impl<'a> Page<'a> {
         .icon(self.cx.look.icon(Icon::GitHub, 18, ink))
         .into();
         let mut parts = vec![
-            form::title(theme, backcord_iced_kit::i18n::tr("About")),
+            form::title(theme, backcord_iced_kit::i18n::tr("Updates")),
             card,
         ];
         parts.extend(self.updates_card());

@@ -2354,6 +2354,22 @@ impl Api {
         self.read_file(url, limit).await
     }
 
+    /// Downloads one of the files Discord's web client loads from
+    /// `discord.com/assets/`, such as its sounds, by its name there (letters,
+    /// digits and one dot), or from the test server's `/assets/`. Refuses a
+    /// file over `limit` bytes.
+    pub async fn client_asset(&self, name: &str, limit: usize) -> Result<Vec<u8>> {
+        if name.is_empty()
+            || name.matches('.').count() != 1
+            || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.')
+        {
+            bail!("not one of Discord's client files");
+        }
+        let base = client::test_server().unwrap_or("https://discord.com");
+        self.read_file(&format!("{base}/assets/{name}"), limit)
+            .await
+    }
+
     /// Downloads a file without checking where it is from.
     async fn read_file(&self, url: &str, limit: usize) -> Result<Vec<u8>> {
         let mut response = self.get_file(url).await?;

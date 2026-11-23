@@ -190,19 +190,29 @@ the one it watches, plays the call's join or leave an octave higher, quicker
 and quieter, as Discord's client sounds a stream's viewers; a call sound at the
 same moment wins, and a stream starting or ending makes no viewer sound.
 
-`sounds.rs` makes each sound as it plays. The six sets are New Kalimba, the
-default, Felt piano, Soft marimba, Mellow Rhodes, Glow and Flute, all in F
-major pentatonic so any two sound well together. Felt piano, Soft marimba,
-Mellow Rhodes and Glow are synthesized; New Kalimba and Flute play the same
-notes on one recorded note each, made with ElevenLabs' sound generator and kept
-as 24 kHz samples in `crates/backcord-core/sounds/`, played faster or slower for
-each note. They play on the call's speakers through `audio_io.rs`, on Linux and
-Windows, like ringing. Settings › Sounds chooses the set and the volume, from
-0% to 200%. A slider's percentage becomes a gain by its square, which spreads
-the quiet settings along more of it. At 100%, the default, the loudest sounds
-peak 12 dB under full scale, and at 200% they reach it. Each sound can also
-have its own volume up to 100%, as a share of that one. `layout.json` remembers
-them. Desktop notifications ask the desktop to stay quiet, since BACKCORD sounds
+The sounds are Discord's own: user_join, user_leave, mute, unmute, deafen,
+undeafen, message1, mention1, stream_user_joined, stream_user_left,
+stream_started and stream_ended, as Discord's web client loads them from
+`discord.com/assets/` (`Sound::discord_file` names each file by its hash).
+BACKCORD bundles none: `sounds.rs` downloads each the first time it plays,
+through `Api::client_asset`, and keeps it in the data folder's `sounds/` as
+`discord-<file>`. Tests download nothing. A sound is read and decoded as the
+soundboard's are, MP3 or Ogg at 48 kHz stereo, and played on the call's
+speakers through `audio_io.rs`, on Linux and Windows, like ringing.
+
+Settings › Notifications holds the sounds. A preset plays files chosen in
+place of some of Discord's: choosing a file for a sound while Discord's play
+makes a new preset, named Preset 1 and so on, and New preset copies the one
+playing. A file chosen, MP3, Ogg or WAV up to 4 MB that BACKCORD can decode, is
+copied into `sounds/` as `chosen-<time>`, so moving the original changes
+nothing; a copy no preset chooses any more, after a preset is deleted or a
+sound goes back to Discord's, is deleted. A chosen file that won't play falls
+back to Discord's. `layout.json` keeps the presets (`sound_presets`, each a
+name and its files with the names they had) and the one playing
+(`sound_preset`, none for Discord's). The volume goes from 0% to 200%; a
+slider's percentage becomes a gain by its square, which spreads the quiet
+settings along more of it, and 100%, the default, plays a file as it is. Each
+sound also has its own volume up to 100%, as a share of that one. Desktop notifications ask the desktop to stay quiet, since BACKCORD sounds
 itself; someone who had turned the desktop's sound off starts with messages and
 mentions at 0%.
 
@@ -263,7 +273,7 @@ block that never pushes a peak past 90% of full scale, so a boosted
 microphone doesn't clip on a shout. BACKCORD calls apply it inside LiveKit's
 WebRTC, through a capture hook in BACKCORD's patch to `webrtc-sys`; Discord
 voice in its own microphone thread, after the gate has heard the level.
-BACKCORD's own sounds keep their volume in Settings › Sounds.
+BACKCORD's own sounds keep their volume in Settings › Notifications.
 
 BACKCORD calls suppress noise with WebRTC's own suppressor, inside LiveKit's
 WebRTC. Discord calls use DeepFilterNet, which also takes out typing; see the
