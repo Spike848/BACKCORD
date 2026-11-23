@@ -63,7 +63,7 @@ discord = ["backcord-core/discord", "backcord-core/default"]
 # links, starting at sign-in, updates, the icon, pasted and copied pictures
 # and keybinds. Without it the program has only the commands that need no
 # window.
-desktop = ["discord", "dep:backcord-iced", "dep:raw-window-handle", "dep:resvg", "dep:ksni", "dep:zbus", "dep:windows-sys", "dep:windows", "dep:reqwest", "dep:rustls", "dep:sha2", "dep:minisign-verify", "dep:wayland-client", "dep:wayland-backend", "dep:wayland-protocols", "dep:arboard", "dep:image", "dep:tempfile", "dep:wl-clipboard-rs", "dep:x11rb", "dep:futures-util", "dep:winit"]
+desktop = ["discord", "dep:backcord-iced", "dep:raw-window-handle", "dep:resvg", "dep:ksni", "dep:zbus", "dep:windows-sys", "dep:windows", "dep:reqwest", "dep:rustls", "dep:sha2", "dep:minisign-verify", "dep:zip", "dep:wayland-client", "dep:wayland-backend", "dep:wayland-protocols", "dep:arboard", "dep:image", "dep:tempfile", "dep:wl-clipboard-rs", "dep:x11rb", "dep:futures-util", "dep:winit"]
 
 [dependencies]
 anyhow.workspace = true
@@ -86,6 +86,8 @@ rustls = { workspace = true, optional = true }
 sha2 = { version = "0.10", optional = true }
 # Checks the minisign signature on those sums, with the keys in packaging/keys.
 minisign-verify = { version = "0.3", optional = true }
+# Unpacks the portable ZIP an update of an unpacked Windows copy downloads.
+zip = { version = "0.6.6", default-features = false, features = ["deflate"], optional = true }
 # The window's handles, which bringing it forward, following a drag over it
 # and its icon on Windows act on; the version winit's are.
 raw-window-handle = { version = "0.6.2", optional = true }

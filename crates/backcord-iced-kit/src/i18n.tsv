@@ -3725,3 +3725,22 @@ Open Original	Apri originale
 Switch Accounts	Cambia account
 Add an Account	Aggiungi un account
 Switching accounts...	Cambio account in corso...
+Look for a newer BACKCORD.	Cerca una versione più recente di BACKCORD.
+Checking for updates…	Ricerca aggiornamenti…
+BACKCORD is up to date.	BACKCORD è aggiornato.
+BACKCORD {} was skipped	Hai saltato BACKCORD {}
+Couldn't check for updates.	Impossibile cercare aggiornamenti.
+A build from source doesn't update itself.	Una build compilata in proprio non si aggiorna da sola.
+{} updates this copy.	{} aggiorna questa copia.
+Check for updates automatically	Cerca aggiornamenti automaticamente
+A notification tells you when a new version is out.	Una notifica ti avvisa quando esce una nuova versione.
+BACKCORD {} is available. Update to get the newest fixes.	È disponibile BACKCORD {}. Aggiorna per avere le ultime correzioni.
+Click to update BACKCORD.	Clicca per aggiornare BACKCORD.
+Preparing…	Preparazione…
+Restarting…	Riavvio…
+Checking the update…	Verifica dell'aggiornamento…
+There's no Windows download for this version yet.	Per questa versione non c'è ancora un download per Windows.
+BACKCORD can't write to its own folder.	BACKCORD non può scrivere nella sua cartella.
+{} MB. BACKCORD restarts when it's done.	{} MB. BACKCORD si riavvia al termine.
+Downloading {}%	Download {}%
+Downloading	Download in corso

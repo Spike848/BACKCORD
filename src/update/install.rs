@@ -15,8 +15,14 @@
 //!   waits, and starts the program again, as a silent Inno Setup run starts
 //!   nothing itself.
 //!
-//! Every other copy (a package manager's, Flatpak, a portable ZIP, a build from
-//! source) is left alone, with the reason. A release file is streamed to disk in
+//! - **Windows' portable ZIP** is a program the person unpacked into a folder
+//!   they can write to. The release's ZIP is downloaded to the temporary folder
+//!   and checked, its program unpacked beside the running one, and, once
+//!   BACKCORD has quit, the running file renamed aside (Windows allows that of
+//!   a running program) and the new one put in its place, then started.
+//!
+//! Every other copy (a package manager's, Flatpak, a build from source) is
+//! left alone, with the reason. A release file is streamed to disk in
 //! chunks, hashed as it arrives, and used only when its SHA-256 matches the sum
 //! the release published and signed; a failure at any step leaves the old program
 //! running and the downloaded file removed.
@@ -24,7 +30,7 @@
 use std::{
     collections::HashMap,
     fmt::Write as _,
-    io::Write,
+    io::{Read, Write},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -44,12 +50,16 @@ pub enum Target {
     AppImage { asset: Asset, current: PathBuf },
     /// The installed program at this path.
     Installer { asset: Asset, program: PathBuf },
+    /// The unpacked program at this path, which the ZIP's replaces.
+    Portable { asset: Asset, program: PathBuf },
 }
 
 impl Target {
     pub fn asset(&self) -> &Asset {
         match self {
-            Target::AppImage { asset, .. } | Target::Installer { asset, .. } => asset,
+            Target::AppImage { asset, .. }
+            | Target::Installer { asset, .. }
+            | Target::Portable { asset, .. } => asset,
         }
     }
 
@@ -58,9 +68,11 @@ impl Target {
     pub fn part(&self) -> PathBuf {
         match self {
             Target::AppImage { current, .. } => current.with_file_name(".backcord-update.part"),
-            Target::Installer { asset, .. } => std::env::temp_dir()
-                .join("backcord-update")
-                .join(&asset.name),
+            Target::Installer { asset, .. } | Target::Portable { asset, .. } => {
+                std::env::temp_dir()
+                    .join("backcord-update")
+                    .join(&asset.name)
+            }
         }
     }
 }
@@ -109,6 +121,7 @@ pub fn target_for(
             return Err("There's no download for your system yet.".into());
         }
         Source::Manager(name) => return Err(format!("{name} updates this copy.")),
+        Source::Other if cfg!(all(windows, target_arch = "x86_64")) => "-windows-x64.zip",
         Source::Other => {
             return Err(
                 "This copy can't update itself. Get the new version from the release page.".into(),
@@ -121,6 +134,7 @@ pub fn target_for(
         .find(|asset| of_flavour(&asset.name, suffix, flavour))
         .ok_or_else(|| match source {
             Source::Installer => "There's no Windows installer for this version yet.".to_owned(),
+            Source::Other => "There's no Windows download for this version yet.".to_owned(),
             _ => "There's no AppImage for this version yet.".to_owned(),
         })?
         .clone();
@@ -136,6 +150,16 @@ pub fn target_for(
                 return Err("BACKCORD can't write to the AppImage's folder.".into());
             }
             Ok(Target::AppImage { asset, current })
+        }
+        Source::Other => {
+            let folder = program.parent().ok_or("BACKCORD has no folder.")?;
+            if !writable(folder) {
+                return Err("BACKCORD can't write to its own folder.".into());
+            }
+            Ok(Target::Portable {
+                asset,
+                program: program.to_path_buf(),
+            })
         }
         _ => {
             let folder = program.parent().ok_or("BACKCORD has no folder.")?;
@@ -383,6 +407,8 @@ pub enum Prepared {
         installer: PathBuf,
         program: PathBuf,
     },
+    /// The portable program `new` waits beside `program`, to take its place.
+    Portable { new: PathBuf, program: PathBuf },
 }
 
 /// Downloads `target`'s file, checks it against the release's sums, and gets
@@ -457,6 +483,24 @@ async fn prepare_in(
                 Err("AppImages are for Linux.".into())
             }
         }
+        Target::Portable { program, .. } => {
+            progress.stage(Stage::Testing);
+            let (archive, program) = (part.to_path_buf(), program.clone());
+            let new = runtime
+                .spawn_blocking(move || {
+                    let new = program.with_file_name(NEW_PROGRAM);
+                    let unpacked = unpack_program(&archive, &new);
+                    let _ = std::fs::remove_file(&archive);
+                    unpacked.map(|()| (new, program))
+                })
+                .await
+                .map_err(|_| "The update stopped partway.".to_owned())??;
+            progress.stage(Stage::Installing);
+            Ok(Prepared::Portable {
+                new: new.0,
+                program: new.1,
+            })
+        }
         Target::Installer { asset, program } => {
             let installer = part.with_file_name(&asset.name);
             std::fs::rename(part, &installer).map_err(|error| error.to_string())?;
@@ -467,6 +511,91 @@ async fn prepare_in(
             })
         }
     }
+}
+
+/// Where a portable update's program waits beside the running one, and
+/// where the running one goes aside for it.
+const NEW_PROGRAM: &str = ".backcord-update.exe";
+const OLD_PROGRAM: &str = ".backcord-old.exe";
+/// The most a program in the ZIP may unpack to.
+const LARGEST_PROGRAM: u64 = 1 << 30;
+
+/// Unpacks the ZIP's program, `BACKCORD.exe` or else its one program at the
+/// top, to `to`.
+fn unpack_program(archive: &Path, to: &Path) -> Result<(), String> {
+    let unreadable =
+        |error: zip::result::ZipError| format!("The update's ZIP can't be read: {error}");
+    let file = std::fs::File::open(archive).map_err(|error| error.to_string())?;
+    let mut zip = zip::ZipArchive::new(file).map_err(unreadable)?;
+    let names: Vec<String> = zip.file_names().map(str::to_owned).collect();
+    let programs: Vec<&String> = names
+        .iter()
+        .filter(|name| !name.contains(['/', '\\']) && name.to_ascii_lowercase().ends_with(".exe"))
+        .collect();
+    let name: String = (*programs
+        .iter()
+        .find(|name| name.eq_ignore_ascii_case("BACKCORD.exe"))
+        .or_else(|| (programs.len() == 1).then(|| &programs[0]))
+        .ok_or("The update's ZIP has no BACKCORD.exe.")?)
+    .clone();
+    let mut entry = zip.by_name(&name).map_err(unreadable)?;
+    if entry.size() > LARGEST_PROGRAM {
+        return Err("The update's program is too large.".into());
+    }
+    let _ = std::fs::remove_file(to);
+    let mut out = std::fs::File::create(to).map_err(|error| error.to_string())?;
+    let copied = std::io::copy(&mut (&mut entry).take(LARGEST_PROGRAM + 1), &mut out);
+    let written = copied.map_err(|error| error.to_string());
+    let result = written.and_then(|written| {
+        if written == entry.size() {
+            out.sync_all().map_err(|error| error.to_string())
+        } else {
+            Err("The update's program didn't unpack whole.".into())
+        }
+    });
+    if result.is_err() {
+        drop(out);
+        let _ = std::fs::remove_file(to);
+    }
+    result
+}
+
+/// Puts a portable update's program `new` in place of `program`, once
+/// BACKCORD has quit: the running file is renamed aside, which Windows allows,
+/// and put back if the new one can't take its place.
+pub fn swap_in(new: &Path, program: &Path) -> Result<(), String> {
+    let old = program.with_file_name(OLD_PROGRAM);
+    let _ = std::fs::remove_file(&old);
+    std::fs::rename(program, &old)
+        .map_err(|error| format!("could not move the old program: {error}"))?;
+    if let Err(error) = std::fs::rename(new, program) {
+        let _ = std::fs::rename(&old, program);
+        return Err(format!("could not put the new program in place: {error}"));
+    }
+    Ok(())
+}
+
+/// Removes the program a portable update put aside, once the old BACKCORD
+/// that ran from it has ended: tried for a few seconds, in the background.
+pub fn remove_old_program() {
+    let Some(old) = std::env::current_exe()
+        .ok()
+        .map(|program| program.with_file_name(OLD_PROGRAM))
+        .filter(|old| old.exists())
+    else {
+        return;
+    };
+    let _ = std::thread::Builder::new()
+        .name("backcord-old-program".into())
+        .spawn(move || {
+            for _ in 0..40 {
+                match std::fs::remove_file(&old) {
+                    Ok(()) => return,
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+                    Err(_) => std::thread::sleep(std::time::Duration::from_millis(500)),
+                }
+            }
+        });
 }
 
 /// The command line `cmd` runs on Windows: the installer, silent and waited
@@ -533,6 +662,39 @@ pub fn run_installer(_: &Path, _: &Path, _: &[String]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_portable_update_unpacks_the_zips_program_and_swaps_it_in() {
+        use std::io::Write as _;
+        let folder = tempfile::tempdir().unwrap();
+        let archive = folder.path().join("BACKCORD-windows-x64.zip");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        zip.start_file("README.txt", options).unwrap();
+        zip.write_all(b"read me").unwrap();
+        zip.start_file("BACKCORD.exe", options).unwrap();
+        zip.write_all(b"new program").unwrap();
+        zip.finish().unwrap();
+        let program = folder.path().join("BACKCORD.exe");
+        std::fs::write(&program, b"old program").unwrap();
+        let new = program.with_file_name(super::NEW_PROGRAM);
+        super::unpack_program(&archive, &new).unwrap();
+        assert_eq!(std::fs::read(&new).unwrap(), b"new program");
+        super::swap_in(&new, &program).unwrap();
+        assert_eq!(std::fs::read(&program).unwrap(), b"new program");
+        assert_eq!(
+            std::fs::read(program.with_file_name(super::OLD_PROGRAM)).unwrap(),
+            b"old program"
+        );
+        assert!(!new.exists());
+        // A ZIP without the program is turned down.
+        let empty = folder.path().join("empty.zip");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&empty).unwrap());
+        zip.start_file("README.txt", options).unwrap();
+        zip.finish().unwrap();
+        assert!(super::unpack_program(&empty, &new).is_err());
+    }
+
     use super::*;
     use crate::update::Version;
     use backcord_core::runtime::BackgroundRuntime;

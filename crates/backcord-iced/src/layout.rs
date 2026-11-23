@@ -212,7 +212,8 @@ pub struct Prefs {
     pub game_executables: Vec<(String, String)>,
     /// About: looking for releases, nightlies among them, the release
     /// skipped, and the last told of in a notification.
-    pub check_for_updates: bool,
+    /// On unless turned off: a newer release is told of in a notification.
+    pub check_for_updates: Option<bool>,
     pub update_nightlies: bool,
     /// Extra features: hiding others' typing (Silent Typing; one's own is
     /// `share_typing`), and ignoring a channel's push to talk.
@@ -241,6 +242,8 @@ pub struct Prefs {
     pub stream_proof_blur: Option<bool>,
     pub stream_proof_auto: Option<bool>,
     pub skipped_update: Option<String>,
+    /// The release whose banner over the conversation was dismissed.
+    pub dismissed_update: Option<String>,
     pub announced_update: Option<String>,
 }
 
@@ -256,6 +259,11 @@ pub enum Animate {
 }
 
 impl Prefs {
+    /// Whether BACKCORD looks for newer releases: on unless turned off.
+    pub fn checks_updates(&self) -> bool {
+        self.check_for_updates.unwrap_or(true)
+    }
+
     /// The profile switches, each on unless turned off.
     pub fn cosmetics(&self) -> backcord_core::application::Cosmetics {
         let default = backcord_core::application::Cosmetics::default();

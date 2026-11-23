@@ -65,7 +65,7 @@ impl App {
             subscriptions.push(crate::rail::drag_subscription());
         }
         // A look at the releases every six hours while the check is on.
-        if self.layout.prefs.check_for_updates {
+        if self.layout.prefs.checks_updates() {
             subscriptions.push(
                 iced::time::every(crate::updates::EVERY)
                     .map(|_| Message::Updates(crate::updates::Event::Due)),

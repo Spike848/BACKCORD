@@ -28,6 +28,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> impl Iterator<Item = Element<'a, Me
         preview_banner(ctx),
         gpu_banner(ctx),
         crate::signin::verify_banner(ctx),
+        update_banner(ctx),
         notice_banner(ctx),
     ]
     .into_iter()
@@ -44,6 +45,58 @@ pub fn gpu_banner<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> 
             Message::Shell(crate::shell::Event::DismissGpuNotice),
         )
     })
+}
+
+/// A newer BACKCORD is out: Update opens About, where it installs, until
+/// dismissed for that release.
+pub fn update_banner<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
+    let shown = crate::updates::shown(ctx.layout)?;
+    if shown.status != crate::desktop::UpdateStatus::Available
+        || ctx.layout.prefs.dismissed_update.as_deref() == Some(shown.latest.as_str())
+    {
+        return None;
+    }
+    let theme = ctx.look.theme;
+    let raised = theme.raised;
+    let words = backcord_iced_kit::i18n::t(format!(
+        "BACKCORD {} is available. Update to get the newest fixes.",
+        shown.latest
+    ));
+    Some(
+        container(
+            row![
+                ctx.look.glyph(Icon::Download, 18, theme.accent),
+                text(words).size(15).color(theme.text).width(Length::Fill),
+                action(
+                    theme,
+                    backcord_iced_kit::i18n::tr("Update"),
+                    Kind::Primary,
+                    Some(Message::Settings(crate::settings::Event::Open(
+                        crate::settings::Section::About
+                    ))),
+                )
+                .small(),
+                action(
+                    theme,
+                    backcord_iced_kit::i18n::tr("Dismiss"),
+                    Kind::Ghost,
+                    Some(Message::Updates(crate::updates::Event::Dismiss)),
+                )
+                .small(),
+            ]
+            .spacing(12)
+            .align_y(Alignment::Center),
+        )
+        .padding(iced::Padding {
+            top: 6.0,
+            bottom: 6.0,
+            left: 16.0,
+            right: 8.0,
+        })
+        .width(Length::Fill)
+        .style(move |_| fill(raised))
+        .into(),
+    )
 }
 
 /// The core's notice, while there's one.

@@ -32,6 +32,8 @@ pub enum Event {
     Skip,
     /// The offered release's page, in the browser.
     View,
+    /// The banner over the conversation goes, until a newer release.
+    Dismiss,
 }
 
 /// What the person chose of updates: nightlies or not, and the release
@@ -102,7 +104,7 @@ fn announce_update(app: &mut App, offered: Option<desktop::Offered>) {
             backcord_core::chat::Alert {
                 room: ABOUT.into(),
                 title: backcord_iced_kit::i18n::t(format!("BACKCORD {} is available", offered.tag)),
-                body: backcord_iced_kit::i18n::tr("Click to see what's new.").into(),
+                body: backcord_iced_kit::i18n::tr("Click to update BACKCORD.").into(),
                 picture: None,
                 call: false,
                 mention: false,
@@ -119,7 +121,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
     let choices = update_choices(app);
     match event {
         Event::Due => {
-            if app.layout.prefs.check_for_updates {
+            if app.layout.prefs.checks_updates() {
                 look_for_updates(app, true);
             }
         }
@@ -130,6 +132,12 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             if let Some(offered) = updates.offered(&choices).filter(|offered| !offered.skipped) {
                 crate::layout::store(app.client.root(), "skipped_update", &offered.tag);
                 app.layout.prefs.skipped_update = Some(offered.tag);
+            }
+        }
+        Event::Dismiss => {
+            if let Some(offered) = updates.offered(&choices) {
+                crate::layout::store(app.client.root(), "dismissed_update", &offered.tag);
+                app.layout.prefs.dismissed_update = Some(offered.tag);
             }
         }
         Event::View => {

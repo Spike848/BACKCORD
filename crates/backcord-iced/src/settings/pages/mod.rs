@@ -279,7 +279,7 @@ impl Settings {
                 cx.dispatch(Action::HideBlocked(on));
             }
             Pref::CheckUpdates(on) => {
-                prefs.check_for_updates = on;
+                prefs.check_for_updates = Some(on);
                 cx.keep("check_for_updates", on);
                 if on {
                     cx.request(Request::LookForUpdates(true));
