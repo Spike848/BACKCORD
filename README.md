@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="packaging/backcord-logo.png" width="128" alt="">
+  <img src="docs/images/backcord-readme.png" width="220" alt="BACKCORD">
 </p>
 
 <h1 align="center">BACKCORD</h1>
