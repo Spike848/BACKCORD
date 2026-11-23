@@ -207,6 +207,7 @@ fn channel_menus_and_their_dialog_make_change_and_delete_channels() {
             settings: Some(ChannelSettings::default()),
             saving: false,
             error: None,
+            icon: None,
         });
     });
     assert!(shows(

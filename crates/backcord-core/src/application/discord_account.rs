@@ -668,6 +668,36 @@ impl Application {
         self.cache_emoji_pictures()
     }
 
+    /// Keeps the linked account's login and switches to the saved account
+    /// `to`, or to the sign-in for another; BACKCORD connects again after.
+    pub(super) fn switch_account(&mut self, to: Option<String>) -> Vec<Effect> {
+        if !self.state.discord_linked || self.state.busy {
+            return vec![];
+        }
+        if to.is_some() && to == self.state.discord_user {
+            return vec![];
+        }
+        let current = self
+            .state
+            .discord_user
+            .clone()
+            .map(|id| chat::SavedAccount {
+                name: self
+                    .state
+                    .account_name
+                    .clone()
+                    .unwrap_or_else(|| id.clone()),
+                avatar: self.state.account_avatar.clone(),
+                id,
+            });
+        self.state.busy = true;
+        self.state.notice = Some("Switching accounts...".into());
+        vec![Effect::Backend(Command::Discord(DiscordCommand::Switch {
+            current,
+            to,
+        }))]
+    }
+
     /// Forgets the Discord account after it was unlinked.
     pub(super) fn forget_discord(&mut self) -> Vec<Effect> {
         #[cfg(feature = "discord")]

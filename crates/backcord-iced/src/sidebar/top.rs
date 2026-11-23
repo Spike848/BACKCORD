@@ -13,7 +13,7 @@ use crate::{
     fonts::{BOLD, MEDIUM},
     pictures::Icon,
     style::corners,
-    widgets::Pic,
+    widgets::{Pic, RightPress},
 };
 
 use super::{BANNER, EVENTS_ROW, Event, FILTER, HEADER, INSET, INVITE};
@@ -26,6 +26,17 @@ impl<'a> super::View<'a> {
     /// or the DMs' search field, over the outline; with a banner, the
     /// header grows over it, shaded at its top, with no line under it.
     pub(super) fn side_header_view(self) -> Element<'a, Message> {
+        let header = self.side_header_inner();
+        if self.s.header.server.is_none() {
+            return header;
+        }
+        // A right click on the banner or the name opens the server's menu
+        // where the pointer is, View Icon and View Banner with it.
+        let spot = self.cx.pressed;
+        RightPress::new(header, move |_| Message::Side(Event::HeaderAt(spot.get()))).into()
+    }
+
+    fn side_header_inner(self) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         let head = &self.s.header;
         let inner: Element<'a, Message> = match &head.server {

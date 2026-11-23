@@ -203,7 +203,10 @@ fn the_emoji_pickers_search_puts_its_first_match_in_the_composer() {
         ui.click(Id::new(FIELD)).expect("the picker's search");
         ui.tap_key(keyboard::Key::Named(key::Named::Enter));
     });
-    assert!(app.win.picker.get().is_none(), "picking closes the picker");
+    assert!(
+        app.win.picker.is_open(),
+        "the picker stays open for the next emoji"
+    );
     assert!(
         app.composer.draft.text().contains('😀'),
         "{:?}",

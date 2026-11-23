@@ -244,6 +244,8 @@ pub enum Event {
     Browse,
     /// The server's name: its menu, below it.
     Header,
+    /// A right click on the server's banner or name: its menu, there.
+    HeaderAt(Point),
     /// The header's Invite people.
     Invite,
     /// A channel row's Create invite, by its room id.
@@ -336,6 +338,12 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 return Task::none();
             }
             let at = Point::new(crate::rail::WIDTH + INSET, HEADER - 4.0);
+            return crate::place_menus::open_place_menu(app, &server, at, true);
+        }
+        Event::HeaderAt(at) => {
+            let Some(server) = app.sidebar.header.server.clone() else {
+                return Task::none();
+            };
             return crate::place_menus::open_place_menu(app, &server, at, true);
         }
         Event::Invite | Event::InviteTo(_) => {

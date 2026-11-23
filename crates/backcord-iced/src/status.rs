@@ -62,6 +62,14 @@ pub enum Event {
     CustomStatus,
     CopyId,
     Settings,
+    /// Switch Accounts: the accounts kept show or go.
+    Accounts,
+    /// A saved account, by its id, to switch to.
+    SwitchTo(String),
+    /// To the sign-in, for another account.
+    AddAccount,
+    /// Forgets a saved account, by its id.
+    ForgetAccount(String),
     // The dialog.
     Text(String),
     /// The emoji's button, where it was pressed.
@@ -81,6 +89,8 @@ fn message(event: Event) -> Message {
 #[derive(Default)]
 pub struct AccountPopover {
     expanded: bool,
+    /// Switch Accounts' list shows.
+    accounts: bool,
 }
 
 /// The popover and the dialog, while each is open.
@@ -108,6 +118,7 @@ impl Status {
                 if self.popover.take().is_none() {
                     self.popover = Some(AccountPopover::default());
                     cx.dispatch(Action::LoadOwnProfile);
+                    cx.dispatch(Action::LoadAccounts);
                 }
             }
             Event::Close => self.popover = None,
@@ -136,6 +147,21 @@ impl Status {
             }
             // The root opens Settings.
             Event::Settings => self.popover = None,
+            Event::Accounts => {
+                if let Some(popover) = &mut self.popover {
+                    popover.accounts = !popover.accounts;
+                }
+                return Task::none();
+            }
+            Event::SwitchTo(id) => {
+                self.popover = None;
+                cx.dispatch(Action::SwitchAccount(Some(id)));
+            }
+            Event::AddAccount => {
+                self.popover = None;
+                cx.dispatch(Action::SwitchAccount(None));
+            }
+            Event::ForgetAccount(id) => cx.dispatch(Action::ForgetAccount(id)),
             Event::Text(text) => {
                 if let Some(draft) = &mut self.draft {
                     draft.text = text;
@@ -306,6 +332,25 @@ impl<'a> View<'a> {
             Icon::Settings,
             message(Event::Settings),
         ));
+        if state.discord_user.is_some() {
+            second = second.push(self.accounts_row(popover.accounts));
+            if popover.accounts {
+                let mut accounts = column![].spacing(2);
+                for saved in state
+                    .saved_accounts
+                    .iter()
+                    .filter(|saved| state.discord_user.as_deref() != Some(saved.id.as_str()))
+                {
+                    accounts = accounts.push(self.saved_account(saved));
+                }
+                accounts = accounts.push(self.popover_row(
+                    backcord_iced_kit::i18n::tr("Add an Account"),
+                    Icon::UserPlus,
+                    message(Event::AddAccount),
+                ));
+                second = second.push(accounts);
+            }
+        }
         let raised = theme.raised;
         body = body.push(group(first, raised)).push(group(second, raised));
         // Its own card, as Discord's popover shows it; until the profile
@@ -480,6 +525,73 @@ impl<'a> View<'a> {
             pressed,
             ROW,
         )
+    }
+
+    /// Switch Accounts, which shows the accounts kept and Add an Account.
+    fn accounts_row(self, expanded: bool) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let line = row![
+            self.cx.look.glyph(Icon::Users, 18, theme.secondary),
+            text(backcord_iced_kit::i18n::tr("Switch Accounts"))
+                .size(15)
+                .color(theme.secondary)
+                .width(Length::Fill),
+            self.cx.look.glyph(
+                if expanded {
+                    Icon::ChevronDown
+                } else {
+                    Icon::ChevronRight
+                },
+                16,
+                theme.muted,
+            ),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+        let active = theme.active;
+        button(
+            container(line)
+                .height(Length::Fill)
+                .align_y(Alignment::Center),
+        )
+        .padding([0, 8])
+        .height(ROW)
+        .width(Length::Fill)
+        .on_press(message(Event::Accounts))
+        .style(controls::lit_style(None, active, 4.0))
+        .into()
+    }
+
+    /// A saved account: pressed, BACKCORD switches to it; its cross forgets
+    /// it.
+    fn saved_account(self, saved: &'a backcord_core::chat::SavedAccount) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let forget = button(self.cx.look.glyph(Icon::X, 14, theme.muted))
+            .padding(4)
+            .on_press(message(Event::ForgetAccount(saved.id.clone())))
+            .style(controls::lit_style(None, theme.active, 4.0));
+        let line = row![
+            self.cx.face(crate::pictures::Face::new(
+                saved.avatar.as_deref(),
+                &saved.name,
+                24.0
+            )),
+            text(saved.name.as_str())
+                .size(15)
+                .color(theme.secondary)
+                .wrapping(text::Wrapping::None)
+                .width(Length::Fill),
+            forget,
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+        let active = theme.active;
+        button(line)
+            .padding([6, 8])
+            .width(Length::Fill)
+            .on_press(message(Event::SwitchTo(saved.id.clone())))
+            .style(controls::lit_style(None, active, 4.0))
+            .into()
     }
 
     /// The status as it is, which shows the others to choose.

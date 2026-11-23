@@ -577,7 +577,13 @@ fn stage_tile(
                 // Their picture until their camera's first frame, as
                 // without one; a camera whose frames stop keeps its
                 // last.
-                let side = (size.height * 0.45).min(80.0).round();
+                // Over the name's chip at the foot, however small the tile.
+                let below = if size.height < 160.0 { 36.0 } else { 16.0 };
+                let side = (size.height * 0.45)
+                    .min(96.0)
+                    .min(size.height - below - 8.0)
+                    .max(16.0)
+                    .round();
                 let opacity = if person.connected { 1.0 } else { 0.5 };
                 let avatar = app.ctx().avatar(
                     person.avatar.as_deref(),
@@ -587,7 +593,7 @@ fn stage_tile(
                     opacity,
                 );
                 let content = container(avatar).center(Length::Fill).padding(Padding {
-                    bottom: 16.0,
+                    bottom: below,
                     ..Padding::ZERO
                 });
                 (content.into(), theme.raised)

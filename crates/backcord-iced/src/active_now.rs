@@ -19,6 +19,7 @@ use iced::{
 use crate::{
     app::{App, Message},
     controls::{bar, placed},
+    elide::elide,
     fonts::{BOLD, SEMIBOLD},
     people::voice_spots,
     pictures::{Face, initials, tint},
@@ -564,17 +565,16 @@ fn active_card<'a>(ctx: crate::ctx::Ctx<'a>, card: &'a Card, now: u64) -> Elemen
     let mut head = row![
         face,
         column![
-            text(card.title.as_str())
+            elide(card.title.as_str())
                 .size(15)
                 .font(BOLD)
-                .color(theme.text)
-                .wrapping(text::Wrapping::None),
-            text(format!("{}{since}", card.doing))
+                .color(theme.text),
+            elide(format!("{}{since}", card.doing))
                 .size(13)
-                .color(theme.muted)
-                .wrapping(text::Wrapping::None),
+                .color(theme.muted),
         ]
-        .width(Length::Fill),
+        .width(Length::Fill)
+        .clip(true),
     ]
     .spacing(12)
     .padding(Padding::ZERO.left(17).right(16))
@@ -605,20 +605,15 @@ fn active_card<'a>(ctx: crate::ctx::Ctx<'a>, card: &'a Card, now: u64) -> Elemen
 fn active_row<'a>(ctx: crate::ctx::Ctx<'a>, entry: &'a CardRow) -> Element<'a, Message> {
     let theme = ctx.look.theme;
     let mut words = column![
-        text(entry.title.as_str())
+        elide(entry.title.as_str())
             .size(14)
             .font(SEMIBOLD)
             .color(theme.text)
-            .wrapping(text::Wrapping::None)
     ]
-    .width(Length::Fill);
+    .width(Length::Fill)
+    .clip(true);
     if !entry.detail.is_empty() {
-        words = words.push(
-            text(entry.detail.as_str())
-                .size(12)
-                .color(theme.muted)
-                .wrapping(text::Wrapping::None),
-        );
+        words = words.push(elide(entry.detail.as_str()).size(12).color(theme.muted));
     }
     // Its time moves by itself, each second: no message, no view.
     if entry.kind == RowKind::Detail

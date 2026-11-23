@@ -857,6 +857,9 @@ impl App {
             }
         }
         want(self.account.avatar.as_deref());
+        for saved in &state.saved_accounts {
+            want(saved.avatar.as_deref());
+        }
         // The account card's decoration and nameplate, moving under the
         // pointer.
         let decoration = cosmetics.decoration(state.account_decoration.as_deref());
@@ -991,7 +994,10 @@ impl App {
         if let Some(url) = self.icon.as_ref().map(|icon| icon.url.clone()) {
             want(Some(&url));
         }
-        for url in crate::friends::friends_pictures(self) {
+        for url in crate::friends::friends_pictures(self)
+            .into_iter()
+            .chain(crate::window_bar::inbox_pictures(self))
+        {
             want(Some(&url));
         }
         for url in crate::reactions::pictures(self.client.state()) {

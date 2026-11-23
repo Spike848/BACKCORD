@@ -393,12 +393,16 @@ impl Picker {
     }
 
     /// An emoji goes where the picker was opened for, which the root
-    /// places, and the picker closes.
+    /// places. Writing a message or an edit, the picker stays open for
+    /// the next one; a reaction, a status or a poll's answer closes it.
     fn place_emoji(&self, key: String, cx: &mut Cx<'_>) -> Task<Message> {
         cx.request(Request::PlaceEmoji {
             target: self.target.clone(),
             key,
         });
+        if matches!(self.target, Target::Composer | Target::Edit) {
+            return Task::none();
+        }
         self.ask_close(cx)
     }
 }

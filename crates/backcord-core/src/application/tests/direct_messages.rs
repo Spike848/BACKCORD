@@ -579,7 +579,7 @@ fn leaving_a_group_dm_asks_first_and_may_tell_no_one() {
     // After muting, as in Discord's menu; a one-to-one DM closes instead.
     assert_eq!(
         app.state.menu_choices(&group),
-        [Pin, Call, Mute, LeaveGroup, CopyLink, CopyId]
+        [Pin, Call, Mute, EditGroup, LeaveGroup, CopyLink, CopyId]
     );
     assert!(
         !app.state
@@ -645,6 +645,44 @@ fn leaving_a_group_dm_asks_first_and_may_tell_no_one() {
     let mut app = discord_dms(vec![]);
     app.state.discord_online = false;
     assert!(!app.state.menu_choices(&group).contains(&LeaveGroup));
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn edit_group_renames_a_group_and_gives_it_the_icon_chosen() {
+    use crate::application::ChannelAsk;
+    let mut app = discord_dms(vec![]);
+    let group = "discord:@me:31".to_owned();
+    app.dispatch(Action::AskChannel(ChannelAsk::Group(group.clone())));
+    let dialog = app.state.channel_dialog.clone().unwrap();
+    assert_eq!(dialog.ask, ChannelAsk::Group(group.clone()));
+    assert_eq!(dialog.settings.unwrap().name, "Hikers", "its name as it is");
+    app.dispatch(Action::GroupIcon(Some("/pictures/trail.png".into())));
+    let saved = app.dispatch(Action::SaveChannel {
+        kind: crate::chat::ChannelKind::Text,
+        settings: crate::chat::ChannelSettings {
+            name: "  Trail Crew ".into(),
+            ..Default::default()
+        },
+    });
+    assert!(
+        matches!(
+            saved.as_slice(),
+            [Effect::Backend(Command::Discord(DiscordCommand::EditGroup { room, name, icon }))]
+                if *room == group && name == "Trail Crew" && icon.as_deref() == Some("/pictures/trail.png")
+        ),
+        "named as written, not as a channel"
+    );
+    app.apply(Event::ChannelSaved(Ok(None)));
+    assert!(app.state.channel_dialog.is_none());
+    // A one-to-one DM has none.
+    assert!(
+        app.dispatch(Action::AskChannel(ChannelAsk::Group(
+            "discord:@me:30".into()
+        )))
+        .is_empty()
+            && app.state.channel_dialog.is_none()
+    );
 }
 
 #[test]

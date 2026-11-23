@@ -10,12 +10,20 @@ use crate::api::{ACK_BULK_LIMIT, Api};
 
 /// Reads within this long go to Discord as one acknowledgement per channel.
 const ACK_DELAY: Duration = Duration::from_secs(1);
+/// How many times a bulk acknowledgement Discord turned down is sent
+/// again, waiting longer each time, and the pause between batches.
+const ACK_TRIES: u32 = 5;
+const ACK_RETRY: Duration = Duration::from_secs(2);
+const ACK_GAP: Duration = Duration::from_millis(300);
 
 pub(super) struct ReadAcks {
     api: Arc<Api>,
     /// The newest read message per channel, waiting to be acknowledged.
     waiting: HashMap<String, String>,
     at: Pin<Box<Sleep>>,
+    /// Held while batches go, so one flush's batches don't race the next's
+    /// into Discord's rate limit.
+    sending: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl ReadAcks {
@@ -24,6 +32,7 @@ impl ReadAcks {
             api,
             waiting: HashMap::new(),
             at: Box::pin(tokio::time::sleep(ACK_DELAY)),
+            sending: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -57,13 +66,26 @@ impl ReadAcks {
             });
             return;
         }
-        for batch in reads.chunks(ACK_BULK_LIMIT) {
-            let (api, batch) = (self.api.clone(), batch.to_vec());
-            tokio::spawn(async move {
-                if let Err(error) = api.ack_bulk(&batch).await {
-                    tracing::warn!(%error, "could not mark Discord channels read");
+        // Many channels at once, such as everything marked read, go one
+        // batch after another, each sent again until Discord takes it:
+        // sent together, Discord limits them and turns some down.
+        let (api, sending) = (self.api.clone(), self.sending.clone());
+        tokio::spawn(async move {
+            let _turn = sending.lock().await;
+            for (index, batch) in reads.chunks(ACK_BULK_LIMIT).enumerate() {
+                if index > 0 {
+                    tokio::time::sleep(ACK_GAP).await;
                 }
-            });
-        }
+                for tries in 1..=ACK_TRIES {
+                    match api.ack_bulk(batch).await {
+                        Ok(()) => break,
+                        Err(error) if tries == ACK_TRIES => {
+                            tracing::warn!(%error, "could not mark Discord channels read");
+                        }
+                        Err(_) => tokio::time::sleep(ACK_RETRY * tries).await,
+                    }
+                }
+            }
+        });
     }
 }

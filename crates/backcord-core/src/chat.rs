@@ -726,6 +726,25 @@ pub struct ChannelSettings {
     pub nsfw: bool,
 }
 
+/// A message as the inbox lists it, under its channel or conversation.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct InboxMessage {
+    pub id: String,
+    /// Its room's id, as the list knows it.
+    pub room: String,
+    pub author: String,
+    pub author_id: String,
+    pub avatar: Option<String>,
+    /// When it was sent, in Unix milliseconds.
+    pub at: u64,
+    /// Its text, with mentions written out as names.
+    pub text: String,
+    /// Its first picture, and that picture's width and height.
+    pub picture: Option<(String, u32, u32)>,
+    /// How many files it has besides.
+    pub files: usize,
+}
+
 /// A folder of servers on the rail, as Discord's server list keeps them.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ServerFolder {
@@ -2867,6 +2886,14 @@ pub struct CommandRun {
     pub files: Vec<PathBuf>,
 }
 
+/// A Discord account whose login BACKCORD keeps, to switch to.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct SavedAccount {
+    pub id: String,
+    pub name: String,
+    pub avatar: Option<String>,
+}
+
 /// Commands only the linked Discord account carries out.
 #[derive(Clone)]
 pub enum DiscordCommand {
@@ -3019,6 +3046,13 @@ pub enum DiscordCommand {
     /// Fetch this account's note on a Discord user; [`Event::Note`] follows.
     Note {
         user: String,
+    },
+    /// The inbox's messages: those that mention this account, or the
+    /// unread ones of these rooms, each after the message last read there;
+    /// [`Event::Inbox`] follows.
+    Inbox {
+        mentions: bool,
+        rooms: Vec<(String, Option<String>)>,
     },
     /// Set this account's note on a Discord user, or the nickname it gives a
     /// friend; empty clears it. [`Event::PersonSaved`] follows.
@@ -3274,6 +3308,13 @@ pub enum DiscordCommand {
         room: String,
         status: String,
     },
+    /// Rename a group DM (its members' names with none) and, with a file,
+    /// give it that icon; [`Event::ChannelSaved`] follows.
+    EditGroup {
+        room: String,
+        name: String,
+        icon: Option<String>,
+    },
     /// Change a Discord channel's or category's overwrites, by its room id;
     /// [`Event::OverwritesChanged`] follows.
     ChangeOverwrites {
@@ -3371,6 +3412,17 @@ pub enum DiscordCommand {
     /// Forget the linked Discord account on this device, ending its session
     /// on Discord; [`Event::DiscordUnlinked`] follows.
     Unlink,
+    /// The accounts kept to switch to; [`Event::SavedAccounts`] answers.
+    Accounts,
+    /// Keeps `current`'s login, then links the saved account `to`, or none
+    /// for another to sign in, without ending either's session;
+    /// [`Event::AccountSwitched`] follows.
+    Switch {
+        current: Option<SavedAccount>,
+        to: Option<String>,
+    },
+    /// Forgets a saved account's login, by its id.
+    ForgetAccount(String),
     /// Change a member of a Discord server, by its server id; a nickname,
     /// a timeout, a kick or a ban answers with [`Event::PersonSaved`], and
     /// a role with [`Event::Error`] when it fails.
@@ -4427,6 +4479,11 @@ pub enum Event {
         user: String,
         result: Result<String, String>,
     },
+    /// [`DiscordCommand::Inbox`]'s messages, or why they didn't come.
+    Inbox {
+        mentions: bool,
+        result: Result<Vec<InboxMessage>, String>,
+    },
     /// Whether [`DiscordCommand::SetNote`] or [`DiscordCommand::SetNickname`]
     /// saved it, or why not.
     PersonSaved(Result<(), String>),
@@ -4445,6 +4502,13 @@ pub enum Event {
     JoinSoundSet(Result<(), String>),
     /// [`DiscordCommand::Unlink`] forgot the account.
     DiscordUnlinked,
+    /// The Discord accounts kept to switch to.
+    SavedAccounts(Vec<SavedAccount>),
+    /// [`DiscordCommand::Switch`] put another account in place, which
+    /// connects when `restart`; else the sign-in shows.
+    AccountSwitched {
+        restart: bool,
+    },
     /// [`DiscordCommand::Pins`]'s messages, the latest pinned first, or why
     /// they didn't come.
     Pins {
@@ -5589,6 +5653,20 @@ pub async fn run(
                         discord_error = None;
                         let _ = events.send(Event::DiscordUnlinked);
                     }
+                    Command::Discord(DiscordCommand::Accounts) => {
+                        let _ = events.send(Event::SavedAccounts(saved_accounts()));
+                    }
+                    Command::Discord(DiscordCommand::ForgetAccount(id)) => {
+                        if let Err(error) = backcord_discord::token::forget_saved(&id) {
+                            tracing::warn!(%error, "could not forget a saved Discord account");
+                        }
+                        let _ = events.send(Event::SavedAccounts(saved_accounts()));
+                    }
+                    Command::Discord(DiscordCommand::Switch { current, to }) => {
+                        let restart = switch_account(&mut discord, &linked, &voice, current, to);
+                        let _ = events.send(Event::AccountSwitched { restart });
+                        break;
+                    }
                     command => match discord.as_mut() {
                         Some(discord) => discord.command(command, &events),
                         None => crate::discord_text::without(
@@ -5644,6 +5722,68 @@ pub async fn run(
 fn discord_failed(error: &anyhow::Error) -> String {
     tracing::warn!(error = format!("{error:#}"), "could not start Discord");
     format!("Discord couldn't start: {error}")
+}
+
+/// The accounts kept to switch to, as the token module keeps them.
+#[cfg(feature = "discord")]
+fn saved_accounts() -> Vec<SavedAccount> {
+    backcord_discord::token::saved()
+        .into_iter()
+        .map(|saved| SavedAccount {
+            id: saved.id,
+            name: saved.name,
+            avatar: saved.avatar,
+        })
+        .collect()
+}
+
+/// Keeps `current`'s login and puts the saved account `to` in its place,
+/// or none; neither session ends on Discord. Whether BACKCORD connects
+/// again: with `to`, or with the account it had when `to` can't be used.
+#[cfg(feature = "discord")]
+fn switch_account(
+    discord: &mut Option<crate::discord_text::Chat>,
+    linked: &tokio::sync::watch::Sender<Option<backcord_discord::service::Discord>>,
+    voice: &voice::Controller,
+    current: Option<SavedAccount>,
+    to: Option<String>,
+) -> bool {
+    use backcord_discord::token;
+    if let Some(current) = current {
+        let kept = token::remember(&token::Saved {
+            id: current.id,
+            name: current.name,
+            avatar: current.avatar,
+        });
+        // Without its login kept, it isn't left behind.
+        if let Err(error) = kept {
+            tracing::warn!(%error, "could not keep the Discord account's login");
+            return true;
+        }
+    }
+    if voice
+        .states
+        .borrow()
+        .room
+        .as_deref()
+        .is_some_and(|room| Network::of(room) == Network::Discord)
+    {
+        voice.command(voice::Command::Leave);
+    }
+    linked.send_replace(None);
+    // Saves what changed to the cache before it's forgotten.
+    drop(discord.take());
+    let switched = match &to {
+        Some(id) => token::use_saved(id),
+        None => token::park(),
+    };
+    match switched {
+        Ok(()) => to.is_some(),
+        Err(error) => {
+            tracing::warn!(%error, "could not switch Discord accounts");
+            true
+        }
+    }
 }
 
 /// Forgets the linked Discord account on this device: leaves its call, ends

@@ -608,6 +608,16 @@ impl Api {
         self.json(self.request(Method::GET, &path)).await
     }
 
+    /// The latest messages that mention this account, its roles or
+    /// everyone, newest first, as Discord's inbox lists them.
+    pub async fn recent_mentions(&self) -> Result<Vec<Value>> {
+        let path = "/users/@me/mentions?limit=25&roles=true&everyone=true";
+        match self.json(self.request(Method::GET, path)).await? {
+            Value::Array(messages) => Ok(messages),
+            _ => bail!("could not understand Discord's answer"),
+        }
+    }
+
     /// Up to [`PAGE`] messages of a channel, newest first, as [`Span`] says.
     pub async fn messages(&self, channel: &str, span: Span<'_>) -> Result<Vec<Value>> {
         let mut path = format!("/channels/{channel}/messages?limit={PAGE}");

@@ -3133,6 +3133,19 @@ impl Discord {
             .ok_or_else(|| anyhow!("could not understand Discord's answer"))
     }
 
+    /// The latest messages that mention this account, newest first.
+    pub async fn recent_mentions(&self) -> Result<Vec<Value>> {
+        self.api.recent_mentions().await
+    }
+
+    /// A page of a channel's messages after `after`, or its newest
+    /// without one, newest first.
+    pub async fn messages_after(&self, channel: &str, after: Option<&str>) -> Result<Vec<Value>> {
+        self.api
+            .messages(channel, after.map_or(Span::Latest, Span::After))
+            .await
+    }
+
     /// This account's note on someone; empty when it has none. Discord is
     /// asked once for each user, as its client does.
     pub async fn note(&self, user: &str) -> Result<String> {
@@ -3545,6 +3558,16 @@ impl Discord {
     /// Deletes a server's channel or category for good.
     pub async fn delete_channel(&self, channel: &str) -> Result<()> {
         self.api.delete_channel(channel).await
+    }
+
+    /// Renames a group DM, an empty name going back to its members',
+    /// and gives it `icon`, a picture as a data address, when there is one.
+    pub async fn edit_group(&self, channel: &str, name: &str, icon: Option<Value>) -> Result<()> {
+        let mut body = json!({"name": (!name.is_empty()).then_some(name)});
+        if let Some(icon) = icon {
+            body["icon"] = icon;
+        }
+        self.api.edit_channel(channel, &body).await
     }
 
     /// Sets a voice channel's status; none clears it.

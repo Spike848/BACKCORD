@@ -29,20 +29,22 @@ pub fn open_place_menu(app: &mut App, id: &str, at: Point, header: bool) -> Task
     } else {
         core.menu_choices(id)
     };
-    // View Icons: a server's menu shows its icon large.
+    // View Icons: a server's menu, and its header's, show its icon and
+    // its banner large.
     if app.layout.prefs.view_icons.unwrap_or(true)
-        && choices.contains(&MenuChoice::LeaveServer)
-        && core
-            .state
-            .servers
-            .iter()
-            .any(|server| server.id == id && server.icon.is_some())
+        && (header || choices.contains(&MenuChoice::LeaveServer))
+        && let Some(server) = core.state.servers.iter().find(|server| server.id == id)
     {
         let at_end = choices
             .iter()
             .position(|choice| matches!(choice, MenuChoice::CopyLink | MenuChoice::CopyId))
             .unwrap_or(choices.len());
-        choices.insert(at_end, MenuChoice::ViewIcon);
+        if server.banner.is_some() {
+            choices.insert(at_end, MenuChoice::ViewBanner);
+        }
+        if server.icon.is_some() {
+            choices.insert(at_end, MenuChoice::ViewIcon);
+        }
     }
     // Cancella tutto: a DM's and a server's menu, before View Icons and
     // copying; Stop while it's going on.
@@ -60,7 +62,10 @@ pub fn open_place_menu(app: &mut App, id: &str, at: Point, header: bool) -> Task
                 .position(|choice| {
                     matches!(
                         choice,
-                        MenuChoice::ViewIcon | MenuChoice::CopyLink | MenuChoice::CopyId
+                        MenuChoice::ViewIcon
+                            | MenuChoice::ViewBanner
+                            | MenuChoice::CopyLink
+                            | MenuChoice::CopyId
                     )
                 })
                 .unwrap_or(choices.len());
@@ -319,6 +324,7 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
         },
         MenuChoice::CloseDm => Action::CloseDm(place),
         MenuChoice::LeaveGroup => Action::AskLeaveGroup(place),
+        MenuChoice::EditGroup => Action::AskChannel(ChannelAsk::Group(place)),
         MenuChoice::DeleteAll => Action::AskDeleteAll(place),
         MenuChoice::StopDeleteAll => Action::StopDeleteAll(place),
         MenuChoice::EditServerProfile => Action::EditServerProfile(place),
@@ -376,6 +382,22 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
             return app.icon_event(crate::icon_viewer::Event::Open {
                 url,
                 title: backcord_iced_kit::i18n::tr("Server icon").to_owned(),
+            });
+        }
+        MenuChoice::ViewBanner => {
+            let Some(url) = app
+                .client
+                .state()
+                .servers
+                .iter()
+                .find(|server| server.id == place)
+                .and_then(|server| server.banner.clone())
+            else {
+                return Task::none();
+            };
+            return app.icon_event(crate::icon_viewer::Event::Open {
+                url,
+                title: backcord_iced_kit::i18n::tr("Server banner").to_owned(),
             });
         }
         // The rest of a DM's are about its person, as their own menu.
@@ -698,6 +720,7 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         | MenuChoice::CopyId
         | MenuChoice::ViewAvatar
         | MenuChoice::ViewIcon
+        | MenuChoice::ViewBanner
         | MenuChoice::JoinThread
         | MenuChoice::LeaveThread
         | MenuChoice::Invite
@@ -730,6 +753,7 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         MenuChoice::DeleteChannel
         | MenuChoice::LeaveServer
         | MenuChoice::LeaveGroup
+        | MenuChoice::EditGroup
         | MenuChoice::DeleteAll
         | MenuChoice::StopDeleteAll => 7,
         _ => 0,
@@ -753,6 +777,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::AddNote => Icon::StickyNote,
         C::AddNickname | C::EditNickname => Icon::UserPen,
         C::LeaveGroup | C::LeaveServer | C::LeaveThread => Icon::LogOut,
+        C::EditGroup => Icon::Pencil,
         C::Apps => Icon::Slash,
         C::ServerSettings => Icon::Settings,
         C::Unfriend => Icon::UserMinus,
@@ -767,7 +792,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
         }
         C::CopyLink => Icon::Copy,
         C::CopyId => Icon::Id,
-        C::ViewAvatar | C::ViewIcon => Icon::Image,
+        C::ViewAvatar | C::ViewIcon | C::ViewBanner => Icon::Image,
         C::Mention => Icon::AtSign,
         C::ServerNickname | C::EditChannel | C::EditServerProfile => Icon::Pencil,
         C::Roles => Icon::Shield,
@@ -808,6 +833,7 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::EditNickname => backcord_iced_kit::i18n::tr("Change friend nickname"),
         MenuChoice::CloseDm => backcord_iced_kit::i18n::tr("Close DM"),
         MenuChoice::LeaveGroup => backcord_iced_kit::i18n::tr("Leave group"),
+        MenuChoice::EditGroup => backcord_iced_kit::i18n::tr("Edit Group"),
         MenuChoice::DeleteAll => backcord_iced_kit::i18n::tr("Delete all"),
         MenuChoice::StopDeleteAll => backcord_iced_kit::i18n::tr("Stop deleting"),
         MenuChoice::InviteToServer => backcord_iced_kit::i18n::tr("Invite to server"),
@@ -823,6 +849,7 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::CopyId => backcord_iced_kit::i18n::tr("Copy ID"),
         MenuChoice::ViewAvatar => backcord_iced_kit::i18n::tr("View Avatar"),
         MenuChoice::ViewIcon => backcord_iced_kit::i18n::tr("View Icon"),
+        MenuChoice::ViewBanner => backcord_iced_kit::i18n::tr("View Banner"),
         MenuChoice::Mention => backcord_iced_kit::i18n::tr("Mention"),
         MenuChoice::ServerNickname => backcord_iced_kit::i18n::tr("Change nickname"),
         MenuChoice::Roles => backcord_iced_kit::i18n::tr("Roles"),

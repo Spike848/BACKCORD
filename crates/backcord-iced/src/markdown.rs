@@ -6,7 +6,8 @@
 //!
 //! Discord's rules, not CommonMark's, where they differ: every line break
 //! and blank line shows, and what CommonMark would make a heading, a rule
-//! or indented code beyond Discord's shows as typed. `__text__` is bold.
+//! or indented code beyond Discord's shows as typed. `__text__` is
+//! underlined, as in Discord, and `**text**` bold.
 //! Custom emoji ([`with_emoji`]) take the room of their picture in the
 //! text, which is drawn there.
 
@@ -40,6 +41,8 @@ pub struct Run {
     pub bold: bool,
     pub italic: bool,
     pub strike: bool,
+    /// `__text__`, as Discord underlines it.
+    pub underline: bool,
     pub code: bool,
     /// Where a click goes: a web address, a mention's target, a spoiler.
     pub link: Option<String>,
@@ -166,6 +169,7 @@ impl Run {
         self.bold == other.bold
             && self.italic == other.italic
             && self.strike == other.strike
+            && self.underline == other.underline
             && self.code == other.code
             && self.link == other.link
             && self.color == other.color
@@ -569,6 +573,7 @@ struct Style {
     bold: u8,
     italic: u8,
     strike: u8,
+    underline: u8,
     links: Vec<String>,
     colors: Vec<u32>,
 }
@@ -595,6 +600,7 @@ fn inline(markdown: &str) -> Vec<Run> {
             bold: style.bold > 0,
             italic: style.italic > 0,
             strike: style.strike > 0,
+            underline: style.underline > 0,
             code,
             hidden: link
                 .as_deref()
@@ -625,6 +631,9 @@ fn inline(markdown: &str) -> Vec<Run> {
     // Where a block's text ends, before the line breaks it takes in.
     let end =
         |range: &Range<usize>| range.start + markdown[range.clone()].trim_end_matches('\n').len();
+    // Which of the strong spans open are `__`, Discord's underline, rather
+    // than `**`, its bold.
+    let mut strong: Vec<bool> = Vec::new();
     let options = Options::ENABLE_STRIKETHROUGH;
     for (event, range) in Parser::new_ext(markdown, options).into_offset_iter() {
         if let Some(shown) = &typed {
@@ -688,8 +697,22 @@ fn inline(markdown: &str) -> Vec<Run> {
             Event::End(TagEnd::Item) => {
                 ended = Some(end(&range));
             }
-            Event::Start(Tag::Strong) => style.bold += 1,
-            Event::End(TagEnd::Strong) => style.bold = style.bold.saturating_sub(1),
+            Event::Start(Tag::Strong) => {
+                let underline = markdown[range.clone()].starts_with("__");
+                strong.push(underline);
+                if underline {
+                    style.underline += 1;
+                } else {
+                    style.bold += 1;
+                }
+            }
+            Event::End(TagEnd::Strong) => {
+                if strong.pop().unwrap_or(false) {
+                    style.underline = style.underline.saturating_sub(1);
+                } else {
+                    style.bold = style.bold.saturating_sub(1);
+                }
+            }
             Event::Start(Tag::Emphasis) => style.italic += 1,
             Event::End(TagEnd::Emphasis) => style.italic = style.italic.saturating_sub(1),
             Event::Start(Tag::Strikethrough) => style.strike += 1,
@@ -780,7 +803,10 @@ impl<'c> crate::ctx::Ctx<'c> {
                 ..if run.bold { BOLD } else { REGULAR }
             }
         };
-        let mut piece = span(run.text.as_str()).font(font).strikethrough(run.strike);
+        let mut piece = span(run.text.as_str())
+            .font(font)
+            .strikethrough(run.strike)
+            .underline(run.underline);
         if let Some(link) = run.link.as_deref() {
             piece = piece.link(link);
         }
@@ -1072,7 +1098,7 @@ mod tests {
         assert!(find("it").italic);
         assert!(find("gone").strike);
         assert!(find("code").code);
-        assert!(find("under").bold);
+        assert!(find("under").underline && !find("under").bold);
     }
 
     #[test]
@@ -1206,5 +1232,32 @@ mod tests {
         );
         assert!(split_emoji("", &emoji).is_empty());
         assert_eq!(split_emoji("plain", &[]), vec![InlinePart::Text("plain")]);
+    }
+
+    #[test]
+    fn styles_read_as_discords_underline_bold_italics_and_strike() {
+        let body = parse(
+            "__under__ **bold** *it* _it_ ~~gone~~ __***all***__ \\*not*",
+            &[],
+            0,
+            "m",
+            |_| false,
+        );
+        let run = |text: &str| {
+            body.parts[0]
+                .runs
+                .iter()
+                .find(|run| run.text == text)
+                .unwrap_or_else(|| panic!("{text} in {:?}", body.parts[0].runs))
+                .clone()
+        };
+        let under = run("under");
+        assert!(under.underline && !under.bold, "__ underlines");
+        assert!(run("bold").bold && !run("bold").underline);
+        assert!(run("it").italic);
+        assert!(run("gone").strike);
+        let all = run("all");
+        assert!(all.underline && all.bold && all.italic, "{all:?}");
+        assert!(body.plain().ends_with("*not*"), "{}", body.plain());
     }
 }

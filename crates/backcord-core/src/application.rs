@@ -480,8 +480,20 @@ pub struct Editing {
     pub original: String,
 }
 
+/// The inbox's messages: those of its Mentions tab, or of its Unreads.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Inbox {
+    pub mentions: bool,
+    pub messages: Vec<crate::chat::InboxMessage>,
+    /// Asked for, and not come yet.
+    pub loading: bool,
+    pub error: Option<String>,
+}
+
 #[derive(Default)]
 pub struct AppState {
+    /// The inbox's messages, for its tab, as Discord last gave them.
+    pub inbox: Inbox,
     /// Bots' controls and forms used, waiting for Discord's word.
     pub interactions: Interactions,
     /// The open room's apps' commands, once the person typed `/`.
@@ -499,6 +511,8 @@ pub struct AppState {
     pub discord_online: bool,
     /// The linked Discord account's user id.
     pub discord_user: Option<String>,
+    /// The other Discord accounts whose logins are kept, to switch to.
+    pub saved_accounts: Vec<chat::SavedAccount>,
     /// Its status as its settings keep it: `online`, `idle`, `dnd` or
     /// `invisible`.
     pub discord_presence: Option<String>,
@@ -2200,6 +2214,13 @@ pub enum Action {
         settings: chat::ChannelSettings,
     },
     CloseChannelDialog,
+    /// The file chosen as a group's new icon in its dialog.
+    GroupIcon(Option<String>),
+    /// The inbox's messages for its tab: those that mention this account,
+    /// or the unread ones.
+    LoadInbox {
+        mentions: bool,
+    },
     /// Ask before leaving a Discord server, by its server id, or a group
     /// DM, by its room id; tick or untick leaving the group without telling
     /// its other members; leave the one asked about; or stay.
@@ -2351,6 +2372,13 @@ pub enum Action {
     OpenDiscordCaptcha,
     CancelDiscordLink,
     UnlinkDiscord,
+    /// The accounts kept to switch to, for the account's popover.
+    LoadAccounts,
+    /// Keeps the linked account's login and switches to the saved account
+    /// by its id, or to the sign-in, to add another.
+    SwitchAccount(Option<String>),
+    /// Forgets a saved account's login, by its id.
+    ForgetAccount(String),
     /// Open the custom status dialog, set the status, clear it, or close it.
     /// The emoji is a Unicode one or a custom one's `:name:`, which needs Nitro.
     OpenStatusEditor,
@@ -4063,6 +4091,8 @@ impl Application {
             Action::OpenChannelSettings(room) => self.open_channel_settings(room),
             Action::ChannelSettings(input) => self.channel_input(input),
             Action::SaveChannel { kind, settings } => self.save_channel(kind, settings),
+            Action::GroupIcon(icon) => self.group_icon(icon),
+            Action::LoadInbox { mentions } => self.load_inbox(mentions),
             Action::CloseChannelDialog => {
                 self.state.channel_dialog = None;
                 vec![]
@@ -4231,6 +4261,19 @@ impl Application {
                 Some(_) => vec![Effect::StopDiscordLink],
                 None => vec![],
             },
+            Action::LoadAccounts => {
+                if self.state.discord_linked {
+                    vec![Effect::Backend(Command::Discord(DiscordCommand::Accounts))]
+                } else {
+                    vec![]
+                }
+            }
+            Action::SwitchAccount(to) => self.switch_account(to),
+            Action::ForgetAccount(id) => {
+                vec![Effect::Backend(Command::Discord(
+                    DiscordCommand::ForgetAccount(id),
+                ))]
+            }
             Action::UnlinkDiscord => {
                 if self.state.discord_linked && self.state.account.is_some() {
                     vec![Effect::Backend(Command::Discord(DiscordCommand::Unlink))]
@@ -4943,6 +4986,25 @@ impl Application {
                 }
             }
             Event::DiscordUnlinked => return self.forget_discord(),
+            Event::SavedAccounts(accounts) => self.state.saved_accounts = accounts,
+            Event::AccountSwitched { restart } => {
+                self.reset();
+                if restart {
+                    return self.start(chat::Start::Restore);
+                }
+            }
+            Event::Inbox { mentions, result } => {
+                if self.state.inbox.mentions == mentions {
+                    self.state.inbox.loading = false;
+                    match result {
+                        Ok(messages) => {
+                            self.state.inbox.messages = messages;
+                            self.state.inbox.error = None;
+                        }
+                        Err(error) => self.state.inbox.error = Some(error),
+                    }
+                }
+            }
             Event::Note { user, result } => {
                 if let Ok(note) = &result {
                     for view in [&mut self.state.profile, &mut self.state.panel_profile]

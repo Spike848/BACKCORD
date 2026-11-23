@@ -33,6 +33,8 @@ pub enum MenuChoice {
     CloseDm,
     /// Leave a Discord group DM, asking first.
     LeaveGroup,
+    /// A group DM's name and icon.
+    EditGroup,
     /// Cancella tutto: delete every message this account sent in a Discord
     /// DM or server, asking first; or stop the one going on. The window
     /// adds them to a DM's and a server's menu; see `delete_all.rs`.
@@ -60,6 +62,8 @@ pub enum MenuChoice {
     /// them while Extra Features turn it on.
     ViewAvatar,
     ViewIcon,
+    /// A server's banner, large.
+    ViewBanner,
     // A Discord server member's; see `members.rs`.
     /// Mention them in the open channel's composer.
     Mention,
@@ -324,6 +328,7 @@ impl AppState {
         // After muting, as in Discord's menu; Discord takes it only while
         // connected.
         if discord && room.person.is_none() && !room.request && self.discord_online {
+            choices.push(MenuChoice::EditGroup);
             choices.push(MenuChoice::LeaveGroup);
         }
         // A thread's notifications are its own, which BACKCORD doesn't change yet.

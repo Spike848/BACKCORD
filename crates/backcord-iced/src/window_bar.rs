@@ -25,7 +25,7 @@ use crate::{
     fonts::BOLD,
     pictures::Icon,
     style::{faded, scrollbar},
-    widgets::{Hover, Rows},
+    widgets::Hover,
 };
 
 /// The bar's height, which moves the window's content down.
@@ -37,11 +37,12 @@ const CAPTION: f32 = 36.0;
 const CAPTION_GLYPH: u32 = 10;
 
 /// The inbox popout's width and tallest height, as Discord's.
-const INBOX_WIDTH: f32 = 440.0;
-const INBOX_MOST: f32 = 560.0;
-const INBOX_ROW: f32 = 56.0;
-/// Round the inbox's rows.
-const INBOX_PAD: f32 = 4.0;
+const INBOX_WIDTH: f32 = 600.0;
+const INBOX_MOST: f32 = 720.0;
+/// The most channels the inbox shows at once.
+const INBOX_CARDS: usize = 30;
+/// The widest and tallest a message's picture shows in the inbox.
+const INBOX_PICTURE: (f32, f32) = (360.0, 220.0);
 
 /// Where Discord's help opens.
 const HELP: &str = "https://support.discord.com";
@@ -84,6 +85,10 @@ pub enum Event {
     InboxTab(Tab),
     InboxOpen(String),
     InboxScrolled(crate::sync::Scroll),
+    /// A channel's or conversation's check: marked read, out of the inbox.
+    InboxRead(String),
+    /// Ask Discord for the tab's messages again.
+    InboxReload,
     CloseInbox,
     Help,
     /// The bar pressed, the pointer moved on it, the button let go.
@@ -108,13 +113,18 @@ pub enum Tab {
     Mentions,
 }
 
-/// The inbox popout while it's open: its tab and its rows.
+/// The inbox popout while it's open: its tab, its channels, and their
+/// messages' text laid out.
 #[derive(Default)]
 pub struct Inbox {
     pub tab: Tab,
     pub rows: Vec<InboxRow>,
-    /// Its list's viewport: only the rows near it are built.
+    /// Its list's viewport.
     pub scroll: crate::sync::Scroll,
+    /// The messages shown, as the core had them when laid out, and each
+    /// one's text, by its id.
+    pub messages: Vec<backcord_core::chat::InboxMessage>,
+    pub bodies: std::collections::HashMap<String, crate::markdown::Body>,
 }
 
 /// One line of the inbox: a channel or conversation with something waiting.
@@ -128,6 +138,8 @@ pub struct InboxRow {
     pub place: String,
     pub picture: Option<String>,
     pub mentions: u64,
+    /// A conversation's picture is round, a server's a rounded square.
+    pub direct: bool,
 }
 
 /// The press that may move the window, and where it was.
@@ -238,14 +250,25 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 }),
             };
             inbox_sync(app);
-            Task::none()
+            load_inbox(app);
+            app.sync()
         }
         Event::InboxTab(tab) => {
             if let Some(inbox) = &mut app.inbox {
                 inbox.tab = tab;
             }
             inbox_sync(app);
-            Task::none()
+            load_inbox(app);
+            app.sync()
+        }
+        Event::InboxReload => {
+            load_inbox(app);
+            app.sync()
+        }
+        Event::InboxRead(room) => {
+            app.client
+                .dispatch(backcord_core::application::Action::MarkRead(room));
+            app.sync()
         }
         Event::InboxOpen(room) => {
             app.inbox = None;
@@ -338,9 +361,38 @@ pub fn choose_title_bar(app: &mut App, system: bool) -> Task<Message> {
     Task::batch([closed, opened])
 }
 
-/// The inbox's rows for its tab, from what the client already knows:
-/// the channels and conversations with unread messages, muted ones only
-/// for a mention, or those that mention this account.
+/// Asks the core for the open inbox's messages, for its tab.
+fn load_inbox(app: &mut App) {
+    let Some(inbox) = &app.inbox else {
+        return;
+    };
+    let mentions = inbox.tab == Tab::Mentions;
+    app.client
+        .dispatch(backcord_core::application::Action::LoadInbox { mentions });
+}
+
+/// The pictures the open inbox shows: its channels' servers' icons and
+/// its conversations' pictures, and its messages' authors and pictures.
+pub fn inbox_pictures(app: &App) -> Vec<String> {
+    let Some(inbox) = &app.inbox else {
+        return Vec::new();
+    };
+    let mut urls: Vec<String> = inbox
+        .rows
+        .iter()
+        .take(INBOX_CARDS)
+        .filter_map(|row| row.picture.clone())
+        .collect();
+    for message in &inbox.messages {
+        urls.extend(message.avatar.clone());
+        urls.extend(message.picture.as_ref().map(|(url, _, _)| url.clone()));
+    }
+    urls
+}
+
+/// The inbox's channels for its tab, from what the client already knows:
+/// those with unread messages, muted ones only for a mention, or those its
+/// mentions are in; and its messages' text laid out.
 pub fn inbox_sync(app: &mut App) {
     let Some(inbox) = &mut app.inbox else {
         return;
@@ -348,39 +400,75 @@ pub fn inbox_sync(app: &mut App) {
     let state = app.client.state();
     let mentions_only = inbox.tab == Tab::Mentions;
     // Each channel's server, found once.
-    let places: std::collections::HashMap<&str, &str> = state
+    let servers: std::collections::HashMap<&str, &backcord_core::chat::ChatServer> = state
         .servers
         .iter()
         .flat_map(|server| {
             server
                 .channels
                 .iter()
-                .map(|channel| (channel.as_str(), server.name.as_str()))
+                .map(move |channel| (channel.as_str(), &**server))
         })
         .collect();
-    let rows: Vec<InboxRow> = state
-        .rooms
-        .iter()
-        .filter(|room| !room.request && !room.unlisted)
-        .filter(|room| room.mentions > 0 || (!mentions_only && room.unread > 0 && !room.muted))
-        .map(|room| InboxRow {
+    let row = |room: &backcord_core::chat::ChatRoom| {
+        let server = servers.get(room.id.as_str());
+        InboxRow {
             id: room.id.clone(),
             name: if room.direct {
                 room.name.clone()
             } else {
                 format!("#{}", room.name)
             },
-            avatar_name: room.name.clone(),
-            place: places
-                .get(room.id.as_str())
-                .map(|place| (*place).to_owned())
-                .unwrap_or_default(),
-            picture: room.direct.then(|| room.avatar.clone()).flatten(),
+            avatar_name: server.map_or(room.name.clone(), |server| server.name.clone()),
+            place: server.map(|server| server.name.clone()).unwrap_or_default(),
+            picture: if room.direct {
+                room.avatar.clone()
+            } else {
+                server.and_then(|server| server.icon.clone())
+            },
             mentions: room.mentions,
-        })
-        .collect();
+            direct: room.direct,
+        }
+    };
+    let feed = &state.inbox;
+    let messages: Vec<backcord_core::chat::InboxMessage> = if feed.mentions == mentions_only {
+        feed.messages.clone()
+    } else {
+        Vec::new()
+    };
+    let rows: Vec<InboxRow> = if mentions_only {
+        // The conversations the mentions are in, newest first.
+        let mut seen = std::collections::HashSet::new();
+        messages
+            .iter()
+            .filter(|message| seen.insert(message.room.as_str()))
+            .filter_map(|message| state.rooms.iter().find(|room| room.id == message.room))
+            .map(|room| row(room))
+            .collect()
+    } else {
+        state
+            .rooms
+            .iter()
+            .filter(|room| !room.request && !room.unlisted)
+            .filter(|room| room.mentions > 0 || (room.unread > 0 && !room.muted))
+            .map(|room| row(room))
+            .collect()
+    };
     if rows != inbox.rows {
         inbox.rows = rows;
+    }
+    if messages != inbox.messages {
+        let link = crate::theme::rgb(app.theme.mention);
+        inbox.bodies = messages
+            .iter()
+            .map(|message| {
+                (
+                    message.id.clone(),
+                    crate::markdown::parse(&message.text, &[], link, &message.id, |_| false),
+                )
+            })
+            .collect();
+        inbox.messages = messages;
     }
 }
 
@@ -723,84 +811,123 @@ pub fn resize_edges(app: &App) -> Option<Element<'_, Message>> {
     Some(column![top, sides, bottom].into())
 }
 
-/// The inbox popout under the bar's Inbox button, as Discord's: 440 px
-/// wide, Unreads and Mentions, a click on a row going there.
+/// The inbox popout under the bar's Inbox button, as Discord's: Unreads
+/// and Mentions, a card for each channel or conversation with its newest
+/// messages, a check that marks it read, a click going there.
 pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
     let inbox = app.inbox.as_ref()?;
     if bar_height(app) == 0.0 || !crate::signin::workspace(app) {
         return None;
     }
     let theme = &app.theme;
-    let tab = |label: &'static str, which: Tab, width: f32| -> Element<'_, Message> {
+    let feed = &app.client.state().inbox;
+    let accent = theme.accent;
+    let tab = |label: &'static str, which: Tab| -> Element<'_, Message> {
         let selected = inbox.tab == which;
-        button(
-            container(text(label).size(14).font(BOLD).color(if selected {
-                theme.text
+        let words = text(label).size(14).font(BOLD).color(if selected {
+            theme.text
+        } else {
+            theme.secondary
+        });
+        let underline = container(Space::new().width(Length::Fill).height(2)).style(move |_| {
+            crate::style::fill(if selected {
+                accent
             } else {
-                theme.secondary
-            }))
-            .center(Length::Fill),
+                iced::Color::TRANSPARENT
+            })
+        });
+        button(
+            column![
+                container(words)
+                    .center_x(Length::Fill)
+                    .height(32)
+                    .align_y(Alignment::Center),
+                underline
+            ]
+            .width(Length::Fill),
         )
         .padding(0)
-        .width(width)
-        .height(32)
+        .width(Length::Fill)
         .on_press(Message::Bar(Event::InboxTab(which)))
-        .style(lit_style(
-            selected.then(|| theme.wash(0.12)),
-            theme.wash(if selected { 0.12 } else { 0.06 }),
-            4.0,
-        ))
+        .style(lit_style(None, theme.wash(0.06), 4.0))
+        .into()
+    };
+    let tool = |icon: Icon, label: &'static str, event: Event| -> Element<'_, Message> {
+        tooltip(
+            button(
+                container(app.look().glyph(icon, 16, theme.secondary).boxed(16.0))
+                    .center(Length::Fill),
+            )
+            .padding(0)
+            .width(32)
+            .height(32)
+            .on_press(Message::Bar(event))
+            .style(lit_style(Some(theme.wash(0.06)), theme.wash(0.12), 8.0)),
+            controls::tip(theme, label),
+            tooltip::Position::Bottom,
+        )
+        .gap(4)
         .into()
     };
     let head = row![
+        app.look().glyph(Icon::Inbox, 20, theme.text).boxed(20.0),
         text(backcord_iced_kit::i18n::tr("Inbox"))
-            .size(16)
+            .size(18)
             .font(BOLD)
             .color(theme.text),
         Space::new().width(Length::Fill),
-        tab(backcord_iced_kit::i18n::tr("Unreads"), Tab::Unreads, 80.0),
-        tab(backcord_iced_kit::i18n::tr("Mentions"), Tab::Mentions, 92.0),
+        tool(Icon::Refresh, "Aggiorna", Event::InboxReload),
+        tool(
+            Icon::Check,
+            backcord_iced_kit::i18n::tr("Mark everything as read"),
+            Event::MarkAllRead
+        ),
     ]
-    .spacing(8)
+    .spacing(10)
     .padding([0, 16])
-    .height(48)
+    .height(56)
     .align_y(Alignment::Center);
-    let body: Element<'_, Message> = if inbox.rows.is_empty() {
+    let tabs = row![
+        tab(backcord_iced_kit::i18n::tr("Unreads"), Tab::Unreads),
+        tab(backcord_iced_kit::i18n::tr("Mentions"), Tab::Mentions),
+    ]
+    .spacing(4)
+    .padding([0, 12]);
+    let note = |words: String| -> Element<'_, Message> {
         container(
-            text(match inbox.tab {
-                Tab::Unreads => backcord_iced_kit::i18n::tr(
-                    "Unread messages from your unmuted channels show up here.",
-                ),
-                Tab::Mentions => backcord_iced_kit::i18n::tr("Nothing mentions you right now."),
-            })
-            .size(14)
-            .color(theme.muted)
-            .align_x(Alignment::Center)
-            .width(Length::Fill),
+            text(words)
+                .size(14)
+                .color(theme.muted)
+                .align_x(Alignment::Center)
+                .width(Length::Fill),
         )
-        .padding(iced::Padding {
-            top: 16.0,
-            left: 16.0,
-            right: 16.0,
-            bottom: 0.0,
-        })
+        .padding(16)
         .height(136)
         .align_y(Alignment::Center)
         .into()
-    } else {
-        // Only the rows near the view are built: the Unreads can list
-        // hundreds.
-        let (first, last) = inbox.scroll.range(inbox.rows.len(), INBOX_ROW, INBOX_PAD);
-        let mut rows = Rows::new(inbox.rows.len() as f32 * INBOX_ROW + INBOX_PAD * 2.0);
-        for (index, entry) in inbox.rows.iter().enumerate().take(last).skip(first) {
-            rows.push(
-                crate::app::key(&entry.id),
-                INBOX_PAD + index as f32 * INBOX_ROW,
-                INBOX_ROW,
-                container(inbox_line(app, entry)).padding([0.0, INBOX_PAD]),
-            );
+    };
+    let body: Element<'_, Message> = if inbox.rows.is_empty() {
+        if feed.loading && inbox.tab == Tab::Mentions {
+            note("Caricamento…".to_owned())
+        } else if let Some(error) = feed.error.as_ref().filter(|_| inbox.tab == Tab::Mentions) {
+            note(error.clone())
+        } else {
+            note(
+                match inbox.tab {
+                    Tab::Unreads => backcord_iced_kit::i18n::tr(
+                        "Unread messages from your unmuted channels show up here.",
+                    ),
+                    Tab::Mentions => backcord_iced_kit::i18n::tr("Nothing mentions you right now."),
+                }
+                .to_owned(),
+            )
         }
-        scroll_view(rows)
+    } else {
+        let mut cards = column![].spacing(12).padding(12);
+        for entry in inbox.rows.iter().take(INBOX_CARDS) {
+            cards = cards.push(inbox_card(app, inbox, entry, feed.loading));
+        }
+        scroll_view(cards)
             .on_scroll(|viewport| {
                 Message::Bar(Event::InboxScrolled(crate::sync::Scroll::of(viewport)))
             })
@@ -811,6 +938,7 @@ pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
     let (raised, line) = (theme.raised, theme.line);
     let panel = container(column![
         head,
+        tabs,
         controls::bar(theme.line, Length::Fill, 1),
         body
     ])
@@ -819,7 +947,10 @@ pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
     // under it and stops 12 px over the window's foot.
     .height((app.window.height - 4.0 - 12.0).min(INBOX_MOST))
     .style(move |_| crate::style::panel(raised, line, 8.0));
-    let at = Point::new(app.window.width - INBOX_WIDTH - 8.0, HEIGHT + 4.0);
+    let at = Point::new(
+        (app.window.width - INBOX_WIDTH - 8.0).max(0.0),
+        HEIGHT + 4.0,
+    );
     Some(
         stack![
             controls::outside(Message::Bar(Event::CloseInbox), false),
@@ -829,43 +960,247 @@ pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
     )
 }
 
-fn inbox_line<'a>(app: &'a App, entry: &'a InboxRow) -> Element<'a, Message> {
+/// A channel's or conversation's card: its picture, name and place, its
+/// mentions and its check, then its newest messages.
+fn inbox_card<'a>(
+    app: &'a App,
+    inbox: &'a Inbox,
+    entry: &'a InboxRow,
+    loading: bool,
+) -> Element<'a, Message> {
     let theme = &app.theme;
     let mut names = column![
         elide(entry.name.as_str())
-            .size(14)
+            .size(15)
             .font(BOLD)
             .color(theme.text)
     ];
     if !entry.place.is_empty() {
         names = names.push(elide(entry.place.as_str()).size(12).color(theme.muted));
     }
-    let mut line = row![
+    let radius = if entry.direct { 16.0 } else { 10.0 };
+    let mut top = row![
         app.ctx().avatar_tinted(
             entry.picture.as_deref(),
             &entry.avatar_name,
             &entry.id,
             32.0,
-            16.0,
+            radius,
             1.0
         ),
-        container(names.spacing(2)).width(Length::Fill)
+        container(names.spacing(2)).width(Length::Fill).clip(true)
     ]
     .spacing(12)
     .align_y(Alignment::Center);
     if entry.mentions > 0 {
-        line = line.push(controls::count_pill(
+        top = top.push(controls::count_pill(
             theme,
             &controls::count_badge(entry.mentions),
             controls::INBOX_COUNT,
             None,
         ));
     }
-    button(line)
+    let top = button(top)
+        .padding(4)
+        .width(Length::Fill)
+        .on_press(Message::Bar(Event::InboxOpen(entry.id.clone())))
+        .style(lit_style(None, theme.wash(0.06), 6.0));
+    let read: Element<'_, Message> = if inbox.tab == Tab::Unreads {
+        tooltip(
+            button(
+                container(
+                    app.look()
+                        .glyph(Icon::Check, 16, theme.secondary)
+                        .boxed(16.0),
+                )
+                .center(Length::Fill),
+            )
+            .padding(0)
+            .width(32)
+            .height(32)
+            .on_press(Message::Bar(Event::InboxRead(entry.id.clone())))
+            .style(lit_style(Some(theme.wash(0.06)), theme.wash(0.12), 8.0)),
+            controls::tip(theme, backcord_iced_kit::i18n::tr("Mark as read")),
+            tooltip::Position::Bottom,
+        )
+        .gap(4)
+        .into()
+    } else {
+        Space::new().width(0).into()
+    };
+    let mut card = column![row![top, read].spacing(8).align_y(Alignment::Center)].spacing(4);
+    let mut shown = 0;
+    for message in inbox
+        .messages
+        .iter()
+        .filter(|message| message.room == entry.id)
+    {
+        card = card.push(inbox_message(app, inbox, message));
+        shown += 1;
+    }
+    if shown == 0 && loading {
+        card =
+            card.push(container(text("Caricamento…").size(12).color(theme.muted)).padding([4, 48]));
+    }
+    let (ground, edge) = (theme.wash(0.03), theme.line);
+    container(card)
         .padding(8)
         .width(Length::Fill)
-        .height(INBOX_ROW)
-        .on_press(Message::Bar(Event::InboxOpen(entry.id.clone())))
-        .style(lit_style(None, theme.wash(0.06), 4.0))
+        .style(move |_| crate::style::outlined(ground, edge, 10.0))
         .into()
+}
+
+/// A message in the inbox: its author's picture and name, when, its text
+/// formatted as in the chat, and its first picture.
+fn inbox_message<'a>(
+    app: &'a App,
+    inbox: &'a Inbox,
+    message: &'a backcord_core::chat::InboxMessage,
+) -> Element<'a, Message> {
+    let theme = &app.theme;
+    let ctx = app.ctx();
+    let when = crate::place_menus::until(message.at / 1000, app.layout.prefs.twelve_hour_clock);
+    let mut words = column![
+        row![
+            elide(message.author.as_str())
+                .size(14)
+                .font(BOLD)
+                .color(theme.text)
+                .shrink(),
+            text(when).size(11).color(theme.muted),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center)
+    ]
+    .spacing(2)
+    .width(Length::Fill);
+    if let Some(body) = inbox.bodies.get(&message.id) {
+        for part in &body.parts {
+            let size = match part.shape {
+                crate::markdown::Shape::Heading(1) => 20.0,
+                crate::markdown::Shape::Heading(2) => 18.0,
+                crate::markdown::Shape::Heading(_) => 16.0,
+                crate::markdown::Shape::Subtext => 12.0,
+                _ => 14.0,
+            };
+            let ink = if part.shape == crate::markdown::Shape::Subtext {
+                theme.muted
+            } else {
+                theme.text
+            };
+            let (sunken, link) = (theme.sunken, theme.link);
+            let spans: Vec<_> = part
+                .runs
+                .iter()
+                .map(|run| inbox_span(run, ink, sunken, link))
+                .collect();
+            let line: Element<'_, Message> = iced::widget::rich_text::<(), _, _, _>(spans)
+                .size(size)
+                .color(ink)
+                .width(Length::Fill)
+                .into();
+            let line: Element<'_, Message> = if part.quoted {
+                let bar_ink = theme.faint;
+                row![
+                    container(Space::new().width(4).height(Length::Fill))
+                        .style(move |_| crate::style::rounded(bar_ink, 2)),
+                    line
+                ]
+                .spacing(8)
+                .height(Length::Shrink)
+                .into()
+            } else if part.shape == crate::markdown::Shape::Code {
+                let code_ground = theme.sunken;
+                container(line)
+                    .padding(8)
+                    .width(Length::Fill)
+                    .style(move |_| crate::style::rounded(code_ground, 6))
+                    .into()
+            } else {
+                line
+            };
+            words = words.push(line);
+        }
+    }
+    if let Some((url, width, height)) = &message.picture {
+        let scale = (INBOX_PICTURE.0 / *width as f32)
+            .min(INBOX_PICTURE.1 / *height as f32)
+            .min(1.0);
+        let size = iced::Size::new(
+            (*width as f32 * scale).round().max(16.0),
+            (*height as f32 * scale).round().max(16.0),
+        );
+        if let Some(picture) = ctx.picture(url, size.width as u32, size.height as u32, true) {
+            words = words.push(crate::widgets::Pic::new(picture, size).radius(8.0));
+        } else {
+            let ground = theme.sunken;
+            words = words.push(
+                container(Space::new())
+                    .width(size.width)
+                    .height(size.height)
+                    .style(move |_| crate::style::rounded(ground, 8)),
+            );
+        }
+    }
+    if message.files > 0 {
+        words = words.push(
+            text(format!("📎 {} allegati", message.files))
+                .size(12)
+                .color(theme.muted),
+        );
+    }
+    let line = row![
+        ctx.avatar(message.avatar.as_deref(), &message.author, 32.0, 16.0, 1.0),
+        words
+    ]
+    .spacing(12);
+    button(line)
+        .padding([6, 8])
+        .width(Length::Fill)
+        .on_press(Message::Bar(Event::InboxOpen(message.room.clone())))
+        .style(lit_style(None, theme.wash(0.04), 6.0))
+        .into()
+}
+
+/// A run of a message's text as the inbox draws it: its weight, slant,
+/// lines and colour, code on its ground, a spoiler covered.
+fn inbox_span(
+    run: &crate::markdown::Run,
+    ink: iced::Color,
+    sunken: iced::Color,
+    link: iced::Color,
+) -> iced::widget::text::Span<'_, (), iced::Font> {
+    use iced::{Font, font::Style};
+    let font = if run.code {
+        Font::MONOSPACE
+    } else {
+        Font {
+            style: if run.italic {
+                Style::Italic
+            } else {
+                Style::Normal
+            },
+            ..if run.bold {
+                BOLD
+            } else {
+                crate::fonts::REGULAR
+            }
+        }
+    };
+    let piece = iced::widget::span(run.text.as_str())
+        .font(font)
+        .strikethrough(run.strike)
+        .underline(run.underline);
+    if run.hidden {
+        return piece.color(sunken).background(sunken);
+    }
+    if let Some(rgb) = run.color {
+        piece.color(crate::style::hex(rgb))
+    } else if run.link.is_some() {
+        piece.color(link)
+    } else if run.code {
+        piece.color(ink).background(sunken)
+    } else {
+        piece
+    }
 }

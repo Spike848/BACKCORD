@@ -1045,6 +1045,17 @@ async fn receive_stream(
                     tracing::info!(frames = received.decoded, "stream frames are reaching the decoder");
                 }
                 flowing = received.decoded;
+                // No video at all yet: the streamer may be waiting to be
+                // asked for a picture, so ask again, each time the log looks.
+                if received.video == 0
+                    && let Some(media) = streamer.video
+                {
+                    asked = Instant::now();
+                    received.keyframe_requests += 1;
+                    let mut request = rtp::picture_loss(connection.ssrc, media);
+                    connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
+                    connection.udp.send(&request).await?;
+                }
             }
             length = connection.udp.recv(&mut datagram) => {
                 let packet = &datagram[..length?];

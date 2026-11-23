@@ -69,6 +69,8 @@ pub struct ChannelDialog {
     pub settings: Option<ChannelSettings>,
     pub saving: bool,
     pub error: Option<String>,
+    /// A group's new icon, as the file chosen for it.
+    pub icon: Option<String>,
 }
 
 /// What a [`ChannelDialog`] does, with the room id of the channel or
@@ -84,6 +86,8 @@ pub enum ChannelAsk {
     Delete(String),
     /// Set this voice channel's status; the dialog's name is the status.
     Status(String),
+    /// Rename a group DM, and change its icon.
+    Group(String),
 }
 
 /// The most a voice channel's status can say, in characters.
@@ -1087,6 +1091,7 @@ impl Application {
             ChannelAsk::Duplicate(room) => (room.clone(), MenuChoice::DuplicateChannel),
             ChannelAsk::Delete(room) => (room.clone(), MenuChoice::DeleteChannel),
             ChannelAsk::Status(room) => (room.clone(), MenuChoice::SetChannelStatus),
+            ChannelAsk::Group(room) => (room.clone(), MenuChoice::EditGroup),
             ChannelAsk::Create { .. } => return vec![],
         };
         if !self.menu_choices(&room).contains(&choice) {
@@ -1136,7 +1141,49 @@ impl Application {
             settings,
             saving: false,
             error: None,
+            icon: None,
         });
+    }
+
+    /// Asks Discord for the inbox's messages: those that mention this
+    /// account, or the unread ones of the rooms the inbox lists, unmuted.
+    pub(super) fn load_inbox(&mut self, mentions: bool) -> Vec<Effect> {
+        let inbox = &mut self.state.inbox;
+        if inbox.mentions != mentions {
+            inbox.messages.clear();
+        }
+        inbox.mentions = mentions;
+        inbox.loading = true;
+        inbox.error = None;
+        let rooms = if mentions {
+            Vec::new()
+        } else {
+            self.state
+                .rooms
+                .iter()
+                .filter(|room| room.network == Network::Discord && !room.request && !room.unlisted)
+                .filter(|room| room.mentions > 0 || (room.unread > 0 && !room.muted))
+                .map(|room| (room.id.clone(), room.last_read.clone()))
+                .collect()
+        };
+        vec![Effect::Backend(Command::Discord(DiscordCommand::Inbox {
+            mentions,
+            rooms,
+        }))]
+    }
+
+    /// The file chosen as the group's new icon in its dialog.
+    pub(super) fn group_icon(&mut self, icon: Option<String>) -> Vec<Effect> {
+        if let Some(dialog) = self
+            .state
+            .channel_dialog
+            .as_mut()
+            .filter(|dialog| matches!(dialog.ask, ChannelAsk::Group(_)) && !dialog.saving)
+        {
+            dialog.icon = icon;
+            dialog.error = None;
+        }
+        vec![]
     }
 
     /// Carries out the channel dialog with what it was given: of `kind`, text
@@ -1170,6 +1217,24 @@ impl Application {
         settings.name.truncate(settings.name.trim_end().len());
         let leading = settings.name.len() - settings.name.trim_start().len();
         settings.name.drain(..leading);
+        // A group keeps its name as written, or goes by its members' with none.
+        if let ChannelAsk::Group(room) = dialog.ask.clone() {
+            if settings.name.chars().count() > CHANNEL_NAME_LIMIT {
+                dialog.error = Some(format!(
+                    "Names can be up to {CHANNEL_NAME_LIMIT} characters."
+                ));
+                return vec![];
+            }
+            dialog.saving = true;
+            dialog.error = None;
+            return vec![Effect::Backend(Command::Discord(
+                DiscordCommand::EditGroup {
+                    room,
+                    name: settings.name,
+                    icon: dialog.icon.clone(),
+                },
+            ))];
+        }
         // Discord's text channel names are lower case, with dashes for spaces.
         if kind == ChannelKind::Text {
             settings.name = settings
@@ -1227,6 +1292,7 @@ impl Application {
                 room,
                 status: settings.name,
             },
+            ChannelAsk::Group(_) => return vec![],
         };
         dialog.kind = kind;
         vec![Effect::Backend(Command::Discord(command))]

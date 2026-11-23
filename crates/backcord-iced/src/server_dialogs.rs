@@ -104,6 +104,9 @@ pub enum Event {
     CloseJoin,
     ChannelName(String),
     ChannelVoice(bool),
+    /// A group's Change icon: the system's dialog, then the file chosen.
+    GroupIcon,
+    GroupIconPicked(Option<String>),
     SaveChannel,
     CloseChannel,
     Leave,
@@ -141,6 +144,15 @@ pub fn pictures(state: &AppState) -> Vec<String> {
             .filter_map(|person| person.avatar.clone())
             .take(2 * PEOPLE_SHOWN)
     });
+    // A group's picture, in its Edit Group dialog.
+    let group = state
+        .channel_dialog
+        .as_ref()
+        .and_then(|dialog| match &dialog.ask {
+            ChannelAsk::Group(room) => state.rooms.iter().find(|known| &known.id == room),
+            _ => None,
+        })
+        .and_then(|room| room.avatar.clone());
     state
         .join
         .as_ref()
@@ -148,6 +160,7 @@ pub fn pictures(state: &AppState) -> Vec<String> {
         .and_then(|preview| preview.icon.clone())
         .into_iter()
         .chain(people)
+        .chain(group)
         .collect()
 }
 
@@ -297,6 +310,24 @@ impl Dialogs {
                 }
                 return Task::none();
             }
+            Event::GroupIcon => {
+                return Task::perform(
+                    async {
+                        let file = rfd::AsyncFileDialog::new()
+                            .set_title("Icona del gruppo")
+                            .add_filter(
+                                "PNG, JPG, GIF, WebP",
+                                &["png", "jpg", "jpeg", "gif", "webp"],
+                            )
+                            .pick_file()
+                            .await?;
+                        Some(file.path().to_string_lossy().into_owned())
+                    },
+                    |picked| message(Event::GroupIconPicked(picked)),
+                );
+            }
+            Event::GroupIconPicked(None) => return Task::none(),
+            Event::GroupIconPicked(Some(path)) => Action::GroupIcon(Some(path)),
             Event::SaveChannel => {
                 let saving = cx
                     .state()
@@ -808,6 +839,12 @@ impl<'a> View<'a> {
                 ),
                 backcord_iced_kit::i18n::tr("Imposta stato").to_owned(),
             ),
+            ChannelAsk::Group(_) => (
+                backcord_iced_kit::i18n::tr("Edit Group").to_owned(),
+                "Cambia il nome e l'icona del gruppo. Senza nome prende quelli dei membri."
+                    .to_owned(),
+                backcord_iced_kit::i18n::tr("Save").to_owned(),
+            ),
             ChannelAsk::Delete(_) => (
                 backcord_iced_kit::i18n::t(format!("Delete {thing}")),
                 backcord_iced_kit::i18n::t(format!(
@@ -839,9 +876,14 @@ impl<'a> View<'a> {
                 ),
             ]);
         }
+        if let ChannelAsk::Group(room) = &asked.ask {
+            body.push(self.group_icon_row(room, asked.icon.as_deref()));
+        }
         if !deleting {
             let (field, placeholder) = if matches!(asked.ask, ChannelAsk::Status(_)) {
                 ("STATO DEL CANALE", "Imposta uno stato del canale")
+            } else if matches!(asked.ask, ChannelAsk::Group(_)) {
+                ("NOME DEL GRUPPO", asked.name.as_str())
             } else if category {
                 (
                     backcord_iced_kit::i18n::tr("CATEGORY NAME"),
@@ -890,6 +932,41 @@ impl<'a> View<'a> {
                 .look
                 .framed(body, WIDE, message(Event::CloseChannel)),
         )
+    }
+
+    /// A group's icon as it is, or the file chosen for it, and the button
+    /// that chooses one.
+    fn group_icon_row(self, room: &str, chosen: Option<&'a str>) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let group = self.cx.state.rooms.iter().find(|known| known.id == room);
+        let (avatar, name) = group.map_or((None, ""), |group| {
+            (group.avatar.as_deref(), group.name.as_str())
+        });
+        let face = self.cx.avatar(avatar, name, 64.0, 32.0, 1.0);
+        let said = match chosen {
+            Some(path) => std::path::Path::new(path)
+                .file_name()
+                .map(|file| file.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.to_owned()),
+            None => "Nessuna nuova icona scelta".to_owned(),
+        };
+        row![
+            face,
+            column![
+                action(
+                    theme,
+                    "Cambia icona",
+                    Kind::Primary,
+                    Some(message(Event::GroupIcon)),
+                ),
+                text(said).size(12).color(theme.muted),
+            ]
+            .spacing(6)
+            .width(Length::Fill),
+        ]
+        .spacing(16)
+        .align_y(Alignment::Center)
+        .into()
     }
 
     /// Asks before leaving a server or group DM, in red; a group's offers

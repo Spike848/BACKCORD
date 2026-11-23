@@ -1278,6 +1278,9 @@ FORMAT	FORMATO
 IMAGE SIZE	DIMENSIONE IMMAGINE
 View Avatar	Visualizza avatar
 View Icon	Visualizza icona
+View Banner	Visualizza banner
+Edit Group	Modifica gruppo
+Server banner	Banner del server
 Avatar	Avatar
 Banner	Banner
 Server icon	Icona del server
@@ -3719,3 +3722,6 @@ Sends your microphone untouched in Discord calls: no echo cancellation, noise su
 Sends your microphone in Discord calls at the best the codec offers: Opus at 320 kbit/s, fullband, tuned for music. Noise suppression and echo reduction below still apply as you choose them; with both off, your microphone goes out as it is.	Invia il microfono nelle chiamate Discord alla massima qualità del codec: Opus a 320 kbit/s, fullband, ottimizzato per la musica. Riduzione del rumore e dell'eco qui sotto restano attive come le imposti; con entrambe disattivate il microfono esce così com'è.
 Download	Scarica
 Open Original	Apri originale
+Switch Accounts	Cambia account
+Add an Account	Aggiungi un account
+Switching accounts...	Cambio account in corso...

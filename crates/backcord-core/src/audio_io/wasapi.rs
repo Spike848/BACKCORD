@@ -716,8 +716,10 @@ mod others {
         stop: &AtomicBool,
     ) -> Result<()> {
         // For packets the engine hands over at an odd address, which it
-        // shouldn't: a copy the size of its buffer, made once.
-        let mut unaligned = vec![0f32; stream.buffer as usize * 2];
+        // shouldn't: a copy, grown to the packets it takes. Not the size of
+        // the engine's buffer: a process loopback stream may say billions
+        // of frames, which once asked for 33 GB and ended the worker.
+        let mut unaligned: Vec<f32> = Vec::new();
         while !stop.load(Ordering::Relaxed) {
             // SAFETY: the event lives as long as the stream.
             let waited = unsafe { WaitForSingleObject(stream.event, STOP_CHECK_MS) };
@@ -738,13 +740,18 @@ mod others {
                     let length = count as usize * 2;
                     // Nothing playing: the mixer hears nothing rather than silence.
                     let silent = flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 || data.is_null();
-                    if !silent && length > 0 {
+                    // A packet holds a fraction of a second; one that says
+                    // more is the engine's mistake, and passed over.
+                    let believable = count <= RATE;
+                    if !silent && length > 0 && believable {
                         let samples = data.cast::<f32>();
                         let samples: &[f32] = if samples.is_aligned() {
                             std::slice::from_raw_parts(samples, length)
                         } else {
-                            let room = unaligned.len();
-                            let into = &mut unaligned[..length.min(room)];
+                            if unaligned.len() < length {
+                                unaligned.resize(length, 0.0);
+                            }
+                            let into = &mut unaligned[..length];
                             std::ptr::copy_nonoverlapping(
                                 data,
                                 into.as_mut_ptr().cast(),

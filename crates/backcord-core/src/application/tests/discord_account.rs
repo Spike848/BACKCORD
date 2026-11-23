@@ -4,6 +4,73 @@ use super::*;
 
 #[test]
 #[cfg(feature = "discord")]
+fn switching_accounts_keeps_the_login_and_connects_the_other() {
+    use crate::chat::SavedAccount;
+    use backcord_discord::service::{Snapshot, Status};
+    let mut app = connected();
+    app.state.busy = false;
+    app.apply(discord_event(Snapshot {
+        status: Status::Online,
+        user_id: Some("1".into()),
+        ..Default::default()
+    }));
+    app.state.account_name = Some("alice".into());
+    assert!(matches!(
+        app.dispatch(Action::LoadAccounts).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::Accounts))]
+    ));
+    let bob = SavedAccount {
+        id: "2".into(),
+        name: "bob".into(),
+        avatar: None,
+    };
+    app.apply(Event::SavedAccounts(vec![bob.clone()]));
+    assert_eq!(app.state.saved_accounts, vec![bob]);
+    // Switching to the account it is does nothing.
+    assert!(
+        app.dispatch(Action::SwitchAccount(Some("1".into())))
+            .is_empty()
+    );
+    // The account it leaves is kept, by its id and name.
+    let switched = app.dispatch(Action::SwitchAccount(Some("2".into())));
+    assert!(matches!(
+        switched.as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::Switch {
+            current: Some(current),
+            to: Some(to),
+        }))] if current.id == "1" && current.name == "alice" && to == "2"
+    ));
+    // The other connects afresh.
+    assert!(matches!(
+        app.apply(Event::AccountSwitched { restart: true })
+            .as_slice(),
+        [Effect::Start(crate::chat::Start::Restore)]
+    ));
+    assert!(!app.state.discord_linked);
+    // Adding one ends at the sign-in.
+    let mut app = connected();
+    app.state.busy = false;
+    app.apply(discord_event(Snapshot {
+        status: Status::Online,
+        user_id: Some("1".into()),
+        ..Default::default()
+    }));
+    assert!(matches!(
+        app.dispatch(Action::SwitchAccount(None)).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::Switch {
+            to: None,
+            ..
+        }))]
+    ));
+    assert!(
+        app.apply(Event::AccountSwitched { restart: false })
+            .is_empty()
+    );
+    assert!(app.state.account.is_none());
+}
+
+#[test]
+#[cfg(feature = "discord")]
 fn links_discord_by_qr_code_and_unlinks_it() {
     use crate::discord_link::Progress;
     use backcord_discord::service::{Snapshot, Status};

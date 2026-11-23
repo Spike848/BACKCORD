@@ -11,7 +11,7 @@ use super::{
     *,
 };
 use crate::chat::{
-    EventPreview, GiftPreview, InvitePreview, JoinedServer, MemberChange, Muting,
+    EventPreview, GiftPreview, InboxMessage, InvitePreview, JoinedServer, MemberChange, Muting,
     NotificationChange, NotifyLevel, OAuthGuild, OAuthPreview, RelationshipChange, SearchSort,
     Searched,
 };
@@ -1349,6 +1349,10 @@ pub(super) fn command(
         });
         return None;
     }
+    if let Command::Discord(DiscordCommand::Inbox { mentions, rooms }) = command {
+        inbox(mentions, rooms, discord, events);
+        return None;
+    }
     if let Command::Discord(
         command @ (DiscordCommand::LeaveServer { .. } | DiscordCommand::LeaveGroup { .. }),
     ) = command
@@ -1361,7 +1365,8 @@ pub(super) fn command(
         | DiscordCommand::ChannelSettings { .. }
         | DiscordCommand::EditChannel { .. }
         | DiscordCommand::DeleteChannel { .. }
-        | DiscordCommand::SetVoiceStatus { .. }),
+        | DiscordCommand::SetVoiceStatus { .. }
+        | DiscordCommand::EditGroup { .. }),
     ) = command
     {
         manage_channel(command, discord, events);
@@ -1568,6 +1573,32 @@ fn manage_channel(
                     None => Err(anyhow::anyhow!(NOT_DISCORD)),
                 };
                 (result, "set the channel status")
+            }
+            DiscordCommand::EditGroup { room, name, icon } => {
+                let result = match channel(&room) {
+                    Some(id) => {
+                        // Shaped as Discord's client sends a group's icon.
+                        let picked = match icon {
+                            Some(path) => super::own_profile::read_shaped(
+                                std::path::Path::new(&path),
+                                (1024, 1024),
+                                (80, 80),
+                                "a group icon",
+                            )
+                            .map(|picked| Some(super::own_profile::picture(&Some(picked)))),
+                            None => Ok(None),
+                        };
+                        match picked {
+                            Ok(icon) => discord
+                                .edit_group(&id, name.trim(), icon)
+                                .await
+                                .map(|()| None),
+                            Err(why) => Err(anyhow::anyhow!(why)),
+                        }
+                    }
+                    None => Err(anyhow::anyhow!(NOT_DISCORD)),
+                };
+                (result, "change the group")
             }
             _ => return,
         };
@@ -2065,3 +2096,182 @@ async fn activity_feed(discord: Discord, events: UnboundedSender<Event>) {
 const FEED_WAIT_MS: u64 = 5 * 60 * 1000;
 /// The least wait however Discord answers, in milliseconds.
 const FEED_LEAST_WAIT_MS: u64 = 60 * 1000;
+
+/// The most unread channels the inbox asks Discord about at once, and the
+/// most messages it shows of each.
+const INBOX_ROOMS: usize = 20;
+const INBOX_EACH: usize = 5;
+
+/// The inbox's messages: those that mention this account, or the newest
+/// unread of each of `rooms` after the one last read there.
+fn inbox(
+    mentions: bool,
+    rooms: Vec<(String, Option<String>)>,
+    discord: Result<&Discord, &str>,
+    events: &UnboundedSender<Event>,
+) {
+    let discord = match discord {
+        Ok(discord) => discord.clone(),
+        Err(why) => {
+            let _ = events.send(Event::Inbox {
+                mentions,
+                result: Err(why.into()),
+            });
+            return;
+        }
+    };
+    let events = events.clone();
+    tokio::spawn(async move {
+        let result = if mentions {
+            discord
+                .recent_mentions()
+                .await
+                .map(|found| {
+                    found
+                        .iter()
+                        .filter_map(|value| inbox_message(&discord, value, None))
+                        .collect()
+                })
+                .map_err(|error| error.to_string())
+        } else {
+            let mut all = Vec::new();
+            let mut failed = None;
+            for (room, after) in rooms.into_iter().take(INBOX_ROOMS) {
+                let Some((_, channel)) = discord::parse_room(&room) else {
+                    continue;
+                };
+                let after = after.as_deref().and_then(|item| item.strip_prefix("d:"));
+                match discord.messages_after(channel, after).await {
+                    Ok(page) => {
+                        let mut found: Vec<InboxMessage> = page
+                            .iter()
+                            .filter_map(|value| inbox_message(&discord, value, Some(&room)))
+                            .collect();
+                        found.sort_by_key(|message| message.at);
+                        let skip = found.len().saturating_sub(INBOX_EACH);
+                        all.extend(found.into_iter().skip(skip));
+                    }
+                    Err(error) => failed = Some(error.to_string()),
+                }
+            }
+            match failed {
+                Some(error) if all.is_empty() => Err(error),
+                _ => Ok(all),
+            }
+        };
+        if let Err(error) = &result {
+            tracing::warn!(%error, "could not load the inbox");
+        }
+        let _ = events.send(Event::Inbox { mentions, result });
+    });
+}
+
+/// A message as the inbox shows it, in `room` or the room of its channel.
+fn inbox_message(
+    discord: &Discord,
+    value: &serde_json::Value,
+    room: Option<&str>,
+) -> Option<InboxMessage> {
+    let message = backcord_discord::message::parse(value)?;
+    if message.system.is_some() {
+        return None;
+    }
+    let guild = value["guild_id"].as_str();
+    let room = match room {
+        Some(room) => room.to_owned(),
+        None => discord::room_id(guild.unwrap_or(discord::DM_GUILD), &message.channel_id),
+    };
+    let author = value["member"]["nick"]
+        .as_str()
+        .or_else(|| value["author"]["global_name"].as_str())
+        .unwrap_or(&message.author)
+        .to_owned();
+    let picture = message
+        .attachments
+        .iter()
+        .find(|file| file.image && !file.spoiler)
+        .map(|file| {
+            let (width, height) = file.dimensions.unwrap_or((400, 300));
+            (
+                file.preview_url
+                    .clone()
+                    .unwrap_or_else(|| file.url.to_string()),
+                width,
+                height,
+            )
+        });
+    let files = message.attachments.len() - usize::from(picture.is_some());
+    let mut text = written_out(&message.content, value);
+    if text.is_empty()
+        && let Some(embed) = value["embeds"].as_array().and_then(|embeds| embeds.first())
+    {
+        text = [embed["title"].as_str(), embed["description"].as_str()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+    Some(InboxMessage {
+        at: backcord_discord::message::snowflake_ms(&message.id),
+        avatar: Some(discord.avatar(guild, &message.author_id)),
+        id: message.id,
+        room,
+        author,
+        author_id: message.author_id,
+        text,
+        picture,
+        files,
+    })
+}
+
+/// A message's text with its mentions of people written out as their
+/// names, and of roles and channels as Discord's client names unknown ones.
+fn written_out(content: &str, value: &serde_json::Value) -> String {
+    let mut text = content.to_owned();
+    for person in value["mentions"].as_array().into_iter().flatten() {
+        let Some(id) = person["id"].as_str() else {
+            continue;
+        };
+        let name = person["global_name"]
+            .as_str()
+            .or_else(|| person["username"].as_str())
+            .unwrap_or("someone");
+        for marker in [format!("<@{id}>"), format!("<@!{id}>")] {
+            text = text.replace(&marker, &format!("@{name}"));
+        }
+    }
+    // Roles and channels the message doesn't name.
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text.as_str();
+    while let Some(at) = rest.find('<') {
+        out.push_str(&rest[..at]);
+        let tail = &rest[at..];
+        let end = tail.find('>');
+        let replaced = end.and_then(|end| {
+            let inner = &tail[1..end];
+            let digits =
+                |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
+            if let Some(id) = inner.strip_prefix("@&") {
+                digits(id).then(|| "@ruolo".to_owned())
+            } else if let Some(id) = inner.strip_prefix('#') {
+                digits(id).then(|| "#canale".to_owned())
+            } else if let Some(id) = inner.strip_prefix('@') {
+                digits(id.trim_start_matches('!')).then(|| "@utente".to_owned())
+            } else {
+                None
+            }
+        });
+        match (replaced, end) {
+            (Some(replaced), Some(end)) => {
+                out.push_str(&replaced);
+                rest = &tail[end + 1..];
+            }
+            _ => {
+                out.push('<');
+                rest = &tail[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}

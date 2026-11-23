@@ -13,7 +13,7 @@ pub(super) const INSET: f32 = 24.0;
 /// Tiles' shape, and the widest a tile of the grid gets.
 pub(super) const ASPECT: f32 = 0.5625;
 
-pub(super) const WIDEST: f32 = 420.0;
+pub(super) const WIDEST: f32 = 640.0;
 
 /// The corner picture's size.
 pub const CORNER: Size = Size::new(320.0, 180.0);
@@ -204,11 +204,17 @@ pub fn tiles(
     while best_fit < count.min(4) && fitted(best_fit + 1) * 1.1 > fitted(best_fit) {
         best_fit += 1;
     }
+    // More people take the columns that make their tiles largest while
+    // they all fit, unless that leaves them under 240 px: then they scroll.
+    let many_fit = (1..=count)
+        .max_by(|one, other| fitted(*one).total_cmp(&fitted(*other)))
+        .unwrap_or(1);
+    let many_fits = fitted(many_fit) >= 240.0;
     let others = count - 1;
     let strip_width = if others == 0 {
         0.0
     } else {
-        ((span - (others as f32 - 1.0) * gap) / others as f32).clamp(120.0, 192.0)
+        ((span - (others as f32 - 1.0) * gap) / others as f32).clamp(160.0, 256.0)
     };
     let strip_columns = ((span + gap) / (strip_width + gap))
         .floor()
@@ -241,6 +247,8 @@ pub fn tiles(
         strip_columns
     } else if count <= 4 {
         best_fit
+    } else if many_fits {
+        many_fit
     } else {
         fewest
     };
@@ -248,6 +256,8 @@ pub fn tiles(
         strip_width
     } else if count <= 4 {
         fitted(columns).max(160.0)
+    } else if many_fits {
+        fitted(columns)
     } else {
         WIDEST.min((span - (columns as f32 - 1.0) * gap) / columns as f32)
     };

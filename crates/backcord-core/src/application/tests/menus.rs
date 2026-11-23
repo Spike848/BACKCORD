@@ -464,7 +464,7 @@ fn a_discord_dms_menu_manages_its_person_and_notifications() {
     // A group has no one person to manage.
     assert_eq!(
         app.state.menu_choices("discord:@me:31"),
-        [Pin, Call, Mute, LeaveGroup, CopyLink, CopyId]
+        [Pin, Call, Mute, EditGroup, LeaveGroup, CopyLink, CopyId]
     );
     app.apply(discord_event(snapshot(false, true, true, true)));
     assert_eq!(
