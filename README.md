@@ -34,22 +34,19 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.1
+## Novità della 1.3.2
 
-- **Chat dei canali vocali** come su Discord: il pulsante a fumetto apre la chat
-  in un pannello a destra, accanto alla chiamata, che si stringe.
-- **Formattazione mentre scrivi**: `**grassetto**`, `*corsivo*`, ```codice```,
-  titoli e blocchi di codice prendono lo stile già nel campo, con i simboli in
-  grigio, come su Discord.
-- **Volume fino al 400%**: per ogni utente (menu col tasto destro) e per il tuo
-  microfono, con un campo per scrivere la percentuale esatta.
-- **Voci meno robotiche**: con una connessione instabile BACKCORD aspetta di più
-  i pacchetti in ritardo invece di ricostruirli, e torna veloce quando la rete
-  si calma.
-- **Cambio account**: ogni account usato resta salvato, e la schermata di
-  accesso li mostra per rientrare con un clic.
-- **Canali vocali pieni**: dopo l'avviso puoi entrare subito negli altri canali
-  con posti liberi.
+- **Suoni di Discord**: i suoni di chiamate, muto, messaggi e menzioni sono ora
+  quelli originali di Discord, scaricati la prima volta e tenuti sul PC.
+- **Preset di suoni personali**: per ogni suono puoi caricare un tuo MP3 (o Ogg,
+  WAV), creare più preset, rinominarli ed eliminarli, e regolare il volume di
+  ciascun suono.
+- **Notifiche e suoni insieme**: la sezione Suoni è dentro Notifiche, con
+  l'interruttore per le notifiche desktop.
+- **Pannello Aggiornamento**: la sezione Informazioni delle impostazioni ora si
+  chiama Aggiornamento.
+- **Finestra sempre trascinabile**: la barra del titolo non perde più il
+  trascinamento quando il puntatore esce dalla barra.
 
 ## Cosa fa
 
