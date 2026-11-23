@@ -37,6 +37,20 @@ member list, the DMs, and the lists still to come build on it.
   timeout and its length, a nickname, a note) opens the person dialog,
   with its options, field and "Don't ask again", and sends the
   answer to the core.
+- Ctrl and a click on members, or on people in a voice channel's list,
+  picks several of one server (`picks.rs`; the core's
+  `application/picks.rs` holds them in `AppState.picked`): their rows
+  stay lit, a second Ctrl click lets one go, and a plain click, or a right
+  click on someone not picked, ends the picking. A right click on one of
+  two or more picked opens their menu: "N people picked", then what every
+  one's own menu offers that acts on each alike (Mention, the friend,
+  ignore and block choices, Mute, Mute Soundboard, Server mute and deafen,
+  ticked when on for all, Move to the channels all may go to, Disconnect,
+  Timeout, Remove timeout, Kick and Ban), without what's about one person
+  (profile, message, call, note, nickname, roles, ID). Timeout, Kick, Ban,
+  Remove friend and Block open one dialog naming them, for everyone
+  picked whom this account may; its answer sends one change each, and the
+  dialog closes once all have answered, or shows why one failed.
 - Profiles (`profile/`): `look.rs` works out what a profile shows once
   each time the core's view of it changes (its theme's inks, the status's
   bubble, activities, the bio laid out, the mutual line, the tabs). The

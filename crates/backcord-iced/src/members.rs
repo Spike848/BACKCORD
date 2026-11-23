@@ -213,7 +213,18 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             point(&mut app.pointed.member, id, entered);
             app.ask()
         }
-        Event::Open(id) => open_member(app, &id),
+        Event::Open(id) => {
+            let place = app
+                .client
+                .app
+                .member_place(&id)
+                .map(str::to_owned)
+                .or_else(|| app.client.state().selected.clone());
+            if let Some(task) = crate::picks::click(app, place, &id) {
+                return task;
+            }
+            open_member(app, &id)
+        }
         Event::Resize(by) => {
             let from = *app.roster.drag.get_or_insert(width(&app.layout));
             app.layout.members_width = Some(room(app, from - by));
@@ -641,7 +652,8 @@ impl<'a> View<'a> {
             .profiles
             .card
             .as_ref()
-            .is_some_and(|card| card.user == look.id);
+            .is_some_and(|card| card.user == look.id)
+            || crate::picks::picked(self.cx.state, &look.id);
         let offline = look.offline();
         let (avatar_opacity, opacity) = if offline { (0.4, 0.5) } else { (1.0, 1.0) };
         let face = Face::new(look.avatar.as_deref(), &look.name, 32.0)

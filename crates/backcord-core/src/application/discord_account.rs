@@ -377,6 +377,8 @@ impl Application {
             server: None,
             choice: 0,
             length: String::new(),
+            others: Vec::new(),
+            pending: 0,
         });
         if ask == PersonAsk::Note {
             vec![Effect::Backend(Command::Discord(DiscordCommand::Note {
@@ -418,9 +420,16 @@ impl Application {
                 } else {
                     chat::RelationshipChange::Unfriend
                 };
+                let others = std::mem::take(&mut dialog.others);
                 self.state.person_dialog = None;
+                if !others.is_empty() {
+                    self.state.picked.clear();
+                }
                 // Discord's client names a confirmation by the menu it came from.
-                return self.change_relationship(user, change, location);
+                return std::iter::once(user)
+                    .chain(others)
+                    .flat_map(|user| self.change_relationship(user, change, location))
+                    .collect();
             }
             PersonAsk::ServerNickname | PersonAsk::Timeout | PersonAsk::Kick | PersonAsk::Ban => {
                 let Some(server) = dialog.server.clone() else {
@@ -430,16 +439,29 @@ impl Application {
                 let length = own.then(|| members::timeout_length(&dialog.length));
                 if length == Some(None) {
                     dialog.error = Some(
-                        "Write how long, such as 90m, 2h 30m or 3d, up to 28 days.".to_owned(),
+                        "Write how long, such as 60s, 90m, 2h 30m or 3d, up to 28 days.".to_owned(),
                     );
                     return vec![];
                 }
                 let change = members::change(dialog.ask, dialog.choice, length.flatten(), text);
-                DiscordCommand::Member {
-                    server,
-                    user,
-                    change,
-                }
+                // Several picked together: one change each, the dialog
+                // waiting for every answer.
+                let users: Vec<String> = std::iter::once(user)
+                    .chain(dialog.others.iter().cloned())
+                    .collect();
+                dialog.saving = true;
+                dialog.error = None;
+                dialog.pending = users.len();
+                return users
+                    .into_iter()
+                    .map(|user| {
+                        Effect::Backend(Command::Discord(DiscordCommand::Member {
+                            server: server.clone(),
+                            user,
+                            change: change.clone(),
+                        }))
+                    })
+                    .collect();
             }
         };
         dialog.saving = true;

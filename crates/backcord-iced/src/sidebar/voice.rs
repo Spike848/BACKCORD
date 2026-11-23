@@ -195,7 +195,10 @@ impl<'a> super::View<'a> {
                 face = face.push(self.cx.look.glyph(Icon::HeadphoneOff, 16, ink));
             }
         }
-        let ground = if pointed {
+        // Picked with others, its row stays lit as a selected one.
+        let ground = if crate::picks::picked(self.cx.state, &person.id) {
+            theme.active
+        } else if pointed {
             theme.hover
         } else {
             Color::TRANSPARENT
@@ -230,7 +233,10 @@ impl<'a> super::View<'a> {
         // toward another voice channel, where their menu's Move to offers
         // one.
         let drags = Drags::new(menu)
-            .click(Message::Call(crate::call::Event::Profile(user.clone())))
+            .click(Message::Call(crate::call::Event::Click(
+                room.clone(),
+                user.clone(),
+            )))
             .drag(move |_| {
                 Message::Arrange(crate::arrange::Event::Take(room.clone(), user.clone()))
             });

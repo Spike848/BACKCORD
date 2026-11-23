@@ -88,6 +88,7 @@ mod people;
 mod perf;
 mod person_menu;
 mod picker;
+mod picks;
 mod pictures;
 use backcord_iced_kit::piece;
 mod place_menus;

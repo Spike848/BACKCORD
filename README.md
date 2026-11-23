@@ -34,15 +34,19 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.3
+## Novità della 1.3.4
 
-- **Timeout di durata personalizzata**: oltre ai tempi già pronti, nella
-  finestra del timeout puoi scrivere quanto deve durare, per esempio `90m`,
-  `2h 30m` o `3g`, fino a 28 giorni.
-- **Nome dell'eseguibile aggiornato**: se il file di BACKCORD ha la versione
-  nel nome (come `BACKCORD-1.3.2-windows-x64.exe`), dopo l'aggiornamento
-  prende il numero della nuova versione. Se avevi un collegamento al vecchio
-  nome, ricrealo.
+- **Selezione multipla con Ctrl**: tieni premuto Ctrl e clicca sugli utenti
+  (nella lista membri o in un canale vocale) per selezionarne più di uno;
+  col tasto destro su uno dei selezionati hai le azioni per tutti insieme.
+  Se hai i permessi puoi spostarli in un altro canale vocale,
+  disconnetterli, silenziarli o assordarli sul server, metterli in timeout,
+  espellerli o bannarli con un colpo solo; in più menzionarli, aggiungerli
+  agli amici, ignorarli o bloccarli. Chi non puoi toccare (per esempio un
+  amministratore per il timeout) viene saltato. Un clic normale annulla la
+  selezione.
+- **Esempio dei secondi nel timeout**: tra gli esempi della durata ora c'è
+  anche `60s`.
 
 ## Cosa fa
 

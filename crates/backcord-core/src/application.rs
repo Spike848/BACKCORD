@@ -41,7 +41,9 @@ mod messages;
 mod mfa;
 mod new_post;
 mod oauth;
+mod picks;
 mod place_search;
+pub use picks::Picked;
 mod places;
 mod polls;
 mod preview;
@@ -204,6 +206,10 @@ pub struct PersonDialog {
     /// A timeout's own length as written, such as "2h 30m", which
     /// [`timeout_length`] reads.
     pub length: String,
+    /// The others picked with `user`, whom its answer acts on too.
+    pub others: Vec<String>,
+    /// How many of a member change's answers are still to come.
+    pub pending: usize,
 }
 
 /// What a [`PersonDialog`] asks for.
@@ -531,6 +537,8 @@ pub struct AppState {
     /// first pinned first.
     pub pinned: Vec<String>,
     pub person_dialog: Option<PersonDialog>,
+    /// The people picked together with Ctrl, whose menu acts on them all.
+    pub picked: Vec<Picked>,
     /// The invite dialog of a Discord server or channel, while it's open.
     pub invite: Option<InviteDialog>,
     /// Join a Server, while it's open.
@@ -2381,6 +2389,17 @@ pub enum Action {
     /// Write a timeout's own length, which chooses it over
     /// [`TIMEOUT_TIMES`].
     PersonLength(String),
+    /// Pick someone along with those picked already, or let them go: in
+    /// the voice channel `place` lists them in, or the channel whose
+    /// member list shows them. Someone from another server starts anew.
+    Pick {
+        place: String,
+        user: String,
+    },
+    ClearPicks,
+    /// Open the dialog of a timeout, a kick, a ban, an unfriending or a
+    /// block for everyone picked whom this account may.
+    AskPicked(PersonAsk),
     /// Give a member a role or take it away, or end their timeout, when this
     /// account may; the rest of [`chat::MemberChange`] goes through
     /// [`Action::AskMember`].
@@ -4291,6 +4310,12 @@ impl Application {
                 }
                 vec![]
             }
+            Action::Pick { place, user } => self.pick(place, user),
+            Action::ClearPicks => {
+                self.state.picked.clear();
+                vec![]
+            }
+            Action::AskPicked(ask) => self.ask_picked(ask),
             Action::PersonLength(length) => {
                 if let Some(dialog) = &mut self.state.person_dialog {
                     dialog.length = length;
@@ -5130,16 +5155,22 @@ impl Application {
             }
             Event::PersonSaved(result) => {
                 if let Some(dialog) = &mut self.state.person_dialog {
-                    match result {
-                        // Members shows the change.
-                        Ok(()) => {
+                    // Several picked: the dialog waits for every answer,
+                    // and says why any failed.
+                    dialog.pending = dialog.pending.saturating_sub(1);
+                    if let Err(error) = result {
+                        dialog.error = Some(error);
+                    }
+                    if dialog.pending == 0 {
+                        if dialog.error.is_none() {
+                            // Members shows the change.
+                            if !dialog.others.is_empty() {
+                                self.state.picked.clear();
+                            }
                             self.state.person_dialog = None;
                             return self.members_again();
                         }
-                        Err(error) => {
-                            dialog.saving = false;
-                            dialog.error = Some(error);
-                        }
+                        dialog.saving = false;
                     }
                 }
             }

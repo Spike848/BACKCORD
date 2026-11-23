@@ -422,7 +422,7 @@ impl<'a> View<'a> {
                 field(
                     theme,
                     LENGTH_FIELD,
-                    backcord_iced_kit::i18n::tr("e.g. 90m, 2h 30m, 3d (up to 28 days)"),
+                    backcord_iced_kit::i18n::tr("e.g. 60s, 90m, 2h 30m, 3d (up to 28 days)"),
                     &dialog.length,
                     false,
                     true,

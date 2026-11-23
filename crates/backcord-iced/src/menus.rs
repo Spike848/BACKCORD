@@ -184,6 +184,10 @@ pub enum MenuAct {
     Place(backcord_core::application::MenuChoice),
     /// A row of someone's menu (`person_menu.rs`).
     Person(backcord_core::application::MenuChoice),
+    /// A row of the menu of several picked together (`picks.rs`), and a
+    /// voice channel to move them all to, in its `key`.
+    Picked(backcord_core::application::MenuChoice),
+    MovePicked,
     /// A change to the place's notifications: a mute for a time, a level,
     /// a server's switch.
     Notify(backcord_core::chat::NotificationChange),
@@ -733,6 +737,8 @@ fn carry_out(app: &mut App, row: &MenuRow, ticked: Option<bool>, stays: bool) ->
                 ])
             }
         },
+        MenuAct::Picked(choice) => Task::batch([focus, crate::picks::choose(app, choice, ticked)]),
+        MenuAct::MovePicked => Task::batch([focus, crate::picks::move_picked(app, &row.key)]),
         MenuAct::Notify(_)
         | MenuAct::MuteDm(_)
         | MenuAct::ShowAll
@@ -956,6 +962,8 @@ pub fn act(
         | MenuAct::InviteTo
         | MenuAct::App
         | MenuAct::MoveTo
+        | MenuAct::Picked(_)
+        | MenuAct::MovePicked
         | MenuAct::CopyImage
         | MenuAct::SaveMedia
         | MenuAct::CopyMediaLink

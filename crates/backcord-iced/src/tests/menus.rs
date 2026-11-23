@@ -589,6 +589,59 @@ fn a_menus_keys_pass_over_greyed_rows_and_clicks_on_them_do_nothing() {
     assert!(app.win.menu.is_some(), "a greyed row keeps the menu open");
 }
 
+/// Ctrl and a click pick several in the member list, lit as selected; a
+/// right click on one of them opens the menu of them all, without what's
+/// about one person, and its Kick asks once and kicks each.
+#[test]
+fn ctrl_picks_several_whose_menu_kicks_them_all() {
+    let (mut app, _folder) = super::preview();
+    app.client.app = member_server(&["30"]);
+    app.client.app.state.selected = Some("discord:10:11".into());
+    let _ = app.sync();
+    app.modifiers = iced::keyboard::Modifiers::CTRL;
+    for user in ["4", "6"] {
+        let _ = app.update(Message::Members(crate::members::Event::Open(user.into())));
+    }
+    assert_eq!(app.client.state().picked.len(), 2);
+    assert!(app.profiles.card.is_none(), "picking opens no card");
+    app.modifiers = iced::keyboard::Modifiers::empty();
+    let _ = app.update(Message::PersonMenu("6".into(), Point::new(300.0, 200.0)));
+    let shown = rows(&app);
+    assert_eq!(shown[0].0, "2 people picked");
+    assert!(shown.iter().any(|row| row.0 == "Ban"));
+    assert!(
+        !shown
+            .iter()
+            .any(|row| row.0 == "Profile" || row.0 == "Roles")
+    );
+    let kick = index(&app, "Kick");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(kick)));
+    let dialog = app
+        .client
+        .state()
+        .person_dialog
+        .clone()
+        .expect("the dialog");
+    assert_eq!(dialog.others, ["6"]);
+    let _ = std::mem::take(&mut app.client.sent);
+    let _ = app.update(Message::Person(crate::person_menu::Event::Answer));
+    let kicked: Vec<String> = std::mem::take(&mut app.client.sent)
+        .into_iter()
+        .filter_map(|command| match command {
+            Command::Discord(DiscordCommand::Member {
+                user,
+                change: backcord_core::chat::MemberChange::Kick { .. },
+                ..
+            }) => Some(user),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(kicked, ["4", "6"]);
+    // A right click on someone not picked ends the picking.
+    let _ = app.update(Message::PersonMenu("3".into(), Point::new(300.0, 200.0)));
+    assert!(app.client.state().picked.is_empty());
+}
+
 /// The member list's menu opened on `user` with the Lounge's chat open,
 /// where Dave, server muted, and Alice are in the call.
 fn lounge_member_menu(user: &str) -> (App, tempfile::TempDir) {

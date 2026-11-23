@@ -182,7 +182,7 @@ impl Application {
 
     /// Whether someone's menu in `place` is a Discord server member's.
     #[cfg(feature = "discord")]
-    fn is_member_place(&self, place: &str, user: &str) -> bool {
+    pub(super) fn is_member_place(&self, place: &str, user: &str) -> bool {
         let state = &self.state;
         !state.preview
             && state.discord_user.is_some()
@@ -265,7 +265,7 @@ impl Application {
     /// where to move them, moderation in red, then copying their ID. This
     /// account's own leaves out what it can't do to itself.
     #[cfg(feature = "discord")]
-    fn member_choices(&self, place: &str, user: &str) -> Vec<MenuChoice> {
+    pub(super) fn member_choices(&self, place: &str, user: &str) -> Vec<MenuChoice> {
         let state = &self.state;
         let me = state.relation(user) == Relation::Me;
         let mut choices = vec![MenuChoice::Profile];
@@ -456,6 +456,23 @@ impl Application {
         self.may(place, permission) && self.outranks(place, user, &self.member_roles(place, user))
     }
 
+    /// Whether this account may open a member's dialog asking `ask`: their
+    /// nickname, or a timeout, a kick or a ban.
+    #[cfg(feature = "discord")]
+    pub(super) fn member_ask_allowed(&self, place: &str, user: &str, ask: PersonAsk) -> bool {
+        match ask {
+            PersonAsk::ServerNickname => self.may_rename(place, user),
+            PersonAsk::Timeout => {
+                self.may_moderate(place, user, Permission::Moderate)
+                    && !self.is_admin(place, user)
+                    && !self.timed_out(place, user)
+            }
+            PersonAsk::Kick => self.may_moderate(place, user, Permission::Kick),
+            PersonAsk::Ban => self.may_moderate(place, user, Permission::Ban),
+            _ => false,
+        }
+    }
+
     /// Whether this account may change a member's nickname: its own with
     /// Change Nickname, another's with Manage Nicknames over them.
     #[cfg(feature = "discord")]
@@ -552,17 +569,7 @@ impl Application {
     ) -> Vec<Effect> {
         #[cfg(feature = "discord")]
         {
-            let allowed = match ask {
-                PersonAsk::ServerNickname => self.may_rename(&place, &user),
-                PersonAsk::Timeout => {
-                    self.may_moderate(&place, &user, Permission::Moderate)
-                        && !self.is_admin(&place, &user)
-                        && !self.timed_out(&place, &user)
-                }
-                PersonAsk::Kick => self.may_moderate(&place, &user, Permission::Kick),
-                PersonAsk::Ban => self.may_moderate(&place, &user, Permission::Ban),
-                _ => false,
-            };
+            let allowed = self.member_ask_allowed(&place, &user, ask);
             let Some((server, _, _)) = self.discord_place(&place).filter(|_| allowed) else {
                 return vec![];
             };
@@ -599,6 +606,8 @@ impl Application {
                 server: Some(discord::server_id(&guild)),
                 choice: 0,
                 length: String::new(),
+                others: Vec::new(),
+                pending: 0,
             });
         }
         #[cfg(not(feature = "discord"))]

@@ -441,12 +441,17 @@ impl App {
                 Task::none()
             }
             Message::Menu(event) => crate::menus::update(self, event),
-            Message::PersonMenu(user, at) => crate::person_menu::open_person_menu(
-                self,
-                &user,
-                at,
-                crate::person_menu::CONTEXT_MENU,
-            ),
+            Message::PersonMenu(user, at) => {
+                if let Some(task) = crate::picks::open_if_picked(self, &user, at) {
+                    return task;
+                }
+                crate::person_menu::open_person_menu(
+                    self,
+                    &user,
+                    at,
+                    crate::person_menu::CONTEXT_MENU,
+                )
+            }
             Message::Person(event) => {
                 let mut cx = crate::ctx::cx!(self);
                 self.person.update(event, &mut cx)

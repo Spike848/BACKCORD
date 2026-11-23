@@ -178,6 +178,9 @@ pub enum Event {
     /// Someone's row in a voice channel clicked: their card, at the
     /// pointer.
     Profile(String),
+    /// Someone's row in a voice channel, by its room, clicked: with Ctrl,
+    /// picked along with others (`picks.rs`), else their card.
+    Click(String, String),
     /// The call's channel or DM shown, from the dock or the corner; the
     /// dock's line to it under the pointer.
     OpenCall,
@@ -293,7 +296,17 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             crate::call::popups::person::person_volume(app, stream, value, done);
             return Task::none();
         }
+        Event::Click(room, user) => {
+            if let Some(task) = crate::picks::click(app, Some(room), &user) {
+                return task;
+            }
+            let at = app.pressed.get();
+            return app.open_card(user, at);
+        }
         Event::Person(room, user, at) => {
+            if let Some(task) = crate::picks::open_if_picked(app, &user, at) {
+                return task;
+            }
             return crate::call::popups::person::open_voice_menu(app, room, user, at);
         }
         Event::ShowPerson(room, user) => Action::ShowVoicePerson { room, user },
