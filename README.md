@@ -34,19 +34,15 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.2
+## Novità della 1.3.3
 
-- **Suoni di Discord**: i suoni di chiamate, muto, messaggi e menzioni sono ora
-  quelli originali di Discord, scaricati la prima volta e tenuti sul PC.
-- **Preset di suoni personali**: per ogni suono puoi caricare un tuo MP3 (o Ogg,
-  WAV), creare più preset, rinominarli ed eliminarli, e regolare il volume di
-  ciascun suono.
-- **Notifiche e suoni insieme**: la sezione Suoni è dentro Notifiche, con
-  l'interruttore per le notifiche desktop.
-- **Pannello Aggiornamento**: la sezione Informazioni delle impostazioni ora si
-  chiama Aggiornamento.
-- **Finestra sempre trascinabile**: la barra del titolo non perde più il
-  trascinamento quando il puntatore esce dalla barra.
+- **Timeout di durata personalizzata**: oltre ai tempi già pronti, nella
+  finestra del timeout puoi scrivere quanto deve durare, per esempio `90m`,
+  `2h 30m` o `3g`, fino a 28 giorni.
+- **Nome dell'eseguibile aggiornato**: se il file di BACKCORD ha la versione
+  nel nome (come `BACKCORD-1.3.2-windows-x64.exe`), dopo l'aggiornamento
+  prende il numero della nuova versione. Se avevi un collegamento al vecchio
+  nome, ricrealo.
 
 ## Cosa fa
 
