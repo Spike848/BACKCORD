@@ -212,8 +212,7 @@ pub struct Prefs {
     pub game_executables: Vec<(String, String)>,
     /// About: looking for releases, nightlies among them, the release
     /// skipped, and the last told of in a notification.
-    /// Off until turned on, so BACKCORD asks GitHub nothing unasked; on, a
-    /// newer release is told of in a notification.
+    /// On unless turned off: a newer release is told of in a notification.
     pub check_for_updates: Option<bool>,
     pub update_nightlies: bool,
     /// Extra features: hiding others' typing (Silent Typing; one's own is
@@ -260,9 +259,9 @@ pub enum Animate {
 }
 
 impl Prefs {
-    /// Whether BACKCORD looks for newer releases: off until turned on.
+    /// Whether BACKCORD looks for newer releases: on unless turned off.
     pub fn checks_updates(&self) -> bool {
-        self.check_for_updates.unwrap_or(false)
+        self.check_for_updates.unwrap_or(true)
     }
 
     /// The profile switches, each on unless turned off.

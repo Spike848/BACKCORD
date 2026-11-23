@@ -145,8 +145,8 @@ page in the browser, and Skip this version, which hides that release until a
 newer one comes. It also links to the website, the GitHub project and the
 Discord server, each button with its mark.
 
-The look is off until a person turns on Check for updates, so a fresh install
-makes no request to GitHub. On, BACKCORD looks when it starts and every six
+Check for updates is on unless a person turns it off in About, a fresh install
+included. On, BACKCORD looks when it starts and every six
 hours while it runs, with one request for the list of releases
 (`api.github.com/repos/backcord/backcord/releases`) that carries only
 `BACKCORD/VERSION` as its user agent and no account or identifier. A look nobody
