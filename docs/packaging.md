@@ -218,6 +218,12 @@ About's "Install updates automatically" switch stays greyed out and off.
   or else the one program there. Once BACKCORD has quit, the running program
   is renamed to `.backcord-old.exe`, which Windows allows, the new one takes
   its name, and BACKCORD starts again; the next start removes the old one.
+  A name with a version in it, such as `BACKCORD-1.3.1-windows-x64.exe`,
+  takes the new version instead (`versioned_name`), unless another file
+  already has that name; `BACKCORD.exe` stays as it is. On Windows a
+  program named for another version renames itself as it starts
+  (`name_for_version`), so an update by a version that kept the old name
+  ends up named right too.
 
 Everything else is left alone, with the reason on the page: a package manager's
 or Flatpak's copy (it updates it), a build of one's own elsewhere than on

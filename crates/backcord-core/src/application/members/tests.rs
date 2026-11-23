@@ -56,6 +56,24 @@ fn nobody_acts_on_those_above_them_or_the_owner() {
 }
 
 #[test]
+fn a_timeouts_own_length_is_read_in_either_language_up_to_28_days() {
+    assert_eq!(timeout_length("90s"), Some(90));
+    assert_eq!(
+        timeout_length("45"),
+        Some(45 * 60),
+        "a bare number is minutes"
+    );
+    assert_eq!(timeout_length("2h 30m"), Some(2 * 3600 + 30 * 60));
+    assert_eq!(timeout_length("1 ora, 15 minuti"), Some(3600 + 15 * 60));
+    assert_eq!(timeout_length("3g"), Some(3 * 24 * 3600));
+    assert_eq!(timeout_length("3 Days"), Some(3 * 24 * 3600));
+    assert_eq!(timeout_length("4w"), Some(LONGEST_TIMEOUT));
+    for wrong in ["", "0m", "29d", "2x", "h", "99999999999999999999"] {
+        assert_eq!(timeout_length(wrong), None, "{wrong}");
+    }
+}
+
+#[test]
 fn administrators_are_never_timed_out_and_a_timeout_can_end() {
     let app = staff();
     let gus = app.person_choices("6");
@@ -252,6 +270,44 @@ fn moderation_asks_first_with_a_reason() {
         (before + 3_600_000..before + 3_610_000).contains(&until),
         "an hour"
     );
+}
+
+#[test]
+fn a_timeout_takes_its_own_length_once_it_reads() {
+    let mut app = staff();
+    app.dispatch(Action::AskMember {
+        place: GENERAL.into(),
+        user: "4".into(),
+        ask: PersonAsk::Timeout,
+    });
+    app.dispatch(Action::PersonLength("2 ore".into()));
+    assert_eq!(
+        app.state.person_dialog.as_ref().unwrap().choice,
+        TIMEOUT_TIMES.len(),
+        "writing chooses it"
+    );
+    app.dispatch(Action::PersonLength("2 days ago".into()));
+    assert!(app.dispatch(Action::AnswerPerson(String::new())).is_empty());
+    let dialog = app.state.person_dialog.as_ref().unwrap();
+    assert!(dialog.error.is_some() && !dialog.saving, "it says why");
+    app.dispatch(Action::PersonLength("2h 30m".into()));
+    let before = crate::clock::now_ms();
+    let effects = app.dispatch(Action::AnswerPerson(String::new()));
+    let [
+        Effect::Backend(Command::Discord(DiscordCommand::Member {
+            change:
+                MemberChange::Timeout {
+                    until_ms: Some(until),
+                    ..
+                },
+            ..
+        })),
+    ] = effects.as_slice()
+    else {
+        panic!("a timeout");
+    };
+    let length = (2 * 3600 + 30 * 60) * 1000;
+    assert!((before + length..before + length + 10_000).contains(until));
 }
 
 #[test]

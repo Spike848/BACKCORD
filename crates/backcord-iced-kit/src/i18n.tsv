@@ -1302,6 +1302,9 @@ Devices	Dispositivi
 Gaming	Gaming
 Screenshare	Condivisione schermo
 Custom	Personalizzata
+Custom length	Durata personalizzata
+e.g. 90m, 2h 30m, 3d (up to 28 days)	es. 90m, 2h 30m, 3g (fino a 28 giorni)
+Write how long, such as 90m, 2h 30m or 3d, up to 28 days.	Scrivi quanto dura, per esempio 90m, 2h 30m o 3g, fino a 28 giorni.
 Smoother video (1080p, 60fps)	Video più fluido (1080p, 60fps)
 Clearer text (Source, 15fps)	Testo più nitido (Sorgente, 15fps)
 Your own resolution and frame rate	Risoluzione e frame rate a scelta

@@ -407,8 +407,14 @@ pub enum Prepared {
         installer: PathBuf,
         program: PathBuf,
     },
-    /// The portable program `new` waits beside `program`, to take its place.
-    Portable { new: PathBuf, program: PathBuf },
+    /// The portable program `new` waits beside `program`, to take its place
+    /// as `named`: `program`'s name with the new version in it, where it
+    /// had one ([`versioned_name`]).
+    Portable {
+        new: PathBuf,
+        program: PathBuf,
+        named: PathBuf,
+    },
 }
 
 /// Downloads `target`'s file, checks it against the release's sums, and gets
@@ -496,9 +502,11 @@ async fn prepare_in(
                 .await
                 .map_err(|_| "The update stopped partway.".to_owned())??;
             progress.stage(Stage::Installing);
+            let named = versioned_name(&new.1, release.tag.trim_start_matches('v'));
             Ok(Prepared::Portable {
                 new: new.0,
                 program: new.1,
+                named,
             })
         }
         Target::Installer { asset, program } => {
@@ -572,19 +580,86 @@ fn unpack_program(archive: &Path, to: &Path) -> Result<(), String> {
     result
 }
 
-/// Puts a portable update's program `new` in place of `program`, once
-/// BACKCORD has quit: the running file is renamed aside, which Windows allows,
-/// and put back if the new one can't take its place.
-pub fn swap_in(new: &Path, program: &Path) -> Result<(), String> {
+/// Where a portable update puts the new program: `program`'s name with
+/// the version in it, such as `BACKCORD-1.3.1-windows-x64.exe`, made
+/// `version`'s, so the file says which it is. A name without a version
+/// (`BACKCORD.exe`), a `version` that isn't one, or a name another file
+/// already has keeps `program`.
+pub fn versioned_name(program: &Path, version: &str) -> PathBuf {
+    let Some(name) = program.file_name().and_then(|name| name.to_str()) else {
+        return program.to_path_buf();
+    };
+    if version_at(version, 0) != Some(version.len()) {
+        return program.to_path_buf();
+    }
+    let found = name
+        .char_indices()
+        .filter(|&(at, _)| at == 0 || !name.as_bytes()[at - 1].is_ascii_digit())
+        .find_map(|(at, _)| version_at(name, at).map(|end| (at, end)));
+    let Some((start, end)) = found else {
+        return program.to_path_buf();
+    };
+    let named = program.with_file_name(format!("{}{version}{}", &name[..start], &name[end..]));
+    if named != program && named.exists() {
+        return program.to_path_buf();
+    }
+    named
+}
+
+/// Where a version, digits in at least three parts split by dots, that
+/// starts at `at` in `text` ends.
+fn version_at(text: &str, at: usize) -> Option<usize> {
+    let bytes = text.as_bytes();
+    let digits = |from: usize| {
+        bytes[from..]
+            .iter()
+            .take_while(|b| b.is_ascii_digit())
+            .count()
+    };
+    let mut end = at + digits(at);
+    if end == at {
+        return None;
+    }
+    let mut parts = 1;
+    while bytes.get(end) == Some(&b'.') && digits(end + 1) > 0 {
+        end += 1 + digits(end + 1);
+        parts += 1;
+    }
+    (parts >= 3).then_some(end)
+}
+
+/// Puts a portable update's program `new` in place of `program`, as
+/// `named`, once BACKCORD has quit: the running file is renamed aside, which
+/// Windows allows, and put back if the new one can't take its place.
+pub fn swap_in(new: &Path, program: &Path, named: &Path) -> Result<(), String> {
     let old = program.with_file_name(OLD_PROGRAM);
     let _ = std::fs::remove_file(&old);
     std::fs::rename(program, &old)
         .map_err(|error| format!("could not move the old program: {error}"))?;
-    if let Err(error) = std::fs::rename(new, program) {
+    if let Err(error) = std::fs::rename(new, named) {
         let _ = std::fs::rename(&old, program);
         return Err(format!("could not put the new program in place: {error}"));
     }
     Ok(())
+}
+
+/// Gives the running program, on Windows, the name its version calls for
+/// ([`versioned_name`]): a copy named for another version, which an update
+/// from a version that kept the name left behind, takes its own. Windows
+/// allows renaming a running program.
+pub fn name_for_version() {
+    if !cfg!(windows) {
+        return;
+    }
+    let Ok(program) = std::env::current_exe() else {
+        return;
+    };
+    let named = versioned_name(&program, env!("CARGO_PKG_VERSION"));
+    if named != program
+        && let Err(error) = std::fs::rename(&program, &named)
+    {
+        tracing::warn!(%error, "could not name the program for its version");
+    }
 }
 
 /// Removes the program a portable update put aside, once the old BACKCORD
@@ -675,6 +750,50 @@ pub fn run_installer(_: &Path, _: &Path, _: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn a_portable_programs_name_takes_the_new_version() {
+        let folder = tempfile::tempdir().unwrap();
+        let at = |name: &str| folder.path().join(name);
+        let named = |name: &str, version: &str| {
+            super::versioned_name(&at(name), version)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()
+        };
+        assert_eq!(
+            named("BACKCORD-1.3.1-windows-x64.exe", "1.3.2"),
+            "BACKCORD-1.3.2-windows-x64.exe"
+        );
+        assert_eq!(
+            named("BACKCORD 1.2.10.exe", "1.10.0"),
+            "BACKCORD 1.10.0.exe"
+        );
+        assert_eq!(named("BACKCORD.exe", "1.3.2"), "BACKCORD.exe");
+        assert_eq!(
+            named("x64-1.3.exe", "1.3.2"),
+            "x64-1.3.exe",
+            "two parts aren't one"
+        );
+        assert_eq!(named("BACKCORD-1.3.1.exe", "nightly"), "BACKCORD-1.3.1.exe");
+        std::fs::write(at("BACKCORD-1.3.2.exe"), b"another copy").unwrap();
+        assert_eq!(named("BACKCORD-1.3.1.exe", "1.3.2"), "BACKCORD-1.3.1.exe");
+
+        // Swapped in under its new name, the old one put aside.
+        let program = at("BACKCORD-1.3.1-windows-x64.exe");
+        std::fs::write(&program, b"old program").unwrap();
+        let new = at(super::NEW_PROGRAM);
+        std::fs::write(&new, b"new program").unwrap();
+        let named = super::versioned_name(&program, "1.3.2");
+        super::swap_in(&new, &program, &named).unwrap();
+        assert_eq!(std::fs::read(&named).unwrap(), b"new program");
+        assert!(!program.exists() && !new.exists());
+        assert_eq!(
+            std::fs::read(program.with_file_name(super::OLD_PROGRAM)).unwrap(),
+            b"old program"
+        );
+    }
+
+    #[test]
     fn a_portable_update_unpacks_the_zips_program_and_swaps_it_in() {
         use std::io::Write as _;
         let folder = tempfile::tempdir().unwrap();
@@ -695,7 +814,7 @@ mod tests {
         let new = program.with_file_name(super::NEW_PROGRAM);
         super::unpack_program(&archive, &new).unwrap();
         assert_eq!(std::fs::read(&new).unwrap(), b"new program");
-        super::swap_in(&new, &program).unwrap();
+        super::swap_in(&new, &program, &program).unwrap();
         assert_eq!(std::fs::read(&program).unwrap(), b"new program");
         assert_eq!(
             std::fs::read(program.with_file_name(super::OLD_PROGRAM)).unwrap(),

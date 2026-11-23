@@ -376,6 +376,7 @@ impl Application {
             error: None,
             server: None,
             choice: 0,
+            length: String::new(),
         });
         if ask == PersonAsk::Note {
             vec![Effect::Backend(Command::Discord(DiscordCommand::Note {
@@ -425,7 +426,15 @@ impl Application {
                 let Some(server) = dialog.server.clone() else {
                     return vec![];
                 };
-                let change = members::change(dialog.ask, dialog.choice, text);
+                let own = dialog.ask == PersonAsk::Timeout && dialog.choice >= TIMEOUT_TIMES.len();
+                let length = own.then(|| members::timeout_length(&dialog.length));
+                if length == Some(None) {
+                    dialog.error = Some(
+                        "Write how long, such as 90m, 2h 30m or 3d, up to 28 days.".to_owned(),
+                    );
+                    return vec![];
+                }
+                let change = members::change(dialog.ask, dialog.choice, length.flatten(), text);
                 DiscordCommand::Member {
                     server,
                     user,

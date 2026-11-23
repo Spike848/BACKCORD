@@ -116,7 +116,10 @@ fn main() -> Result<()> {
     backcord_core::init_tls()?;
     // What a portable update put aside, once the BACKCORD it replaced ends.
     #[cfg(feature = "desktop")]
-    update::install::remove_old_program();
+    {
+        update::install::remove_old_program();
+        update::install::name_for_version();
+    }
 
     let runtime = BackgroundRuntime::new().context("could not start background workers")?;
     #[cfg(feature = "matrix")]
@@ -283,8 +286,12 @@ fn finish_update(prepared: update::install::Prepared, arguments: &[String]) -> R
     use update::install::Prepared;
     match prepared {
         Prepared::Replaced(program) => relaunch_program(&program, arguments, None, None),
-        Prepared::Portable { new, program } => match update::install::swap_in(&new, &program) {
-            Ok(()) => relaunch_program(&program, arguments, None, None),
+        Prepared::Portable {
+            new,
+            program,
+            named,
+        } => match update::install::swap_in(&new, &program, &named) {
+            Ok(()) => relaunch_program(&named, arguments, None, None),
             Err(error) => {
                 tracing::error!(%error, "could not put the update in place; starting the old version");
                 let _ = std::fs::remove_file(&new);

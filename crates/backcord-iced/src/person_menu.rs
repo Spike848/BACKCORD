@@ -37,12 +37,16 @@ pub const PROFILE_OVERFLOW: &str = "user profile overflow menu";
 
 /// The dialog's field.
 pub const PERSON_FIELD: &str = "person-field";
+/// The field for a timeout's own length.
+pub const LENGTH_FIELD: &str = "person-length";
 
 /// What's done in the person dialog.
 #[derive(Clone, Debug)]
 pub enum Event {
     Text(String),
     Choose(usize),
+    /// A timeout's own length, as it's written.
+    Length(String),
     Tick,
     Answer,
     Close,
@@ -319,6 +323,7 @@ impl Dialog {
         match event {
             Event::Text(text) => self.text = text,
             Event::Choose(index) => cx.dispatch(Action::ChoosePersonOption(index)),
+            Event::Length(length) => cx.dispatch(Action::PersonLength(length)),
             Event::Tick => self.ticked = !self.ticked,
             Event::Answer => {
                 let Some(dialog) = &cx.state().person_dialog else {
@@ -410,6 +415,23 @@ impl<'a> View<'a> {
                 options = options.push(self.choice_item(option, chosen, index));
             }
             body = body.push(options);
+        }
+        // A timeout's own length, which writing chooses.
+        if dialog.ask == PersonAsk::Timeout {
+            body = body.push(
+                field(
+                    theme,
+                    LENGTH_FIELD,
+                    backcord_iced_kit::i18n::tr("e.g. 90m, 2h 30m, 3d (up to 28 days)"),
+                    &dialog.length,
+                    false,
+                    true,
+                )
+                .size(15)
+                .padding(10)
+                .on_input(|length| Message::Person(Event::Length(length)))
+                .on_submit(Message::Person(Event::Answer)),
+            );
         }
         let loading = dialog.text.is_none();
         if !prompt.field.is_empty() {
@@ -614,7 +636,11 @@ fn prompt(state: &AppState, dialog: &backcord_core::application::PersonDialog) -
     let (heading, options) = match dialog.ask {
         PersonAsk::Timeout => (
             backcord_iced_kit::i18n::tr("DURATION"),
-            TIMEOUT_TIMES.map(span).to_vec(),
+            TIMEOUT_TIMES
+                .map(span)
+                .into_iter()
+                .chain([backcord_iced_kit::i18n::tr("Custom length").to_owned()])
+                .collect(),
         ),
         PersonAsk::Ban => (
             backcord_iced_kit::i18n::tr("DELETE THEIR MESSAGES FROM"),

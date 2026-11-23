@@ -59,7 +59,11 @@ copying them.
   menu stays open.
 - Time out needs Moderate Members and outranking them, and isn't offered for
   administrators, whom Discord doesn't let anyone time out. Its dialog offers
-  Discord's lengths, 60 seconds to a week, and a reason, then `PATCH
+  Discord's lengths, 60 seconds to a week, or a length of one's own written
+  in a field below them (`timeout_length`: `90s`, `45m`, `2h 30m`, `3d` or
+  `3g`, `1w`, English or Italian units, a bare number in minutes, up to
+  Discord's 28 days; writing chooses it, and one that doesn't read says so),
+  and a reason, then `PATCH
   /guilds/{id}/members/{user}` with `communication_disabled_until`. Someone
   timed out is offered Remove timeout instead, which sends null, and the
   member list marks them with a red clock beside their name.

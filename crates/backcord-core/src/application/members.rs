@@ -15,6 +15,46 @@ use crate::chat::Permission;
 /// or a week. Discord allows up to 28 days.
 pub const TIMEOUT_TIMES: [u32; 6] = [60, 5 * 60, 10 * 60, 3600, 24 * 3600, 7 * 24 * 3600];
 
+/// The longest timeout Discord allows, 28 days, in seconds.
+pub const LONGEST_TIMEOUT: u32 = 28 * 24 * 3600;
+
+/// A timeout's own length written out, in seconds: numbers each with a
+/// unit, in English or Italian (`90s`, `45m`, `2h 30m`, `3d` or `3g`,
+/// `1w`), a bare number in minutes. None for anything else, nothing, or
+/// past [`LONGEST_TIMEOUT`].
+pub fn timeout_length(text: &str) -> Option<u32> {
+    let text = text.trim().to_lowercase();
+    let mut rest = text.as_str();
+    let mut total: u64 = 0;
+    loop {
+        rest = rest.trim_start_matches(|c: char| c.is_whitespace() || c == ',');
+        if rest.is_empty() {
+            break;
+        }
+        let digits = rest
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(rest.len());
+        let number: u64 = rest[..digits].parse().ok()?;
+        rest = rest[digits..].trim_start();
+        let letters = rest
+            .find(|c: char| !c.is_alphabetic())
+            .unwrap_or(rest.len());
+        let unit: u64 = match &rest[..letters] {
+            "s" | "sec" | "secs" | "second" | "seconds" | "secondo" | "secondi" => 1,
+            "" | "m" | "min" | "mins" | "minute" | "minutes" | "minuto" | "minuti" => 60,
+            "h" | "hr" | "hrs" | "hour" | "hours" | "o" | "ora" | "ore" => 3600,
+            "d" | "g" | "day" | "days" | "giorno" | "giorni" => 24 * 3600,
+            "w" | "wk" | "week" | "weeks" | "sett" | "settimana" | "settimane" => 7 * 24 * 3600,
+            _ => return None,
+        };
+        rest = &rest[letters..];
+        total = total.checked_add(number.checked_mul(unit)?)?;
+    }
+    (1..=u64::from(LONGEST_TIMEOUT))
+        .contains(&total)
+        .then_some(total as u32)
+}
+
 /// How far back [`MenuChoice::Ban`] deletes the member's messages, in
 /// seconds, as Discord's client offers it: none, the last hour, 6, 12 or 24
 /// hours, 3 days or 7 days.
@@ -39,11 +79,20 @@ pub struct RoleChoice {
 }
 
 /// The change a member's dialog makes, with its choice and what was written.
-pub(super) fn change(ask: PersonAsk, choice: usize, text: String) -> MemberChange {
+/// `length`, in seconds, is a timeout's own, chosen past [`TIMEOUT_TIMES`].
+pub(super) fn change(
+    ask: PersonAsk,
+    choice: usize,
+    length: Option<u32>,
+    text: String,
+) -> MemberChange {
     let pick = |times: &[u32]| times[choice.min(times.len() - 1)];
     match ask {
         PersonAsk::Timeout => MemberChange::Timeout {
-            until_ms: Some(crate::clock::now_ms() + u64::from(pick(&TIMEOUT_TIMES)) * 1000),
+            until_ms: Some(
+                crate::clock::now_ms()
+                    + u64::from(length.unwrap_or_else(|| pick(&TIMEOUT_TIMES))) * 1000,
+            ),
             reason: text,
         },
         PersonAsk::Kick => MemberChange::Kick { reason: text },
@@ -549,6 +598,7 @@ impl Application {
                 error: None,
                 server: Some(discord::server_id(&guild)),
                 choice: 0,
+                length: String::new(),
             });
         }
         #[cfg(not(feature = "discord"))]

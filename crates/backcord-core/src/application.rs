@@ -72,7 +72,7 @@ pub use gift::GiftDialog;
 pub use interactions::{InteractionModal, Interactions, ModalField, SelectChoice, SelectMenu};
 pub use join::JoinDialog;
 pub use link_prompts::{EventPrompt, GiftPrompt, OAuthPrompt, permission_names};
-pub use members::{BAN_HISTORY, RoleChoice, TIMEOUT_TIMES};
+pub use members::{BAN_HISTORY, LONGEST_TIMEOUT, RoleChoice, TIMEOUT_TIMES, timeout_length};
 #[cfg(all(feature = "discord", any(test, feature = "test-fixtures")))]
 pub use members::{member_server, with_clubs};
 pub use mfa::MfaPrompt;
@@ -199,8 +199,11 @@ pub struct PersonDialog {
     /// The Discord server, by its server id, for a member's dialog.
     pub server: Option<String>,
     /// Which of a timeout's [`TIMEOUT_TIMES`], or of a ban's
-    /// [`BAN_HISTORY`], is chosen.
+    /// [`BAN_HISTORY`], is chosen; one past a timeout's, its own length.
     pub choice: usize,
+    /// A timeout's own length as written, such as "2h 30m", which
+    /// [`timeout_length`] reads.
+    pub length: String,
 }
 
 /// What a [`PersonDialog`] asks for.
@@ -2375,6 +2378,9 @@ pub enum Action {
     /// Choose a timeout's length or how much a ban deletes, by its index in
     /// [`TIMEOUT_TIMES`] or [`BAN_HISTORY`].
     ChoosePersonOption(usize),
+    /// Write a timeout's own length, which chooses it over
+    /// [`TIMEOUT_TIMES`].
+    PersonLength(String),
     /// Give a member a role or take it away, or end their timeout, when this
     /// account may; the rest of [`chat::MemberChange`] goes through
     /// [`Action::AskMember`].
@@ -4282,6 +4288,13 @@ impl Application {
             Action::ChoosePersonOption(choice) => {
                 if let Some(dialog) = &mut self.state.person_dialog {
                     dialog.choice = choice;
+                }
+                vec![]
+            }
+            Action::PersonLength(length) => {
+                if let Some(dialog) = &mut self.state.person_dialog {
+                    dialog.length = length;
+                    dialog.choice = TIMEOUT_TIMES.len();
                 }
                 vec![]
             }
