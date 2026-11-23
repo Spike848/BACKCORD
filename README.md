@@ -34,17 +34,24 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.2.8
+## Novità della 1.2.9
 
-- **Server trascinabili**: riordina server e cartelle, mettili in una cartella
-  o creane una nuova lasciando un server su un altro; l'ordine si salva su Discord.
-- **Temi integrati Discord, Vencord e Testcord**, ognuno col suo logo in alto
-  a sinistra; l'importazione accetta anche file con i soli colori.
-- **Dirette**: condividendo una finestra si sente solo il suo audio; tasto
-  destro su una diretta per smettere di guardare solo quella.
-- **Chiamate**: riquadri e testi non finiscono più sotto i comandi; l'avviso di
-  cambio canale vocale ha "Non mostrare più".
-- **Note nei profili**: ognuna resta sulla persona giusta.
+- **Cambio account**: dal popover dell'account passi da un account Discord
+  salvato all'altro senza rifare l'accesso, o ne aggiungi un altro.
+- **Posta in arrivo come su Discord**, con Non letti e Menzioni, immagini e
+  markdown.
+- **Modifica gruppo** per i gruppi DM, anche con l'icona; "Visualizza icona" e
+  "Visualizza banner" nell'intestazione del server.
+- **Markdown**: __sottolineato__ e stili combinati.
+- **Chiamate**: riquadri, videocamere e dirette più grandi; i nomi non coprono
+  più gli avatar.
+- **Aggiornamenti**: in Informazioni trovi lo stato, le novità della versione e
+  "Aggiorna e riavvia", che aggiorna BACKCORD dallo ZIP firmato della release.
+  Il controllo automatico è acceso di default e una notifica avvisa delle nuove
+  versioni.
+- **Correzioni**: "Segna come non letto" non viene più annullato da letture in
+  coda, conferme di lettura più regolari, la cattura audio della finestra non
+  chiede più memoria enorme, e altre correzioni dai log.
 
 ## Cosa fa
 
