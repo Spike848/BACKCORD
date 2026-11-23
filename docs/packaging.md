@@ -188,7 +188,7 @@ page has the rest.
 Update and restart is shown only when this copy can replace itself, and
 installs only what a person asked for: there is no automatic install, and
 About's "Install updates automatically" switch stays greyed out and off.
-`src/update/install.rs` does the work, for two installs:
+`src/update/install.rs` does the work, for three installs:
 
 - **A Linux AppImage** that the person can write to. The release's AppImage
   streams to `.backcord-update.part` beside the old one, hashed as it arrives.
@@ -209,9 +209,19 @@ About's "Install updates automatically" switch stays greyed out and off.
   installer starts nothing itself, so that `cmd` does. A path that holds a `%`
   or `"` is refused, as `cmd` would read it as more than a name. If `cmd`
   can't start, the old BACKCORD starts again.
+- **Windows' portable ZIP**, any other copy on Windows x64 whose folder can
+  be written to. The release's `BACKCORD-VERSION-windows-x64.zip` is
+  downloaded beside the program and checked the same way, and its
+  `backcord.exe` is unpacked to `.backcord-update.exe`: the ZIP keeps
+  everything in one folder, `BACKCORD-VERSION-windows-x64/`, so the program
+  is looked for at the top or one folder down, `BACKCORD.exe` in any case,
+  or else the one program there. Once BACKCORD has quit, the running program
+  is renamed to `.backcord-old.exe`, which Windows allows, the new one takes
+  its name, and BACKCORD starts again; the next start removes the old one.
 
 Everything else is left alone, with the reason on the page: a package manager's
-or Flatpak's copy (it updates it), a portable ZIP or a build of one's own, a
+or Flatpak's copy (it updates it), a build of one's own elsewhere than on
+Windows x64, a
 release without the file for this install (nightlies carry no Windows
 installer, so a Windows install is offered View release for them), a release
 without `SHA256SUMS.txt` or its signature, and a folder that can't be written

@@ -3562,8 +3562,17 @@ impl Discord {
 
     /// Renames a group DM, an empty name going back to its members',
     /// and gives it `icon`, a picture as a data address, when there is one.
-    pub async fn edit_group(&self, channel: &str, name: &str, icon: Option<Value>) -> Result<()> {
-        let mut body = json!({"name": (!name.is_empty()).then_some(name)});
+    pub async fn edit_group(
+        &self,
+        channel: &str,
+        name: Option<&str>,
+        icon: Option<Value>,
+    ) -> Result<()> {
+        let mut body = json!({});
+        // An empty name takes the group's away; none leaves it.
+        if let Some(name) = name {
+            body["name"] = json!((!name.is_empty()).then_some(name));
+        }
         if let Some(icon) = icon {
             body["icon"] = icon;
         }

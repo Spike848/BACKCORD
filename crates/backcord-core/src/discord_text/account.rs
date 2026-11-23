@@ -1590,7 +1590,7 @@ fn manage_channel(
                         };
                         match picked {
                             Ok(icon) => discord
-                                .edit_group(&id, name.trim(), icon)
+                                .edit_group(&id, name.as_deref().map(str::trim), icon)
                                 .await
                                 .map(|()| None),
                             Err(why) => Err(anyhow::anyhow!(why)),
@@ -2097,9 +2097,7 @@ const FEED_WAIT_MS: u64 = 5 * 60 * 1000;
 /// The least wait however Discord answers, in milliseconds.
 const FEED_LEAST_WAIT_MS: u64 = 60 * 1000;
 
-/// The most unread channels the inbox asks Discord about at once, and the
-/// most messages it shows of each.
-const INBOX_ROOMS: usize = 20;
+/// The most messages the inbox shows of each channel.
 const INBOX_EACH: usize = 5;
 
 /// The inbox's messages: those that mention this account, or the newest
@@ -2136,15 +2134,29 @@ fn inbox(
         } else {
             let mut all = Vec::new();
             let mut failed = None;
-            for (room, after) in rooms.into_iter().take(INBOX_ROOMS) {
+            for (room, after) in rooms.into_iter().take(crate::chat::INBOX_ROOMS) {
                 let Some((_, channel)) = discord::parse_room(&room) else {
                     continue;
                 };
-                let after = after.as_deref().and_then(|item| item.strip_prefix("d:"));
-                match discord.messages_after(channel, after).await {
+                let after: Option<u64> = after
+                    .as_deref()
+                    .and_then(|item| item.strip_prefix("d:"))
+                    .and_then(|id| id.parse().ok());
+                // The newest page, not the one right after the last read:
+                // with more unread than a page, that would be the oldest.
+                match discord.messages_after(channel, None).await {
                     Ok(page) => {
+                        let unread = |value: &&serde_json::Value| {
+                            after.is_none_or(|after| {
+                                value["id"]
+                                    .as_str()
+                                    .and_then(|id| id.parse::<u64>().ok())
+                                    .is_some_and(|id| id > after)
+                            })
+                        };
                         let mut found: Vec<InboxMessage> = page
                             .iter()
+                            .filter(unread)
                             .filter_map(|value| inbox_message(&discord, value, Some(&room)))
                             .collect();
                         found.sort_by_key(|message| message.at);

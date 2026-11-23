@@ -726,6 +726,10 @@ pub struct ChannelSettings {
     pub nsfw: bool,
 }
 
+/// The most unread channels the inbox lists, each with its newest unread
+/// messages, which Discord is asked for one channel after another.
+pub const INBOX_ROOMS: usize = 20;
+
 /// A message as the inbox lists it, under its channel or conversation.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct InboxMessage {
@@ -3308,11 +3312,12 @@ pub enum DiscordCommand {
         room: String,
         status: String,
     },
-    /// Rename a group DM (its members' names with none) and, with a file,
-    /// give it that icon; [`Event::ChannelSaved`] follows.
+    /// Rename a group DM (its members' names with none; `None` leaves its
+    /// name as it is) and, with a file, give it that icon;
+    /// [`Event::ChannelSaved`] follows.
     EditGroup {
         room: String,
-        name: String,
+        name: Option<String>,
         icon: Option<String>,
     },
     /// Change a Discord channel's or category's overwrites, by its room id;
@@ -5750,11 +5755,12 @@ fn switch_account(
 ) -> bool {
     use backcord_discord::token;
     if let Some(current) = current {
-        let kept = token::remember(&token::Saved {
+        let saved = token::Saved {
             id: current.id,
             name: current.name,
             avatar: current.avatar,
-        });
+        };
+        let kept = token::remember(&saved, to.as_deref());
         // Without its login kept, it isn't left behind.
         if let Err(error) = kept {
             tracing::warn!(%error, "could not keep the Discord account's login");
@@ -5778,7 +5784,9 @@ fn switch_account(
         None => token::park(),
     };
     match switched {
-        Ok(()) => to.is_some(),
+        // The actor ends to switch, Matrix with it: with Matrix, it starts
+        // again however Discord was left, so Matrix's session comes back.
+        Ok(()) => to.is_some() || cfg!(feature = "matrix"),
         Err(error) => {
             tracing::warn!(%error, "could not switch Discord accounts");
             true

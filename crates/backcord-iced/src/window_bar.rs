@@ -446,11 +446,13 @@ pub fn inbox_sync(app: &mut App) {
             .map(|room| row(room))
             .collect()
     } else {
+        // As many as the core asks about, picked as it picks them.
         state
             .rooms
             .iter()
             .filter(|room| !room.request && !room.unlisted)
             .filter(|room| room.mentions > 0 || (room.unread > 0 && !room.muted))
+            .take(backcord_core::chat::INBOX_ROOMS)
             .map(|room| row(room))
             .collect()
     };

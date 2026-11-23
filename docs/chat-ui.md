@@ -500,7 +500,10 @@ one either. Help opens Discord's support site.
 Inbox opens a popout with Discord's first two tabs: Unreads, the channels and
 conversations with unread messages, muted ones only for a mention, and
 Mentions, those that mention this account, each with its count; Discord's own
-Mentions tab lists the messages themselves. A row opens its conversation, and
+Mentions tab lists the messages themselves. Unreads lists at most 20
+(`chat::INBOX_ROOMS`), a Discord one with its newest unread messages, up to
+five: the newest page of the channel, less what was read. A row opens
+its conversation, and
 clicking outside or Escape closes it. Its rows exist only while it shows.
 Pressing on it and
 moving moves the window, a double click maximizes it, and close does what

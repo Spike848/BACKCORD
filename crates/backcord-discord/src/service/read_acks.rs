@@ -2,7 +2,11 @@
 //! one acknowledgement for a single channel or one bulk acknowledgement for
 //! several, such as a whole server marked read.
 
-use std::{collections::HashMap, pin::Pin, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 
 use tokio::time::{Duration, Instant, Sleep};
 
@@ -24,6 +28,9 @@ pub(super) struct ReadAcks {
     /// Held while batches go, so one flush's batches don't race the next's
     /// into Discord's rate limit.
     sending: Arc<tokio::sync::Mutex<()>>,
+    /// Channels marked unread since they were read: batches still queued or
+    /// sent again leave them out, so an older read doesn't overtake it.
+    withdrawn: Arc<Mutex<HashSet<String>>>,
 }
 
 impl ReadAcks {
@@ -33,6 +40,7 @@ impl ReadAcks {
             waiting: HashMap::new(),
             at: Box::pin(tokio::time::sleep(ACK_DELAY)),
             sending: Arc::new(tokio::sync::Mutex::new(())),
+            withdrawn: Arc::default(),
         }
     }
 
@@ -41,12 +49,15 @@ impl ReadAcks {
         if self.waiting.is_empty() {
             self.at.as_mut().reset(Instant::now() + ACK_DELAY);
         }
+        lock(&self.withdrawn).remove(&channel);
         self.waiting.insert(channel, message);
     }
 
-    /// Drops a read of `channel` still waiting, as one marked unread since.
+    /// Drops a read of `channel` still waiting or in a batch not yet sent,
+    /// as one marked unread since.
     pub(super) fn forget(&mut self, channel: &str) {
         self.waiting.remove(channel);
+        lock(&self.withdrawn).insert(channel.to_owned());
     }
 
     pub(super) fn waiting(&self) -> bool {
@@ -70,6 +81,7 @@ impl ReadAcks {
         // batch after another, each sent again until Discord takes it:
         // sent together, Discord limits them and turns some down.
         let (api, sending) = (self.api.clone(), self.sending.clone());
+        let withdrawn = self.withdrawn.clone();
         tokio::spawn(async move {
             let _turn = sending.lock().await;
             for (index, batch) in reads.chunks(ACK_BULK_LIMIT).enumerate() {
@@ -77,7 +89,18 @@ impl ReadAcks {
                     tokio::time::sleep(ACK_GAP).await;
                 }
                 for tries in 1..=ACK_TRIES {
-                    match api.ack_bulk(batch).await {
+                    let batch: Vec<(String, String)> = {
+                        let withdrawn = lock(&withdrawn);
+                        batch
+                            .iter()
+                            .filter(|(channel, _)| !withdrawn.contains(channel))
+                            .cloned()
+                            .collect()
+                    };
+                    if batch.is_empty() {
+                        break;
+                    }
+                    match api.ack_bulk(&batch).await {
                         Ok(()) => break,
                         Err(error) if tries == ACK_TRIES => {
                             tracing::warn!(%error, "could not mark Discord channels read");
@@ -88,4 +111,10 @@ impl ReadAcks {
             }
         });
     }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }

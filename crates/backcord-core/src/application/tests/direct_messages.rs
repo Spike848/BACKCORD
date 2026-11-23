@@ -669,12 +669,29 @@ fn edit_group_renames_a_group_and_gives_it_the_icon_chosen() {
         matches!(
             saved.as_slice(),
             [Effect::Backend(Command::Discord(DiscordCommand::EditGroup { room, name, icon }))]
-                if *room == group && name == "Trail Crew" && icon.as_deref() == Some("/pictures/trail.png")
+                if *room == group && name.as_deref() == Some("Trail Crew") && icon.as_deref() == Some("/pictures/trail.png")
         ),
         "named as written, not as a channel"
     );
     app.apply(Event::ChannelSaved(Ok(None)));
     assert!(app.state.channel_dialog.is_none());
+    // Its name left as the dialog showed it isn't sent, so a group without
+    // one doesn't take its members' names as its own.
+    app.dispatch(Action::AskChannel(ChannelAsk::Group(group)));
+    let saved = app.dispatch(Action::SaveChannel {
+        kind: crate::chat::ChannelKind::Text,
+        settings: crate::chat::ChannelSettings {
+            name: "Hikers".into(),
+            ..Default::default()
+        },
+    });
+    assert!(matches!(
+        saved.as_slice(),
+        [Effect::Backend(Command::Discord(
+            DiscordCommand::EditGroup { name: None, .. }
+        ))]
+    ));
+    app.apply(Event::ChannelSaved(Ok(None)));
     // A one-to-one DM has none.
     assert!(
         app.dispatch(Action::AskChannel(ChannelAsk::Group(

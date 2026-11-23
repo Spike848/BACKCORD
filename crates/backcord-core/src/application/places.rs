@@ -1161,8 +1161,11 @@ impl Application {
             self.state
                 .rooms
                 .iter()
-                .filter(|room| room.network == Network::Discord && !room.request && !room.unlisted)
+                .filter(|room| !room.request && !room.unlisted)
                 .filter(|room| room.mentions > 0 || (room.unread > 0 && !room.muted))
+                // The rows the inbox shows, of which Discord's are asked about.
+                .take(crate::chat::INBOX_ROOMS)
+                .filter(|room| room.network == Network::Discord)
                 .map(|room| (room.id.clone(), room.last_read.clone()))
                 .collect()
         };
@@ -1227,10 +1230,14 @@ impl Application {
             }
             dialog.saving = true;
             dialog.error = None;
+            // The dialog starts with the group's title, which for one with
+            // no name is its members' names: left as it was, the name is
+            // left alone rather than made that.
+            let name = (settings.name != dialog.name).then_some(settings.name);
             return vec![Effect::Backend(Command::Discord(
                 DiscordCommand::EditGroup {
                     room,
-                    name: settings.name,
+                    name,
                     icon: dialog.icon.clone(),
                 },
             ))];

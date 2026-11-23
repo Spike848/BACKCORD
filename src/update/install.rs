@@ -520,22 +520,34 @@ const OLD_PROGRAM: &str = ".backcord-old.exe";
 /// The most a program in the ZIP may unpack to.
 const LARGEST_PROGRAM: u64 = 1 << 30;
 
-/// Unpacks the ZIP's program, `BACKCORD.exe` or else its one program at the
-/// top, to `to`.
+/// Unpacks the ZIP's program, `BACKCORD.exe` or else its one program, to
+/// `to`: at the top, or in the one folder the release's ZIP keeps all in,
+/// `BACKCORD-0.5.0-windows-x64/`.
 fn unpack_program(archive: &Path, to: &Path) -> Result<(), String> {
     let unreadable =
         |error: zip::result::ZipError| format!("The update's ZIP can't be read: {error}");
     let file = std::fs::File::open(archive).map_err(|error| error.to_string())?;
     let mut zip = zip::ZipArchive::new(file).map_err(unreadable)?;
     let names: Vec<String> = zip.file_names().map(str::to_owned).collect();
-    let programs: Vec<&String> = names
+    // Its file name, for an entry at the top or one folder down.
+    let file_name = |name: &str| -> Option<String> {
+        let name = name.replace('\\', "/");
+        match name.split('/').collect::<Vec<_>>().as_slice() {
+            [file] | [_, file] if file.to_ascii_lowercase().ends_with(".exe") => {
+                Some((*file).to_owned())
+            }
+            _ => None,
+        }
+    };
+    let programs: Vec<(&String, String)> = names
         .iter()
-        .filter(|name| !name.contains(['/', '\\']) && name.to_ascii_lowercase().ends_with(".exe"))
+        .filter_map(|name| file_name(name).map(|file| (name, file)))
         .collect();
     let name: String = (*programs
         .iter()
-        .find(|name| name.eq_ignore_ascii_case("BACKCORD.exe"))
-        .or_else(|| (programs.len() == 1).then(|| &programs[0]))
+        .find(|(_, file)| file.eq_ignore_ascii_case("BACKCORD.exe"))
+        .map(|(name, _)| name)
+        .or_else(|| (programs.len() == 1).then(|| &programs[0].0))
         .ok_or("The update's ZIP has no BACKCORD.exe.")?)
     .clone();
     let mut entry = zip.by_name(&name).map_err(unreadable)?;
@@ -670,9 +682,12 @@ mod tests {
         let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
         let options =
             zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-        zip.start_file("README.txt", options).unwrap();
-        zip.write_all(b"read me").unwrap();
-        zip.start_file("BACKCORD.exe", options).unwrap();
+        // Laid out as scripts/package-windows.py makes it: all in one folder.
+        zip.start_file("BACKCORD-0.4.1-windows-x64/LICENSE.txt", options)
+            .unwrap();
+        zip.write_all(b"license").unwrap();
+        zip.start_file("BACKCORD-0.4.1-windows-x64/backcord.exe", options)
+            .unwrap();
         zip.write_all(b"new program").unwrap();
         zip.finish().unwrap();
         let program = folder.path().join("BACKCORD.exe");
@@ -687,6 +702,19 @@ mod tests {
             b"old program"
         );
         assert!(!new.exists());
+        // A program at the top is found too, but not one further down.
+        let flat = folder.path().join("flat.zip");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&flat).unwrap());
+        zip.start_file("BACKCORD.exe", options).unwrap();
+        zip.write_all(b"flat program").unwrap();
+        zip.finish().unwrap();
+        super::unpack_program(&flat, &new).unwrap();
+        assert_eq!(std::fs::read(&new).unwrap(), b"flat program");
+        let deep = folder.path().join("deep.zip");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&deep).unwrap());
+        zip.start_file("a/b/BACKCORD.exe", options).unwrap();
+        zip.finish().unwrap();
+        assert!(super::unpack_program(&deep, &new).is_err());
         // A ZIP without the program is turned down.
         let empty = folder.path().join("empty.zip");
         let mut zip = zip::ZipWriter::new(std::fs::File::create(&empty).unwrap());
@@ -734,7 +762,13 @@ mod tests {
             target_for(&release, source, &program, Some(&app), "").expect_err("not updated here")
         };
         assert!(reason(Source::Manager("Scoop")).contains("Scoop"));
-        assert!(reason(Source::Other).contains("can't update itself"));
+        if cfg!(all(windows, target_arch = "x86_64")) {
+            // A portable copy on Windows updates from the release's ZIP.
+            let target = target_for(&release, Source::Other, &program, None, "").unwrap();
+            assert_eq!(target.asset().name, "BACKCORD-0.4.1-windows-x64.zip");
+        } else {
+            assert!(reason(Source::Other).contains("can't update itself"));
+        }
         if !cfg!(target_arch = "x86_64") {
             return;
         }

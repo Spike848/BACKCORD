@@ -15,13 +15,24 @@ const ACCOUNT: &str = "discord-token";
 const EARLIER_ACCOUNT: &str = "discord-probe-token";
 /// The key of the files [`crate::cache`] keeps, in hex.
 const CACHE_KEY: &str = "discord-cache-key";
-/// The accounts whose logins BACKCORD keeps to switch to, as JSON of
-/// [`Saved`]; each login is kept apart, under `SAVED_TOKEN` and its id.
+/// The accounts whose logins BACKCORD keeps to switch to, as JSON of their
+/// ids, the last used first. Each one's login, name and avatar are kept
+/// apart, as [`Kept`] under `SAVED_TOKEN` and its id, so no entry nears the
+/// 2,560 bytes (1,280 UTF-16 characters) one entry of Windows' credential
+/// store holds, however long the names and avatars.
 const SAVED: &str = "discord-accounts";
 const SAVED_TOKEN: &str = "discord-token-";
-/// The most accounts kept: the list stays well within what one entry of
-/// Windows' credential store holds.
+/// The most accounts kept.
 const MOST_SAVED: usize = 8;
+
+/// What is kept of a saved account under its own entry.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Kept {
+    token: String,
+    name: String,
+    #[serde(default)]
+    avatar: Option<String>,
+}
 
 /// An account BACKCORD keeps a login for, to switch to without signing in
 /// again: its id, name and avatar as last seen.
@@ -78,8 +89,8 @@ fn write(account: &str, value: Option<&str>) -> Result<()> {
     }
 }
 
-/// The accounts kept to switch to, the last used first.
-pub fn saved() -> Vec<Saved> {
+/// The ids of the accounts kept, the last used first.
+fn ids() -> Vec<String> {
     match read(SAVED) {
         Ok(Some(list)) => serde_json::from_str(&list).unwrap_or_default(),
         Ok(None) => vec![],
@@ -90,22 +101,63 @@ pub fn saved() -> Vec<Saved> {
     }
 }
 
-fn save_list(list: &[Saved]) -> Result<()> {
+/// What is kept of the saved account `id`, if anything.
+fn kept(id: &str) -> Result<Option<Kept>> {
+    Ok(read(&format!("{SAVED_TOKEN}{id}"))?.and_then(|kept| serde_json::from_str(&kept).ok()))
+}
+
+/// The accounts kept to switch to, the last used first.
+pub fn saved() -> Vec<Saved> {
+    ids()
+        .into_iter()
+        .filter_map(|id| {
+            let kept = kept(&id).ok().flatten()?;
+            Some(Saved {
+                id,
+                name: kept.name,
+                avatar: kept.avatar,
+            })
+        })
+        .collect()
+}
+
+fn save_list(list: &[String]) -> Result<()> {
     if list.is_empty() {
         return write(SAVED, None);
     }
     write(SAVED, Some(&serde_json::to_string(list)?))
 }
 
-/// Keeps the linked account's login as `account`'s, to switch back to.
-pub fn remember(account: &Saved) -> Result<()> {
-    let token = load()?;
-    write(&format!("{SAVED_TOKEN}{}", account.id), Some(&token))?;
-    let mut list = saved();
-    list.retain(|kept| kept.id != account.id);
-    list.insert(0, account.clone());
-    for dropped in list.split_off(list.len().min(MOST_SAVED)) {
-        write(&format!("{SAVED_TOKEN}{}", dropped.id), None)?;
+/// Puts `id` first in `list` and trims it to `MOST_SAVED`, the least
+/// recently used going first but never `keep`; returns those dropped.
+fn put_first(list: &mut Vec<String>, id: &str, keep: Option<&str>) -> Vec<String> {
+    list.retain(|kept| kept != id);
+    list.insert(0, id.to_owned());
+    let mut dropped = Vec::new();
+    while list.len() > MOST_SAVED {
+        let Some(at) = list.iter().rposition(|kept| Some(kept.as_str()) != keep) else {
+            break;
+        };
+        dropped.push(list.remove(at));
+    }
+    dropped
+}
+
+/// Keeps the linked account's login as `account`'s, to switch back to. The
+/// account `keep`, about to be switched to, is never dropped to make room.
+pub fn remember(account: &Saved, keep: Option<&str>) -> Result<()> {
+    let kept = Kept {
+        token: load()?,
+        name: account.name.clone(),
+        avatar: account.avatar.clone(),
+    };
+    write(
+        &format!("{SAVED_TOKEN}{}", account.id),
+        Some(&serde_json::to_string(&kept)?),
+    )?;
+    let mut list = ids();
+    for dropped in put_first(&mut list, &account.id, keep) {
+        write(&format!("{SAVED_TOKEN}{dropped}"), None)?;
     }
     save_list(&list)
 }
@@ -113,10 +165,9 @@ pub fn remember(account: &Saved) -> Result<()> {
 /// Links the saved account `id` in place of the one linked, whose login
 /// stays where [`remember`] put it. What the cache kept was the other's.
 pub fn use_saved(id: &str) -> Result<()> {
-    let token = read(&format!("{SAVED_TOKEN}{id}"))?
-        .ok_or_else(|| anyhow!("BACKCORD no longer has that account's login"))?;
+    let kept = kept(id)?.ok_or_else(|| anyhow!("BACKCORD no longer has that account's login"))?;
     forget_linked()?;
-    store(&token)
+    store(&kept.token)
 }
 
 /// Unlinks the account on this device without ending its session, for
@@ -128,8 +179,8 @@ pub fn park() -> Result<()> {
 /// Forgets the saved account `id` and its login.
 pub fn forget_saved(id: &str) -> Result<()> {
     write(&format!("{SAVED_TOKEN}{id}"), None)?;
-    let mut list = saved();
-    list.retain(|kept| kept.id != id);
+    let mut list = ids();
+    list.retain(|kept| kept != id);
     save_list(&list)
 }
 
@@ -249,13 +300,13 @@ pub(crate) fn cache_key() -> Result<crate::cache::Key> {
 /// ends on Discord.
 pub fn forget() -> Result<()> {
     if let Ok(token) = load() {
-        for kept in saved() {
-            if read(&format!("{SAVED_TOKEN}{}", kept.id))
+        for id in ids() {
+            if kept(&id)
                 .ok()
                 .flatten()
-                .is_some_and(|saved| saved == token)
+                .is_some_and(|kept| kept.token == token)
             {
-                forget_saved(&kept.id)?;
+                forget_saved(&id)?;
             }
         }
     }
@@ -274,7 +325,25 @@ pub fn clean(token: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::clean;
+    use super::{MOST_SAVED, clean, put_first};
+
+    #[test]
+    fn the_account_switched_to_is_never_dropped_to_make_room() {
+        let mut list: Vec<String> = (0..MOST_SAVED).map(|n| n.to_string()).collect();
+        let oldest = list.last().unwrap().clone();
+        // Linked by Add an Account, so not yet in the list.
+        let dropped = put_first(&mut list, "new", Some(&oldest));
+        assert_eq!(list.len(), MOST_SAVED);
+        assert_eq!(list[0], "new");
+        assert!(list.contains(&oldest));
+        assert_eq!(dropped, [(MOST_SAVED - 2).to_string()]);
+        // Without one to keep, the oldest goes.
+        let dropped = put_first(&mut list, "newer", None);
+        assert_eq!(dropped, [oldest]);
+        // One already listed moves to the front, and none is dropped.
+        assert!(put_first(&mut list, "3", None).is_empty());
+        assert_eq!(list[0], "3");
+    }
 
     #[test]
     fn cleans_copied_header_values() {

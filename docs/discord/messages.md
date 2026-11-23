@@ -101,7 +101,9 @@ BACKCORD acknowledges it on Discord within a second.
 Reads within that second go together: one channel as its own
 acknowledgement, several, as when a server is marked read from its menu, in
 one `POST /read-states/ack-bulk` of up to 100 channels, as the official
-client does.
+client does. More than 100 go as batches one after another, 300 ms apart,
+each sent again after 2, 4, 6 and 8 s when Discord turns it down, and a
+group waits for the one before it.
 Before it does, BACKCORD notes the channel's last read message, from READY's read
 state or the last acknowledgement since, and the "New" divider goes above the
 first message after it from someone else. Snowflakes order messages, so the
@@ -961,7 +963,8 @@ on this account; in a DM every one from someone else counts, as BACKCORD
 counts DM mentions everywhere. Discord sends back
 `MESSAGE_ACK` with `manual` and that count, which sets the channel's read
 state as any acknowledgement does. BACKCORD sets it at once, drops a read of
-the channel still waiting to go, and puts the "New" divider above the
+the channel still waiting to go, or in a bulk batch not yet sent or being
+sent again, so an older read can't mark it read after, and puts the "New" divider above the
 message. With "Mark messages read on Discord" off it stays in BACKCORD, as
 reads do. The channel then isn't read again while it shows, even with its
 newest message in view, until another channel or thread opens, as in
