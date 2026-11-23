@@ -34,19 +34,22 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3
+## Novità della 1.3.1
 
-- **Cornici del profilo** come su Discord: tutte quelle del negozio restano in
-  cache e compaiono subito su card, profili e anteprima dell'editor, ferme mentre
-  scorri.
-- **Effetti del profilo in cache**: si caricano dal disco, senza aspettare il
-  negozio di Discord ogni volta.
-- **Profilo**: Bacheca e Attività staccate dalla card, giochi senza sfondo
-  grigio, badge sopra "Aggiungi amico", messaggio e altro (o "Modifica
-  profilo").
-- **Finestra**: non si rimpicciolisce più sotto 1000×600, così l'intestazione e
-  le cornici non si rompono.
-- **Impostazioni**: tolto "Apri i link di Discord in BACKCORD" da Avanzate.
+- **Chat dei canali vocali** come su Discord: il pulsante a fumetto apre la chat
+  in un pannello a destra, accanto alla chiamata, che si stringe.
+- **Formattazione mentre scrivi**: `**grassetto**`, `*corsivo*`, ```codice```,
+  titoli e blocchi di codice prendono lo stile già nel campo, con i simboli in
+  grigio, come su Discord.
+- **Volume fino al 400%**: per ogni utente (menu col tasto destro) e per il tuo
+  microfono, con un campo per scrivere la percentuale esatta.
+- **Voci meno robotiche**: con una connessione instabile BACKCORD aspetta di più
+  i pacchetti in ritardo invece di ricostruirli, e torna veloce quando la rete
+  si calma.
+- **Cambio account**: ogni account usato resta salvato, e la schermata di
+  accesso li mostra per rientrare con un clic.
+- **Canali vocali pieni**: dopo l'avviso puoi entrare subito negli altri canali
+  con posti liberi.
 
 ## Cosa fa
 
