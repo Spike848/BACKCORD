@@ -665,7 +665,12 @@ fn backcord_view<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
         None => Space::new().into(),
     };
     let footer = column![
-        text("BACKCORD v1.2.8").size(12).color(theme.muted),
+        text(match crate::build().version {
+            version if version.is_empty() => "BACKCORD".to_owned(),
+            version => format!("BACKCORD v{version}"),
+        })
+        .size(12)
+        .color(theme.muted),
         text("© BACKDOOR™ Tutti i diritti riservati.")
             .size(12)
             .color(theme.muted),

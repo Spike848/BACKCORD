@@ -398,11 +398,11 @@ fn launch(
             build: {
                 let build = build_info::current();
                 backcord_iced::Build {
-                    headline: "BACKCORD 1.2.8".to_owned(),
+                    headline: format!("BACKCORD {}", build.version()),
                     channel: String::new(),
                     details: String::new(),
                     tone: build.channel().tone(),
-                    summary: "BACKCORD 1.2.8".to_owned(),
+                    summary: format!("BACKCORD {}", build.version()),
                     version: build.version().to_owned(),
                 }
             },
