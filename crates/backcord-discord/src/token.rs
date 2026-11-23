@@ -21,9 +21,7 @@ fn entry() -> Result<Entry> {
 }
 
 fn named(account: &str) -> Result<Entry> {
-    let entry = Entry::new(SERVICE, account)
-        .map_err(|_| anyhow!("could not access the OS credential store"))?;
-    Ok(entry)
+    Entry::new(SERVICE, account).map_err(|_| anyhow!("could not access the OS credential store"))
 }
 
 /// With the test server, the link lasts while BACKCORD runs. It starts linked,
