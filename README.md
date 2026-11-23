@@ -35,6 +35,25 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
+## Novità della 1.2.7
+
+- **Caricamenti più rapidi**: all'avvio non scarica più tutte le emoji e gli
+  sticker di ogni server, ma solo quelli del server aperto e i preferiti.
+  Cache delle immagini su disco portata a 256 MB.
+- **Banner e decorazioni**: il banner animato del server, l'effetto profilo,
+  la cornice e il banner del tuo account restano in memoria invece di
+  essere riscaricati di continuo.
+- **Videocamere in chiamata**: ora si vedono. BACKCORD chiede subito al
+  mittente il fotogramma chiave e mostra anche le cam annunciate solo dal
+  server vocale.
+- **Popover del tuo account**: mostra la tua scheda profilo vera, con
+  effetto animato e cornice; "Modifica profilo" non è più doppio e
+  l'attività non compare due volte.
+- **Bacheca**: i giochi sono mostrati in una griglia.
+- **Visualizzatore avatar**: si apre sempre alla stessa dimensione, zoom con
+  la rotellina, tasto destro per "Scarica" o "Apri originale".
+- **Allegati audio** riproducibili direttamente nella chat.
+
 ## Novità della 1.2.6
 
 - **Voce e video riorganizzata**: subito sotto il test del microfono ci sono
