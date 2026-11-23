@@ -1,4 +1,4 @@
-//! Advanced: starting at sign-in, Discord links, the tray, more windows,
+//! Advanced: starting at sign-in, the tray, more windows,
 //! the GPU for drawing and for streams, and Developer Mode.
 
 use iced::{Element, widget::text};
@@ -24,14 +24,6 @@ impl<'a> Page<'a> {
                 backcord_iced_kit::i18n::tr("BACKCORD starts in the system tray when you sign in to your computer, so messages and calls reach you."),
                 start,
                 Pref::StartOnSignIn,
-            ));
-        }
-        if let Some(links) = platform.discord_links {
-            parts.push(self.flip(
-                backcord_iced_kit::i18n::tr("Open Discord links in BACKCORD"),
-                backcord_iced_kit::i18n::tr("discord:// links from other apps and shortcuts open here instead of Discord. Turning it off gives them back to the app that had them."),
-                links,
-                Pref::DiscordLinks,
             ));
         }
         let tray = self.cx.tray;

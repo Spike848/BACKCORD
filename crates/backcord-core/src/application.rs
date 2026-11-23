@@ -2627,6 +2627,9 @@ pub struct Application {
     /// added by a later snapshot are fetched too.
     #[cfg(feature = "discord")]
     emoji_prefetched: HashSet<String>,
+    /// The profile frames were asked for, once a Discord account connected.
+    #[cfg(feature = "discord")]
+    frames_asked: bool,
     /// The server icons fetched ahead, so each is fetched once.
     #[cfg(feature = "discord")]
     server_icons_prefetched: HashSet<String>,
@@ -3227,6 +3230,35 @@ impl Application {
         );
         banners.extend(
             account
+                .and_then(|profile| profile.banner.as_deref())
+                .and_then(chat::moving_banner),
+        );
+        // The profile editor's preview, and its tile, wear the profile's
+        // frame and effect, and show its moving banner.
+        let editing = state
+            .profile_editor
+            .as_ref()
+            .and_then(|editor| editor.profile.as_ref())
+            .map(|own| &own.fallback);
+        shown.extend(
+            editing
+                .and_then(|profile| profile.effect.as_deref())
+                .and_then(|sku| {
+                    state
+                        .profile_effects
+                        .iter()
+                        .find(|effect| effect.sku == sku)
+                })
+                .into_iter()
+                .flat_map(|effect| effect.pictures()),
+        );
+        shown.extend(
+            editing
+                .into_iter()
+                .flat_map(|profile| profile.frame.iter().map(|layer| layer.src.as_str())),
+        );
+        banners.extend(
+            editing
                 .and_then(|profile| profile.banner.as_deref())
                 .and_then(chat::moving_banner),
         );

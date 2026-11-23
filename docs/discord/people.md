@@ -748,9 +748,16 @@ server's off. `Names` keeps these beside the user's own, by server and user.
 
 A profile names the effect its person equips, `profile_effect: {id,
 expires_at}`, in `user_profile` (or `guild_member_profile`, which wins in its
-server). The effect itself is the shop's: BACKCORD asks for it once the card
-shows, `GET /collectibles-products/{sku}` with the account's own login, as
-Discord's client does, and takes the first item with `effects`: its
+server). The effect itself is the shop's. Every effect the shop sells is
+known ahead: the catalog that lists the frames (see Profile frames below)
+lists the effects too, and each one's layers go to
+`discord-profile-effects.json` (a few hundred effects, some 150 KB), read
+for one effect at a time when a card names one not among the last eight, so
+the window holds none of the rest. An effect missing from it, sold since the
+catalog came, is asked for once its card shows,
+`GET /collectibles-products/{sku}` with the account's own login, as
+Discord's client does. Either way BACKCORD takes the first item with
+`effects`: its
 `staticFrameSrc` (else `reducedMotionSrc`, else `thumbnailPreviewSrc`) and
 `effects`, each layer with `src`, `randomizedSources` (one of which plays in
 each layer in place of `src`, the same one in all), `loop`, `start`,
@@ -782,8 +789,24 @@ of type 3 (`profile_frame` in some answers), in `guild_member_profile` before
 `layers`, each `{id, type, order, anchor}` and a still at
 `/media/v1/collectibles-shop/{sku}/{id}/static`; the client has no moving
 version of these. `Discord::profile_frame` keeps each SKU's layers, a few
-addresses, for as long as the session runs, so a frame seen once comes with
-its card; the first time, `Event::ProfileFrame` brings it after the card.
+addresses, so a frame seen once comes with its card; the first time,
+`Event::ProfileFrame` brings it after the card.
+
+Every frame the shop sells is known ahead. Once a Discord account connects
+with Show profile frames or Play profile effects on, `DiscordCommand::ProfileFrames` reads
+`discord-profile-frames.json`, the frames kept from earlier sessions, and,
+once that list is a day old, asks for the shop's catalog,
+`GET /collectibles-categories/v2`: every category the shop has sold, some
+3 MB and about a hundred frames, each frame's product as
+`/collectibles-products/{sku}` gives it, a group's variants among them.
+`/collectibles-shop` holds only the featured categories and answers a
+`tab` of frames (`profile-frames`) with 400. The answer is read into a
+frame's SKU and layers alone, keyed by its item's SKU, which a profile
+names; a catalog that held none is asked for again at the next start.
+What came, and each frame a profile showed since, goes back to the file, so a card wears its frame at once, the next start too. Only the layers'
+addresses are kept; their pictures go to the disk's picture cache as cards
+show them. The editor's preview of one's own profile, and the account's card,
+take the frame its profile names, kept or asked for then.
 
 The card draws the layers as Discord's stylesheet does, from 12px past each
 side of a small card and 16px past a full one's: a `staple` once past the
@@ -793,9 +816,16 @@ staple keeps the same part over the card whatever its height, 412 at the top
 and 212 at the foot, as Discord's frame maker lays them out, so a short one
 hangs out less. The `back` layers go behind the card's contents and the
 others over them. The full profile leaves out the staple at the foot, and
-shows none in a window under 785 pixels tall, which leaves no room above
-the card. The DM's panel and the editor's preview show none, and the panel
-asks for none. Each layer decodes at up to 460 by 1600 (`FRAME_SIZE`), as wide
+leaves room above and below the card for its top whatever the window's
+height. Each layer is drawn from its picture as decoded, which is about a
+card's width, scaled as it's drawn: a copy fitted to the size would be made
+off the window's thread and be missing meanwhile, so the frame would blink,
+and the room left above the card jump, as the window scrolls or moves to a
+monitor of another scale. The profile editor's preview stands apart as a card of its own, 24
+pixels from the styles and the tabs, more above where the frame's top reaches
+past the card, and wears the frame as the full profile does, its layers kept
+while the editor is open as a card's are while it shows; its Profile Effect & Frame tile shows the frame round a small blank
+card. The DM's panel shows none, and asks for none. Each layer decodes at up to 460 by 1600 (`FRAME_SIZE`), as wide
 as a card draws it.
 
 A banner whose hash starts with `a_` moves: the card shows its still PNG and
@@ -865,13 +895,13 @@ window draws carry no address for it, so the window asks for nothing either.
 
 | Switch (`layout.json` key) | Off | Default |
 | --- | --- | --- |
-| Play profile effects (`profile_effects`) | No `/user-profile-effects` or `/collectibles-products/` request for a profile's effect (`DiscordCommand::Profile`'s `effect`), and none of its layers | On |
+| Play profile effects (`profile_effects`) | No `/user-profile-effects` or `/collectibles-products/` request for a profile's effect (`DiscordCommand::Profile`'s `effect`), and none of its layers; with Show profile frames off too, no `/collectibles-categories/v2` | On |
 | Show avatar decorations (`decorations`) | No decoration on messages, member lists, DM rows, profile cards or the account | On |
 | Show nameplates (`nameplates`) | No nameplate in member lists or on the account's card (`AppState::hide_nameplates`) | On |
 | Animate decorations and nameplates (`moving_cosmetics`) | Their `/animated` APNG is never asked for (`animated_url` gives none), so only the still is fetched and decoded | On |
 | Show name styles (`name_styles`) | Names in the UI's typeface and the theme's colour | On |
 | Show server tags (`server_tags`) | No tag chip, and no badge picture | On |
-| Show profile frames (`profile_frames`) | No `/collectibles-products/` request for a profile's frame (`DiscordCommand::Profile`'s `frame`), and none of its layers | On |
+| Show profile frames (`profile_frames`) | No `/collectibles-products/` request for a profile's frame (`DiscordCommand::Profile`'s `frame`), no `/collectibles-categories/v2` list of every frame (`DiscordCommand::ProfileFrames`), and none of its layers | On |
 
 Every switch starts on, so profiles look as in Discord's client. The
 switches are there for the cheaper side: an effect's layers are APNGs up

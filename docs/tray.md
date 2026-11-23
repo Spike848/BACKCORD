@@ -59,17 +59,18 @@ swaps what an Authorize, Redeem or Join click is for. The restart a changed rend
 makes doesn't open it again; the one after a failed GPU start does, as nothing
 opened it yet.
 
-Settings → Advanced → "Open Discord links in BACKCORD" claims `discord://`
-for this BACKCORD, and its own `backcord://` with it; turning it off gives each
-back as it was (`src/protocol.rs`). Showing the switch reads a file or the
-registry and starts no process.
+Settings has no switch for `discord://` links: they stay with the app the
+desktop gives them to, Discord as a rule. A claim an earlier BACKCORD made
+from Settings stays, and goes on following this BACKCORD's folder at each
+start; `backcord.exe --release-discord-links`, which uninstalling runs, gives
+`discord://` back as it was (`src/protocol.rs`).
 
-- **Windows**: the switch is the current user's
+- **Windows**: the claim is the current user's
   `Software\Classes\discord` command. The one there before is kept, in its
   own registry type, under `Software\BACKCORD\DiscordProtocol`. The installer
   registers only `backcord://`; uninstalling runs `backcord.exe
   --release-discord-links`, which gives `discord://` back, and removes the key.
-- **Linux**: the switch is the person's own `mimeapps.list`, in
+- **Linux**: the claim is the person's own `mimeapps.list`, in
   `$XDG_CONFIG_HOME` or `~/.config`, and it's on while its
   `[Default Applications]` name BACKCORD's entry first for
   `x-scheme-handler/discord`. Claiming keeps each scheme's line as it was, or

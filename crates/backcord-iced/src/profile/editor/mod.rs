@@ -54,6 +54,9 @@ const SIDE: f32 = 241.0;
 /// A tile's width, two to a row of the styles column.
 const TILE: f32 = (SIDE - 32.0 - 8.0) / 2.0;
 const AVATAR: f32 = 120.0;
+/// Round the main profile's preview, which stands apart from the styles
+/// and its tabs, with room for its frame, as Discord's editor has it.
+const CARD_MARGIN: f32 = 24.0;
 /// Where Discord's client sends someone for what only its shop sets.
 const SHOP: &str = "https://discord.com/shop";
 const CONNECTIONS: &str = "https://discord.com/settings/connections";
@@ -234,6 +237,7 @@ fn preview(state: &AppState, editor: &ProfileEditor) -> ProfileView {
         decoration: fallback.and_then(|own| own.decoration.clone()),
         effect: fallback.and_then(|own| own.effect.clone()),
         badges: fallback.map(|own| own.badges.clone()).unwrap_or_default(),
+        frame: fallback.map(|own| own.frame.clone()).unwrap_or_default(),
         connections: fallback
             .map(|own| own.connections.clone())
             .unwrap_or_default(),
@@ -622,9 +626,18 @@ pub(super) fn editor_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
         &editor.shown,
         false,
     ));
-    // The board's games and what's going on now, on the preview's tabs.
+    // The frame's layers, round the preview and on its tile.
+    urls.extend(crate::profile::cosmetic::frame_pictures(
+        ctx.state,
+        &editor.shown,
+    ));
+    // The board's games, their covers and icons, and what's going on now,
+    // on the preview's tabs.
     for widget in &profile.widgets {
-        urls.extend(widget.games.iter().filter_map(|game| game.icon.clone()));
+        for game in &widget.games {
+            urls.extend(game.cover.clone());
+            urls.extend(game.icon.clone());
+        }
     }
     for activity in &editor.shown.look.activities {
         urls.extend(activity.large.clone());
@@ -655,8 +668,11 @@ fn editor_card_width(ctx: crate::ctx::Ctx<'_>, editor: &Editor, main: bool) -> f
 fn editor_middle_width(ctx: crate::ctx::Ctx<'_>, editor: &Editor, main: bool) -> f32 {
     let card = editor_card_width(ctx, editor, main);
     let rest = card - if main && editor.side { SIDE + 1.0 } else { 0.0 };
+    // Beside the tabs, its margins come out of theirs; alone, out of its own.
     if editor_tabs_shown(card, main) {
         rest / 2.0
+    } else if main {
+        rest - 2.0 * CARD_MARGIN
     } else {
         rest
     }
@@ -684,7 +700,36 @@ pub fn profile_editor_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, M
                     .style(move |_| rounded(line, 0)),
             );
     }
-    parts = parts.push(container(middle).width(Length::Fill).height(Length::Fill));
+    if main {
+        // The preview is a card of its own, its frame round it.
+        let width = editor_middle_width(ctx, editor, main);
+        let preview = container(middle)
+            .width(width)
+            .height(Length::Fill)
+            .clip(true)
+            .style(crate::profile::frame_style(inks, theme.edge, 12.0, true));
+        let dressed = crate::profile::cosmetic::dressed(
+            ctx,
+            &editor.shown,
+            Mode::Side,
+            width,
+            preview.into(),
+        );
+        // Room above for its frame's top, which reaches past the card.
+        let above =
+            crate::profile::cosmetic::frame_room_above(ctx, &editor.shown, Mode::Side, width);
+        parts = parts.push(
+            container(dressed)
+                .padding(Padding {
+                    top: CARD_MARGIN.max(above.ceil() + 8.0),
+                    ..Padding::new(CARD_MARGIN)
+                })
+                .width(width + 2.0 * CARD_MARGIN)
+                .height(Length::Fill),
+        );
+    } else {
+        parts = parts.push(container(middle).width(Length::Fill).height(Length::Fill));
+    }
     if editor_tabs_shown(card_width, main) {
         parts = parts.push(editor_tabs(ctx, editor, &inks));
     }
@@ -797,7 +842,7 @@ fn editor_tabs<'a>(
         top: 58.0,
         right: 32.0,
         bottom: 22.0,
-        left: 0.0,
+        left: 8.0,
     })
     .width(Length::Fill)
     .height(Length::Fill)

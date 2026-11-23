@@ -19,8 +19,10 @@ use crate::{
     desktop::{self, ABOUT, Heard, Notifier, Tell, Tray, TrayChoice},
 };
 
-/// The least size the window lays out in.
-pub const MIN_SIZE: Size = Size::new(800.0, 560.0);
+/// The least size the window lays out in: narrower, the timeline breaks a
+/// line at each word and the message box cuts its words short; shorter, the
+/// full profile and the profile editor have no room for a frame's top.
+pub const MIN_SIZE: Size = Size::new(1000.0, 600.0);
 /// The most a side of the window is asked to be, whatever `layout.json`
 /// says.
 const MOST: f32 = 16384.0;

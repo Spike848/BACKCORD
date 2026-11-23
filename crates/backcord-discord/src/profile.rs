@@ -67,7 +67,7 @@ pub struct Profile {
 }
 
 /// One picture of a profile frame, as the shop describes it.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FrameLayer {
     /// The address of its still picture, the only one the client draws.
     pub src: String,
@@ -103,13 +103,114 @@ pub fn frame_sku(value: &Value, guild: bool) -> Option<String> {
 /// `/media/v1/collectibles-shop/{sku}/{id}/static`. None for a product
 /// without one.
 pub fn frame(product: &Value) -> Option<Vec<FrameLayer>> {
+    frame_of(product).map(|(_, layers)| layers)
+}
+
+/// The profile frames and effects the shop's catalog holds, by the SKU a
+/// profile names each by.
+#[derive(Debug, Default)]
+pub struct ShopCollectibles {
+    pub frames: Vec<(String, Vec<FrameLayer>)>,
+    pub effects: Vec<(String, profile_effect::Kept)>,
+}
+
+/// Every profile frame and effect the shop's catalog holds: each product of
+/// each category, and each variant of a product that groups them. Read from
+/// the answer's bytes into what they need alone, rather than a tree of all
+/// of its 3 MB.
+pub fn shop_collectibles(answer: &[u8]) -> serde_json::Result<ShopCollectibles> {
+    #[derive(serde::Deserialize)]
+    struct Shop {
+        #[serde(default)]
+        categories: Vec<Category>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Category {
+        #[serde(default)]
+        products: Vec<Product>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Product {
+        #[serde(default)]
+        sku_id: Value,
+        #[serde(default)]
+        items: Vec<Item>,
+        #[serde(default)]
+        variants: Vec<Product>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Item {
+        #[serde(default)]
+        sku_id: Value,
+        #[serde(default)]
+        layers: Option<Vec<Value>>,
+        #[serde(default)]
+        effects: Option<Vec<Value>>,
+        #[serde(default, rename = "staticFrameSrc")]
+        static_frame: Option<String>,
+        #[serde(default, rename = "reducedMotionSrc")]
+        reduced_motion: Option<String>,
+        #[serde(default, rename = "thumbnailPreviewSrc")]
+        thumbnail: Option<String>,
+    }
+    fn walk(product: Product, found: &mut ShopCollectibles) {
+        let sku_of = |item: &Item| {
+            text(&item.sku_id)
+                .or_else(|| text(&product.sku_id))
+                .map(str::to_owned)
+        };
+        if let Some(item) = product.items.iter().find(|item| item.layers.is_some())
+            && let Some(sku) = sku_of(item)
+        {
+            let layers = layers_of(&sku, item.layers.as_deref().unwrap_or_default());
+            if !layers.is_empty() {
+                found.frames.push((sku, layers));
+            }
+        }
+        if let Some(item) = product.items.iter().find(|item| item.effects.is_some())
+            && let Some(sku) = sku_of(item)
+        {
+            let still = profile_effect::still_of(
+                item.static_frame.as_deref(),
+                item.reduced_motion.as_deref(),
+                item.thumbnail.as_deref(),
+            );
+            let effect =
+                profile_effect::Kept::read(item.effects.as_deref().unwrap_or_default(), still);
+            if !effect.layers.is_empty() {
+                found.effects.push((sku, effect));
+            }
+        }
+        for variant in product.variants {
+            walk(variant, found);
+        }
+    }
+    let shop: Shop = serde_json::from_slice(answer)?;
+    let mut found = ShopCollectibles::default();
+    for product in shop
+        .categories
+        .into_iter()
+        .flat_map(|category| category.products)
+    {
+        walk(product, &mut found);
+    }
+    Ok(found)
+}
+
+/// [`frame`], with the SKU of the item that is the frame.
+fn frame_of(product: &Value) -> Option<(String, Vec<FrameLayer>)> {
     let item = product["items"]
         .as_array()?
         .iter()
         .find(|item| item["layers"].is_array())?;
     let sku = text(&item["sku_id"]).or_else(|| text(&product["sku_id"]))?;
-    let mut layers: Vec<FrameLayer> = item["layers"]
-        .as_array()?
+    let layers = layers_of(sku, item["layers"].as_array()?);
+    (!layers.is_empty()).then(|| (sku.to_owned(), layers))
+}
+
+/// A frame item's `layers`, the back ones first.
+fn layers_of(sku: &str, layers: &[Value]) -> Vec<FrameLayer> {
+    let mut layers: Vec<FrameLayer> = layers
         .iter()
         .filter_map(|layer| {
             let id = text(&layer["id"])?;
@@ -125,7 +226,7 @@ pub fn frame(product: &Value) -> Option<Vec<FrameLayer>> {
         })
         .collect();
     layers.sort_by_key(|layer| layer.front);
-    (!layers.is_empty()).then_some(layers)
+    layers
 }
 
 /// A past thing on someone's Activity tab.
@@ -577,6 +678,77 @@ mod tests {
         assert_eq!(
             frame(&json!({"items": [{"sku_id": "8", "effects": []}]})),
             None
+        );
+    }
+
+    #[test]
+    fn the_shops_tab_of_frames_gives_every_frame_and_each_variant() {
+        let product = |sku: &str| {
+            json!({"sku_id": sku, "items": [{"sku_id": sku, "layers": [
+                {"id": "1", "type": "staple", "order": "front", "anchor": "top"},
+            ]}]})
+        };
+        let answer = json!({"categories": [
+            {"products": [product("1"), {"sku_id": "2", "items": [{"sku_id": "2", "effects": []}]}]},
+            {"products": [{"sku_id": "3", "type": 2000, "items": [], "variants": [product("4"), product("5")]}]},
+        ]});
+        let skus: Vec<String> = shop_collectibles(answer.to_string().as_bytes())
+            .unwrap()
+            .frames
+            .into_iter()
+            .map(|(sku, _)| sku)
+            .collect();
+        assert_eq!(
+            skus,
+            ["1", "4", "5"],
+            "an effect isn't a frame; a group's variants are"
+        );
+        assert!(shop_collectibles(b"{}").unwrap().frames.is_empty());
+        // A profile names a frame by its item's SKU, which a bundle's product
+        // doesn't share.
+        let bundled = json!({"categories": [{"products": [{"sku_id": "6", "items": [
+            {"sku_id": "7", "layers": [{"id": "1", "type": "border", "order": "back", "anchor": "center"}]},
+        ]}]}]});
+        let found = shop_collectibles(bundled.to_string().as_bytes())
+            .unwrap()
+            .frames;
+        assert_eq!(found[0].0, "7");
+        assert!(found[0].1[0].src.ends_with("/collectibles-shop/7/1/static"));
+    }
+
+    #[test]
+    fn the_catalog_gives_every_profile_effect_with_its_layers() {
+        let effect = |sku: &str| {
+            json!({"sku_id": sku, "items": [{"type": 1, "sku_id": sku,
+            "reducedMotionSrc": "https://cdn.discordapp.com/media/v1/collectibles-shop/r",
+            "effects": [
+                {"src": "https://x/b.png", "zIndex": 102, "loop": true, "duration": 3000,
+                 "randomizedSources": [{"src": "https://x/b0.png"}, {"src": "https://x/b1.png"}]},
+                {"src": "/assets/a.png", "zIndex": 101, "start": 0, "duration": 2000},
+            ]}]})
+        };
+        let answer = json!({"categories": [
+            {"products": [effect("1"), {"sku_id": "2", "items": [{"sku_id": "2", "effects": []}]}]},
+            {"products": [{"sku_id": "3", "items": [], "variants": [effect("4")]}]},
+        ]});
+        let found = shop_collectibles(answer.to_string().as_bytes()).unwrap();
+        assert!(found.frames.is_empty());
+        let skus: Vec<&str> = found.effects.iter().map(|(sku, _)| sku.as_str()).collect();
+        assert_eq!(skus, ["1", "4"], "an effect without layers isn't kept");
+        let kept = &found.effects[0].1;
+        assert!(
+            kept.still
+                .as_deref()
+                .unwrap()
+                .ends_with("/collectibles-shop/r")
+        );
+        assert_eq!(kept.layers[0].sources.len(), 1, "the lowest first");
+        assert!(kept.layers[0].sources[0].starts_with("http"));
+        assert_eq!(kept.layers[1].sources.len(), 2);
+        // Played, it is what the product's own answer gives.
+        assert_eq!(
+            kept.effect("1", 3),
+            crate::profile_effect::parse("1", &effect("1"), 3).unwrap()
         );
     }
 

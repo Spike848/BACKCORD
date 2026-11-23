@@ -201,12 +201,11 @@ pub struct Settings {
     pub platform: Platform,
 }
 
-/// Starting at sign-in and opening Discord's links here, where the build and
-/// the desktop can: none where they can't.
+/// Starting at sign-in, where the build and the desktop can: none where
+/// they can't.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Platform {
     pub autostart: Option<bool>,
-    pub discord_links: Option<bool>,
 }
 
 impl Settings {
@@ -260,7 +259,7 @@ impl Settings {
             extra: None,
             ..Self::default()
         };
-        settings.read_platform_choices(cx);
+        settings.read_platform_choices();
         settings
     }
 
@@ -365,13 +364,11 @@ impl Settings {
         self.preview.as_ref()
     }
 
-    /// Reads what the desktop says of starting at sign-in and Discord's
-    /// links, for Advanced. A Discord build only offers the links.
-    fn read_platform_choices(&mut self, cx: &Cx<'_>) {
+    /// Reads what the desktop says of starting at sign-in, for Advanced.
+    fn read_platform_choices(&mut self) {
         let desktop = crate::desktop::desktop();
         self.platform = Platform {
             autostart: desktop.autostart(),
-            discord_links: desktop.discord_links(cx.client.root()),
         };
     }
 }

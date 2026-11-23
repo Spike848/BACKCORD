@@ -224,13 +224,6 @@ pub trait Desktop: Send + Sync {
     fn set_autostart(&self, _on: bool) -> Result<(), String> {
         Err(backcord_iced_kit::i18n::tr("this build can't start at sign-in").into())
     }
-    /// Whether `discord:` links open here; none where they can't.
-    fn discord_links(&self, _root: &Path) -> Option<bool> {
-        None
-    }
-    fn set_discord_links(&self, _root: &Path, _on: bool) -> Result<(), String> {
-        Err(backcord_iced_kit::i18n::tr("this build can't open Discord links").into())
-    }
     /// Puts a picture, as it was downloaded, on the clipboard.
     fn copy_picture(&self, _bytes: Vec<u8>) {}
     /// Gives back memory freed with the window.

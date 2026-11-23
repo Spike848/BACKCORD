@@ -37,6 +37,12 @@ pub(super) fn command(
     };
     let events = events.clone();
     match command {
+        DiscordCommand::ProfileFrames => {
+            if let Ok(discord) = discord {
+                let discord = discord.clone();
+                tokio::spawn(async move { discord.load_profile_frames().await });
+            }
+        }
         DiscordCommand::OwnProfile { server } => {
             let guild = guild(server.as_deref());
             let (Ok(discord), Some(guild)) = (discord, guild) else {
@@ -54,18 +60,25 @@ pub(super) fn command(
                         // The main profile's answer is the account card's
                         // too, so it needn't be asked for again.
                         let me = discord.snapshots().borrow().user_id.clone();
+                        // Each with its frame, so the editor's preview and the
+                        // account's card wear it.
+                        let frame = frame_layers(&discord, profile.fallback.frame.as_deref()).await;
                         if let (Some(card), Some(user)) = (card, me) {
-                            let card = super::render::chat_profile(
+                            let card_frame = frame_layers(&discord, card.frame.as_deref()).await;
+                            let mut card = super::render::chat_profile(
                                 &discord,
                                 backcord_discord::ready::PRIVATE,
                                 card,
                             );
+                            card.frame = card_frame;
                             let _ = events.send(Event::Profile {
                                 user,
                                 result: Ok(card),
                             });
                         }
-                        Ok(own_profile(&discord, guild.as_deref(), profile))
+                        let mut own = own_profile(&discord, guild.as_deref(), profile);
+                        own.fallback.frame = frame;
+                        Ok(own)
                     }
                     Err(error) => {
                         tracing::warn!(
@@ -307,6 +320,26 @@ fn own_profile(
         banner: profile.banner,
         accent: profile.accent,
         fallback: render::chat_profile(discord, guild.unwrap_or_default(), profile.fallback),
+    }
+}
+
+/// The layers of the profile frame `sku` names, kept or from the shop,
+/// once the frames were asked for this session (Show profile frames is
+/// on); none without.
+async fn frame_layers(
+    discord: &Discord,
+    sku: Option<&str>,
+) -> Arc<[crate::chat::ProfileFrameLayer]> {
+    let Some(sku) = sku.filter(|_| discord.frames_loaded()) else {
+        return Arc::default();
+    };
+    match discord.profile_frame(sku).await {
+        Ok(Some(layers)) => layers.iter().map(Into::into).collect(),
+        Ok(None) => Arc::default(),
+        Err(error) => {
+            tracing::warn!(%error, "could not fetch a Discord profile frame");
+            Arc::default()
+        }
     }
 }
 

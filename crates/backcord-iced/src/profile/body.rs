@@ -160,13 +160,15 @@ pub(super) fn profile_body<'a>(
         names = names.push(badge_rows(ctx, shown));
     }
     body = body.push(names);
+    // The badges, then what to do: the friend button, Message and More, or
+    // one's own Edit Profile.
+    if !profile.badges.is_empty() && !beside && !under {
+        body = body.push(badge_rows(ctx, shown));
+    }
     if mode.large()
         && let Some(actions) = profile_actions(ctx, shown, &inks)
     {
         body = body.push(actions);
-    }
-    if !profile.badges.is_empty() && !beside && !under {
-        body = body.push(badge_rows(ctx, shown));
     }
     let live = (!mode.large())
         .then(|| stream_card(ctx, shown, &inks, room))

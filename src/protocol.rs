@@ -1,18 +1,14 @@
 //! Opening Discord's own protocol links in BACKCORD: a current-user
 //! protocol registration on Windows, and the person's default
 //! applications on Linux. BACKCORD's own `backcord:` scheme is registered by
-//! its installer or desktop entry; this claims `discord:` only when
-//! Settings says to, and gives the previous handler back when turned off.
+//! its installer or desktop entry. Settings no longer claims `discord:`;
+//! a claim an earlier BACKCORD made is kept pointing at this one, and
+//! `--release-discord-links` gives the previous handler back.
 
 use std::path::Path;
 
 /// Whether this platform can claim Discord's protocol links.
 pub const SUPPORTED: bool = cfg!(any(windows, target_os = "linux"));
-
-/// Whether Discord protocol links open in this BACKCORD.
-pub fn discord_enabled(root: &Path) -> bool {
-    platform::enabled(root)
-}
 
 /// Claims Discord protocol links for this BACKCORD, or gives them back.
 pub fn set_discord_enabled(root: &Path, enabled: bool) -> std::io::Result<()> {
@@ -57,10 +53,6 @@ pub(crate) use windows::set_string;
 mod none {
     use std::path::Path;
 
-    pub fn enabled(_: &Path) -> bool {
-        false
-    }
-
     pub fn set(_: &Path, _: bool) -> std::io::Result<()> {
         Err(std::io::Error::other(
             "opening Discord links here isn't supported on this platform",
@@ -94,7 +86,9 @@ mod windows {
     const HAD_COMMAND: &str = "HadCommand";
     const HAD_URL_PROTOCOL: &str = "HadUrlProtocol";
 
-    pub fn enabled(root: &Path) -> bool {
+    /// Whether `discord:` links open this BACKCORD.
+    #[cfg(test)]
+    fn enabled(root: &Path) -> bool {
         let Some(current) = query_string(COMMAND, None) else {
             return false;
         };
@@ -372,10 +366,6 @@ mod linux {
         format!("{}.desktop", crate::icon::APP_ID)
     }
 
-    pub fn enabled(_: &Path) -> bool {
-        list().is_some_and(|list| enabled_in(&list))
-    }
-
     pub fn set(root: &Path, enabled: bool) -> io::Result<()> {
         let list = list().ok_or_else(|| io::Error::other("no home folder"))?;
         if enabled {
@@ -393,6 +383,8 @@ mod linux {
         Ok(())
     }
 
+    /// Whether `list` gives `discord:` links to BACKCORD.
+    #[cfg(test)]
     fn enabled_in(list: &Path) -> bool {
         std::fs::read_to_string(list)
             .is_ok_and(|text| default_line(&text, SCHEMES[0]).is_some_and(names_backcord))

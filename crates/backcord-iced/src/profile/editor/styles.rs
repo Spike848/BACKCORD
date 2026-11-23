@@ -186,7 +186,20 @@ pub(super) fn customize<'a>(
         None,
         shop(),
     );
-    let frame = cell(ctx, plus(), 100.0, None, shop());
+    let frame = cell(
+        ctx,
+        match crate::profile::cosmetic::frame_tile(ctx, shown, Size::new(TILE, 100.0)) {
+            Some(tile) => tile,
+            None if !profile.frame.is_empty() => text(backcord_iced_kit::i18n::tr("Frame on"))
+                .size(13)
+                .color(theme.text)
+                .into(),
+            None => plus(),
+        },
+        100.0,
+        None,
+        shop(),
+    );
     let line = theme.line;
     let head = row![
         text(backcord_iced_kit::i18n::tr("Main Profile"))

@@ -674,9 +674,12 @@ pub fn full_profile_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Mes
     let width = (window_width * 0.7)
         .clamp(720.0, 960.0)
         .min(window_width - 32.0);
+    // Room above and below for the frame's top, which reaches past the card.
+    let above =
+        crate::profile::cosmetic::frame_room_above(ctx, shown, Mode::Side, full::SIDE_WIDTH);
     let height = (window_height * 0.75)
         .clamp(520.0, 760.0)
-        .min(window_height - 32.0);
+        .min(window_height - 2.0 * (above + 8.0).max(16.0));
     let modal = crate::profile::full::full_view(ctx, shown, width, height);
     // Over the window dimmed as under a settings card.
     Some(opaque(stack![

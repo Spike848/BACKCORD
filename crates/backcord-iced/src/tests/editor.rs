@@ -336,3 +336,67 @@ fn the_editors_tabs_say_what_the_profile_will_show() {
     });
     assert!(shows(&app, "Couldn't load the board."));
 }
+
+#[test]
+fn the_editor_keeps_its_frames_pictures_while_it_shows_them() {
+    use std::sync::Arc;
+
+    use backcord_core::chat::{Event, Picture, ProfileFrameLayer};
+    const FRAME: &str = "https://cdn.discordapp.com/media/v1/collectibles-shop/1/2/static";
+    let mut app = open();
+    change(&mut app, |state| {
+        let own = state.profile_editor.as_mut().expect("open");
+        own.profile.as_mut().expect("read").fallback.frame = Arc::from(vec![ProfileFrameLayer {
+            src: FRAME.into(),
+            kind: "staple".into(),
+            anchor: "top".into(),
+            front: true,
+        }]);
+    });
+    let _ = app.ask_now();
+    assert!(app.client.app.picture_requested(FRAME), "asked for");
+    app.client.apply(Event::Picture {
+        url: FRAME.into(),
+        picture: Arc::new(Picture::default()),
+    });
+    let _ = app.ask_now();
+    assert!(
+        app.client.state().pictures.contains_key(FRAME),
+        "kept while the editor's preview wears it"
+    );
+}
+
+#[test]
+fn a_frame_shows_on_the_first_view_after_its_pictures_came() {
+    use std::sync::Arc;
+
+    use backcord_core::chat::{Event, Picture, Pixels, ProfileFrameLayer};
+    const FRAME: &str = "https://cdn.discordapp.com/media/v1/collectibles-shop/1/2/static";
+    let mut app = open();
+    change(&mut app, |state| {
+        let own = state.profile_editor.as_mut().expect("open");
+        own.profile.as_mut().expect("read").fallback.frame = Arc::from(vec![ProfileFrameLayer {
+            src: FRAME.into(),
+            kind: "staple".into(),
+            anchor: "top".into(),
+            front: true,
+        }]);
+    });
+    let _ = app.ask_now();
+    // As large as a frame's layer comes, which the fitter's thread would
+    // copy smaller, off the view.
+    app.client.apply(Event::Picture {
+        url: FRAME.into(),
+        picture: Arc::new(Picture {
+            width: 460,
+            height: 251,
+            rgba: Pixels::new(460, 251, vec![200; 460 * 251 * 4]),
+            ..Default::default()
+        }),
+    });
+    change(&mut app, |_| {});
+    assert!(
+        !shows(&app, "Frame on"),
+        "the tile wears the frame at once, rather than waiting on a copy"
+    );
+}

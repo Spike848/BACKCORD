@@ -925,6 +925,10 @@ pub struct Discord {
     /// The layers of the profile frames asked for, by SKU; none for one the
     /// shop has no frame for. They're a few addresses each.
     frames: Frames,
+    /// When the shop's list of frames last came, in Unix milliseconds, 0
+    /// for never; `u64::MAX` until the frames kept on disk were read, which
+    /// holds back writing them over.
+    frames_fetched: Arc<std::sync::atomic::AtomicU64>,
     /// The threads a list of a channel's threads found, by id, while it's
     /// open: one opens from what Discord gave rather than asking again.
     listed_threads: Arc<Mutex<HashMap<String, Value>>>,
@@ -1116,6 +1120,7 @@ impl Discord {
             notes,
             effects: Arc::default(),
             frames: Arc::default(),
+            frames_fetched: Arc::new(std::sync::atomic::AtomicU64::new(u64::MAX)),
             listed_threads: Arc::default(),
             new_dms: Arc::new(Mutex::new(limits::Window::new(NEW_DMS, NEW_DM_SPAN))),
             application_icons: Arc::default(),
@@ -2662,11 +2667,115 @@ impl Discord {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .insert(sku.to_owned(), frame.clone());
+        self.keep_frames().await;
         Ok(frame)
     }
 
-    /// The profile effect sold as `sku`: its layers, from the shop, asked for
-    /// once and kept for the next few cards. None for a SKU that isn't one.
+    /// Reads the profile frames kept on disk, so the cards show theirs at
+    /// once, and asks the shop's catalog for every frame and profile effect
+    /// it sells once what is kept is a day old, keeping what came for the
+    /// next start: the effects in a file of their own, read one at a time
+    /// by [`Self::profile_effect`].
+    pub async fn load_profile_frames(&self) {
+        use std::sync::atomic::Ordering;
+        let kept = tokio::task::spawn_blocking(cache::profile_frames)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        self.frames_fetched.store(kept.fetched, Ordering::Relaxed);
+        {
+            let mut frames = self
+                .frames
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            for (sku, layers) in kept.frames {
+                frames.entry(sku).or_insert_with(|| layers.map(Arc::from));
+            }
+        }
+        let effects_kept = tokio::task::spawn_blocking(cache::profile_effects_kept)
+            .await
+            .unwrap_or(false);
+        if cache::profile_frames_are_fresh(kept.fetched) && effects_kept {
+            return;
+        }
+        let answer = match self.api.collectibles_categories().await {
+            Ok(answer) => answer,
+            Err(error) => {
+                tracing::warn!(%error, "could not fetch the shop's profile frames");
+                return;
+            }
+        };
+        let found = match profile::shop_collectibles(&answer) {
+            Ok(found) => found,
+            Err(error) => {
+                tracing::warn!(%error, "could not read the shop's profile frames");
+                return;
+            }
+        };
+        drop(answer);
+        tracing::info!(
+            frames = found.frames.len(),
+            effects = found.effects.len(),
+            "fetched the shop's profile frames and effects"
+        );
+        // A catalog without frames was read wrong, or came short: the next
+        // start asks again.
+        if found.frames.is_empty() {
+            return;
+        }
+        let effects = found.effects;
+        if !effects.is_empty() {
+            let _ =
+                tokio::task::spawn_blocking(move || cache::keep_profile_effects(&effects)).await;
+        }
+        {
+            let mut frames = self
+                .frames
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            for (sku, layers) in found.frames {
+                frames.insert(sku, Some(Arc::from(layers)));
+            }
+        }
+        self.frames_fetched
+            .store(cache::now_millis(), Ordering::Relaxed);
+        self.keep_frames().await;
+    }
+
+    /// Whether the profile frames were asked for this session, as they are at
+    /// the start while Show profile frames is on.
+    pub fn frames_loaded(&self) -> bool {
+        self.frames_fetched
+            .load(std::sync::atomic::Ordering::Relaxed)
+            != u64::MAX
+    }
+
+    /// Writes the profile frames known to disk, once those kept there were
+    /// read.
+    async fn keep_frames(&self) {
+        let fetched = self
+            .frames_fetched
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if fetched == u64::MAX {
+            return;
+        }
+        let kept = cache::KeptFrames {
+            fetched,
+            frames: self
+                .frames
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .iter()
+                .map(|(sku, layers)| (sku.clone(), layers.as_deref().map(<[_]>::to_vec)))
+                .collect(),
+        };
+        let _ = tokio::task::spawn_blocking(move || cache::keep_profile_frames(&kept)).await;
+    }
+
+    /// The profile effect sold as `sku`: its layers, from the shop's catalog
+    /// kept on disk, else from the shop's product, kept for the next few
+    /// cards. None for a SKU that isn't one.
     pub async fn profile_effect(&self, sku: &str) -> Result<Option<Arc<profile_effect::Effect>>> {
         let lock = || {
             self.effects
@@ -2676,22 +2785,32 @@ impl Discord {
         if let Some(kept) = lock().iter().find(|effect| effect.sku == sku) {
             return Ok(Some(kept.clone()));
         }
-        let asked = Instant::now();
-        let product = self.api.collectibles_product(sku).await?;
         let pick = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |since| since.subsec_nanos() as usize);
-        let found = profile_effect::parse(sku, &product, pick);
-        let Some(effect) = found else {
-            tracing::info!(sku, "the shop has no profile effect with this SKU");
-            return Ok(None);
+        let asked = sku.to_owned();
+        let kept = tokio::task::spawn_blocking(move || cache::profile_effect(&asked))
+            .await
+            .ok()
+            .flatten();
+        let effect = match kept {
+            Some(kept) => kept.effect(sku, pick),
+            None => {
+                let asked = Instant::now();
+                let product = self.api.collectibles_product(sku).await?;
+                let Some(effect) = profile_effect::parse(sku, &product, pick) else {
+                    tracing::info!(sku, "the shop has no profile effect with this SKU");
+                    return Ok(None);
+                };
+                tracing::info!(
+                    sku,
+                    layers = effect.layers.len(),
+                    ms = asked.elapsed().as_millis() as u64,
+                    "fetched a profile effect"
+                );
+                effect
+            }
         };
-        tracing::info!(
-            sku,
-            layers = effect.layers.len(),
-            ms = asked.elapsed().as_millis() as u64,
-            "fetched a profile effect"
-        );
         let effect = Arc::new(effect);
         let mut kept = lock();
         kept.retain(|old| old.sku != sku);

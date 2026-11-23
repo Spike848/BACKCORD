@@ -277,15 +277,6 @@ impl backcord_iced::Desktop for Shell {
         crate::autostart::set(on).map_err(|error| error.to_string())
     }
 
-    fn discord_links(&self, root: &Path) -> Option<bool> {
-        (crate::protocol::SUPPORTED && !self.preview)
-            .then(|| crate::protocol::discord_enabled(root))
-    }
-
-    fn set_discord_links(&self, root: &Path, on: bool) -> Result<(), String> {
-        crate::protocol::set_discord_enabled(root, on).map_err(|error| error.to_string())
-    }
-
     fn copy_picture(&self, bytes: Vec<u8>) {
         crate::copy::picture(bytes);
     }

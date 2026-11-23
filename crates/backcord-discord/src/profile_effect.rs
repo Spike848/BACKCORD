@@ -68,6 +68,100 @@ fn millis(value: &Value) -> u32 {
         .map_or(0, |value| u32::try_from(value).unwrap_or(u32::MAX))
 }
 
+/// An effect as the shop's catalog describes it, kept on disk between
+/// starts: each layer with every picture it may play, so each showing picks
+/// one as [`parse`] does.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Kept {
+    /// Its layers from the lowest up.
+    pub layers: Vec<KeptLayer>,
+    pub still: Option<String>,
+}
+
+/// A layer of a [`Kept`] effect: a [`Layer`] whose picture is one of
+/// `sources`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct KeptLayer {
+    pub sources: Vec<String>,
+    pub start: u32,
+    pub duration: u32,
+    pub looped: bool,
+    pub loop_delay: u32,
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Kept {
+    /// An effect item's `effects`, and the picture that shows while it
+    /// doesn't play.
+    pub fn read(effects: &[Value], still: Option<&str>) -> Self {
+        let mut layers: Vec<(i64, KeptLayer)> = effects
+            .iter()
+            .enumerate()
+            .filter_map(|(index, layer)| {
+                let position = &layer["position"];
+                let mut sources: Vec<String> = layer["randomizedSources"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|source| source["src"].as_str().map(address))
+                    .collect();
+                if sources.is_empty() {
+                    sources.push(address(layer["src"].as_str()?));
+                }
+                Some((
+                    layer["zIndex"].as_i64().unwrap_or(index as i64),
+                    KeptLayer {
+                        sources,
+                        start: millis(&layer["start"]),
+                        duration: millis(&layer["duration"]),
+                        looped: layer["loop"].as_bool().unwrap_or(false),
+                        loop_delay: millis(&layer["loopDelay"]),
+                        x: position["x"].as_i64().map_or(0, |x| x as i32),
+                        y: position["y"].as_i64().map_or(0, |y| y as i32),
+                    },
+                ))
+            })
+            .collect();
+        layers.sort_by_key(|(z, _)| *z);
+        Self {
+            layers: layers.into_iter().map(|(_, layer)| layer).collect(),
+            still: still.map(address),
+        }
+    }
+
+    /// The effect to play as `sku`, each layer with the one of its pictures
+    /// that `pick` chooses: the same one in each, as the client does.
+    pub fn effect(&self, sku: &str, pick: usize) -> Effect {
+        Effect {
+            sku: sku.to_owned(),
+            layers: self
+                .layers
+                .iter()
+                .map(|layer| Layer {
+                    src: layer.sources[pick % layer.sources.len()].clone(),
+                    start: layer.start,
+                    duration: layer.duration,
+                    looped: layer.looped,
+                    loop_delay: layer.loop_delay,
+                    x: layer.x,
+                    y: layer.y,
+                })
+                .collect(),
+            still: self.still.clone(),
+        }
+    }
+}
+
+/// The picture an effect item shows while it doesn't play.
+pub fn still_of<'a>(
+    static_frame: Option<&'a str>,
+    reduced_motion: Option<&'a str>,
+    thumbnail: Option<&'a str>,
+) -> Option<&'a str> {
+    static_frame.or(reduced_motion).or(thumbnail)
+}
+
 /// The effect in a collectible product's answer: its first item that has
 /// effects. An effect with `randomizedSources` plays one of them, the same
 /// one in each layer, as the client does: `pick` chooses it.
@@ -76,41 +170,12 @@ pub fn parse(sku: &str, product: &Value, pick: usize) -> Option<Effect> {
         .as_array()?
         .iter()
         .find(|item| item["effects"].is_array())?;
-    let mut layers: Vec<(i64, Layer)> = item["effects"]
-        .as_array()?
-        .iter()
-        .enumerate()
-        .filter_map(|(index, layer)| {
-            let position = &layer["position"];
-            let sources = layer["randomizedSources"].as_array();
-            let src = sources
-                .filter(|sources| !sources.is_empty())
-                .and_then(|sources| sources[pick % sources.len()]["src"].as_str())
-                .or(layer["src"].as_str())?;
-            Some((
-                layer["zIndex"].as_i64().unwrap_or(index as i64),
-                Layer {
-                    src: address(src),
-                    start: millis(&layer["start"]),
-                    duration: millis(&layer["duration"]),
-                    looped: layer["loop"].as_bool().unwrap_or(false),
-                    loop_delay: millis(&layer["loopDelay"]),
-                    x: position["x"].as_i64().map_or(0, |x| x as i32),
-                    y: position["y"].as_i64().map_or(0, |y| y as i32),
-                },
-            ))
-        })
-        .collect();
-    layers.sort_by_key(|(z, _)| *z);
-    Some(Effect {
-        sku: sku.to_owned(),
-        layers: layers.into_iter().map(|(_, layer)| layer).collect(),
-        still: item["staticFrameSrc"]
-            .as_str()
-            .or(item["reducedMotionSrc"].as_str())
-            .or(item["thumbnailPreviewSrc"].as_str())
-            .map(address),
-    })
+    let still = still_of(
+        item["staticFrameSrc"].as_str(),
+        item["reducedMotionSrc"].as_str(),
+        item["thumbnailPreviewSrc"].as_str(),
+    );
+    Some(Kept::read(item["effects"].as_array()?, still).effect(sku, pick))
 }
 
 #[cfg(test)]

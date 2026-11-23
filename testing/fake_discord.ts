@@ -6365,26 +6365,26 @@ async function api(req: Request, path: string, origin: string): Promise<Response
     return new Response(null, { status: 204 });
   }
 
-  // The shop's product for a profile effect, whose layers Discord's client
-  // lays over a profile card: an intro that plays once, and a loop.
+  // The shop's product for a profile frame, whose layers Discord's client
+  // lays around a profile card.
+  const brassFrame = () => ({
+    sku_id: PROFILE_FRAME, store_listing_id: "2", type: 3, name: "Brass", summary: "A brass frame",
+    items: [{
+      type: 3, sku_id: PROFILE_FRAME, label: "A brass frame", inner_width: 1200,
+      overflow_top: 304, overflow_bottom: 212, overflow_horizontal: 56,
+      layers: [
+        { id: "1", type: "staple", order: "front", anchor: "top" },
+        { id: "2", type: "border", order: "back", anchor: "center" },
+      ],
+    }],
+  });
   if (method === "GET" && path === `/collectibles-products/${PROFILE_FRAME}`) {
-    return json({
-      sku_id: PROFILE_FRAME, store_listing_id: "2", type: 3, name: "Brass", summary: "A brass frame",
-      items: [{
-        type: 3, sku_id: PROFILE_FRAME, label: "A brass frame", inner_width: 1200,
-        overflow_top: 304, overflow_bottom: 212, overflow_horizontal: 56,
-        layers: [
-          { id: "1", type: "staple", order: "front", anchor: "top" },
-          { id: "2", type: "border", order: "back", anchor: "center" },
-        ],
-      }],
-    });
+    return json(brassFrame());
   }
-  if (method === "GET" && (m = path.match(/^\/collectibles-products\/(\d+)$/))) {
-    const sku = m[1]!;
-    if (!profileEffects.has(sku)) return notFound("Unknown Collectibles Product", 10000);
+  // A profile effect's product: an intro that plays once, and a loop.
+  const effectProduct = (sku: string) => {
     const layer = (name: string) => `${url.origin}/assets/profile_effects/${sku}/${name}.png`;
-    return json({
+    return {
       sku_id: sku, store_listing_id: "1", type: 1, name: "Petals", summary: "Falling petals", premium_type: 2,
       items: [
         { type: 1, sku_id: sku, title: "Petals", description: "Falling petals", accessibilityLabel: "Falling petals",
@@ -6397,7 +6397,23 @@ async function api(req: Request, path: string, origin: string): Promise<Response
               position: { x: 0, y: 20 }, zIndex: 102, randomizedSources: [] },
           ] },
       ],
+    };
+  };
+  // The shop's catalog: every category it has sold, each with its
+  // products, the brass frame and the profile effects among them.
+  if (method === "GET" && path === "/collectibles-categories/v2") {
+    return json({
+      categories: [
+        { sku_id: "50", store_listing_id: "51", name: "Frames", products: [brassFrame()] },
+        { sku_id: "52", store_listing_id: "53", name: "Effects", products: [...profileEffects].map(effectProduct) },
+      ],
+      collections: [],
     });
+  }
+  if (method === "GET" && (m = path.match(/^\/collectibles-products\/(\d+)$/))) {
+    const sku = m[1]!;
+    if (!profileEffects.has(sku)) return notFound("Unknown Collectibles Product", 10000);
+    return json(effectProduct(sku));
   }
 
   if (method === "GET" && (m = path.match(/^\/users\/(\d+|@me)\/profile$/))) {

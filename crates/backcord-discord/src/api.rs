@@ -803,6 +803,23 @@ impl Api {
 
     /// A shop product, such as the profile effect of a SKU, as the client
     /// fetches it to show the effect.
+    /// Every category the shop has sold, each with its products, as the
+    /// shop's catalog reads them: some 3 MB, which [`crate::profile::shop_frames`]
+    /// reads. `/collectibles-shop` holds only the featured categories, and
+    /// takes no `tab` of frames.
+    pub async fn collectibles_categories(&self) -> Result<impl std::ops::Deref<Target = [u8]>> {
+        let response = self
+            .execute(self.request(
+                Method::GET,
+                "/collectibles-categories/v2?include_bundles=false",
+            ))
+            .await?;
+        response
+            .bytes()
+            .await
+            .context("could not read Discord's answer")
+    }
+
     pub async fn collectibles_product(&self, sku: &str) -> Result<Value> {
         self.json(self.request(Method::GET, &format!("/collectibles-products/{sku}")))
             .await

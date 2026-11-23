@@ -2995,6 +2995,9 @@ pub enum DiscordCommand {
     /// [`Event::StickerPacks`] follows, and [`Event::KeptStickerPacks`] first
     /// when BACKCORD kept them.
     StickerPacks,
+    /// Read the profile frames kept on disk and, once a day, every frame
+    /// the shop sells, so a card shows its frame at once.
+    ProfileFrames,
     /// Download a sticker's picture and decode it for the picker's tile, a
     /// Lottie one drawn as it animates; [`Event::StickerPicture`] follows.
     StickerPicture {

@@ -69,7 +69,6 @@ pub enum Pref {
     CheckUpdates(bool),
     Nightlies(bool),
     StartOnSignIn(bool),
-    DiscordLinks(bool),
     SystemTitleBar(bool),
     HideOthersTyping(bool),
     NoPushToTalk(bool),
@@ -294,15 +293,7 @@ impl Settings {
                     Ok(()) => tracing::info!(start = on, "starting at sign-in changed"),
                     Err(error) => tracing::warn!(%error, "could not change starting at sign-in"),
                 }
-                self.read_platform_choices(cx);
-            }
-            Pref::DiscordLinks(on) => {
-                let root = cx.client.root();
-                match crate::desktop::desktop().set_discord_links(root, on) {
-                    Ok(()) => tracing::info!(discord_links = on, "Discord link handling changed"),
-                    Err(error) => tracing::warn!(%error, "could not change Discord link handling"),
-                }
-                self.read_platform_choices(cx);
+                self.read_platform_choices();
             }
             Pref::SystemTitleBar(on) => {
                 cx.layout.system_title_bar = Some(on);

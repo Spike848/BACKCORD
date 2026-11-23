@@ -51,7 +51,9 @@ member list, the DMs, and the lists still to come build on it.
   takes, and a press on them clears the timeline's selection),
   badges twelve to a row (beside the username, up to six on the floating
   card and any number in the DM's panel; more on the floating card go
-  under the name, 2 px below it; their tooltips after half a second's
+  under the name, 2 px below it; on the full profile a row of their own
+  above the friend button, Message and More, or one's own Edit Profile;
+  their tooltips after half a second's
   rest; a
   badge that levels up has Discord's card, its level's picture over the
   kind, the level and the progress), the activities with their times (on the
@@ -90,8 +92,9 @@ member list, the DMs, and the lists still to come build on it.
   goes, and its layers are only asked for under the pointer. A profile's
   frame (`widgets::Framed`) lies
   round the card, 12 px past its sides, and the full profile's, 16 px past
-  them with its top staple 8 px lower and none at the foot, in a window
-  over 785 px tall; the docked card has none. Settings' cosmetics switches
+  them with its top staple 8 px lower and none at the foot, the modal
+  shortened to leave room above it for the frame's top; the docked card
+  has none. Settings' cosmetics switches
   turn each off. The full profile is Discord's size whatever the window's,
   at most 960 by 760 px, its card 340 px wide, so a wide window doesn't
   stretch the banner, the frame or the type.
@@ -129,7 +132,8 @@ member list, the DMs, and the lists still to come build on it.
   saturation across and brightness down a
   square of the hue, the hues under it, and the code, each following the
   others), the effect worn as its still
-  over a little card, and the shop's for the rest; with Nitro the
+  over a little card, the frame worn round a small blank card, and the
+  shop's for the rest; with Nitro the
   Display Name Style tile opens its window (`profile/name_style.rs`):
   the fonts' tiles (each one's name
   over it under the pointer), the effects' (each name drawn in the
@@ -142,8 +146,10 @@ member list, the DMs, and the lists still to come build on it.
   note. Surprise Me picks at random; Apply, once something changed, hands
   the style to the core with the other edits, and a click on the dim
   closes it. Escape closes the pad, then the window. The main profile
-  shows its Board, Activity and Wishlist tabs where the card is 880 px or
-  wider, in the editor's words ("Your Widgets", "N Items", "Current
+  stands as a card of its own, 24 px from the styles and the tabs, wearing
+  its frame (see docs/discord/people.md), and shows its Board, Activity and
+  Wishlist tabs where the card is 880 px or wider, the games' covers on the
+  board, an icon without a tile behind it where a game has none, in the editor's words ("Your Widgets", "N Items", "Current
   activity", that adding more from BACKCORD is coming soon, and the board's
   note while the profile loads or after it failed to). A server's has what it edits over its banner and Nitro's offer
   over what takes it. Once something changed the form kit's

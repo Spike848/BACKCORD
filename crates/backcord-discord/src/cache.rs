@@ -33,6 +33,10 @@
 //!   is public — nobody's data — so it is not sealed.
 //! - `discord-server-stickers.json`: each server's own stickers, by its id, as
 //!   the picker last had them, so it lists them at once next time.
+//! - `discord-profile-frames.json`: every profile frame the shop sells, and
+//!   each one a profile showed, by SKU, with when the shop was last asked,
+//!   so a card shows its frame at once; see [`profile_frames`]. Public —
+//!   the shop's own descriptions — so it is not sealed.
 //! - `discord-sticker-packs.json`: Discord's default sticker packs, as the
 //!   picker last had them and when, so it shows them at once and fetches
 //!   their pictures ahead of opening. Public — every account has the same
@@ -526,6 +530,108 @@ pub fn keep_gif(url: &str, thumbnail: KeptGif<'_>) -> Option<PathBuf> {
 pub enum KeptGif<'a> {
     File(&'a Path),
     Bytes(&'a [u8]),
+}
+
+fn profile_frames_file() -> Option<PathBuf> {
+    Some(file()?.with_file_name("discord-profile-frames.json"))
+}
+
+/// How long the shop's list of profile frames is used before it is asked
+/// again: it changes when Discord sells new ones.
+pub const PROFILE_FRAMES_FRESH: u64 = 24 * 60 * 60 * 1000;
+
+/// The profile frames the shop described, by SKU (none for a SKU that
+/// isn't a frame), and when the shop's list last came.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptFrames {
+    /// When the shop's list came, in Unix milliseconds; 0 for never.
+    pub fetched: u64,
+    pub frames: std::collections::HashMap<String, Option<Vec<crate::profile::FrameLayer>>>,
+}
+
+/// The profile frames kept. It reads the disk, so the async side calls it
+/// off its threads.
+pub fn profile_frames() -> Option<KeptFrames> {
+    read_frames(&profile_frames_file()?)
+}
+
+/// [`profile_frames`] from `file`, which a test can give it.
+fn read_frames(file: &Path) -> Option<KeptFrames> {
+    serde_json::from_slice(&std::fs::read(file).ok()?).ok()
+}
+
+/// Keeps the profile frames, for the next start.
+pub fn keep_profile_frames(kept: &KeptFrames) {
+    let Some(file) = profile_frames_file() else {
+        return;
+    };
+    write_frames(&file, kept);
+}
+
+/// [`keep_profile_frames`] into `file`, which a test can give it.
+fn write_frames(file: &Path, kept: &KeptFrames) {
+    let Ok(text) = serde_json::to_vec(kept) else {
+        return;
+    };
+    if let Err(error) = write_bytes(file, &text) {
+        tracing::warn!(%error, "could not keep the profile frames");
+    }
+}
+
+/// Whether the shop's list that came at `fetched` is still worth using
+/// without asking again.
+pub fn profile_frames_are_fresh(fetched: u64) -> bool {
+    now().saturating_sub(fetched) < PROFILE_FRAMES_FRESH
+}
+
+fn profile_effects_file() -> Option<PathBuf> {
+    Some(file()?.with_file_name("discord-profile-effects.json"))
+}
+
+/// The profile effect the shop's catalog sold as `sku`, as it was kept: the
+/// file holds every effect, read only for one not shown lately. It reads
+/// the disk, so the async side calls it off its threads.
+pub fn profile_effect(sku: &str) -> Option<crate::profile_effect::Kept> {
+    read_effect(&profile_effects_file()?, sku)
+}
+
+/// Whether the catalog's profile effects are kept, as they are once it came.
+pub fn profile_effects_kept() -> bool {
+    profile_effects_file().is_some_and(|file| file.is_file())
+}
+
+/// [`profile_effect`] from `file`, which a test can give it.
+fn read_effect(file: &Path, sku: &str) -> Option<crate::profile_effect::Kept> {
+    let mut effects: std::collections::HashMap<String, crate::profile_effect::Kept> =
+        serde_json::from_slice(&std::fs::read(file).ok()?).ok()?;
+    effects.remove(sku)
+}
+
+/// Keeps the catalog's profile effects, for the next ones shown.
+pub fn keep_profile_effects(effects: &[(String, crate::profile_effect::Kept)]) {
+    let Some(file) = profile_effects_file() else {
+        return;
+    };
+    write_effects(&file, effects);
+}
+
+/// [`keep_profile_effects`] into `file`, which a test can give it.
+fn write_effects(file: &Path, effects: &[(String, crate::profile_effect::Kept)]) {
+    let by_sku: std::collections::BTreeMap<&str, &crate::profile_effect::Kept> = effects
+        .iter()
+        .map(|(sku, effect)| (sku.as_str(), effect))
+        .collect();
+    let Ok(text) = serde_json::to_vec(&by_sku) else {
+        return;
+    };
+    if let Err(error) = write_bytes(file, &text) {
+        tracing::warn!(%error, "could not keep the profile effects");
+    }
+}
+
+/// This moment, in Unix milliseconds, for a list just fetched.
+pub fn now_millis() -> u64 {
+    now()
 }
 
 fn sticker_packs_file() -> Option<PathBuf> {
@@ -1052,6 +1158,8 @@ pub fn forget() {
         favorite_gifs_file(),
         gif_home_answer_file(),
         sticker_packs_file(),
+        profile_frames_file(),
+        profile_effects_file(),
     ]
     .into_iter()
     .flatten()
@@ -1483,6 +1591,50 @@ mod tests {
         prune(&directory, u64::MAX, 2);
         assert_eq!(left(), ["e"]);
         std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn keeps_the_profile_frames_and_tells_when_the_list_goes_stale() {
+        let file = std::env::temp_dir().join(format!(
+            "backcord-profile-frames-{}.json",
+            std::process::id()
+        ));
+        let layer = crate::profile::FrameLayer {
+            src: "https://cdn.discordapp.com/media/v1/collectibles-shop/1/2/static".into(),
+            kind: "staple".into(),
+            anchor: "top".into(),
+            front: true,
+        };
+        let kept = KeptFrames {
+            fetched: now(),
+            frames: [("1".to_owned(), Some(vec![layer])), ("9".to_owned(), None)].into(),
+        };
+        write_frames(&file, &kept);
+        assert_eq!(read_frames(&file), Some(kept.clone()));
+        assert!(profile_frames_are_fresh(kept.fetched));
+        assert!(!profile_frames_are_fresh(0), "never asked is stale");
+        let _ = std::fs::remove_file(&file);
+    }
+
+    #[test]
+    fn keeps_the_profile_effects_and_reads_back_the_one_asked() {
+        let file = std::env::temp_dir().join(format!(
+            "backcord-profile-effects-{}.json",
+            std::process::id()
+        ));
+        let effect = crate::profile_effect::Kept {
+            layers: vec![crate::profile_effect::KeptLayer {
+                sources: vec!["https://cdn.discordapp.com/media/v1/collectibles-shop/a".into()],
+                duration: 2000,
+                looped: true,
+                ..Default::default()
+            }],
+            still: None,
+        };
+        write_effects(&file, &[("1".to_owned(), effect.clone())]);
+        assert_eq!(read_effect(&file, "1"), Some(effect));
+        assert_eq!(read_effect(&file, "2"), None);
+        let _ = std::fs::remove_file(&file);
     }
 
     #[test]

@@ -544,22 +544,20 @@ fn cover<'a>(
     });
     match picture {
         Some(picture) => Pic::new(picture, size).radius(8.0).into(),
-        None => {
-            let well = inks.tile;
-            container(showcase(
-                ctx,
-                shown,
-                game.icon.as_deref(),
-                &game.name,
-                size.width.min(size.height) * 0.6,
-                16.0,
-                inks,
-            ))
-            .center(Length::Fixed(size.width))
-            .height(size.height)
-            .style(move |_| rounded(iced::Color { a: 0.5, ..well }, 8))
-            .into()
-        }
+        // The icon is a PNG with its own shape: it shows on the card
+        // itself, with no tile behind it.
+        None => container(showcase(
+            ctx,
+            shown,
+            game.icon.as_deref(),
+            &game.name,
+            size.width.min(size.height),
+            16.0,
+            inks,
+        ))
+        .center(Length::Fixed(size.width))
+        .height(size.height)
+        .into(),
     }
 }
 

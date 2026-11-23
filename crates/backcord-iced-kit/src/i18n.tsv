@@ -263,6 +263,7 @@ For a message that notifies while BACKCORD isn't in front. The window's title co
 Forward	Inoltra
 Forward To	Inoltra a
 Forwarded	Inoltrato
+Frame on	Cornice attiva
 Friend	Amico
 Friend Request Sent	Richiesta di amicizia inviata
 Friend requests and messages from people you don't know show up here.	Le richieste di amicizia e i messaggi di persone che non conosci compaiono qui.
@@ -509,7 +510,6 @@ Only @mentions	Solo @menzioni
 Only people you invite and moderators can see	Possono vedere solo le persone che inviti e i moderatori
 Only you can see this ·	Solo tu puoi vedere questo ·
 Open	Apri
-Open Discord links in BACKCORD	Apri i link di Discord in BACKCORD
 Open GIF picker	Apri il selettore GIF
 Open Link	Apri link
 Open Soundboard	Apri soundboard
@@ -1473,7 +1473,6 @@ Save {}	Salva {}
 Update available · {}	Aggiornamento disponibile · {}
 Flute	Flauto
 Set how loud each one is, as a share of the volume above. 0% turns a sound off.	Imposta il volume di ciascuno, come quota del volume sopra. 0% disattiva un suono.
-discord:// links from other apps and shortcuts open here instead of Discord. Turning it off gives them back to the app that had them.	I link discord:// da altre app e scorciatoie si aprono qui invece che in Discord. Disattivandolo tornano all'app che li apriva prima.
 For new messages while BACKCORD isn't in front. {} which: usually DMs and mentions. Clicking one opens the conversation.	Per i nuovi messaggi mentre BACKCORD non è in primo piano. {} quali: di solito DM e menzioni. Cliccandone una si apre la conversazione.
 Takes out tags like utm_source and fbclid, and share ids from YouTube, Spotify and X. The links still go to the same page.	Rimuove tag come utm_source e fbclid e gli id di condivisione di YouTube, Spotify e X. I link portano comunque alla stessa pagina.
 1 account	1 account
@@ -1582,7 +1581,6 @@ A card, "{}", hidden while link previews are off.	Una scheda, "{}", nascosta per
 {} others	altre {} persone
 {} people	{} persone
 this build can't start at sign-in	questa build non può avviarsi all'accesso
-this build can't open Discord links	questa build non può aprire i link di Discord
 Enter the 6-digit code from your authenticator app.	Inserisci il codice a 6 cifre della tua app di autenticazione.
 6-digit code	Codice a 6 cifre
 Enter the 6-digit code Discord sent to {}.	Inserisci il codice a 6 cifre che Discord ha inviato a {}.

@@ -622,6 +622,14 @@ impl Application {
         // The sticker picker's default packs, their pictures fetched ahead,
         // so it opens at once.
         effects.extend(self.load_sticker_packs());
+        // The profile frames and effects, kept and the shop's, so each card
+        // wears its own at once.
+        if (self.state.cosmetics.frames || self.state.cosmetics.effects) && !self.frames_asked {
+            self.frames_asked = true;
+            effects.push(Effect::Backend(Command::Discord(
+                DiscordCommand::ProfileFrames,
+            )));
+        }
         // Every server's stickers come with the snapshot, as Discord's client
         // reads them from READY: their pictures are fetched ahead as a list
         // comes or changes, and an open picker lists what changed.
@@ -705,6 +713,7 @@ impl Application {
             self.discord = None;
             self.discord_index = discord::Index::default();
             self.emoji_prefetched.clear();
+            self.frames_asked = false;
         }
         self.state.discord_linked = false;
         self.state.discord_online = false;

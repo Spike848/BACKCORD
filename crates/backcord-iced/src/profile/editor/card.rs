@@ -174,7 +174,7 @@ pub(super) fn editor_top<'a>(
         container(Space::new())
             .width(Length::Fill)
             .height(banner_height)
-            .style(move |_| rounded(ground, corners(if main { [0.0; 4] } else { top_corners })))
+            .style(move |_| rounded(ground, corners(top_corners)))
     ];
     // As wide as the middle, cover-fitted.
     let width = crate::profile::editor::editor_middle_width(ctx, editor, main).round();

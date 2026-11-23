@@ -348,6 +348,16 @@ const FRAME_ART: f32 = 1312.0;
 const STAPLE_TOP: f32 = 412.0;
 const STAPLE_FOOT: f32 = 212.0;
 
+/// How far the frame's `layers`, drawn `across` wide, reach above the
+/// card's top: its top staples' part past it.
+pub fn frame_room_above(layers: &[FrameLayer], across: f32) -> f32 {
+    layers
+        .iter()
+        .filter(|layer| layer.kind == FrameKind::Staple && layer.anchor == FrameAnchor::Top)
+        .map(|layer| layer.height - across * STAPLE_TOP / FRAME_ART)
+        .fold(0.0, f32::max)
+}
+
 /// A card with a profile frame round it: the back layers under the card,
 /// the front ones over it, each `side` past its left and right; a staple at
 /// the top sits `top_shift` lower (the full profile's 8 px). Its layout is

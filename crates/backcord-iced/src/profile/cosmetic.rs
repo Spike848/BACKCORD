@@ -31,9 +31,6 @@ const FRAME_SIDE: f32 = 12.0;
 const FRAME_SIDE_LARGE: f32 = 16.0;
 /// How much lower the full profile's top staple sits.
 const FRAME_TOP_SHIFT: f32 = 8.0;
-/// A window shorter than this leaves no room above the full profile for
-/// its frame, which then doesn't show, as Discord's.
-const FRAME_ROOM: f32 = 785.0;
 
 /// When the effect began to play on a card, by which card; ticks carry the
 /// generation they were asked in, so an old one does nothing.
@@ -247,11 +244,7 @@ pub(super) fn dressed_since<'a>(
         Some(effect) => stack![card, effect].into(),
         None => card,
     };
-    let framed = match mode {
-        Mode::Card => true,
-        Mode::Side => ctx.look.window.height > FRAME_ROOM,
-        Mode::Docked => false,
-    };
+    let framed = !matches!(mode, Mode::Docked);
     match framed.then(|| frame_art(ctx, shown, mode, width)) {
         Some(layers) if !layers.is_empty() => {
             let (side, shift) = if mode.large() {
@@ -360,6 +353,50 @@ pub(super) fn effect_tile<'a>(
     Some(tile.into())
 }
 
+/// How far the frame worn round a card `width` wide reaches above it, so
+/// what holds the card leaves room for it; none until its pictures came.
+pub(super) fn frame_room_above(
+    ctx: crate::ctx::Ctx<'_>,
+    shown: &Shown,
+    mode: Mode,
+    width: f32,
+) -> f32 {
+    let side = if mode.large() {
+        FRAME_SIDE_LARGE
+    } else {
+        FRAME_SIDE
+    };
+    backcord_iced_kit::widgets::frame_room_above(
+        &frame_art(ctx, shown, mode, width),
+        width + 2.0 * side,
+    )
+}
+
+/// The frame worn round a small blank card, for the editor's tile `size`;
+/// none until a layer's picture came.
+pub(super) fn frame_tile<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    shown: &Shown,
+    size: Size,
+) -> Option<Element<'a, Message>> {
+    let width = (size.width * 0.5).round();
+    let layers = frame_art(ctx, shown, Mode::Card, width);
+    if layers.is_empty() {
+        return None;
+    }
+    let ground = ctx.look.theme.panel;
+    let card: Element<'a, Message> = container(Space::new())
+        .width(width)
+        .height((size.height * 0.62).round())
+        .style(move |_: &iced::Theme| crate::style::rounded(ground, 6))
+        .into();
+    Some(
+        container(Framed::new(card, layers, FRAME_SIDE, 0.0))
+            .center(Length::Fill)
+            .into(),
+    )
+}
+
 /// The frame's layers at the width it's drawn, `side` past each of the
 /// card's sides; the full profile leaves out the staple at the foot,
 /// as Discord's does.
@@ -397,7 +434,12 @@ fn frame_art(ctx: crate::ctx::Ctx<'_>, shown: &Shown, mode: Mode, width: f32) ->
                 return None;
             }
             let height = (across * picture.height as f32 / picture.width as f32).round();
-            let handle = ctx.picture(&layer.src, across as u32, height as u32, false)?;
+            // The picture as decoded, which is about as wide as a card draws
+            // it, scaled as it's drawn: a copy fitted to the size would be
+            // made on the fitter's thread and missing meanwhile, so the frame
+            // would blink, and the room above the card jump, as the window
+            // scrolls or changes scale.
+            let handle = ctx.fit(picture, picture.width, picture.height, false)?;
             Some(FrameLayer {
                 picture: handle,
                 height,
