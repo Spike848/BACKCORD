@@ -432,9 +432,24 @@ impl Application {
                 wanted.extend(pictures(pack));
             }
         }
-        // Each server's list once, and again once it changed.
+        // The open server's list once, and again once it changed: every
+        // server's at a start came to a thousand pictures and more than 100
+        // MB, which held the downloads of what showed. The picker fetches
+        // the others' as it shows them.
         #[cfg(feature = "discord")]
-        for server in self.discord.iter().flat_map(|snapshot| &snapshot.servers) {
+        let here = self
+            .state
+            .selected
+            .as_deref()
+            .and_then(discord::parse_room)
+            .map(|(guild, _)| guild.to_owned());
+        #[cfg(feature = "discord")]
+        for server in self
+            .discord
+            .iter()
+            .flat_map(|snapshot| &snapshot.servers)
+            .filter(|server| here.as_deref() == Some(server.id.as_str()))
+        {
             let fetched = picker.prefetched_servers.get(&server.id);
             if fetched.is_some_and(|fetched| Arc::ptr_eq(fetched, &server.stickers)) {
                 continue;

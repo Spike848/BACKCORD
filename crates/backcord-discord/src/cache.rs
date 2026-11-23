@@ -84,7 +84,7 @@ const PICTURE_PATHS: [&str; 11] = [
     "/stickers/",
 ];
 /// The most the kept pictures take; the least lately shown go first.
-const PICTURES_SIZE: u64 = 64 * 1024 * 1024;
+const PICTURES_SIZE: u64 = 256 * 1024 * 1024;
 /// The most the kept previews take; the least lately shown go first.
 const PREVIEWS_SIZE: u64 = 192 * 1024 * 1024;
 /// The most the favourite GIFs' thumbnails take; the least lately shown go
@@ -92,7 +92,7 @@ const PREVIEWS_SIZE: u64 = 192 * 1024 * 1024;
 /// so it doesn't fetch again what pruning just let go.
 const GIFS_SIZE: u64 = 200 * 1024 * 1024;
 /// Downloads larger than this aren't kept, such as a file being saved.
-const LARGEST_PICTURE: usize = 8 * 1024 * 1024;
+const LARGEST_PICTURE: usize = 16 * 1024 * 1024;
 /// The most channels whose messages are kept; the least lately used go.
 const CHANNELS: usize = 300;
 /// Of each channel, the newest messages kept.

@@ -50,6 +50,9 @@ const NOTE_INK: Color = Color::from_rgba(1.0, 1.0, 1.0, 0xd9 as f32 / 255.0);
 pub enum Event {
     /// A message's picture clicked: the message's item, the attachment.
     Open(String, usize),
+    /// The pointer came onto a message's picture: it's fetched for the
+    /// viewer ahead of a click.
+    Ahead(String, usize),
     Close,
     Step(isize),
     /// Save a message's attachment, or copy its picture.
@@ -84,6 +87,7 @@ impl Viewed {
                 cx.dispatch(Action::ViewImage { item, index });
                 return iced::widget::operation::focus(crate::app::NOBODY);
             }
+            Event::Ahead(item, index) => cx.dispatch(Action::ImageAhead { item, index }),
             Event::Close => {
                 cx.dispatch(Action::CloseImage);
                 self.size = None;

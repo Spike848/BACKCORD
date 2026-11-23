@@ -1028,6 +1028,8 @@ pub struct ProfileGame {
     pub name: String,
     /// The address of its picture.
     pub icon: Option<String>,
+    /// The address of its cover art, tall as a box.
+    pub cover: Option<String>,
     /// What they said about it.
     pub comment: Option<String>,
 }
@@ -1523,7 +1525,12 @@ pub struct Picture {
 /// A picture's RGBA pixels. Once the UI has said how to make its own buffers
 /// ([`set_pixel_buffers`]), they're made in one, which it shows without a
 /// copy; until then, and without a UI, they're a plain vector.
-pub struct Pixels(Box<dyn PixelBuffer>);
+pub struct Pixels {
+    buffer: Box<dyn PixelBuffer>,
+    /// Every pixel is opaque, looked at once as the picture is made, on
+    /// the thread decoding it: one drawn in a box hides the box's ground.
+    opaque: bool,
+}
 
 /// Memory a picture's RGBA pixels live in.
 pub trait PixelBuffer: std::any::Any + Send + Sync {
@@ -1548,21 +1555,31 @@ pub fn set_pixel_buffers(make: MakePixels) {
 
 impl Pixels {
     pub fn new(width: u32, height: u32, rgba: Vec<u8>) -> Self {
-        match MAKE_PIXELS.get() {
-            Some(make) => Self(make(width, height, &rgba)),
-            None => Self(Box::new(rgba)),
-        }
+        let opaque = !rgba.is_empty() && rgba.chunks_exact(4).all(|pixel| pixel[3] == 255);
+        let buffer = match MAKE_PIXELS.get() {
+            Some(make) => make(width, height, &rgba),
+            None => Box::new(rgba),
+        };
+        Self { buffer, opaque }
     }
 
     /// The buffer the pixels are in, when it's a `T`.
     pub fn buffer<T: PixelBuffer>(&self) -> Option<&T> {
-        (self.0.as_ref() as &dyn std::any::Any).downcast_ref()
+        (self.buffer.as_ref() as &dyn std::any::Any).downcast_ref()
+    }
+
+    /// Whether every pixel is opaque.
+    pub fn opaque(&self) -> bool {
+        self.opaque
     }
 }
 
 impl Default for Pixels {
     fn default() -> Self {
-        Self(Box::new(Vec::new()))
+        Self {
+            buffer: Box::new(Vec::new()),
+            opaque: false,
+        }
     }
 }
 
@@ -1570,7 +1587,7 @@ impl std::ops::Deref for Pixels {
     type Target = [u8];
 
     fn deref(&self) -> &[u8] {
-        self.0.bytes()
+        self.buffer.bytes()
     }
 }
 
@@ -1845,11 +1862,29 @@ pub struct VoiceMessage {
     pub waveform: Arc<[u8]>,
 }
 
-/// The voice message playing, or paused, in the conversation view.
+/// A file that plays as sound, by its name's extension: its card plays it
+/// in place, as a voice message's does.
+pub fn is_audio_file(name: &str) -> bool {
+    let extension = name
+        .rsplit_once('.')
+        .map(|(_, extension)| extension.to_ascii_lowercase());
+    matches!(
+        extension.as_deref(),
+        Some("mp3" | "ogg" | "oga" | "opus" | "wav" | "flac" | "m4a" | "aac")
+    )
+}
+
+/// The voice message or sound file playing, or paused, in the conversation
+/// view.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VoicePlayback {
     pub room: String,
     pub item: String,
+    /// Which of the message's attachments: a voice message's recording is
+    /// its first; a sound file sent can be any.
+    pub index: usize,
+    /// How long it plays, in milliseconds, once its file opened.
+    pub duration_ms: Option<u64>,
     /// Until its file downloads.
     pub loading: bool,
     pub playing: bool,
@@ -2391,11 +2426,13 @@ pub enum Command {
         index: usize,
     },
     /// Download an image attachment at viewing size; it arrives as
-    /// [`Event::Image`].
+    /// [`Event::Image`]. `ahead`, as the pointer comes onto it, it's only
+    /// kept for the viewer, which then opens with it at once.
     ViewImage {
         room: String,
         item: String,
         index: usize,
+        ahead: bool,
     },
     /// Play an attachment's video where its poster shows, at most `width`
     /// by `height` pixels, on `speakers`, stopping any other; it goes as
@@ -2410,12 +2447,14 @@ pub enum Command {
     },
     /// Control the video playing.
     Video(VideoCommand),
-    /// Play a voice message's recording on `speakers`, from where it was
+    /// Play a voice message's recording, or the sound file that's the
+    /// message's attachment `index`, on `speakers`, from where it was
     /// paused, or from the start in place of any other; it goes as
     /// [`Event::VoiceMessage`].
     PlayVoiceMessage {
         room: String,
         item: String,
+        index: usize,
         speakers: Option<String>,
         tuning: VoiceTuning,
     },
@@ -2425,6 +2464,7 @@ pub enum Command {
     MoveVoiceMessage {
         room: String,
         item: String,
+        index: usize,
         at_ms: u64,
         speakers: Option<String>,
         tuning: VoiceTuning,
@@ -5922,5 +5962,14 @@ mod tests {
         );
         assert_eq!(plain_snippet("plain"), "plain");
         assert_eq!(plain_snippet(""), "");
+    }
+
+    #[test]
+    fn a_pictures_opacity_is_known_once_it_is_made() {
+        let solid = Pixels::new(2, 1, vec![1, 2, 3, 255, 4, 5, 6, 255]);
+        let clear = Pixels::new(2, 1, vec![1, 2, 3, 255, 4, 5, 6, 0]);
+        assert!(solid.opaque());
+        assert!(!clear.opaque());
+        assert!(!Pixels::default().opaque(), "nothing to cover with");
     }
 }

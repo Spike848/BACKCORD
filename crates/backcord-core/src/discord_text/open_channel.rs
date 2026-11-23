@@ -145,6 +145,15 @@ pub enum Load {
     Around(u64),
 }
 
+/// An image fetched at viewing size ahead of the viewer: by its message's
+/// item and attachment, with its picture once decoded. One at a time, so it
+/// costs at most one picture.
+struct Ahead {
+    item: String,
+    index: usize,
+    picture: Option<Arc<Picture>>,
+}
+
 pub struct OpenChannel {
     pub room: String,
     pub(super) guild: String,
@@ -199,6 +208,8 @@ pub struct OpenChannel {
     /// quote it, and a reply to it that comes later looks it up again.
     originals: HashMap<String, bool>,
     pub(super) previews: SharedPreviews,
+    /// The image fetched ahead for the viewer as the pointer came onto it.
+    ahead: Arc<Mutex<Option<Ahead>>>,
     /// Shown messages as the timeline last showed them, by snowflake, so a
     /// change renders only the messages it changed. A message leaves when it
     /// changes, and all leave when what they were rendered with changes.
@@ -276,6 +287,7 @@ impl OpenChannel {
             visible: HashSet::new(),
             originals: HashMap::new(),
             previews: SharedPreviews::default(),
+            ahead: Arc::default(),
             rendered: HashMap::new(),
             rendered_with: Rendering::default(),
             topic_sent: None,
@@ -1452,15 +1464,47 @@ impl OpenChannel {
     }
 
     /// Downloads an image attachment at viewing size, through Discord's media
-    /// proxy, and decodes it for the viewer.
+    /// proxy, and decodes it for the viewer. `ahead`, it's kept for the
+    /// viewer instead, in place of the one kept before; the viewer opening
+    /// on the one kept has it at once.
     pub fn view_image(
         &mut self,
         discord: &Discord,
         done: &UnboundedSender<Done>,
-        item: String,
-        index: usize,
+        (item, index): (String, usize),
+        ahead: bool,
     ) {
         let room = self.room.clone();
+        {
+            let mut kept = self
+                .ahead
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let this = kept
+                .as_ref()
+                .is_some_and(|kept| kept.item == item && kept.index == index);
+            if ahead {
+                if this {
+                    return;
+                }
+                *kept = Some(Ahead {
+                    item: item.clone(),
+                    index,
+                    picture: None,
+                });
+            } else if this
+                && let Some(picture) = kept.as_ref().and_then(|kept| kept.picture.clone())
+            {
+                let _ = done.send(Done::Image {
+                    room,
+                    item,
+                    index,
+                    picture: Ok(picture),
+                });
+                return;
+            }
+        }
+        let kept = self.ahead.clone();
         let Some(url) = self
             .attachment(&item, index)
             .and_then(|attachment| attachment.view_url.clone())
@@ -1505,6 +1549,16 @@ impl OpenChannel {
                     })
                 }
             };
+            if ahead {
+                let mut kept = kept.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                if let Some(kept) = kept
+                    .as_mut()
+                    .filter(|kept| kept.item == item && kept.index == index)
+                {
+                    kept.picture = picture.ok();
+                }
+                return;
+            }
             let _ = done.send(Done::Image {
                 room,
                 item,

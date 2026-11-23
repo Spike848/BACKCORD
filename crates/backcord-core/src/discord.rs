@@ -1643,6 +1643,7 @@ impl PictureLoads {
         // downloads, which has turns of its own: downloads waiting out a
         // backoff held every turn, and kept the pictures the disk has from
         // showing until the network came back.
+        let asked = std::time::Instant::now();
         let Some(reading) = self.buffers.take(&pending.batch).await else {
             return;
         };
@@ -1665,7 +1666,17 @@ impl PictureLoads {
                 )
                 .await
                 {
-                    Ok(data) => (data, None),
+                    Ok(data) => {
+                        if pending.events().is_some() {
+                            tracing::debug!(
+                                url = %pending.url,
+                                bytes = data.len(),
+                                ms = asked.elapsed().as_millis() as u64,
+                                "downloaded a picture shown"
+                            );
+                        }
+                        (data, None)
+                    }
                     Err(for_good) => {
                         // Cache-only failures must not blacklist a picture
                         // before the foreground has ever tried to show it.

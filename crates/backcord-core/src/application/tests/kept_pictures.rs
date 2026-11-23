@@ -282,6 +282,43 @@ fn profile_effects_are_kept_a_few_at_a_time_and_their_pictures_go_with_the_card(
 }
 
 #[test]
+fn the_open_servers_moving_banner_stays_while_it_shows() {
+    let mut app = connected();
+    let banner = "https://cdn.discordapp.com/banners/10/a_77.png?size=600";
+    let moving = "https://cdn.discordapp.com/banners/10/a_77.webp?size=600&animated=true";
+    app.state.servers = vec![Arc::new(ChatServer {
+        id: "discord:10".into(),
+        name: "Test".into(),
+        banner: Some(banner.into()),
+        ..Default::default()
+    })];
+    app.state.navigation = Navigation::Server("discord:10".into());
+    app.requested_pictures.insert(moving.into());
+    app.apply(Event::Picture {
+        url: moving.into(),
+        picture: Arc::new(Picture::default()),
+    });
+    // No card is open; it stayed, rather than going at the next event and
+    // being downloaded again, as it was every few seconds.
+    app.dispatch(Action::CloseAside);
+    app.dispatch(Action::CloseProfile);
+    assert!(app.state.pictures.contains_key(moving));
+    // Nor does a trim let it go.
+    for url in (0..=2 * KEPT_PICTURES).map(|index| format!("{index}.png")) {
+        app.requested_pictures.insert(url.clone());
+        app.apply(Event::Picture {
+            url,
+            picture: Arc::new(Picture::default()),
+        });
+    }
+    assert!(app.state.pictures.contains_key(moving));
+    // Another server opened lets it go.
+    app.state.navigation = Navigation::DirectMessages;
+    app.dispatch(Action::CloseAside);
+    assert!(!app.state.pictures.contains_key(moving));
+}
+
+#[test]
 fn a_cards_frame_and_moving_banner_go_with_it() {
     let mut app = connected();
     let layer = "https://cdn.discordapp.com/media/v1/collectibles-shop/9/a/static";

@@ -120,7 +120,13 @@ The window asks for a picture as a row that shows it is built
 (`pictures.rs` in the client), and missing pictures are fetched in one batch.
 backcord-core decodes pictures into the renderer's own format
 (`set_pixel_buffers`), so the window draws a picture from the core's pixels
-rather than a copy. A one-second timer releases animation decoders and their
+rather than a copy, and knows as it decodes one whether it's opaque all
+over. A picture drawn at another size is copied once: by the view itself
+when it's an avatar or emoji (256 across or less), else on the fitter's
+thread, its place showing its ground until the copy comes; `perf.rs` logs
+the copies the view made and how long they took. The pointer coming onto an
+image in the timeline fetches it at viewing size for the viewer, one at a
+time, so a click opens it at once. A one-second timer releases animation decoders and their
 last frames after they stop being used, and stops itself when no decoders
 need checking.
 

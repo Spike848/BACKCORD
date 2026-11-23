@@ -240,6 +240,7 @@ fn asked_widget(widget: &crate::chat::ProfileWidget) -> backcord_discord::widget
                 comment: None,
                 name: game.name.clone(),
                 icon: game.icon.clone(),
+                cover: game.cover.clone(),
             })
             .collect(),
     }
@@ -262,6 +263,7 @@ fn named_widget(
                 id: game.id,
                 name: named.name,
                 icon: named.icon,
+                cover: named.cover,
                 comment: game.comment,
             })
             .collect(),

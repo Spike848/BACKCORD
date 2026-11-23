@@ -25,7 +25,7 @@ use crate::{
 };
 
 /// How soon a server's voice channels' statuses may be asked for again.
-const REASK: Duration = Duration::from_secs(15);
+const REASK: Duration = Duration::from_secs(120);
 /// The servers with a call going asked for their statuses as a session
 /// starts, at most.
 const BUSY_ASKED: usize = 40;

@@ -75,9 +75,9 @@ const SAVE_EVERY: Duration = Duration::from_secs(20);
 const MAX_SAVE_BYTES: usize = 100 * 1024 * 1024;
 /// The largest video that plays, past Discord's 500 MB limit for Nitro.
 const MAX_VIDEO_BYTES: u64 = 1024 * 1024 * 1024;
-/// The largest voice message that plays: Discord's are Opus at a few
-/// kilobytes a second, so this holds an hour of one.
-const MAX_VOICE_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
+/// The largest voice message or sound file that plays in place, kept
+/// whole in memory while it does: a song of a few minutes, even lossless.
+const MAX_VOICE_MESSAGE_BYTES: usize = 64 * 1024 * 1024;
 
 /// Work for the open channel that finished in the background.
 pub enum Done {
@@ -269,20 +269,22 @@ impl Chat {
             Command::PlayVoiceMessage {
                 room,
                 item,
+                index,
                 speakers,
                 tuning,
             } => {
-                self.play_voice_message(room, item, speakers, tuning, None, events);
+                self.play_voice_message((room, item, index), speakers, tuning, None, events);
                 return;
             }
             Command::MoveVoiceMessage {
                 room,
                 item,
+                index,
                 at_ms,
                 speakers,
                 tuning,
             } => {
-                self.play_voice_message(room, item, speakers, tuning, Some(at_ms), events);
+                self.play_voice_message((room, item, index), speakers, tuning, Some(at_ms), events);
                 return;
             }
             Command::TuneVoiceMessage(tuning) => {
@@ -351,18 +353,16 @@ impl Chat {
     /// other waits there paused.
     fn play_voice_message(
         &mut self,
-        room: String,
-        item: String,
+        (room, item, index): (String, String, usize),
         speakers: Option<String>,
         tuning: crate::chat::VoiceTuning,
         moved_to: Option<u64>,
         events: &UnboundedSender<Event>,
     ) {
-        if let Some(player) = self
-            .voice_message
-            .as_mut()
-            .filter(|player| player.playback.room == room && player.playback.item == item)
-        {
+        if let Some(player) = self.voice_message.as_mut().filter(|player| {
+            let playback = &player.playback;
+            playback.room == room && playback.item == item && playback.index == index
+        }) {
             player.tune(tuning);
             match moved_to {
                 Some(at) => player.move_to(at),
@@ -375,11 +375,12 @@ impl Chat {
         let url = self
             .channels
             .shown_mut(&room)
-            .and_then(|channel| channel.attachment(&item, 0))
+            .and_then(|channel| channel.attachment(&item, index))
             .map(|recording| recording.url.clone());
         let playback = VoicePlayback {
             room,
             item,
+            index,
             ..Default::default()
         };
         let Some(url) = url else {

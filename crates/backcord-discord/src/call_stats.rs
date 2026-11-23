@@ -37,6 +37,9 @@ pub struct Stats {
     /// The DAVE group's voice privacy code, 30 digits, while end-to-end
     /// encrypted.
     pub privacy_code: Option<String>,
+    /// Who the voice server says films: its op 12, which can say so before,
+    /// or without, the gateway's voice state.
+    pub cameras: Vec<u64>,
 }
 
 impl CallStats {
@@ -71,6 +74,20 @@ impl CallStats {
         let code = code.filter(|_| end_to_end);
         if stats.privacy_code.as_deref() != code {
             stats.privacy_code = code.map(str::to_owned);
+        }
+    }
+
+    /// Who the voice server says films, by Discord user id.
+    pub fn cameras(&self) -> Vec<u64> {
+        lock(&self.0).cameras.clone()
+    }
+
+    pub(crate) fn set_cameras(&self, mut cameras: Vec<u64>) {
+        cameras.sort_unstable();
+        let mut stats = lock(&self.0);
+        if stats.cameras != cameras {
+            tracing::debug!(?cameras, "the voice server says these film");
+            stats.cameras = cameras;
         }
     }
 

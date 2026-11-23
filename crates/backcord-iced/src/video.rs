@@ -347,6 +347,9 @@ fn draw(draw: &mut iced_tiny_skia::video::Draw<'_>) -> bool {
 pub struct Sources {
     pub feeds: Vec<(String, Feed)>,
     pub mapped: Vec<(String, Arc<Frames>)>,
+    /// Sources whose last frame stays on screen, still, while no new ones
+    /// are read: your own screen while the window isn't in front.
+    pub held: Vec<String>,
 }
 
 impl Sources {
@@ -356,6 +359,7 @@ impl Sources {
 
     fn same(&self, other: &Sources) -> bool {
         self.feeds == other.feeds
+            && self.held == other.held
             && self.mapped.len() == other.mapped.len()
             && self
                 .mapped
@@ -417,6 +421,7 @@ impl Shared {
         self.newest.lock().expect("video frames").retain(|key, _| {
             sources.feeds.iter().any(|(id, _)| id == key)
                 || sources.mapped.iter().any(|(id, _)| id == key)
+                || sources.held.iter().any(|id| id == key)
         });
         let mut current = self.sources.lock().expect("video sources");
         if current.same(&sources) {

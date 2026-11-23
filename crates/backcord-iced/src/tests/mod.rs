@@ -248,6 +248,44 @@ fn a_picture_shown(app: &mut App) -> Arc<backcord_core::chat::Picture> {
     picture
 }
 
+#[test]
+fn a_large_picture_drawn_small_is_copied_off_the_views_thread() {
+    use backcord_core::chat::{Picture, Pixels};
+    let (app, _folder) = preview();
+    let large = Arc::new(Picture {
+        width: 2000,
+        height: 2000,
+        rgba: Pixels::new(2000, 2000, vec![200; 2000 * 2000 * 4]),
+        ..Default::default()
+    });
+    let small = Arc::new(Picture {
+        width: 128,
+        height: 128,
+        rgba: Pixels::new(128, 128, vec![200; 128 * 128 * 4]),
+        ..Default::default()
+    });
+    let before = crate::perf::fits_in_view();
+    assert!(
+        app.ctx().fit(&large, 64, 64, true).is_none(),
+        "its ground shows until the copy comes"
+    );
+    assert_eq!(
+        crate::perf::fits_in_view(),
+        before,
+        "nothing scaled in the view"
+    );
+    app.win.pictures.fitter.borrow_mut().make_asked(&large);
+    assert!(
+        app.ctx().fit(&large, 64, 64, true).is_some(),
+        "then the copy"
+    );
+    assert!(
+        app.ctx().fit(&small, 32, 32, true).is_some(),
+        "an avatar at once"
+    );
+    assert_eq!(crate::perf::fits_in_view(), before + 1);
+}
+
 /// Marks a room unread with `mentions` of this account.
 fn unread(app: &mut App, id: &str, mentions: u64) {
     change(app, |state| {

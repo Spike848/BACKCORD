@@ -61,12 +61,13 @@ pub struct Playback {
 /// What a voice message's card asks for.
 #[derive(Clone, Debug)]
 pub enum Event {
-    /// Play it, or pause it while it plays.
-    Toggle(String),
-    /// Move it this far through, from 0 to 1; pressing on its waveform
-    /// pauses it while it plays, until let go.
-    Seek(String, f32),
-    Released(String),
+    /// Play it (a message's item, and its attachment: 0 for a voice
+    /// message), or pause it while it plays.
+    Toggle(String, usize),
+    /// Move it this far through, from 0 to 1; pressing on its waveform or
+    /// bar pauses it while it plays, until let go.
+    Seek(String, usize, f32),
+    Released(String, usize),
     Speed,
     Mute(bool),
     /// The pointer came onto a card or left it.
@@ -162,25 +163,28 @@ fn bars(waveform: &[u8]) -> impl Iterator<Item = f32> + '_ {
 /// What a voice message's card asked for.
 pub fn voice_event(app: &mut App, event: Event) -> Task<Message> {
     match event {
-        Event::Toggle(item) => app.client.dispatch(Action::ToggleVoiceMessage(item)),
-        Event::Seek(item, at) => {
+        Event::Toggle(item, index) => app.client.dispatch(Action::ToggleVoiceMessage(item, index)),
+        Event::Seek(item, index, at) => {
             // Playing, it pauses while held and plays on once let go.
             let playing = app
                 .client
                 .state()
                 .voice_message
                 .as_ref()
-                .is_some_and(|playback| playback.item == item && playback.playing);
+                .is_some_and(|playback| {
+                    playback.item == item && playback.index == index && playback.playing
+                });
             if playing && app.playback.voice_held.is_none() {
                 app.playback.voice_held = Some(item.clone());
                 app.client
-                    .dispatch(Action::ToggleVoiceMessage(item.clone()));
+                    .dispatch(Action::ToggleVoiceMessage(item.clone(), index));
             }
-            app.client.dispatch(Action::MoveVoiceMessage(item, at));
+            app.client
+                .dispatch(Action::MoveVoiceMessage(item, index, at));
         }
-        Event::Released(item) => {
+        Event::Released(item, index) => {
             if app.playback.voice_held.take().is_some() {
-                app.client.dispatch(Action::ToggleVoiceMessage(item));
+                app.client.dispatch(Action::ToggleVoiceMessage(item, index));
             }
         }
         Event::Speed => app.client.dispatch(Action::CycleVoiceMessageSpeed),
@@ -406,7 +410,7 @@ pub fn voice_card<'a>(
     let playback = state
         .voice_message
         .as_ref()
-        .filter(|playback| playback.item == *item);
+        .filter(|playback| playback.item == *item && playback.index == 0);
     let playing = playback.is_some_and(|playback| playback.playing);
     let enabled = !state.preview && message.delivery == backcord_core::chat::Delivery::default();
     let played = playback.map_or(0.0, |playback| {
@@ -429,7 +433,7 @@ pub fn voice_card<'a>(
         .padding(0)
         .width(BUTTON)
         .height(BUTTON)
-        .on_press_maybe(enabled.then(|| Message::Voice(Event::Toggle(item.clone()))))
+        .on_press_maybe(enabled.then(|| Message::Voice(Event::Toggle(item.clone(), 0))))
         .style(move |_, status| {
             let opacity = match (enabled, lights(status)) {
                 (false, _) => 0.5,
@@ -466,9 +470,9 @@ pub fn voice_card<'a>(
     let wave: Element<'a, Message> = if enabled {
         let (seek, released) = (item.clone(), item.clone());
         Scrub::new(wave, move |at| {
-            Message::Voice(Event::Seek(seek.clone(), at))
+            Message::Voice(Event::Seek(seek.clone(), 0, at))
         })
-        .released(Message::Voice(Event::Released(released)))
+        .released(Message::Voice(Event::Released(released, 0)))
         .into()
     } else {
         wave.into()
@@ -579,6 +583,130 @@ pub fn voice_card<'a>(
     )
     .padding(Padding::ZERO.top(4))
     .into()
+}
+
+/// The button across on a sound file's card, and its bar's thickness.
+const SOUND_BUTTON: f32 = 34.0;
+const SOUND_TRACK: f32 = 4.0;
+
+/// What plays a sound file sent, in its card's place of the icon and the
+/// size: a round button that plays or pauses it, and under its name a bar
+/// filled up to where it has played (pressed, it moves there, and follows
+/// the pointer while held), with its time and length. Before it plays it
+/// shows the file's size, as other files' cards do.
+pub fn sound_player<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    item: &str,
+    index: usize,
+    size: Option<String>,
+) -> (Element<'a, Message>, Element<'a, Message>) {
+    let theme = ctx.look.theme;
+    let state = ctx.state;
+    let playback = state
+        .voice_message
+        .as_ref()
+        .filter(|playback| playback.item == item && playback.index == index);
+    let playing = playback.is_some_and(|playback| playback.playing);
+    let enabled = !state.preview;
+    let accent = theme.accent;
+    let light = crate::theme::mix(Color::WHITE, accent, 0.2);
+    let face = container(ctx.look.glyph(
+        if playing { Icon::Pause } else { Icon::Play },
+        15,
+        Color::WHITE,
+    ))
+    .center(SOUND_BUTTON);
+    let play = button(face)
+        .padding(0)
+        .width(SOUND_BUTTON)
+        .height(SOUND_BUTTON)
+        .on_press_maybe(enabled.then(|| Message::Voice(Event::Toggle(item.to_owned(), index))))
+        .style(move |_, status| {
+            let opacity = match (enabled, lights(status)) {
+                (false, _) => 0.5,
+                (true, true) => 0.9,
+                (true, false) => 1.0,
+            };
+            button::Style {
+                background: Some(Background::Gradient(
+                    gradient::Linear::new(std::f32::consts::FRAC_PI_4 * 3.0)
+                        .add_stop(0.0, faded(light, opacity))
+                        .add_stop(1.0, faded(accent, opacity))
+                        .into(),
+                )),
+                border: crate::style::round(SOUND_BUTTON / 2.0),
+                text_color: Color::WHITE,
+                ..button::Style::default()
+            }
+        });
+    let duration = playback.and_then(|playback| playback.duration_ms);
+    let played = match (playback, duration) {
+        (Some(playback), Some(duration)) if duration > 0 => {
+            (playback.position_ms as f32 / duration as f32).clamp(0.0, 1.0)
+        }
+        _ => 0.0,
+    };
+    // The bar: the part played in the text's colour, the rest muted.
+    let done = (played * 1000.0).round() as u16;
+    let mut track = row![];
+    let (ink, rest) = (theme.text, theme.line);
+    if done > 0 {
+        track = track.push(
+            container(Space::new())
+                .width(Length::FillPortion(done))
+                .height(SOUND_TRACK)
+                .style(move |_| rounded(ink, SOUND_TRACK / 2.0)),
+        );
+    }
+    if done < 1000 {
+        track = track.push(
+            container(Space::new())
+                .width(Length::FillPortion(1000 - done))
+                .height(SOUND_TRACK)
+                .style(move |_| rounded(rest, SOUND_TRACK / 2.0)),
+        );
+    }
+    let track = container(track)
+        .width(Length::Fill)
+        .height(16)
+        .align_y(Alignment::Center);
+    let track: Element<'a, Message> = if enabled {
+        let (seek, released) = (item.to_owned(), item.to_owned());
+        Scrub::new(track, move |at| {
+            Message::Voice(Event::Seek(seek.clone(), index, at))
+        })
+        .released(Message::Voice(Event::Released(released, index)))
+        .into()
+    } else {
+        track.into()
+    };
+    let error = playback.and_then(|playback| playback.error.as_deref());
+    let (time, ink) = match (error, playback) {
+        (Some(error), _) => (backcord_iced_kit::i18n::t(error), theme.danger),
+        (None, Some(playback)) => (
+            match duration {
+                Some(duration) => format!(
+                    "{} / {}",
+                    voice_time(playback.position_ms),
+                    voice_time(duration)
+                ),
+                None => voice_time(playback.position_ms),
+            },
+            theme.muted,
+        ),
+        (None, None) => (size.unwrap_or_default(), theme.muted),
+    };
+    let bar = row![
+        track,
+        text(time)
+            .size(12)
+            .color(ink)
+            .wrapping(text::Wrapping::None)
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center)
+    .into();
+    (play.into(), bar)
 }
 
 /// A voice message's volume, a popup over its mute: an upright slider

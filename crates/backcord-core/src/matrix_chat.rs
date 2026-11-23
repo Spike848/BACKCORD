@@ -661,7 +661,11 @@ impl Matrix {
                 let result = save_attachment(client, open.as_ref(), &room, &item, &path).await;
                 let _ = events.send(Event::Saved { room, name, result });
             }
-            Command::ViewImage { room, item, index } => {
+            // Matrix's images download as they open.
+            Command::ViewImage { ahead: true, .. } => {}
+            Command::ViewImage {
+                room, item, index, ..
+            } => {
                 view_image(client, open, room, item, index, events).await;
             }
             Command::SaveDraft { room, body } => {

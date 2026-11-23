@@ -155,7 +155,8 @@ pub fn keep_focus(app: &mut App) {
 /// Tells each camera where its tile shows, or that it doesn't, so frames
 /// are made only for tiles in sight, at their size, and whether it's
 /// large; and has [`video::frames`] look for frames from those that
-/// show: cameras, the stream watched, the screen shared, a message's
+/// show: cameras, the stream watched, the screen shared (only while the
+/// window is in front: else its last frame stays still), a message's
 /// video. With the call off screen, the corner's shows there.
 pub fn place_videos(app: &mut App) {
     let shown = stage_shown(app);
@@ -213,12 +214,18 @@ pub fn place_videos(app: &mut App) {
             }
         }
     }
+    // Your own screen plays only while the window is in front: elsewhere
+    // its last frame stays, and none is read or drawn.
     if (shown || corner == Pip::Shared)
         && let Some(sharing) = &voice.sharing
     {
-        sources
-            .mapped
-            .push((OWN_SCREEN.to_owned(), sharing.frames.clone()));
+        if app.shell.focused {
+            sources
+                .mapped
+                .push((OWN_SCREEN.to_owned(), sharing.frames.clone()));
+        } else {
+            sources.held.push(OWN_SCREEN.to_owned());
+        }
     }
     // A message's video, wherever it plays.
     let mut clip = false;

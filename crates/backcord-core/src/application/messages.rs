@@ -360,21 +360,29 @@ impl Application {
         })]
     }
 
-    /// Plays a voice message, from where it paused, or pauses it while it
-    /// plays. The button changes at once; the backend's
+    /// Whether the item's attachment `index` plays in place: a voice
+    /// message's recording, or a sound file sent on Discord.
+    fn playable_sound(&self, item: &str, index: usize) -> bool {
+        self.state.message(item).is_some_and(|message| {
+            (index == 0 && message.voice.is_some())
+                || message.attachments.get(index).is_some_and(|attachment| {
+                    attachment.url.is_some() && chat::is_audio_file(&attachment.name)
+                })
+        })
+    }
+
+    /// Plays a voice message or sound file, from where it paused, or
+    /// pauses it while it plays. The button changes at once; the backend's
     /// [`Event::VoiceMessage`] follows.
-    pub(super) fn toggle_voice_message(&mut self, item: String) -> Vec<Effect> {
-        let voice = self
-            .state
-            .message(&item)
-            .is_some_and(|message| message.voice.is_some());
-        let Some(room) = self.state.room_of(&item).cloned().filter(|_| voice) else {
+    pub(super) fn toggle_voice_message(&mut self, item: String, index: usize) -> Vec<Effect> {
+        let playable = self.playable_sound(&item, index);
+        let Some(room) = self.state.room_of(&item).cloned().filter(|_| playable) else {
             return vec![];
         };
         let playback = &mut self.state.voice_message;
         if let Some(playing) = playback
             .as_mut()
-            .filter(|playing| playing.item == item && playing.playing)
+            .filter(|playing| playing.item == item && playing.index == index && playing.playing)
         {
             playing.playing = false;
             return vec![Effect::Backend(Command::PauseVoiceMessage)];
@@ -382,19 +390,22 @@ impl Application {
         // Where it paused, when it's this one.
         let paused = playback
             .as_ref()
-            .filter(|paused| paused.item == item && paused.error.is_none())
-            .map(|paused| paused.position_ms);
+            .filter(|paused| paused.item == item && paused.index == index && paused.error.is_none())
+            .map(|paused| (paused.position_ms, paused.duration_ms));
         *playback = Some(chat::VoicePlayback {
             room: room.clone(),
             item: item.clone(),
+            index,
+            duration_ms: paused.and_then(|(_, duration)| duration),
             loading: paused.is_none(),
             playing: true,
-            position_ms: paused.unwrap_or(0),
+            position_ms: paused.map_or(0, |(position, _)| position),
             error: None,
         });
         vec![Effect::Backend(Command::PlayVoiceMessage {
             room,
             item,
+            index,
             speakers: self.state.voice.speaker.clone(),
             tuning: self.state.voice_tuning,
         })]
@@ -405,13 +416,28 @@ impl Application {
     /// from there as it was, and another waits there paused in its place, as
     /// in Discord. Its waveform and time follow at once; the backend's
     /// [`Event::VoiceMessage`] follows.
-    pub(super) fn move_voice_message(&mut self, item: String, fraction: f32) -> Vec<Effect> {
-        let Some(duration) = self
+    pub(super) fn move_voice_message(
+        &mut self,
+        item: String,
+        index: usize,
+        fraction: f32,
+    ) -> Vec<Effect> {
+        if !self.playable_sound(&item, index) {
+            return vec![];
+        }
+        // A voice message says how long it is; a sound file once it opened.
+        let shown = self
+            .state
+            .voice_message
+            .as_ref()
+            .filter(|shown| shown.item == item && shown.index == index);
+        let voice = self
             .state
             .message(&item)
             .and_then(|message| message.voice.as_ref())
-            .map(|voice| voice.duration_ms)
-        else {
+            .filter(|_| index == 0)
+            .map(|voice| voice.duration_ms);
+        let Some(duration) = voice.or_else(|| shown.and_then(|shown| shown.duration_ms)) else {
             return vec![];
         };
         let Some(room) = self.state.room_of(&item).cloned() else {
@@ -421,13 +447,15 @@ impl Application {
         let playback = &mut self.state.voice_message;
         match playback
             .as_mut()
-            .filter(|shown| shown.item == item && shown.error.is_none())
+            .filter(|shown| shown.item == item && shown.index == index && shown.error.is_none())
         {
             Some(shown) => shown.position_ms = at_ms,
             None => {
                 *playback = Some(chat::VoicePlayback {
                     room: room.clone(),
                     item: item.clone(),
+                    index,
+                    duration_ms: Some(duration),
                     loading: true,
                     playing: false,
                     position_ms: at_ms,
@@ -438,6 +466,7 @@ impl Application {
         vec![Effect::Backend(Command::MoveVoiceMessage {
             room,
             item,
+            index,
             at_ms,
             speakers: self.state.voice.speaker.clone(),
             tuning: self.state.voice_tuning,
@@ -734,6 +763,30 @@ impl Application {
             room,
             item: viewer.item.clone(),
             index: viewer.index,
+            ahead: false,
+        })]
+    }
+
+    /// The pointer came onto an image in the timeline: it's fetched at
+    /// viewing size ahead of a click, so the viewer opens with it. One at a
+    /// time; none while the viewer is open.
+    pub(super) fn image_ahead(&self, item: String, index: usize) -> Vec<Effect> {
+        let image = self
+            .state
+            .message(&item)
+            .and_then(|message| message.attachments.get(index))
+            .is_some_and(|attachment| attachment.image);
+        if self.state.preview || self.state.viewer.is_some() || !image {
+            return vec![];
+        }
+        let Some(room) = self.state.room_of(&item).cloned() else {
+            return vec![];
+        };
+        vec![Effect::Backend(Command::ViewImage {
+            room,
+            item,
+            index,
+            ahead: true,
         })]
     }
 

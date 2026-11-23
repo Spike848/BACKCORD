@@ -104,8 +104,9 @@ fn a_voice_message_plays_and_pauses_one_at_a_time() {
             recorded("3", false),
         ],
     });
-    let toggle =
-        |app: &mut Application, item: &str| app.dispatch(Action::ToggleVoiceMessage(item.into()));
+    let toggle = |app: &mut Application, item: &str| {
+        app.dispatch(Action::ToggleVoiceMessage(item.into(), 0))
+    };
     assert!(toggle(&mut app, "d:3").is_empty(), "not a voice message");
     assert!(matches!(
         toggle(&mut app, "d:1").as_slice(),
@@ -139,7 +140,7 @@ fn a_voice_message_plays_and_pauses_one_at_a_time() {
     // Its waveform moves it, playing as it was; another's waits there
     // paused in its place.
     let moved = |app: &mut Application, item: &str, fraction| {
-        app.dispatch(Action::MoveVoiceMessage(item.into(), fraction))
+        app.dispatch(Action::MoveVoiceMessage(item.into(), 0, fraction))
     };
     assert!(matches!(
         moved(&mut app, "d:2", 0.5).as_slice(),
@@ -188,6 +189,123 @@ fn a_voice_message_plays_and_pauses_one_at_a_time() {
     assert!(
         app.state.voice_message.is_none(),
         "another room's voice message doesn't show"
+    );
+}
+
+#[test]
+fn a_sound_file_sent_plays_in_place_and_moves_once_its_length_is_known() {
+    let mut app = connected();
+    let file = |name: &str| chat::Attachment {
+        name: name.into(),
+        size: Some(1000),
+        image: false,
+        dimensions: None,
+        preview: None,
+        preview_failed: false,
+        placement: chat::Placement::Message,
+        spoiler: false,
+        video: false,
+        gif: None,
+        url: Some(format!("https://cdn/{name}").into()),
+        description: None,
+    };
+    app.apply(Event::Timeline {
+        room: "dm".into(),
+        messages: vec![Arc::new(ChatMessage {
+            id: "1".into(),
+            item: "d:1".into(),
+            attachments: vec![file("notes.txt"), file("Song.MP3")],
+            ..Default::default()
+        })],
+    });
+    assert!(
+        app.dispatch(Action::ToggleVoiceMessage("d:1".into(), 0))
+            .is_empty(),
+        "a text file doesn't play"
+    );
+    assert!(
+        app.dispatch(Action::MoveVoiceMessage("d:1".into(), 1, 0.5))
+            .is_empty(),
+        "its length isn't known before it opens"
+    );
+    assert!(matches!(
+        app.dispatch(Action::ToggleVoiceMessage("d:1".into(), 1)).as_slice(),
+        [Effect::Backend(Command::PlayVoiceMessage { item, index: 1, .. })] if item == "d:1"
+    ));
+    let playing = app.state.voice_message.clone().unwrap();
+    app.apply(Event::VoiceMessage(Some(chat::VoicePlayback {
+        loading: false,
+        duration_ms: Some(180_000),
+        ..playing
+    })));
+    assert!(matches!(
+        app.dispatch(Action::MoveVoiceMessage("d:1".into(), 1, 0.5))
+            .as_slice(),
+        [Effect::Backend(Command::MoveVoiceMessage {
+            index: 1,
+            at_ms: 90_000,
+            ..
+        })]
+    ));
+}
+
+#[test]
+fn an_image_under_the_pointer_is_fetched_ahead_for_the_viewer() {
+    let mut app = connected();
+    let picture = chat::Attachment {
+        name: "a.png".into(),
+        size: None,
+        image: true,
+        dimensions: Some((800, 600)),
+        preview: None,
+        preview_failed: false,
+        placement: chat::Placement::Message,
+        spoiler: false,
+        video: false,
+        gif: None,
+        url: None,
+        description: None,
+    };
+    app.apply(Event::Timeline {
+        room: "dm".into(),
+        messages: vec![Arc::new(ChatMessage {
+            id: "1".into(),
+            item: "d:1".into(),
+            attachments: vec![picture],
+            ..Default::default()
+        })],
+    });
+    assert!(matches!(
+        app.dispatch(Action::ImageAhead {
+            item: "d:1".into(),
+            index: 0
+        })
+        .as_slice(),
+        [Effect::Backend(Command::ViewImage {
+            ahead: true,
+            index: 0,
+            ..
+        })]
+    ));
+    assert!(
+        app.dispatch(Action::ImageAhead {
+            item: "d:1".into(),
+            index: 1
+        })
+        .is_empty(),
+        "no such image"
+    );
+    app.dispatch(Action::ViewImage {
+        item: "d:1".into(),
+        index: 0,
+    });
+    assert!(
+        app.dispatch(Action::ImageAhead {
+            item: "d:1".into(),
+            index: 0
+        })
+        .is_empty(),
+        "the viewer is open"
     );
 }
 

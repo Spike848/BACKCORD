@@ -237,7 +237,7 @@ pub(super) fn profile_body<'a>(
     if !look.note.is_empty() {
         body = body.push(text(look.note.as_str()).size(13).color(inks.ink3));
     }
-    if mode == Mode::Card && look.own {
+    if mode == Mode::Card && look.own && !shown.popover {
         let pencil = ctx.look.icon(Icon::Pencil, 18, rgb(theme.on_accent));
         body = body.push(
             action(

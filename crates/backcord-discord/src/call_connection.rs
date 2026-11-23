@@ -510,6 +510,7 @@ impl Media {
             self.learn(op, &data);
             self.watching.learn(op, &data);
         }
+        self.stats.set_cameras(self.watching.filming());
         // Each heartbeat measures the ping, which Discord's web client
         // measures this often.
         let interval = connection.interval.min(PING_EVERY);
@@ -616,6 +617,9 @@ impl Media {
                             self.learn(op, &data);
                             if self.watching.learn(op, &data) {
                                 self.watching.ask(connection).await?;
+                            }
+                            if op == 12 {
+                                self.stats.set_cameras(self.watching.filming());
                             }
                         }
                     }

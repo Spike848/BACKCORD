@@ -205,7 +205,30 @@ struct Incoming {
     /// The orientation the sender last gave, which holds until it gives
     /// another: libwebrtc leaves it out of upright frames' packets.
     orientation: Orientation,
+    /// It's asked for, at a quality above none.
+    wanted: bool,
+    /// No keyframe has come since it was asked for: a sender sends one
+    /// only when asked, so it's asked for again until one comes.
+    awaiting_key: bool,
+    /// What came and what became of it since the last report.
+    counts: Counts,
 }
+
+/// A camera's packets and frames over a report's time, for the log.
+#[derive(Default)]
+struct Counts {
+    packets: u32,
+    frames: u32,
+    keyframes: u32,
+    undecryptable: u32,
+    behind: u32,
+    keyframes_asked: u32,
+}
+
+/// How often what came of each camera is logged.
+const REPORT_EVERY: Duration = Duration::from_secs(5);
+/// While the first keyframe hasn't come, how often it's asked for.
+const FIRST_KEYFRAME_EVERY: Duration = Duration::from_secs(1);
 
 /// Everyone else's cameras: who films on which SSRC, what BACKCORD asked for,
 /// and the frames on their way.
@@ -216,6 +239,7 @@ pub(crate) struct Receiving {
     /// pixels it shows at.
     wants: HashMap<u64, (u8, u32)>,
     frames: channel::SyncSender<VideoFrame>,
+    reported: Instant,
 }
 
 impl Receiving {
@@ -224,6 +248,7 @@ impl Receiving {
             incoming: HashMap::new(),
             wants: HashMap::new(),
             frames,
+            reported: Instant::now(),
         }
     }
 
@@ -267,9 +292,20 @@ impl Receiving {
                 assembler: None,
                 asked: Instant::now() - KEYFRAME_REQUESTS,
                 orientation: Orientation::default(),
+                wanted: false,
+                awaiting_key: false,
+                counts: Counts::default(),
             },
         );
         true
+    }
+
+    /// Who films, as the voice server announced them.
+    pub fn filming(&self) -> Vec<u64> {
+        self.incoming
+            .values()
+            .map(|incoming| incoming.user)
+            .collect()
     }
 
     /// Sets the quality asked for each person's camera; those left out get
@@ -286,17 +322,38 @@ impl Receiving {
         let mut asked = Map::new();
         let mut pixels = Map::new();
         asked.insert("any".into(), json!(100));
+        let mut newly = Vec::new();
         for (&ssrc, incoming) in &mut self.incoming {
             let (quality, shown) = self.wants.get(&incoming.user).copied().unwrap_or((0, 0));
             asked.insert(ssrc.to_string(), json!(quality));
-            if quality > 0 {
+            let wanted = quality > 0;
+            if wanted {
                 pixels.insert(ssrc.to_string(), json!(shown));
-                // The decoder starts from a keyframe.
-                incoming.assembler = None;
             }
+            // Newly asked for: the decoder starts from a keyframe, which the
+            // sender sends only when asked. A tile changing size asks again
+            // for the same camera, which goes on as it was.
+            if wanted && !incoming.wanted {
+                incoming.assembler = None;
+                incoming.awaiting_key = true;
+                newly.push(ssrc);
+            }
+            incoming.wanted = wanted;
         }
         asked.insert("pixelCounts".into(), Value::Object(pixels));
-        send_json(&mut connection.ws, 15, Value::Object(asked)).await
+        let said = Value::Object(asked.clone());
+        tracing::debug!(%said, "asking for cameras");
+        send_json(&mut connection.ws, 15, Value::Object(asked)).await?;
+        for ssrc in newly {
+            if let Some(incoming) = self.incoming.get_mut(&ssrc) {
+                incoming.asked = Instant::now();
+                incoming.counts.keyframes_asked += 1;
+            }
+            let mut request = rtp::picture_loss(connection.ssrc, ssrc);
+            connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
+            connection.udp.send(&request).await?;
+        }
+        Ok(())
     }
 
     /// Takes a received video packet, if it's a camera's.
@@ -335,6 +392,7 @@ impl Receiving {
         {
             incoming.assembler = Some(Assembler::new(codec));
         }
+        incoming.counts.packets += 1;
         incoming.reorder.insert(held, std::time::Instant::now());
         Ok(true)
     }
@@ -343,6 +401,29 @@ impl Receiving {
     /// again for what's missing.
     pub async fn repair(&mut self, connection: &mut Connection) -> Result<()> {
         let now = std::time::Instant::now();
+        if self.reported.elapsed() >= REPORT_EVERY {
+            self.reported = Instant::now();
+            for (&ssrc, incoming) in &mut self.incoming {
+                let counts = std::mem::take(&mut incoming.counts);
+                if !incoming.wanted && counts.packets == 0 {
+                    continue;
+                }
+                tracing::debug!(
+                    user = incoming.user,
+                    ssrc,
+                    wanted = incoming.wanted,
+                    awaiting_key = incoming.awaiting_key,
+                    packets = counts.packets,
+                    frames = counts.frames,
+                    keyframes = counts.keyframes,
+                    undecryptable = counts.undecryptable,
+                    behind = counts.behind,
+                    keyframes_asked = counts.keyframes_asked,
+                    unreadable = ?connection.dave.unreadable.as_deref(),
+                    "a camera over the last 5 s"
+                );
+            }
+        }
         for (&ssrc, incoming) in &mut self.incoming {
             let Some(assembler) = incoming.assembler.as_mut() else {
                 continue;
@@ -359,9 +440,17 @@ impl Receiving {
                 let pushed = assembler.push(&held.packet());
                 lost |= pushed.lost;
                 let Some(frame) = pushed.frame else { continue };
+                incoming.counts.frames += 1;
+                if frame.keyframe {
+                    incoming.counts.keyframes += 1;
+                }
                 let Some(data) = connection.dave.decrypt(incoming.user, frame.data) else {
+                    incoming.counts.undecryptable += 1;
                     continue;
                 };
+                if frame.keyframe {
+                    incoming.awaiting_key = false;
+                }
                 let frame = VideoFrame {
                     user: incoming.user,
                     codec,
@@ -372,6 +461,7 @@ impl Receiving {
                 if let Err(channel::TrySendError::Full(_)) = self.frames.try_send(frame) {
                     // Decoding is behind; what follows needs this frame.
                     assembler.wait_for_keyframe();
+                    incoming.counts.behind += 1;
                     lost = true;
                 }
             }
@@ -381,8 +471,13 @@ impl Receiving {
                 connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
                 connection.udp.send(&request).await?;
             }
-            if lost && incoming.asked.elapsed() >= KEYFRAME_REQUESTS {
+            // Until the first keyframe comes, it's asked for again.
+            let first = incoming.wanted
+                && incoming.awaiting_key
+                && incoming.asked.elapsed() >= FIRST_KEYFRAME_EVERY;
+            if first || (lost && incoming.asked.elapsed() >= KEYFRAME_REQUESTS) {
                 incoming.asked = Instant::now();
+                incoming.counts.keyframes_asked += 1;
                 let mut request = rtp::picture_loss(connection.ssrc, ssrc);
                 connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
                 connection.udp.send(&request).await?;

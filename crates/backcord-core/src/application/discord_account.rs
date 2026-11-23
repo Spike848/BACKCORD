@@ -615,7 +615,6 @@ impl Application {
         // Posts that came to the forum on screen want their first messages.
         effects.extend(self.ask_starters());
         if emoji_changed {
-            self.emoji_cache_current = false;
             effects.extend(self.prefetch_emoji());
         }
         effects.extend(self.prefetch_gifs());
@@ -676,7 +675,6 @@ impl Application {
             self.discord = None;
             self.discord_index = discord::Index::default();
             self.emoji_prefetched.clear();
-            self.emoji_cache_current = false;
         }
         self.state.discord_linked = false;
         self.state.discord_online = false;

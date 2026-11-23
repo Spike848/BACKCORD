@@ -963,6 +963,10 @@ impl Application {
         }
         effects.extend(self.show_room(id, chat));
         effects.extend(self.ask_activity());
+        // The open server's emoji and stickers, which its messages and
+        // pickers show.
+        effects.extend(self.cache_emoji_pictures());
+        effects.extend(self.prefetch_stickers());
         effects
     }
 
@@ -1045,6 +1049,7 @@ impl Application {
             self.state.messages = shown.messages;
             self.state.members = shown.members;
             self.state.room_ready = true;
+            tracing::debug!(room = %id, "a channel showed at once from memory");
             // Its commands' rows as they are now, not as they were.
             self.show_sent_commands();
         }
@@ -1089,7 +1094,14 @@ impl Application {
                 Some("Your roles on this Discord server don't let you read this channel.".into());
             effects.push(Effect::Backend(Command::CloseRoom));
         } else {
-            effects.push(Effect::Backend(Command::Open(id)));
+            effects.push(Effect::Backend(Command::Open(id.clone())));
+            if !self.state.room_ready {
+                self.opening = Some(Opening {
+                    room: id,
+                    asked: std::time::Instant::now(),
+                    came: 0,
+                });
+            }
             // An unread Discord channel that shows nothing yet opens at its
             // last read message: the messages around it load beside the
             // newest, rather than once those showed they don't reach it.

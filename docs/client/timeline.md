@@ -66,7 +66,9 @@ waits for its retry.
 
 A message shows the line above it (the reply it quotes, or who used the
 command it answers), the author line, its text, `(edited)`, its pictures,
-a file's card (its name and size), link previews and bots' cards (a bar of
+a file's card (its name and size; a sound file sent on Discord, by its
+extension, plays in place, with a button, a bar to move through it and its
+time, on the voice messages' player), link previews and bots' cards (a bar of
 their colour, site, author, title, description, fields, pictures,
 thumbnail and footer), stickers, a poll, a voice message, an app's
 components, and reactions. The author line has the name (in its role

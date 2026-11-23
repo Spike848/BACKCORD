@@ -171,6 +171,20 @@ fn read_games(reader: impl Read, visit: impl FnMut(Game) -> Result<()>) -> Resul
 
 /// Opens a list, refusing one too big to be Discord's.
 fn open(path: &Path) -> Result<File> {
+    // Windows refuses to replace a file open without sharing its deletion,
+    // and the detector keeps the list it reads open: the next refresh
+    // couldn't write over it, so the list on disk never updated.
+    #[cfg(windows)]
+    let file = {
+        use std::os::windows::fs::OpenOptionsExt;
+        /// FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE.
+        const SHARE_ALL: u32 = 0x7;
+        std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(SHARE_ALL)
+            .open(path)?
+    };
+    #[cfg(not(windows))]
     let file = File::open(path)?;
     ensure!(
         file.metadata()?.len() <= MAX_FILE,
@@ -531,7 +545,16 @@ fn compact(source: &Path, cache: Option<&Path>) -> Result<Catalog> {
     writer.flush()?;
     drop(writer);
     let file = match (output, cache) {
-        (Output::Named(file), Some(path)) => file.persist(path)?,
+        (Output::Named(file), Some(path)) => {
+            // std's rename replaces a list the detector still holds open,
+            // which tempfile's refused on Windows with access denied.
+            let (file, written) = file.keep()?;
+            if let Err(error) = std::fs::rename(&written, path) {
+                let _ = std::fs::remove_file(&written);
+                return Err(error.into());
+            }
+            file
+        }
         (Output::Named(file), None) => file.into_file(),
         (Output::Unnamed(file), _) => file,
     };

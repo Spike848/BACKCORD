@@ -1805,6 +1805,12 @@ pub enum Action {
         item: String,
         index: usize,
     },
+    /// The pointer came onto an image: fetch it at viewing size ahead of a
+    /// click.
+    ImageAhead {
+        item: String,
+        index: usize,
+    },
     /// Play an item's video attachment where it shows, at most `width` by
     /// `height` pixels.
     PlayVideo {
@@ -1815,8 +1821,10 @@ pub enum Action {
     },
     /// Control the video playing.
     Video(chat::VideoCommand),
-    /// Play an item's voice message, or pause it while it plays.
-    ToggleVoiceMessage(String),
+    /// Play an item's voice message, or the sound file that's its
+    /// attachment at this index (0 for a voice message), or pause it while
+    /// it plays.
+    ToggleVoiceMessage(String, usize),
     /// Play voice messages at the next speed: 1, 1.5, then 2 times as fast.
     CycleVoiceMessageSpeed,
     /// Play voice messages this loud, from 0 to 1 as the slider stands,
@@ -1824,8 +1832,9 @@ pub enum Action {
     VoiceMessageVolume(f32),
     /// Mute voice messages, or unmute them at the volume they had.
     MuteVoiceMessages(bool),
-    /// Move an item's voice message this far through it, from 0 to 1.
-    MoveVoiceMessage(String, f32),
+    /// Move an item's voice message, or its sound file at this index, this
+    /// far through it, from 0 to 1.
+    MoveVoiceMessage(String, usize, f32),
     /// Show the message's next image, or with -1 its previous one, wrapping around.
     StepImage(isize),
     CloseImage,
@@ -2520,9 +2529,20 @@ pub struct DiscordEmojiLists {
     pub reactions: Vec<String>,
 }
 
+/// A channel asked for while nothing of it showed, timed to its messages:
+/// what the log says of how long a channel takes to open.
+struct Opening {
+    room: String,
+    asked: std::time::Instant,
+    /// How many timelines came for it since: the disk's, then Discord's.
+    came: u8,
+}
+
 #[derive(Default)]
 pub struct Application {
     pub state: AppState,
+    /// The channel being opened, timed until its messages come.
+    opening: Option<Opening>,
     feed_asks: activity_panel::FeedAsks,
     /// The lists from Matrix; `state` shows them with Discord's.
     matrix_rooms: Vec<Arc<ChatRoom>>,
@@ -2566,10 +2586,6 @@ pub struct Application {
     /// added by a later snapshot are fetched too.
     #[cfg(feature = "discord")]
     emoji_prefetched: HashSet<String>,
-    /// The current emoji list was checked: searches and reflows need not
-    /// rebuild every server's emoji just to discover there is nothing new.
-    #[cfg(feature = "discord")]
-    emoji_cache_current: bool,
     /// The server icons fetched ahead, so each is fetched once.
     #[cfg(feature = "discord")]
     server_icons_prefetched: HashSet<String>,
@@ -2674,6 +2690,21 @@ fn visible_range(
     (first <= last).then_some(first..=last)
 }
 
+/// The open server's banner, and its moving one, which top its channel list.
+fn open_server_banners(state: &AppState) -> Vec<String> {
+    let Navigation::Server(open) = &state.navigation else {
+        return Vec::new();
+    };
+    state
+        .servers
+        .iter()
+        .filter(|server| &server.id == open)
+        .filter_map(|server| server.banner.as_deref())
+        .flat_map(|banner| [Some(banner.to_owned()), chat::moving_banner(banner)])
+        .flatten()
+        .collect()
+}
+
 /// The server icons and avatars on screen: the rail, the first DMs listed,
 /// the people in the listed voice channels, the call, `timeline` and the
 /// member list, profiles and people to start a DM with, with the server tags
@@ -2762,6 +2793,22 @@ fn pictures_on_screen<'a>(
                     ]
                 })
                 .flatten(),
+        )
+        // The friends Select Friends lists, and who calls: both show
+        // whatever else is on screen.
+        .chain(
+            state
+                .add_people
+                .iter()
+                .flat_map(move |_| state.friends.iter())
+                .filter_map(|friend| friend.avatar.as_deref()),
+        )
+        .chain(
+            state
+                .rooms
+                .iter()
+                .filter(|room| room.incoming)
+                .filter_map(|room| room.avatar.as_deref()),
         )
         .chain(state.server_settings.iter().flat_map(|settings| {
             let (first, second) = match &settings.page {
@@ -3113,10 +3160,39 @@ impl Application {
         shown.extend(
             views().flat_map(|view| view.profile.frame.iter().map(|layer| layer.src.as_str())),
         );
-        let banners: Vec<String> = views()
+        let mut banners: Vec<String> = views()
             .filter_map(|view| view.profile.banner.as_deref())
             .filter_map(chat::moving_banner)
             .collect();
+        // The account's own card, in its popover, plays its effect and
+        // shows its frame and moving banner.
+        let account = state.account_profile.as_deref();
+        shown.extend(
+            account
+                .and_then(|profile| profile.effect.as_deref())
+                .and_then(|sku| {
+                    state
+                        .profile_effects
+                        .iter()
+                        .find(|effect| effect.sku == sku)
+                })
+                .into_iter()
+                .flat_map(|effect| effect.pictures()),
+        );
+        shown.extend(
+            account
+                .into_iter()
+                .flat_map(|profile| profile.frame.iter().map(|layer| layer.src.as_str())),
+        );
+        banners.extend(
+            account
+                .and_then(|profile| profile.banner.as_deref())
+                .and_then(chat::moving_banner),
+        );
+        // The open server's moving banner tops its channel list, not a card:
+        // let go of, it was asked for again at once, and downloaded again,
+        // every few seconds.
+        banners.extend(open_server_banners(state));
         let (kept, gone): (Vec<String>, Vec<String>) = std::mem::take(&mut self.effect_pictures)
             .into_iter()
             .partition(|url| shown.contains(&url.as_str()) || banners.contains(url));
@@ -3229,16 +3305,11 @@ impl Application {
     fn cache_emoji_pictures(&mut self) -> Vec<Effect> {
         #[cfg(feature = "discord")]
         {
-            if self.emoji_cache_current {
-                return Vec::new();
-            }
-            self.emoji_cache_current = true;
             let urls: Vec<String> = self
-                .emoji_sets()
+                .likely_emoji_pictures()
                 .into_iter()
-                .flat_map(|set| set.emoji)
-                .map(|emoji| emoji.picture)
                 .filter(|url| !url.is_empty() && self.emoji_prefetched.insert(url.clone()))
+                .filter(|url| !backcord_discord::cache::picture_is_kept(url))
                 .collect();
             if !urls.is_empty() {
                 tracing::info!(pictures = urls.len(), "prefetching custom emoji pictures");
@@ -3248,6 +3319,80 @@ impl Application {
             }
         }
         Vec::new()
+    }
+
+    /// Logs how long the channel being opened took to show messages, the
+    /// first timeline (often the disk's) and the next (Discord's).
+    fn time_opening(&mut self, room: &str, messages: usize) {
+        let Some(opening) = self.opening.as_mut().filter(|opening| opening.room == room) else {
+            return;
+        };
+        opening.came += 1;
+        let ms = opening.asked.elapsed().as_millis() as u64;
+        let came = opening.came;
+        tracing::debug!(
+            room,
+            ms,
+            messages,
+            timeline = came,
+            "a channel's messages came"
+        );
+        if came >= 2 {
+            self.opening = None;
+        }
+    }
+
+    /// The custom emoji pictures likely to show soon: the account's
+    /// favourites and those it uses most, and the open server's own. Every
+    /// server's at once came to thousands, more than the picture cache
+    /// holds, so they pushed out the avatars and icons the window shows,
+    /// which then downloaded again; the rest come as a picker or a message
+    /// shows them.
+    #[cfg(feature = "discord")]
+    fn likely_emoji_pictures(&self) -> Vec<String> {
+        /// Of those used most, how many are fetched ahead.
+        const MOST_USED: usize = 64;
+        let lists = &self.state.discord_emojis;
+        let ids: HashSet<&str> = lists
+            .favorites
+            .iter()
+            .chain(lists.frequent.iter().take(MOST_USED))
+            .chain(lists.reactions.iter().take(MOST_USED))
+            .map(|key| key.rsplit_once(':').map_or(key.as_str(), |(_, id)| id))
+            .filter(|id| !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()))
+            .collect();
+        let mut urls: Vec<String> = self
+            .emoji_by_id(&ids)
+            .into_iter()
+            .map(|emoji| emoji.picture)
+            .collect();
+        let here = self
+            .state
+            .selected
+            .as_deref()
+            .and_then(discord::parse_room)
+            .map(|(guild, _)| guild);
+        if let Some(server) = self
+            .discord
+            .as_ref()
+            .zip(here)
+            .and_then(|(snapshot, here)| snapshot.servers.iter().find(|server| server.id == here))
+        {
+            urls.extend(
+                server
+                    .emojis
+                    .iter()
+                    .filter(|emoji| emoji.available)
+                    .map(|emoji| {
+                        backcord_discord::ready::custom_emoji(
+                            &emoji.id,
+                            emoji.animated,
+                            chat::EMOJI_PICTURE_SIZE,
+                        )
+                    }),
+            );
+        }
+        urls
     }
 
     /// Lets go of the custom emoji pictures but `keep` and those shown
@@ -3372,7 +3517,11 @@ impl Application {
             )
             .map(str::to_owned)
             .collect();
-        let kept = |url: &String| shown.contains(url) || is_custom_emoji(url);
+        // A card's or the open server's large pictures go with them; see
+        // [`Application::let_go_of_effect_pictures`].
+        let large = &self.effect_pictures;
+        let kept =
+            |url: &String| shown.contains(url) || is_custom_emoji(url) || large.contains(url);
         self.state.pictures.retain(|url, _| kept(url));
         let pictures = &self.state.pictures;
         self.requested_pictures
@@ -3610,6 +3759,7 @@ impl Application {
             Action::SaveAttachment { item, index, path } => self.save_attachment(item, index, path),
             Action::CopyAttachment { item, index } => self.copy_attachment(item, index),
             Action::ViewImage { item, index } => self.view_image(item, index),
+            Action::ImageAhead { item, index } => self.image_ahead(item, index),
             Action::PlayVideo {
                 item,
                 index,
@@ -3622,8 +3772,10 @@ impl Application {
                 }
                 vec![Effect::Backend(Command::Video(command))]
             }
-            Action::ToggleVoiceMessage(item) => self.toggle_voice_message(item),
-            Action::MoveVoiceMessage(item, fraction) => self.move_voice_message(item, fraction),
+            Action::ToggleVoiceMessage(item, index) => self.toggle_voice_message(item, index),
+            Action::MoveVoiceMessage(item, index, fraction) => {
+                self.move_voice_message(item, index, fraction)
+            }
             Action::CycleVoiceMessageSpeed => {
                 let speed = &mut self.state.voice_tuning.speed;
                 *speed = if *speed < 1.25 {
@@ -4482,6 +4634,7 @@ impl Application {
                         self.state.history_start = false;
                     }
                     self.state.room_ready = true;
+                    self.time_opening(&room, messages.len());
                     self.state.messages = self.without_blocked(Arc::new(messages));
                     self.show_sent_commands();
                     let mut effects = self.place_unread();

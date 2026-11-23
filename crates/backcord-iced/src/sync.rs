@@ -884,6 +884,10 @@ impl App {
             want(moving.as_deref());
         }
         want(self.header.avatar.as_deref());
+        // A call ringing shows who calls, wherever the window is.
+        for room in crate::call::ringing(state) {
+            want(room.avatar.as_deref());
+        }
         want(self.account.status.emoji.as_deref());
         for compose in [state.compose(), state.aside_compose()]
             .into_iter()

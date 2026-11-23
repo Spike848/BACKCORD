@@ -42,7 +42,17 @@ pub struct Shown {
     pub url: String,
     pub title: String,
     pub fallback: Vec<String>,
+    /// How far the wheel zoomed it in, from 1 (as it opens) to [`MOST_ZOOM`].
+    pub zoom: f32,
 }
+
+/// The size every picture opens at, whatever its own, so it opens the same
+/// each time: an avatar or icon this far across, a banner this wide.
+const OPENS_AT: f32 = 512.0;
+const BANNER_OPENS_AT: f32 = 960.0;
+/// How far the wheel zooms in, and each step of it.
+const MOST_ZOOM: f32 = 4.0;
+const ZOOM_STEP: f32 = 1.25;
 
 /// What the app may already hold of the picture at `url`: a moving banner's
 /// or avatar's moving version, then the address itself.
@@ -79,6 +89,10 @@ pub enum Event {
         title: String,
     },
     Close,
+    /// The wheel turned on it: steps in, or out below zero.
+    Zoom(f32),
+    /// A right click on it: its menu, to save it or open its original.
+    Menu,
     /// Save it: where, asked with the system's dialog.
     Download,
     Saved(Option<PathBuf>),
@@ -120,6 +134,28 @@ pub fn full_url(url: &str, format: usize, size: usize) -> String {
     format!("{stem}.{format}?size={size}{view}")
 }
 
+/// The picture at `url` (as the viewer asked for it) at its full size, for
+/// the browser: on Discord's CDN the largest it gives, a moving one as a
+/// GIF; any other as it is.
+pub fn original_url(url: &str) -> String {
+    let url = url
+        .strip_suffix(backcord_core::chat::VIEW_PICTURE)
+        .unwrap_or(url);
+    let base = url.split_once('?').map_or(url, |(base, _)| base);
+    let discord = base.contains("cdn.discordapp.com") || base.contains("media.discordapp.net");
+    if !discord || base.contains("/embed/avatars/") {
+        return url.to_owned();
+    }
+    let (stem, extension) = base
+        .rsplit_once('.')
+        .filter(|(_, extension)| !extension.contains('/'))
+        .unwrap_or((base, ""));
+    let file = stem.rsplit('/').next().unwrap_or_default();
+    let moving = file.starts_with("a_") || extension == "gif";
+    let extension = if moving { "gif" } else { "png" };
+    format!("{stem}.{extension}?size=4096")
+}
+
 impl App {
     pub fn icon_event(&mut self, event: Event) -> Task<Message> {
         match event {
@@ -130,12 +166,43 @@ impl App {
                     url,
                     title,
                     fallback,
+                    zoom: 1.0,
                 });
                 self.sync()
             }
             Event::Close => {
                 self.icon = None;
                 Task::none()
+            }
+            Event::Zoom(steps) => {
+                if let Some(shown) = &mut self.icon {
+                    shown.zoom = (shown.zoom * ZOOM_STEP.powf(steps)).clamp(1.0, MOST_ZOOM);
+                }
+                Task::none()
+            }
+            Event::Menu => {
+                let Some(shown) = &self.icon else {
+                    return Task::none();
+                };
+                use crate::menus::{Menu, MenuAct, MenuRow};
+                let rows = vec![
+                    MenuRow::new(
+                        MenuAct::SaveIcon,
+                        backcord_iced_kit::i18n::tr("Download"),
+                        Icon::Download,
+                    ),
+                    MenuRow {
+                        key: original_url(&shown.url),
+                        ..MenuRow::new(
+                            MenuAct::OpenTextLink,
+                            backcord_iced_kit::i18n::tr("Open Original"),
+                            Icon::Link,
+                        )
+                    },
+                ];
+                let at = self.pressed.get();
+                self.win.menu = Some(Menu::new(iced::Point::new(at.x + 4.0, at.y), rows));
+                iced::widget::operation::focus(crate::app::NOBODY)
             }
             Event::Download => {
                 let Some(shown) = &self.icon else {
@@ -167,6 +234,23 @@ impl App {
     }
 }
 
+/// The size a picture of `shape` opens at before it's fitted to the
+/// window: [`OPENS_AT`] across its longer side, a banner [`BANNER_OPENS_AT`]
+/// wide, whatever size it came at, so it opens the same each time.
+fn opening_size(shape: Option<(u32, u32)>) -> Size {
+    let Some((width, height)) = shape.filter(|(width, height)| *width > 0 && *height > 0) else {
+        return Size::new(OPENS_AT, OPENS_AT);
+    };
+    let wide = width as f32 / height as f32;
+    if wide > 1.5 {
+        Size::new(BANNER_OPENS_AT, BANNER_OPENS_AT / wide)
+    } else if wide >= 1.0 {
+        Size::new(OPENS_AT, OPENS_AT / wide)
+    } else {
+        Size::new(OPENS_AT * wide, OPENS_AT)
+    }
+}
+
 /// The picture being viewed, over everything.
 pub fn view<'a>(shown: &'a Option<Shown>, ctx: Ctx<'a>) -> Option<Element<'a, Message>> {
     let shown = shown.as_ref()?;
@@ -192,33 +276,21 @@ pub fn view<'a>(shown: &'a Option<Shown>, ctx: Ctx<'a>) -> Option<Element<'a, Me
         (ctx.look.window.width - SIDES).max(1.0),
         (ctx.look.window.height - ENDS).max(1.0),
     );
-    // The size it opens at: the large one's, or a held one's shape at the
-    // size asked for, so nothing moves as the large one comes.
-    let asked = SIZES[ctx
-        .layout
-        .prefs
-        .icon_size
-        .unwrap_or(DEFAULT_SIZE)
-        .min(SIZES.len() - 1)] as f32;
-    let natural = match (full, picture) {
-        (Some(full), _) => Size::new(full.width as f32, full.height as f32),
-        (None, Some(held)) => {
-            let wide = held.width as f32 / held.height as f32;
-            if wide >= 1.0 {
-                Size::new(asked, asked / wide)
-            } else {
-                Size::new(asked * wide, asked)
-            }
-        }
-        (None, None) => Size::new(256.0, 256.0),
-    };
+    // It opens at one size, whatever its own, fitted to the window; the
+    // wheel zooms it in, and what's beyond the window is cut off.
+    let natural = opening_size(picture.map(|picture| (picture.width, picture.height)));
     let scale = 1f32
         .min(room.width / natural.width)
         .min(room.height / natural.height);
-    let size = Size::new(
+    let fitted = Size::new(
         (natural.width * scale).round().max(1.0),
         (natural.height * scale).round().max(1.0),
     );
+    let size = Size::new(
+        (fitted.width * shown.zoom).round(),
+        (fitted.height * shown.zoom).round(),
+    );
+    let frame = Size::new(size.width.min(room.width), size.height.min(room.height));
     // A moving one plays, as the profile's banner does.
     let moving = ctx.moving(shown_url, size, Rectangle::with_size(size), false);
     let content: Element<'a, Message> = match picture {
@@ -239,16 +311,6 @@ pub fn view<'a>(shown: &'a Option<Shown>, ctx: Ctx<'a>) -> Option<Element<'a, Me
         .align_y(Alignment::Center)
         .into(),
     };
-    let download = ctx
-        .look
-        .face_button(
-            ctx.look.glyph(Icon::Download, 20, Color::WHITE),
-            32.0,
-            backcord_iced_kit::i18n::tr("Save"),
-            Message::Icon(Event::Download),
-        )
-        .below()
-        .into();
     let close = ctx
         .look
         .face_button(
@@ -259,9 +321,24 @@ pub fn view<'a>(shown: &'a Option<Shown>, ctx: Ctx<'a>) -> Option<Element<'a, Me
         )
         .below()
         .into();
+    // The wheel zooms it; a right click opens its menu.
+    let content = container(content)
+        .width(frame.width)
+        .height(frame.height)
+        .center(Length::Shrink)
+        .clip(true);
+    let content = crate::widgets::RightPress::new(
+        iced::widget::mouse_area(content).on_scroll(|delta| {
+            Message::Icon(Event::Zoom(match delta {
+                iced::mouse::ScrollDelta::Lines { y, .. } => y,
+                iced::mouse::ScrollDelta::Pixels { y, .. } => y / 60.0,
+            }))
+        }),
+        |_| Message::Icon(Event::Menu),
+    );
     Some(
-        Viewer::new(GROUND, content, size, Message::Icon(Event::Close))
-            .title(shown.title.clone(), vec![download, close])
+        Viewer::new(GROUND, content, frame, Message::Icon(Event::Close))
+            .title(shown.title.clone(), vec![close])
             .view(ctx.look),
     )
 }
@@ -306,6 +383,40 @@ mod tests {
                 "https://cdn.discordapp.com/avatars/1/a_abc.webp?size=1024&animated=true#view"
             ),
             "a_abc.webp"
+        );
+    }
+}
+
+#[cfg(test)]
+mod sizing_tests {
+    use iced::Size;
+
+    use super::{opening_size, original_url};
+
+    #[test]
+    fn a_picture_opens_at_one_size_whatever_size_it_came_at() {
+        let avatar = Size::new(512.0, 512.0);
+        assert_eq!(opening_size(Some((128, 128))), avatar, "the small one held");
+        assert_eq!(opening_size(Some((1024, 1024))), avatar, "the large one");
+        assert_eq!(opening_size(Some((480, 480))), avatar, "smaller than asked");
+        assert_eq!(
+            opening_size(Some((600, 240))),
+            Size::new(960.0, 384.0),
+            "a banner"
+        );
+    }
+
+    #[test]
+    fn the_original_opens_at_discords_largest() {
+        assert_eq!(
+            original_url("https://cdn.discordapp.com/avatars/1/abc.webp?size=1024#view"),
+            "https://cdn.discordapp.com/avatars/1/abc.png?size=4096"
+        );
+        assert_eq!(
+            original_url(
+                "https://cdn.discordapp.com/avatars/1/a_abc.webp?size=1024&animated=true#view"
+            ),
+            "https://cdn.discordapp.com/avatars/1/a_abc.gif?size=4096"
         );
     }
 }

@@ -151,9 +151,6 @@ pub struct Pictures {
     pub players: Players,
     /// Copies of pictures at the sizes messages show them at.
     pub fitter: RefCell<Fitter>,
-    /// Whether each picture shown in a box is opaque all over, looked at
-    /// once: one that is hides the box's ground, which isn't drawn then.
-    opaque: RefCell<Converted<bool>>,
 }
 
 impl Pictures {
@@ -165,15 +162,14 @@ impl Pictures {
             emoji: Default::default(),
             players: Players::default(),
             fitter: RefCell::new(fitter),
-            opaque: Default::default(),
         }
     }
 
-    /// Whether `picture` is opaque all over.
+    /// Whether `picture` is opaque all over: one that is hides the box
+    /// it's drawn in, whose ground isn't drawn then. The core looked as it
+    /// decoded it.
     pub fn opaque(&self, picture: &Arc<Picture>) -> bool {
-        self.opaque.borrow_mut().get(picture, |picture| {
-            picture.rgba.chunks_exact(4).all(|pixel| pixel[3] == 255)
-        })
+        picture.rgba.opaque()
     }
 
     /// A view is being built until the guard drops: what it shows is noted
@@ -201,7 +197,6 @@ impl Pictures {
     /// too, and the sizes no picture is drawn at any more.
     pub fn prune(&self) {
         self.previews.borrow_mut().prune(1);
-        self.opaque.borrow_mut().prune(0);
         self.scaled.borrow_mut().retain(|_, converted| {
             converted.prune(0);
             !converted.is_empty()
@@ -211,7 +206,6 @@ impl Pictures {
     /// The window went: every picture made for it goes.
     pub fn forget(&self) {
         *self.previews.borrow_mut() = Default::default();
-        *self.opaque.borrow_mut() = Default::default();
         self.scaled.borrow_mut().clear();
         self.marks.borrow_mut().clear();
         self.emoji.borrow_mut().clear();
@@ -223,7 +217,6 @@ impl Pictures {
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.previews.borrow().is_empty()
-            && self.opaque.borrow().is_empty()
             && self.scaled.borrow().is_empty()
             && self.marks.borrow().is_empty()
             && self.emoji.borrow().is_empty()
@@ -549,6 +542,11 @@ pub fn initials(name: &str) -> String {
         .map_or_else(|| "?".into(), |first| first.to_uppercase().collect())
 }
 
+/// The most pixels a picture has that the view copies to another size
+/// itself: an avatar or emoji as Discord's CDN sends it, 256 across or
+/// less. Larger ones go to the [`Fitter`].
+pub(crate) const INLINE_FIT_PIXELS: u64 = 256 * 256;
+
 /// A copy of a core picture at another size: the picture, the size, and
 /// whether it's cut to cover the size (else stretched to it).
 pub type FitKey = (usize, u32, u32, bool);
@@ -727,6 +725,17 @@ impl<'a> crate::ctx::Ctx<'a> {
         if picture.width == width && picture.height == height {
             return Some(self.pictures.previews.borrow_mut().get(picture, shared));
         }
+        // A large picture drawn smaller is copied on the fitter's thread, so
+        // the view never waits on scaling it: its place shows its ground,
+        // at its size, until the copy comes. A small one costs less than
+        // the trip.
+        if u64::from(picture.width) * u64::from(picture.height) > INLINE_FIT_PIXELS {
+            return self
+                .pictures
+                .fitter
+                .borrow_mut()
+                .get(picture, width, height, cover);
+        }
         Some(
             self.pictures
                 .scaled
@@ -734,12 +743,14 @@ impl<'a> crate::ctx::Ctx<'a> {
                 .entry((width, height, cover))
                 .or_default()
                 .get(picture, |picture| {
+                    let start = std::time::Instant::now();
                     let pixels = fitted(
                         &picture.rgba,
                         (picture.width, picture.height),
                         (width, height),
                         cover,
                     );
+                    crate::perf::fitted_in_view(start.elapsed());
                     Handle::from_rgba(width, height, pixels)
                 }),
         )

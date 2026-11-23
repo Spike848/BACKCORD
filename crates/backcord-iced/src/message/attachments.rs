@@ -254,6 +254,10 @@ pub fn pressed<'a>(
                 message.item.clone(),
                 at,
             )))
+            .on_enter(Message::Image(crate::image_viewer::Event::Ahead(
+                message.item.clone(),
+                at,
+            )))
             .interaction(iced::mouse::Interaction::Pointer);
         media_press(message, at, false, opened)
     } else {
@@ -322,7 +326,7 @@ pub fn file_card<'a>(
 ) -> Element<'a, Message> {
     let theme = ctx.look.theme;
     let size = attachment.size.map(chat::file_size);
-    let detail = match (attachment.image, attachment.preview_failed, size) {
+    let detail = match (attachment.image, attachment.preview_failed, size.clone()) {
         (true, true, Some(size)) => {
             backcord_iced_kit::i18n::t(format!("{size} · Preview unavailable"))
         }
@@ -336,11 +340,24 @@ pub fn file_card<'a>(
             .color(theme.text)
             .wrapping(text::Wrapping::None)
     ];
-    if !detail.is_empty() {
-        words = words.push(text(detail).size(12).color(theme.muted));
-    }
+    // A sound file sent on Discord plays in place: its button in the
+    // icon's place, its bar and time in the size's.
+    let sound = (attachment.url.is_some() && chat::is_audio_file(&attachment.name))
+        .then(|| crate::playback::sound_player(ctx, item, index, size.clone()));
+    let icon = match sound {
+        Some((play, bar)) => {
+            words = words.push(bar);
+            play
+        }
+        None => {
+            if !detail.is_empty() {
+                words = words.push(text(detail).size(12).color(theme.muted));
+            }
+            ctx.look.glyph(Icon::File, FILE_ICON, theme.accent).into()
+        }
+    };
     let card = row![
-        ctx.look.glyph(Icon::File, FILE_ICON, theme.accent),
+        icon,
         container(words).width(Length::Fill).clip(true),
         ctx.look
             .icon_button(

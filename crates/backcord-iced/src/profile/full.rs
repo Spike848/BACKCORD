@@ -6,7 +6,7 @@
 use crate::widgets::scroll_view;
 use backcord_core::chat::Presence;
 use iced::{
-    Alignment, Color, Element, Length, Padding,
+    Alignment, Color, Element, Length, Padding, Size,
     widget::{Column, Space, button, column, container, mouse_area, row, stack, text},
 };
 
@@ -448,7 +448,9 @@ fn board_tab<'a>(ctx: crate::ctx::Ctx<'a>, shown: &'a Shown, inks: &Inks) -> Ele
     board_cards(ctx, shown, inks, column![].spacing(12)).into()
 }
 
-/// The board's widgets, each with its games, after what `list` holds.
+/// The board's widgets, each with its games, after what `list` holds:
+/// as Discord's board, a favourite game with its cover large beside what
+/// they said of it, the other lists their covers in rows.
 fn board_cards<'a>(
     ctx: crate::ctx::Ctx<'a>,
     shown: &'a Shown,
@@ -466,34 +468,37 @@ fn board_cards<'a>(
                 .wrapping(text::Wrapping::None)
         ]
         .spacing(10);
-        for game in &widget.games {
-            let mut words = column![
-                text(backcord_iced_kit::i18n::t(&game.name))
-                    .size(13)
-                    .font(MEDIUM)
-                    .color(inks.ink)
-                    .wrapping(text::Wrapping::None)
-            ]
-            .spacing(2);
-            if let Some(comment) = &game.comment {
-                words = words.push(text(comment.as_str()).size(12).color(inks.ink2));
-            }
-            card = card.push(
-                row![
-                    showcase(
-                        ctx,
-                        shown,
-                        game.icon.as_deref(),
-                        &game.name,
-                        44.0,
-                        16.0,
-                        inks
-                    ),
-                    words
+        let favourite = widget.title == "Favorite Game";
+        if favourite {
+            for game in &widget.games {
+                let mut words = column![
+                    text(backcord_iced_kit::i18n::t(&game.name))
+                        .size(14)
+                        .font(SEMIBOLD)
+                        .color(inks.ink)
                 ]
-                .spacing(10)
-                .align_y(Alignment::Center),
-            );
+                .spacing(4);
+                if let Some(comment) = &game.comment {
+                    words = words.push(text(comment.as_str()).size(12).color(inks.ink2));
+                }
+                card = card.push(
+                    row![cover(ctx, shown, game, Size::new(96.0, 128.0), inks), words].spacing(12),
+                );
+            }
+        } else if widget.lists_games && !widget.games.is_empty() {
+            let mut covers = row![].spacing(8);
+            let mut rows = column![].spacing(8);
+            for (index, game) in widget.games.iter().enumerate() {
+                if index > 0 && index % COVERS_IN_ROW == 0 {
+                    rows = rows.push(std::mem::replace(&mut covers, row![].spacing(8)));
+                }
+                covers = covers.push(iced::widget::tooltip(
+                    cover(ctx, shown, game, COVER, inks),
+                    crate::controls::tip(ctx.look.theme, backcord_iced_kit::i18n::t(&game.name)),
+                    iced::widget::tooltip::Position::Top,
+                ));
+            }
+            card = card.push(rows.push(covers));
         }
         if !widget.lists_games {
             card = card.push(
@@ -512,6 +517,50 @@ fn board_cards<'a>(
         );
     }
     list
+}
+
+/// How many covers a board's row holds, and each one's size.
+const COVERS_IN_ROW: usize = 4;
+const COVER: Size = Size::new(72.0, 96.0);
+
+/// A game's cover art `size`, as Discord's board shows it; its icon in its
+/// place while it has none, else its initial.
+fn cover<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    shown: &'a Shown,
+    game: &'a backcord_core::chat::ProfileGame,
+    size: Size,
+    inks: &Inks,
+) -> Element<'a, Message> {
+    let picture = game.cover.as_deref().and_then(|url| {
+        crate::profile::profile_picture(
+            ctx,
+            shown,
+            url,
+            size.width as u32,
+            size.height as u32,
+            true,
+        )
+    });
+    match picture {
+        Some(picture) => Pic::new(picture, size).radius(8.0).into(),
+        None => {
+            let well = inks.tile;
+            container(showcase(
+                ctx,
+                shown,
+                game.icon.as_deref(),
+                &game.name,
+                size.width.min(size.height) * 0.6,
+                16.0,
+                inks,
+            ))
+            .center(Length::Fixed(size.width))
+            .height(size.height)
+            .style(move |_| rounded(iced::Color { a: 0.5, ..well }, 8))
+            .into()
+        }
+    }
 }
 
 /// What the profile editor's tabs show of the profile as it will be: the

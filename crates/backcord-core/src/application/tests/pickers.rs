@@ -462,30 +462,38 @@ fn the_gif_picker_searches_sends_and_keeps_favorites() {
 
 #[test]
 #[cfg(feature = "discord")]
-fn emoji_prefetch_fills_partial_accounts_without_repeating_picker_requests() {
+fn only_the_open_servers_emoji_are_fetched_ahead_once() {
     use backcord_discord::{
-        ready::{Emoji, Server},
+        ready::{Channel, Emoji, Server},
         service::{Snapshot, Status},
     };
     let mut app = connected();
-    let snapshot = |ids: &[&str]| {
+    let server = |id: &str, emoji: &[&str]| {
+        MarkedServer::from(Server {
+            id: id.into(),
+            name: format!("Server {id}"),
+            text_channels: vec![Channel {
+                id: format!("{id}1"),
+                name: "general".into(),
+                ..Default::default()
+            }],
+            emojis: emoji
+                .iter()
+                .map(|id| Emoji {
+                    id: (*id).into(),
+                    name: format!("emoji_{id}"),
+                    available: true,
+                    animated: false,
+                })
+                .collect::<Vec<_>>()
+                .into(),
+            ..Default::default()
+        })
+    };
+    let snapshot = |ours: &[&str]| {
         discord_event(Snapshot {
             status: Status::Online,
-            servers: vec![MarkedServer::from(Server {
-                id: "10".into(),
-                name: "Test".into(),
-                emojis: ids
-                    .iter()
-                    .map(|id| Emoji {
-                        id: (*id).into(),
-                        name: format!("emoji_{id}"),
-                        available: true,
-                        animated: false,
-                    })
-                    .collect::<Vec<_>>()
-                    .into(),
-                ..Default::default()
-            })],
+            servers: vec![server("10", ours), server("20", &["7"])],
             ..Default::default()
         })
     };
@@ -502,18 +510,23 @@ fn emoji_prefetch_fills_partial_accounts_without_repeating_picker_requests() {
             .filter(|url| url.contains("/emojis/"))
             .collect()
     };
-    // An early snapshot with no emoji must not mark the whole account done.
-    assert!(prefetched(app.apply(snapshot(&[]))).is_empty());
-    let first = prefetched(app.apply(snapshot(&["5"])));
-    assert_eq!(first.len(), 1);
-    assert!(first[0].contains("/emojis/5.png"));
+    // A start with no channel open fetches no server's emoji ahead: every
+    // server's at once outgrew the picture cache.
+    assert!(prefetched(app.apply(snapshot(&["5"]))).is_empty());
+    // Opening the server opens its channel, which fetches its emoji ahead.
+    let mut opened =
+        prefetched(app.dispatch(Action::Navigate(Navigation::Server("discord:10".into()))));
+    opened.extend(prefetched(
+        app.dispatch(Action::SelectRoom("discord:10:101".into())),
+    ));
+    assert_eq!(opened.len(), 1, "the open server's own, not another's");
+    assert!(opened[0].contains("/emojis/5.png"));
     assert!(prefetched(app.dispatch(Action::CacheEmojiPictures)).is_empty());
     assert!(prefetched(app.apply(snapshot(&["5"]))).is_empty());
     // A later snapshot adds an emoji; only that picture is queued.
     let added = prefetched(app.apply(snapshot(&["5", "6"])));
     assert_eq!(added.len(), 1);
     assert!(added[0].contains("/emojis/6.png"));
-    assert!(prefetched(app.dispatch(Action::CacheEmojiPictures)).is_empty());
     assert!(
         app.state.pictures.is_empty(),
         "prefetch never requests decoded pictures"
@@ -591,8 +604,8 @@ fn the_sticker_picker_opens_sends_and_lists_the_servers_stickers() {
         })],
         ..Default::default()
     }));
-    app.dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
-    app.dispatch(Action::SelectRoom("discord:10:21".into()));
+    let mut opened = app.dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    opened.extend(app.dispatch(Action::SelectRoom("discord:10:21".into())));
     app.apply(Event::Timeline {
         room: "discord:10:21".into(),
         messages: timeline(vec![]),
@@ -608,30 +621,35 @@ fn the_sticker_picker_opens_sends_and_lists_the_servers_stickers() {
     };
     let wave = "https://cdn.discordapp.com/stickers/5.png?size=96";
     assert!(app.state.can_pick_stickers());
-    // A start asks Discord for its default packs and fetches the pictures of
-    // the stickers the snapshot gave every server ahead, those its boosts
-    // cover; no server's list is asked for, as READY gave them. The GIFs'
-    // picker is asked for at the same start, so only the stickers' asks are
-    // read here.
-    let at_start: Vec<Command> = backend(at_start)
-        .into_iter()
-        .filter(|command| match command {
-            Command::Discord(DiscordCommand::StickerPacks) => true,
-            Command::Discord(DiscordCommand::PrefetchPictures(urls)) => {
-                urls.iter().any(|url| url.contains("/stickers/"))
-            }
-            _ => false,
-        })
-        .collect();
+    // A start asks Discord for its default packs; the stickers of a server
+    // are fetched ahead as it opens, those its boosts cover, and no server's
+    // list is asked for, as READY gave them. The GIFs' picker is asked for at
+    // the same start, so only the stickers' asks are read here.
+    let stickers_asked = |effects: Vec<Effect>| -> Vec<Command> {
+        backend(effects)
+            .into_iter()
+            .filter(|command| match command {
+                Command::Discord(DiscordCommand::StickerPacks) => true,
+                Command::Discord(DiscordCommand::PrefetchPictures(urls)) => {
+                    urls.iter().any(|url| url.contains("/stickers/"))
+                }
+                _ => false,
+            })
+            .collect()
+    };
     assert!(
         matches!(
-            at_start.as_slice(),
-            [
-                Command::Discord(DiscordCommand::StickerPacks),
-                Command::Discord(DiscordCommand::PrefetchPictures(urls)),
-            ] if urls == &[wave.to_owned()]
+            stickers_asked(at_start).as_slice(),
+            [Command::Discord(DiscordCommand::StickerPacks)]
         ),
-        "a start asks for the packs and fetches the servers' stickers ahead"
+        "a start asks for the packs, and fetches no server's stickers ahead"
+    );
+    assert!(
+        matches!(
+            stickers_asked(opened).as_slice(),
+            [Command::Discord(DiscordCommand::PrefetchPictures(urls))] if urls == &[wave.to_owned()]
+        ),
+        "opening the server fetches its stickers ahead"
     );
     // A snapshot that leaves the list as it was fetches nothing again.
     assert!(

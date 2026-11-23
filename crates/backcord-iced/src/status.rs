@@ -235,16 +235,7 @@ impl<'a> View<'a> {
             theme.panel,
         );
         let card = self.cx.profiles.account.as_ref().map(|(_, shown)| shown);
-        let header = self.popover_header(card, &inks);
         let status = state.discord_presence.as_deref().unwrap_or("online");
-        let mut header = column![header];
-        // Its badges, in Discord's pills.
-        if let Some(shown) = card.filter(|shown| !shown.look.profile().badges.is_empty()) {
-            header = header.push(
-                container(crate::profile::body::badge_rows(self.cx, shown))
-                    .padding(Padding::ZERO.left(16)),
-            );
-        }
         let mut body = column![].spacing(12).padding(Padding {
             top: 8.0,
             right: 16.0,
@@ -252,13 +243,19 @@ impl<'a> View<'a> {
             left: 16.0,
         });
         let custom = state.custom_status.is_some();
-        if custom {
+        // Discord's card says the custom status itself.
+        if custom && card.is_none() {
             body = body.push(self.cx.status_line(
                 &account.status,
                 StatusInk::under_name(self.cx.look.theme, 1.0),
             ));
         }
-        if let Some(playing) = &state.discord_playing {
+        // The card lists its activities itself; without it, what it plays.
+        if let Some(playing) = state
+            .discord_playing
+            .as_ref()
+            .filter(|_| card.is_none_or(|shown| shown.look.activities.is_empty()))
+        {
             body = body.push(self.playing_card(playing));
         }
         let mut first = column![self.popover_row(
@@ -311,9 +308,15 @@ impl<'a> View<'a> {
         ));
         let raised = theme.raised;
         body = body.push(group(first, raised)).push(group(second, raised));
-        let card = container(column![header, body])
-            .width(POPOVER)
-            .style(crate::profile::frame_style(inks, theme.line, 8.0, true));
+        // Its own card, as Discord's popover shows it; until the profile
+        // comes, its banner, avatar and name.
+        let card: Element<'a, Message> = match card {
+            Some(shown) => crate::profile::account_card(self.cx, shown, POPOVER, body.into()),
+            None => container(column![self.popover_header(None, &inks), body])
+                .width(POPOVER)
+                .style(crate::profile::frame_style(inks, theme.line, 8.0, true))
+                .into(),
+        };
         let bottom =
             self.cx.look.window.height - crate::account::HEIGHT - crate::account::INSET - 4.0;
         Some(

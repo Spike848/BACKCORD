@@ -550,6 +550,7 @@ pub(crate) async fn call(
                 talking,
                 filming.as_ref().map(|filming| &filming.feed),
                 &cameras,
+                &call.stats().cameras(),
             );
             cameras.ask(&mut call, participants.iter().filter(|person| !person.local).count());
             if participants != state.participants {
@@ -1272,12 +1273,18 @@ fn discord_participants(
     talking: bool,
     own: Option<&crate::picture::Feed>,
     cameras: &Cameras,
+    announced: &[u64],
 ) -> Vec<Participant> {
     let members = snapshot.voice.get(channel).into_iter().flatten();
+    // Their voice state says they film, or the voice server does: it can
+    // say so first, and a camera it announced while the gateway's state
+    // didn't showed nothing.
     let filming: Vec<u64> = members
         .clone()
-        .filter(|member| member.video && member.user_id != me)
-        .filter_map(|member| member.user_id.parse().ok())
+        .filter(|member| member.user_id != me)
+        .filter_map(|member| member.user_id.parse().ok().map(|id: u64| (member, id)))
+        .filter(|(member, id)| member.video || announced.contains(id))
+        .map(|(_, id)| id)
         .collect();
     cameras.film(&filming);
     let mut participants: Vec<Participant> = members

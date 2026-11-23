@@ -41,6 +41,8 @@ const FRAME_ROOM: f32 = 785.0;
 pub struct EffectClock {
     card: Option<Instant>,
     panel: Option<Instant>,
+    /// The account's own card in its popover, from when it opened.
+    pub(super) account: Option<Instant>,
     generation: u64,
 }
 
@@ -170,6 +172,14 @@ impl Profiles {
         self.effect_tick(generation, state)
     }
 
+    /// The account's popover opened, and its effect with it: the next time
+    /// one of its layers shows or goes is asked for.
+    pub(super) fn start_account_effect(&mut self, state: &AppState) -> Task<Message> {
+        self.effect.generation += 1;
+        let generation = self.effect.generation;
+        self.effect_tick(generation, state)
+    }
+
     /// A card opened or grew to the full profile: nothing points at it
     /// yet, so its effect rests until the pointer comes onto it.
     pub(super) fn unpoint_card(&mut self) {
@@ -189,6 +199,7 @@ impl Profiles {
         let next = [
             (self.shown.as_ref(), clock.card),
             (self.panel.as_ref(), clock.panel),
+            (self.account.as_ref().map(|(_, shown)| shown), clock.account),
         ]
         .into_iter()
         .filter_map(|(shown, since)| {
@@ -220,6 +231,18 @@ pub(super) fn dressed<'a>(
         Mode::Docked => ctx.profiles.effect.panel,
         Mode::Card | Mode::Side => ctx.profiles.effect.card,
     };
+    dressed_since(ctx, shown, mode, width, card, since)
+}
+
+/// [`dressed`], its effect playing `since` then.
+pub(super) fn dressed_since<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    shown: &'a Shown,
+    mode: Mode,
+    width: f32,
+    card: Element<'a, Message>,
+    since: Option<Instant>,
+) -> Element<'a, Message> {
     let card = match effect_view(ctx, shown, width, since) {
         Some(effect) => stack![card, effect].into(),
         None => card,

@@ -268,6 +268,7 @@ impl App {
             self.client.dispatch(Action::WindowFocused(focused));
             let reads = self.reads();
             self.client.dispatch(Action::Reading(reads));
+            crate::call::stage::place_videos(self);
         }
     }
 

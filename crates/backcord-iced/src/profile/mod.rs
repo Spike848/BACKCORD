@@ -164,6 +164,9 @@ pub struct Shown {
     picked: RefCell<HashMap<String, Arc<backcord_core::chat::Picture>>>,
     /// The avatar's colour, by its address, once it has arrived.
     avatar_colour: RefCell<Option<(String, u32)>>,
+    /// It's the account's own card in its popover, whose menu has Edit
+    /// Profile, so the card doesn't.
+    popover: bool,
 }
 
 impl Shown {
@@ -174,6 +177,7 @@ impl Shown {
             name: Default::default(),
             picked: Default::default(),
             avatar_colour: Default::default(),
+            popover: false,
         }
     }
 }
@@ -460,7 +464,7 @@ pub fn profile_sync(app: &mut App) -> Task<Message> {
         let mut cx = crate::ctx::cx!(app);
         editor::follow(&mut app.profiles.editor, &mut cx);
     }
-    account_card_sync(app, link);
+    let account_effect = account_card_sync(app, link);
     // The note follows the profile's while it isn't being written.
     if let Some(profile) = app
         .profiles
@@ -478,12 +482,18 @@ pub fn profile_sync(app: &mut App) -> Task<Message> {
     }
     let mut cx = crate::ctx::cx!(app);
     app.profiles.tell_tab(&mut cx);
+    // The popover's effect began: its layers' times are asked for.
+    if account_effect {
+        return app.profiles.start_account_effect(app.client.state());
+    }
     Task::none()
 }
 
 /// The account's own card while its popover shows: made again only
 /// when the core's profile of it changes, and let go as it closes.
-fn account_card_sync(app: &mut App, link: u32) {
+/// Its effect plays from the popover opening, as Discord's does; says when
+/// it began to, for its layers' times to be asked.
+fn account_card_sync(app: &mut App, link: u32) -> bool {
     let state = app.client.state();
     let Some(profile) = state
         .account_profile
@@ -491,19 +501,46 @@ fn account_card_sync(app: &mut App, link: u32) {
         .filter(|_| app.status.popover.is_some())
     else {
         app.profiles.account = None;
-        return;
+        app.profiles.effect.account = None;
+        return false;
     };
     if let Some((kept, _)) = &app.profiles.account
         && Arc::ptr_eq(kept, profile)
     {
-        return;
+        return false;
     }
     let view = Arc::new(ProfileView {
         profile: chat::Profile::clone(profile),
         ..Default::default()
     });
     let look = Look::new(state, &view, None, &[], link);
-    app.profiles.account = Some((profile.clone(), Shown::new(look)));
+    let mut shown = Shown::new(look);
+    shown.popover = true;
+    let opened = app.profiles.account.is_none();
+    app.profiles.account = Some((profile.clone(), shown));
+    if opened {
+        app.profiles.effect.account = Some(std::time::Instant::now());
+    }
+    opened
+}
+
+/// The account's own card as its popover shows it, `width` wide: Discord's
+/// card, with its moving avatar, its effect and its frame, and `below` it
+/// what the popover adds.
+pub(crate) fn account_card<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    shown: &'a Shown,
+    width: f32,
+    below: Element<'a, Message>,
+) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let inks = inks(ctx, &shown.look, Mode::Card);
+    let body = crate::profile::body::profile_body(ctx, shown, Mode::Card, width, true);
+    let card = container(column![body, below])
+        .width(width)
+        .style(frame_style(inks, theme.line, 8.0, true));
+    let since = ctx.profiles.effect.account;
+    cosmetic::dressed_since(ctx, shown, Mode::Card, width, card.into(), since)
 }
 
 /// The card's frame: its ground (a theme's gradient, or plain), corners and
@@ -726,10 +763,29 @@ pub(crate) fn profile_picture(
     let picked = shown.picked.borrow().get(url).cloned();
     let picture = match &picked {
         Some(picture) => picture,
-        None => ctx.state.pictures.get(url)?,
+        None => match ctx.state.pictures.get(url) {
+            Some(picture) => picture,
+            None => {
+                if url.contains("/banners/") {
+                    note_banner(url, 0, 0, false);
+                }
+                return None;
+            }
+        },
     };
     if picture.width == 0 || picture.height == 0 {
         return None;
+    }
+    let large =
+        u64::from(picture.width) * u64::from(picture.height) > crate::pictures::INLINE_FIT_PIXELS;
+    // A banner or a large avatar drawn smaller: the fitter's thread copies
+    // it, and keeps the copy while it shows.
+    if large && (picture.width, picture.height) != (width, height) {
+        let fitted = ctx.fit(picture, width, height, cover);
+        if url.contains("/banners/") {
+            note_banner(url, width, height, fitted.is_some());
+        }
+        return fitted;
     }
     let handle = if picture.width == width && picture.height == height {
         shared(picture)
@@ -751,6 +807,22 @@ pub(crate) fn profile_picture(
     Some(handle)
 }
 
+/// Logs a banner's copy as it is waited for and as it comes, once each, to
+/// find one that never shows.
+fn note_banner(url: &str, width: u32, height: u32, ready: bool) {
+    thread_local! {
+        static NOTED: RefCell<HashMap<(String, u32, u32), bool>> = RefCell::new(HashMap::new());
+    }
+    NOTED.with(|noted| {
+        let mut noted = noted.borrow_mut();
+        let key = (url.to_owned(), width, height);
+        if noted.get(&key) != Some(&ready) {
+            tracing::debug!(url, width, height, ready, "a profile's banner copy");
+            noted.insert(key, ready);
+        }
+    });
+}
+
 /// The pictures the profiles on screen show, and the moving ones of
 /// those under the pointer.
 pub fn profile_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
@@ -768,13 +840,20 @@ pub fn profile_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
         );
         urls.extend(profile.badges.iter().map(|badge| badge.icon.clone()));
     }
+    // The account's own popover shows its card whole, as under the pointer.
+    let account = ctx
+        .profiles
+        .account
+        .as_ref()
+        .map(|(_, shown)| (shown, true));
     for (shown, pointed) in [
-        (&ctx.profiles.shown, ctx.profiles.pointed),
-        (&ctx.profiles.panel, ctx.profiles.panel_pointed),
-    ] {
-        let Some(shown) = shown else {
-            continue;
-        };
+        (ctx.profiles.shown.as_ref(), ctx.profiles.pointed),
+        (ctx.profiles.panel.as_ref(), ctx.profiles.panel_pointed),
+    ]
+    .into_iter()
+    .filter_map(|(shown, pointed)| shown.map(|shown| (shown, pointed)))
+    .chain(account)
+    {
         let profile = shown.look.profile();
         urls.extend(profile.avatar.clone());
         // Its moving avatar, which the profile plays.
@@ -819,6 +898,11 @@ pub fn profile_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
                     .take(3)
                     .filter_map(|person| person.avatar.clone()),
             );
+        }
+        // The board's covers, as the full profile shows them.
+        if shown.look.view.large {
+            let games = profile.widgets.iter().flat_map(|widget| &widget.games);
+            urls.extend(games.filter_map(|game| game.cover.clone()));
         }
         for activity in &shown.look.activities {
             urls.extend(activity.large.clone());

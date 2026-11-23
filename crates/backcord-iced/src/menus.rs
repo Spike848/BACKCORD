@@ -220,6 +220,8 @@ pub enum MenuAct {
     /// streamer), and mute its sound (the key is whose volume it is).
     StopWatchingStream,
     MuteStream,
+    /// View Icons' picture: saved where the system's dialog says.
+    SaveIcon,
 }
 
 #[derive(Clone)]
@@ -914,6 +916,9 @@ pub fn act(
         MenuAct::Event => focus,
         MenuAct::AllActivity => {
             Task::batch([focus, app.profile_event(crate::profile::Event::AllActivity)])
+        }
+        MenuAct::SaveIcon => {
+            Task::batch([focus, app.icon_event(crate::icon_viewer::Event::Download)])
         }
         MenuAct::ActivityPrivacy => Task::batch([
             focus,

@@ -34,6 +34,9 @@ pub struct WidgetGame {
     pub name: String,
     /// The address of its picture, once [`name_games`] has it.
     pub icon: Option<String>,
+    /// The address of its cover art, tall as a box, once [`name_games`] has it.
+    #[serde(default)]
+    pub cover: Option<String>,
 }
 
 /// A game as `GET /games` describes it.
@@ -43,6 +46,8 @@ pub struct Game {
     pub name: String,
     /// The address of its icon, else of its cover.
     pub icon: Option<String>,
+    /// The address of its cover art.
+    pub cover: Option<String>,
 }
 
 /// The widgets in a profile. Those of a type Discord's client doesn't know
@@ -83,6 +88,7 @@ fn widget(value: &Value) -> Option<Widget> {
                     .map(str::to_owned),
                 name: UNKNOWN_GAME.to_owned(),
                 icon: None,
+                cover: None,
             })
         })
         .collect();
@@ -100,14 +106,23 @@ pub fn parse_games(value: &Value) -> Vec<Game> {
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|game| {
+        .enumerate()
+        .filter_map(|(index, game)| {
             let id = game["id"].as_str()?;
             let media = &game["media"];
+            // How Discord gives a game's pictures, which the board's covers
+            // are read from: the first game of each answer, for the log.
+            if index == 0 {
+                let mut said = media.to_string();
+                said.truncate(600);
+                tracing::debug!(id, media = %said, "a game's pictures as Discord gives them");
+            }
             Some(Game {
                 id: id.to_owned(),
                 name: game["name"].as_str().unwrap_or(UNKNOWN_GAME).to_owned(),
                 icon: game_picture(id, &media["icon"])
                     .or_else(|| game_picture(id, &media["cover"])),
+                cover: game_picture(id, &media["cover"]),
             })
         })
         .collect()
@@ -131,6 +146,7 @@ pub fn name_games(widgets: &mut [Widget], games: &[Game]) {
         if let Some(known) = games.iter().find(|known| known.id == game.id) {
             game.name.clone_from(&known.name);
             game.icon.clone_from(&known.icon);
+            game.cover.clone_from(&known.cover);
         }
     }
 }
@@ -159,6 +175,34 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn a_games_cover_is_kept_beside_its_icon() {
+        let games = parse_games(&json!([
+            {"id": "10", "name": "Doom", "media": {
+                "icon": {"type": "url", "value": "https://example.com/icon.png"},
+                "cover": {"type": "url", "value": "https://example.com/cover.png"},
+            }},
+            {"id": "11", "name": "Quake", "media": {}},
+        ]));
+        assert_eq!(
+            games[0].icon.as_deref(),
+            Some("https://example.com/icon.png")
+        );
+        assert_eq!(
+            games[0].cover.as_deref(),
+            Some("https://example.com/cover.png")
+        );
+        assert_eq!(games[1].cover, None);
+        let mut widgets = parse(&json!({"widgets": [
+            {"id": "w", "data": {"type": "played_games", "games": [{"game_id": "10"}]}},
+        ]}));
+        name_games(&mut widgets, &games);
+        assert_eq!(
+            widgets[0].games[0].cover.as_deref(),
+            Some("https://example.com/cover.png")
+        );
+    }
 
     #[test]
     fn game_lists_are_read_as_the_client_reads_them() {

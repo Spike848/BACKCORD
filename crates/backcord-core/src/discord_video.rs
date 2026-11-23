@@ -260,14 +260,35 @@ fn decode(frames: &Receiver<VideoFrame>, feeds: &Mutex<HashMap<u64, Feed>>) {
     type Sink = Box<dyn FnMut(&I420<'_>, Turn) + Send>;
     let mut decoders: HashMap<u64, (Decoder, Feed, Sink)> = HashMap::new();
     let mut pruned = Instant::now();
+    // What became of each camera's frames, logged every few seconds:
+    // (came, out of sight, waiting for a keyframe, shown, failed).
+    let mut counts: HashMap<u64, [u32; 5]> = HashMap::new();
+    let mut reported = Instant::now();
     loop {
+        if reported.elapsed() >= REPORT_EVERY {
+            reported = Instant::now();
+            for (user, [came, hidden, waiting, shown, failed]) in counts.drain() {
+                tracing::debug!(
+                    user,
+                    came,
+                    hidden,
+                    waiting,
+                    shown,
+                    failed,
+                    "a camera's frames over the last 5 s"
+                );
+            }
+        }
         match frames.recv_timeout(PRUNE) {
             Ok(frame) => {
+                let count = counts.entry(frame.user).or_default();
+                count[0] += 1;
                 let feed = lock(feeds)
                     .get(&frame.user)
                     .filter(|feed| feed.shown_at().is_some())
                     .cloned();
                 let Some(feed) = feed else {
+                    count[1] += 1;
                     decoders.remove(&frame.user);
                     continue;
                 };
@@ -280,6 +301,7 @@ fn decode(frames: &Receiver<VideoFrame>, feeds: &Mutex<HashMap<u64, Feed>>) {
                     decoders.remove(&frame.user);
                     // A decoder starts from a keyframe.
                     if !frame.keyframe {
+                        count[2] += 1;
                         continue;
                     }
                     // One thread each: a tile is small, and every thread
@@ -304,9 +326,13 @@ fn decode(frames: &Receiver<VideoFrame>, feeds: &Mutex<HashMap<u64, Feed>>) {
                     flip: frame.orientation.flip,
                 };
                 match decoder.decode(&frame.data) {
-                    Ok(Some(picture)) => sink(&picture.i420(), turn),
+                    Ok(Some(picture)) => {
+                        count[3] += 1;
+                        sink(&picture.i420(), turn);
+                    }
                     Ok(None) => {}
                     Err(error) => {
+                        count[4] += 1;
                         tracing::debug!(%error, "dropped a camera's decoder");
                         decoders.remove(&frame.user);
                     }
@@ -326,6 +352,9 @@ fn decode(frames: &Receiver<VideoFrame>, feeds: &Mutex<HashMap<u64, Feed>>) {
         }
     }
 }
+
+/// How often what became of the cameras' frames is logged.
+const REPORT_EVERY: Duration = Duration::from_secs(5);
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex

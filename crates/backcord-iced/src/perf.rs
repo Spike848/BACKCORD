@@ -54,6 +54,8 @@ struct Stats {
     layout: Phase,
     update: Phase,
     draw: Phase,
+    /// Pictures copied to another size while the view was built.
+    fit: Phase,
 }
 
 thread_local! {
@@ -63,6 +65,7 @@ thread_local! {
         layout: Phase::default(),
         update: Phase::default(),
         draw: Phase::default(),
+        fit: Phase::default(),
     });
 }
 
@@ -76,12 +79,13 @@ fn note(phase: impl FnOnce(&mut Stats) -> &mut Phase, took: Duration) {
         }
         let seconds = elapsed.as_secs_f64();
         tracing::debug!(
-            "perf: {:.0} redraws/s | view {} | layout {} | update {} | draw {} | frames late {}",
+            "perf: {:.0} redraws/s | view {} | layout {} | update {} | draw {} | fits in view {} | frames late {}",
             f64::from(stats.draw.count) / seconds,
             stats.view.said(),
             stats.layout.said(),
             stats.update.said(),
             stats.draw.said(),
+            stats.fit.said(),
             NOT_READY.swap(0, Ordering::Relaxed),
         );
         *stats = Stats {
@@ -90,8 +94,22 @@ fn note(phase: impl FnOnce(&mut Stats) -> &mut Phase, took: Duration) {
             layout: Phase::default(),
             update: Phase::default(),
             draw: Phase::default(),
+            fit: Phase::default(),
         };
     });
+}
+
+/// A picture was copied to another size while the view was built, taking
+/// `took`.
+pub fn fitted_in_view(took: Duration) {
+    note(|stats| &mut stats.fit, took);
+}
+
+/// How many pictures this thread copied while building views since the
+/// last summary.
+#[cfg(test)]
+pub fn fits_in_view() -> u32 {
+    STATS.with(|stats| stats.borrow().fit.count)
 }
 
 /// Building the view took `took`.
