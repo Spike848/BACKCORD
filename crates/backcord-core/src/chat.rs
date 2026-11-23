@@ -158,6 +158,9 @@ pub struct ChatRoom {
     /// How many people a Discord voice channel takes at most; 0 for no
     /// limit.
     pub voice_limit: u32,
+    /// This account may join the voice channel when it's full, as one who
+    /// may move members may in Discord.
+    pub voice_moves: bool,
     /// A Discord voice channel's status, the line under its name while
     /// people are in it.
     pub voice_status: Option<Arc<str>>,
@@ -3422,6 +3425,9 @@ pub enum DiscordCommand {
     Unlink,
     /// The accounts kept to switch to; [`Event::SavedAccounts`] answers.
     Accounts,
+    /// Keeps the connected account's login to switch back to, its name and
+    /// avatar as they are; [`Event::SavedAccounts`] follows.
+    Remember(SavedAccount),
     /// Keeps `current`'s login, then links the saved account `to`, or none
     /// for another to sign in, without ending either's session;
     /// [`Event::AccountSwitched`] follows.
@@ -5662,6 +5668,17 @@ pub async fn run(
                         let _ = events.send(Event::DiscordUnlinked);
                     }
                     Command::Discord(DiscordCommand::Accounts) => {
+                        let _ = events.send(Event::SavedAccounts(saved_accounts()));
+                    }
+                    Command::Discord(DiscordCommand::Remember(account)) => {
+                        let saved = backcord_discord::token::Saved {
+                            id: account.id,
+                            name: account.name,
+                            avatar: account.avatar,
+                        };
+                        if let Err(error) = backcord_discord::token::remember(&saved, None) {
+                            tracing::warn!(%error, "could not keep the Discord account's login");
+                        }
                         let _ = events.send(Event::SavedAccounts(saved_accounts()));
                     }
                     Command::Discord(DiscordCommand::ForgetAccount(id)) => {

@@ -231,10 +231,14 @@ and left it showing another device once the list changed. BACKCORD calls'
 own audio goes through WebRTC's device module, which these don't cover.
 
 Right-clicking someone in a call, in the sidebar or on their tile, sets how
-loud they sound from 0% to 200%, and their stream's sound too while they're
-live. A drag snaps to 100% near it. The sliders follow Discord's, read from its
-web client: below 100% the gain is `(slider / 100)^2.8`, so 50% is about −17 dB
-and 40% a gain of 0.077; above it each 100% adds 6 dB (`volume::from_slider`).
+loud they sound from 0% to 400%, past Discord's 200%, and their stream's
+sound too while they're live; the percentage can also be typed in the field
+beside its label, kept as it's typed. A drag snaps to 100% near it. The
+sliders follow Discord's, read from its web client: below 100% the gain is
+`(slider / 100)^2.8`, so 50% is about −17 dB and 40% a gain of 0.077; from
+100% to 200% each 100% adds 6 dB; past 200%, where Discord's sliders stop,
+the gain grows with the percentage, so 400% is about four times as loud
+(`volume::from_slider`, `volume::MOST`).
 A linear slider had a music bot at 4% to sound as Discord's 40% did. A
 stream's sound plays at Discord's default gain of 0.18, about 54% on the
 slider, and voices at 1.0. BACKCORD remembers the gains by Discord or Matrix
@@ -246,8 +250,10 @@ track's volume through WebRTC's `SetVolume` by track id.
 
 Settings › Voice & video has a volume under each device, as Discord's
 does: "Microphone volume" sets how loud every call sends you, and "Speaker
-volume" how loud every call plays, both from 0% to 200% on the same curve
-as a person's volume, with 100% marked. Dragging plays each step at once,
+volume" how loud every call plays, on the same curve as a person's volume,
+with 100% marked: the microphone from 0% to 400%, its percentage also typed
+in the field beside its label there and in the call's microphone menu, the
+speakers to 200%. Dragging plays each step at once,
 and letting go saves the value in `layout.json` (`microphone_volume`,
 `speaker_volume`). Everyone in a call, and their stream's sound, plays at
 their own volume times the speakers' (`volume::heard`), so BACKCORD calls

@@ -892,6 +892,7 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
         left: 6.0,
     })
     .enabled(look.enabled)
+    .markdown()
     .pastes()
     .tabs(commanding)
     .suggesting(crate::suggest::suggesting(ctx, Writing::Draft));

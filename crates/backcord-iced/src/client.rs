@@ -191,6 +191,16 @@ impl Client {
                     self.linking = Some(task);
                     self.link_progress = Some(progress);
                 }
+                Effect::LinkDiscordSaved(id) => {
+                    let (task, progress) =
+                        backcord_core::discord_link::start_saved(&self.runtime, id);
+                    self.linking = Some(task);
+                    self.link_progress = Some(progress);
+                }
+                // The credential store answers at once.
+                Effect::ListSavedAccounts => {
+                    self.app.state.saved_accounts = backcord_core::discord_link::saved_accounts();
+                }
                 Effect::StopDiscordLink => {
                     self.linking = None;
                     self.link_progress = None;

@@ -60,6 +60,9 @@ pub struct SignIn {
     pub starting: bool,
     /// The core's reset last taken in (`AppState::reset_version`).
     reset: u64,
+    /// The reset after which the saved accounts were last asked for, so
+    /// the credential store is read once each time the screen comes.
+    pub accounts_for: Option<u64>,
 }
 
 impl Default for SignIn {
@@ -78,6 +81,7 @@ impl Default for SignIn {
             code: None,
             starting: false,
             reset: 0,
+            accounts_for: None,
         }
     }
 }
@@ -132,6 +136,8 @@ pub enum Event {
     Recovery(String),
     Recover,
     RefreshTrust,
+    /// Sign in again with a saved account's kept login, by its id.
+    UseSaved(String),
 }
 
 impl std::fmt::Debug for Event {
@@ -158,6 +164,7 @@ impl std::fmt::Debug for Event {
             Event::Recovery(_) => backcord_iced_kit::i18n::tr("Recovery(..)"),
             Event::Recover => backcord_iced_kit::i18n::tr("Recover"),
             Event::RefreshTrust => backcord_iced_kit::i18n::tr("RefreshTrust"),
+            Event::UseSaved(id) => return write!(formatter, "UseSaved({id:?})"),
         };
         formatter.write_str(name)
     }
@@ -257,6 +264,10 @@ impl SignIn {
             }
             Event::RefreshTrust => {
                 cx.dispatch(Action::RefreshTrust);
+                return Task::none();
+            }
+            Event::UseSaved(id) => {
+                cx.dispatch(Action::UseSavedAccount(id));
                 return Task::none();
             }
         }
@@ -571,6 +582,11 @@ fn backcord_view<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
                 ..Default::default()
             }
         });
+        // The accounts used here before, to go back to without signing in
+        // again, as Discord's account switcher offers them.
+        if !state.saved_accounts.is_empty() {
+            card = card.push(saved_accounts(cx, open));
+        }
         card = card
             .push(
                 text("Entra nel tuo account")
@@ -717,6 +733,46 @@ fn backcord_view<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
         .height(Length::Fill)
         .style(move |_| fill(ground))
         .into()
+}
+
+/// The saved accounts on the sign-in screen: each one's picture and name,
+/// signing in with its kept login on a click.
+fn saved_accounts<'a>(cx: Ctx<'a>, open: bool) -> Element<'a, Message> {
+    use iced::widget::button;
+    let theme = cx.look.theme;
+    let mut list = column![label(theme, backcord_iced_kit::i18n::tr("SAVED ACCOUNTS"))]
+        .spacing(6)
+        .width(Length::Fill);
+    for saved in &cx.state.saved_accounts {
+        let line = row![
+            cx.face(crate::pictures::Face::new(
+                saved.avatar.as_deref(),
+                &saved.name,
+                32.0
+            )),
+            text(saved.name.as_str())
+                .size(15)
+                .font(BOLD)
+                .color(theme.text)
+                .wrapping(text::Wrapping::None)
+                .width(Length::Fill),
+            cx.look.glyph(Icon::ArrowRight, 16, theme.muted),
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+        list = list.push(
+            button(line)
+                .padding([8, 10])
+                .width(Length::Fill)
+                .on_press_maybe(open.then(|| Message::SignIn(Event::UseSaved(saved.id.clone()))))
+                .style(crate::controls::lit_style(
+                    Some(theme.raised),
+                    theme.active,
+                    8.0,
+                )),
+        );
+    }
+    list.into()
 }
 
 /// Discord's linking, phase by phase: the warning and its buttons (the

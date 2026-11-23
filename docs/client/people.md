@@ -204,6 +204,15 @@ would show for a moment at each start, and its
 text, at sizes the workspace doesn't use, would stay in the renderer's
 glyph cache. The card shows if the restore fails.
 
+Every Discord account that connects keeps its login to switch back to
+(`DiscordCommand::Remember`, as it connects and when its name or avatar
+change), not only one left by Switch Accounts. With no account linked, the
+sign-in card lists those accounts over its form, each with its picture and
+name, read from the credential store once each time the screen comes
+(`Action::LoadAccounts`); a click signs in with its kept login, which
+Discord checks as a pasted token (`Action::UseSavedAccount`), so Add an
+Account and a switch whose account can't connect lead back to the others.
+
 - Discord, in a build without Matrix: "Show the code" asks the core to link
   (`Action::LinkDiscord`); the client runs `discord_link` on the runtime and
   hands each step to the core, and the screen shows the QR code (drawn once

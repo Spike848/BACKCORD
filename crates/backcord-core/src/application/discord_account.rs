@@ -624,6 +624,7 @@ impl Application {
         effects.extend(self.load_sticker_packs());
         // The profile frames and effects, kept and the shop's, so each card
         // wears its own at once.
+        effects.extend(self.remember_account());
         if (self.state.cosmetics.frames || self.state.cosmetics.effects) && !self.frames_asked {
             self.frames_asked = true;
             effects.push(Effect::Backend(Command::Discord(
@@ -676,6 +677,32 @@ impl Application {
         self.cache_emoji_pictures()
     }
 
+    /// Keeps the connected account's login to switch back to, as it connects
+    /// and when its name or avatar change, so Switch Accounts and the
+    /// sign-in screen offer every account used here, not only those left by
+    /// a switch.
+    #[cfg(feature = "discord")]
+    fn remember_account(&mut self) -> Vec<Effect> {
+        let (Some(id), Some(name)) = (&self.state.discord_user, &self.state.account_name) else {
+            return vec![];
+        };
+        if self.state.preview || !self.state.discord_online {
+            return vec![];
+        }
+        let account = chat::SavedAccount {
+            id: id.clone(),
+            name: name.clone(),
+            avatar: self.state.account_avatar.clone(),
+        };
+        if self.remembered.as_ref() == Some(&account) {
+            return vec![];
+        }
+        self.remembered = Some(account.clone());
+        vec![Effect::Backend(Command::Discord(DiscordCommand::Remember(
+            account,
+        )))]
+    }
+
     /// Keeps the linked account's login and switches to the saved account
     /// `to`, or to the sign-in for another; BACKCORD connects again after.
     pub(super) fn switch_account(&mut self, to: Option<String>) -> Vec<Effect> {
@@ -714,6 +741,7 @@ impl Application {
             self.discord_index = discord::Index::default();
             self.emoji_prefetched.clear();
             self.frames_asked = false;
+            self.remembered = None;
         }
         self.state.discord_linked = false;
         self.state.discord_online = false;

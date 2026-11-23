@@ -310,9 +310,10 @@ pub struct Voice {
     pub push_to_talk_key: Option<Shortcut>,
     pub push_to_talk_release_delay: Option<u32>,
     /// How loud calls send the microphone and play, as sliders'
-    /// percentages from 0% to 200%; 100% unless changed.
-    pub microphone_volume: Option<u8>,
-    pub speaker_volume: Option<u8>,
+    /// percentages: the microphone from 0% to 400%, the speakers to 200%;
+    /// 100% unless changed.
+    pub microphone_volume: Option<u16>,
+    pub speaker_volume: Option<u16>,
     /// People's own volumes and their streams', by Discord or Matrix id.
     pub volumes: std::collections::BTreeMap<String, f32>,
     pub stream_volumes: std::collections::BTreeMap<String, f32>,
@@ -386,8 +387,9 @@ impl Voice {
         // as it opens: one checking them holds them meanwhile.
         #[cfg(test)]
         let _held = (!tests::HOLDING.get()).then(tests::lock);
-        let gain = |value: Option<u8>| {
-            backcord_core::volume::from_slider(f32::from(value.unwrap_or(100).min(200)))
+        let gain = |value: Option<u16>| {
+            let most = backcord_core::volume::MOST as u16;
+            backcord_core::volume::from_slider(f32::from(value.unwrap_or(100).min(most)))
         };
         backcord_core::volume::set_microphone(gain(self.microphone_volume));
         backcord_core::volume::set_speakers(gain(self.speaker_volume));

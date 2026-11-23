@@ -71,8 +71,12 @@ to date only while one shows (the same timer as open polls', the
 Activity panel's cards' and Active Now's); under the pointer, a card beside its row names who is there
 (how many, who is live or filming, the first eight and how many more), put
 away by a click or its menu until the pointer leaves. A voice channel with a chat offers Open chat on its row under
-the pointer or while selected, which shows the chat without joining; the
-header's button goes back to the call's view, or to the chat again. A right click on
+the pointer or while selected, which opens the chat beside the call
+(`call/stage`) without joining, as Discord's: a panel at the window's
+right, 400 px (less where the call would keep under 320), with the
+channel's name, a close button, its messages and its composer, the stage
+narrower beside it. The header's chat button opens and closes it, lit
+while it shows. A right click on
 a row opens its menu (`place_menus.rs`), built from the core's
 `menu_choices`, at the pointer, each row with its icon. A server's
 menu mutes it (for a time, in a submenu, or until it's turned back on

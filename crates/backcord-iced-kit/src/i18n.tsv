@@ -125,6 +125,7 @@ Clear search	Cancella ricerca
 Clear status	Cancella stato
 Click to add a note	Clicca per aggiungere una nota
 Close	Chiudi
+Close chat	Chiudi chat
 Close DM	Chiudi DM
 Close search	Chiudi ricerca
 Close thread	Chiudi thread
@@ -1169,7 +1170,6 @@ Sharper, at twice the CPU	Più nitido, con il doppio della CPU
 Show Activity Cards	Mostra le schede attività
 Show less	Mostra meno
 Show post guidelines	Mostra le linee guida dei post
-Show voice channel	Mostra il canale vocale
 Solid	Tinta unita
 Someone joins the call	Qualcuno entra nella chiamata
 Someone leaves the call	Qualcuno esce dalla chiamata
@@ -1762,6 +1762,7 @@ This device is still unverified. Verify it in another client or enter your recov
 Connecting to Matrix...	Connessione a Matrix...
 Connecting to Discord...	Connessione a Discord...
 You can have up to {} favourite emoji.	Puoi avere fino a {} emoji preferite.
+This voice channel is full.	Questo canale vocale è pieno.
 Keep messages under 16 KB.	I messaggi devono restare sotto i 16 KB.
 You	Tu
 Local preview	Anteprima locale
@@ -3742,3 +3743,4 @@ BACKCORD can't write to its own folder.	BACKCORD non può scrivere nella sua car
 {} MB. BACKCORD restarts when it's done.	{} MB. BACKCORD si riavvia al termine.
 Downloading {}%	Download {}%
 Downloading	Download in corso
+SAVED ACCOUNTS	ACCOUNT SALVATI

@@ -17,20 +17,32 @@ use std::{
 
 use tokio::sync::watch;
 
-/// Twice as loud, as Discord allows.
-pub const MAX: f32 = 2.0;
+/// Four times as loud: past Discord's 200%, a person's volume and the
+/// microphone's go to 400%.
+pub const MAX: f32 = 4.0;
 
-/// The gain of a slider at `value`, from 0 to 200, as Discord's volume
-/// sliders map it: below 100 on a power curve, `(value / 100)^2.8`, so 50 is
-/// about -17 dB; above it 6 dB more for each 100, so 200 is about twice as
-/// loud. A linear slider made everything loud: 40 on Discord's is 0.077, not
-/// 0.4.
+/// The most a person's or the microphone's slider goes to.
+pub const MOST: u32 = 400;
+
+/// The gain at 200, about twice as loud.
+fn at_200() -> f32 {
+    10f32.powf(6.0 / 20.0)
+}
+
+/// The gain of a slider at `value`, from 0 to [`MOST`], as Discord's volume
+/// sliders map it up to 200: below 100 on a power curve, `(value / 100)^2.8`,
+/// so 50 is about -17 dB; from 100 to 200, 6 dB more for each 100, so 200 is
+/// about twice as loud. A linear slider made everything loud: 40 on
+/// Discord's is 0.077, not 0.4. Past 200, as far as Discord's sliders don't
+/// go, the gain grows with the value, so 400 is about four times as loud.
 pub fn from_slider(value: f32) -> f32 {
     let share = value.max(0.0) / 100.0;
     if share < 1.0 {
         share.powf(2.8)
-    } else {
+    } else if share <= 2.0 {
         10f32.powf((share - 1.0) * 6.0 / 20.0)
+    } else {
+        at_200() * share / 2.0
     }
 }
 
@@ -40,8 +52,10 @@ pub fn to_slider(gain: f32) -> f32 {
         0.0
     } else if gain < 1.0 {
         gain.powf(1.0 / 2.8) * 100.0
-    } else {
+    } else if gain <= at_200() {
         (20.0 * gain.log10() / 6.0 + 1.0) * 100.0
+    } else {
+        gain / at_200() * 200.0
     }
 }
 
@@ -214,14 +228,14 @@ mod tests {
     fn remembers_each_persons_voice_and_stream() {
         let mut changes = changes();
         set(Kind::Voice, "volume-test-1", 0.5);
-        set(Kind::Stream, "volume-test-1", 3.0);
+        set(Kind::Stream, "volume-test-1", 5.0);
         assert!(changes.has_changed().unwrap());
         changes.mark_unchanged();
         assert_eq!(get(Kind::Voice, "volume-test-1"), 0.5);
         assert_eq!(
             get(Kind::Stream, "volume-test-1"),
             MAX,
-            "at most twice as loud"
+            "at most four times as loud"
         );
         assert_eq!(
             get(Kind::Voice, "volume-test-2"),
@@ -290,7 +304,9 @@ mod tests {
         assert!(close(from_slider(50.0), 0.143), "about -17 dB");
         assert!(close(from_slider(40.0), 0.077));
         assert!(close(from_slider(200.0), 1.995), "6 dB louder");
-        for value in [1.0, 18.0, 40.0, 99.0, 100.0, 150.0, 200.0] {
+        assert!(close(from_slider(400.0), 3.991), "four times as loud");
+        assert!(from_slider(400.0) <= MAX);
+        for value in [1.0, 18.0, 40.0, 99.0, 100.0, 150.0, 200.0, 250.0, 400.0] {
             assert!(close(to_slider(from_slider(value)), value), "{value}");
         }
         // A stream's default shows at about 54, as on Discord.

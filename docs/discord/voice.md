@@ -47,6 +47,15 @@ A stream moves the same way, with a new `STREAM_CREATE` and
 `STREAM_SERVER_UPDATE`: sharing sends to the new server, after waiting up to
 five seconds for it when the old connection ends, and watching connects again.
 
+A voice channel at its user limit is full for an account that may not move
+members (`MOVE_MEMBERS`, or Administrator), who may join one anyway: the gateway
+answers nothing to its voice state update, so the join would only time out.
+As Discord's client does, BACKCORD checks before asking
+(`AppState::voice_full`, from `ChatRoom::voice_moves` and the people listed in
+it) and says "This voice channel is full." instead. While a Discord join
+waits for its server, another channel may be chosen: the switch leaves the
+join under way and asks for the new one.
+
 A join that fails says why in the dock. Discord's gateway errors are
 sentences of their own ("Discord disconnected while joining voice."); a
 voice server that fails says the step: "Couldn't connect to Discord voice:
@@ -262,7 +271,14 @@ an upgrade from transport-only encryption, unencrypted frames pass for 10 s,
 libdave's transition expiry, and all along a pending downgrade.
 
 The 40 ms that waits once playing has started is the cushion against late
-packets. When more than that waited for a whole second, as a sender whose
+packets, and it learns, as NetEq's target delay does: a packet that comes
+after frames were concealed waiting for it (nothing after it had come
+either) grows that speaker's cushion by as many frames, up to 200 ms, so the
+next as late plays in time; ten seconds with none late gives a frame back,
+and the cushion stays across their pauses, and a speaker starts once it is
+full and one more waits. A fixed 40 ms, given back within a second,
+concealed every spike of a jittery Wi-Fi or mobile link, frame after frame,
+and voices sounded robotic. When more than that waited for a whole second, as a sender whose
 clock runs fast makes it, one frame quieter than -50 dBFS is skipped, and
 any frame once four more wait. The skipped frame fades into the next over
 5 ms so the skip doesn't click. Counting the cushion as surplus, or taking

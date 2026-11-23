@@ -50,6 +50,12 @@ const START: usize = 3;
 /// At most this many packets wait, 400 ms; beyond, the oldest go, so a
 /// stall never turns into lasting delay.
 const MOST: usize = 20;
+/// The most a speaker's cushion grows to as their packets come late:
+/// 200 ms, as far as a jittery Wi-Fi or mobile link needs.
+const LATEST: usize = 10;
+/// A cushion grown for late packets gives back a frame after this long with
+/// none late, as WebRTC's NetEq lets its target delay down slowly.
+const CALM: Duration = Duration::from_secs(10);
 /// A speaker missing this many packets in a row has stopped: 100 ms.
 const GONE: u8 = 5;
 /// A decoded frame quieter than this, in mean square of full scale, can be
@@ -931,6 +937,11 @@ struct Speaker {
     follows: Option<u32>,
     /// Packets missing in a row.
     missing: u8,
+    /// Frames concealed in a row waiting for a late packet, with nothing
+    /// after it come either.
+    waited: u8,
+    /// When a packet last came late, which grows the cushion.
+    late: Option<std::time::Instant>,
     /// Frames skipped for the one after, and concealed, for the log.
     skipped: u32,
     concealed: u32,
@@ -975,6 +986,8 @@ impl Speaker {
             next: None,
             follows: None,
             missing: 0,
+            waited: 0,
+            late: None,
             skipped: 0,
             concealed: 0,
             surplus: Surplus::with_cushion(START - 1),
@@ -1066,7 +1079,8 @@ impl Speaker {
         let frame = FRAME * usize::from(crate::voice::CHANNELS);
         let next = match self.next {
             Some(next) => next,
-            None if self.queued() >= START => self.waiting.front()?.0,
+            // As many wait as the cushion keeps, and the one to play.
+            None if self.queued() > self.surplus.cushion() => self.waiting.front()?.0,
             None => return None,
         };
         let mut next = next;
@@ -1095,6 +1109,7 @@ impl Speaker {
         let decoded = match self.waiting.front() {
             Some((sequence, _, _)) if *sequence == next => {
                 self.missing = 0;
+                self.learn_lateness();
                 let mut decoded = self.decode(next);
                 if let Ok(samples) = decoded
                     && self.skips(samples)
@@ -1116,7 +1131,10 @@ impl Speaker {
                     self.next = None;
                     self.follows = None;
                     self.missing = 0;
-                    self.surplus = Surplus::with_cushion(START - 1);
+                    self.waited = 0;
+                    // The cushion learned stays for when they speak again:
+                    // their link stays as jittery.
+                    self.surplus = Surplus::with_cushion(self.surplus.cushion());
                     return None;
                 }
                 let concealed = match waiting {
@@ -1124,16 +1142,21 @@ impl Speaker {
                     // than lost, so it plays next. Each frame concealed so
                     // makes the queue a frame longer, as far as the packets'
                     // lateness, or the sender's slow clock, needs.
-                    None => self.decoder.conceal(&mut self.pcm[..frame]),
+                    None => {
+                        self.waited = self.waited.saturating_add(1);
+                        self.decoder.conceal(&mut self.pcm[..frame])
+                    }
                     // The next packet carries this one's forward error
                     // correction.
                     Some((sequence, _, opus))
                         if *sequence == next.wrapping_add(1) && !opus.is_empty() =>
                     {
+                        self.waited = 0;
                         self.next = Some(next.wrapping_add(1));
                         self.decoder.decode(opus, &mut self.pcm[..frame], true)
                     }
                     Some(_) => {
+                        self.waited = 0;
                         self.next = Some(next.wrapping_add(1));
                         self.decoder.conceal(&mut self.pcm[..frame])
                     }
@@ -1153,6 +1176,36 @@ impl Speaker {
                 tracing::debug!(%error, "a call's audio packet didn't decode");
                 None
             }
+        }
+    }
+
+    /// The packet to play came: if frames were concealed waiting for it,
+    /// it came that late, and the cushion grows by as much, so the next as
+    /// late plays in time rather than concealed, which on a jittery link
+    /// made voices sound robotic; after `CALM` with none late, it gives a
+    /// frame back.
+    fn learn_lateness(&mut self) {
+        let now = std::time::Instant::now();
+        let cushion = self.surplus.cushion();
+        if self.waited > 0 {
+            let grown = (cushion + usize::from(self.waited)).min(LATEST);
+            if grown != cushion {
+                tracing::debug!(
+                    user = self.user,
+                    cushion = grown,
+                    "a speaker's packets come late: waiting longer for them"
+                );
+            }
+            self.surplus.set_cushion(grown);
+            self.waited = 0;
+            self.late = Some(now);
+        } else if cushion > START - 1
+            && self
+                .late
+                .is_none_or(|late| now.duration_since(late) >= CALM)
+        {
+            self.surplus.set_cushion(cushion - 1);
+            self.late = Some(now);
         }
     }
 
@@ -1327,6 +1380,55 @@ mod tests {
         assert!(speaker.next().is_some());
         assert_eq!(speaker.next, Some(4));
         assert_eq!(speaker.waiting.len(), 1);
+    }
+
+    /// A speaker whose packets come late gets a longer cushion, kept while
+    /// they pause, so the next as late plays in time; it shrinks again after
+    /// a calm stretch.
+    #[test]
+    fn late_packets_grow_the_cushion_until_a_calm_stretch() {
+        let mut encoder = opus::Encoder::new(1, opus::Application::Voice, BITRATE).unwrap();
+        let mut speaker = Speaker::new(7).unwrap();
+        let packets: Vec<Vec<u8>> = (0..20).map(|frame| tone(&mut encoder, frame)).collect();
+        for sequence in 0..3 {
+            speaker.push(
+                sequence,
+                at(sequence),
+                packets[usize::from(sequence)].clone(),
+            );
+        }
+        for _ in 0..3 {
+            assert!(speaker.next().is_some());
+        }
+        // Packet 3 comes 40 ms late: two frames concealed waiting for it.
+        assert!(speaker.next().is_some());
+        assert!(speaker.next().is_some());
+        for sequence in 3..6 {
+            speaker.push(
+                sequence,
+                at(sequence),
+                packets[usize::from(sequence)].clone(),
+            );
+        }
+        assert!(speaker.next().is_some(), "packet 3 plays");
+        assert_eq!(speaker.surplus.cushion(), START - 1 + 2);
+        // They pause, and speak again: it starts once the cushion is full.
+        while speaker.next().is_some() {}
+        for sequence in 10..14 {
+            speaker.push(
+                sequence,
+                at(sequence),
+                packets[usize::from(sequence)].clone(),
+            );
+        }
+        assert!(speaker.next().is_none(), "four wait; five are needed");
+        speaker.push(14, at(14), packets[14].clone());
+        assert!(speaker.next().is_some());
+        assert_eq!(speaker.surplus.cushion(), START - 1 + 2, "kept");
+        // Ten seconds with none late gives a frame back.
+        speaker.late = Some(std::time::Instant::now() - CALM);
+        assert!(speaker.next().is_some());
+        assert_eq!(speaker.surplus.cushion(), START - 1 + 1);
     }
 
     #[test]

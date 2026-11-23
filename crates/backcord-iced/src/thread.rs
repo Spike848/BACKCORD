@@ -666,6 +666,7 @@ impl<'a> SideComposer<'a> {
             left: 6.0,
         })
         .enabled(self.enabled)
+        .markdown()
         .suggesting(crate::suggest::suggesting(cx, self.which));
         // Ctrl+V takes files and pictures where the thread takes them, as
         // the channel's composer does.

@@ -135,6 +135,7 @@ pub fn inline_edit<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         bottom: PAD,
         left: 6.0,
     })
+    .markdown()
     .suggesting(crate::suggest::suggesting(ctx, Writing::Edit));
     let tint = match ctx.picker {
         Some(picker) if picker.target == Target::Edit => theme.text,

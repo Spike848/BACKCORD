@@ -93,6 +93,17 @@ impl Surplus {
         }
     }
 
+    /// How many frames it keeps waiting as one is taken.
+    pub fn cushion(&self) -> usize {
+        self.cushion
+    }
+
+    /// Keeps `cushion` frames waiting from now on, as a jitter buffer that
+    /// learned how late its packets come.
+    pub fn set_cushion(&mut self, cushion: usize) {
+        self.cushion = cushion;
+    }
+
     /// Notes how many frames wait as one is taken to play.
     pub fn note(&mut self, waiting: usize) {
         self.fewest = Some(self.fewest.map_or(waiting, |fewest| fewest.min(waiting)));

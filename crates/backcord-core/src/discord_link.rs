@@ -53,6 +53,39 @@ pub fn start(
     (task, progress)
 }
 
+/// Starts signing in again with the login kept for the saved account `id`,
+/// as the sign-in screen's saved accounts do: Discord checks it first. The
+/// progress arrives as it does for [`start`].
+pub fn start_saved(
+    runtime: &BackgroundRuntime,
+    id: String,
+) -> (BackgroundTask<()>, UnboundedReceiver<Progress>) {
+    let (sender, progress) = mpsc::unbounded_channel();
+    let report = move |step| {
+        let _ = sender.send(step);
+    };
+    let task = runtime.spawn(async move {
+        match token::saved_login(&id) {
+            Ok(login) => with_token(login, report).await,
+            Err(error) => report(Progress::Failed(error.to_string())),
+        }
+    });
+    (task, progress)
+}
+
+/// The accounts kept to switch to, the last used first, as the sign-in
+/// screen offers them.
+pub fn saved_accounts() -> Vec<crate::chat::SavedAccount> {
+    token::saved()
+        .into_iter()
+        .map(|saved| crate::chat::SavedAccount {
+            id: saved.id,
+            name: saved.name,
+            avatar: saved.avatar,
+        })
+        .collect()
+}
+
 /// Starts signing in with an email or phone number and a password. The
 /// progress arrives as it does for [`start`].
 pub fn start_password(

@@ -162,6 +162,14 @@ pub fn remember(account: &Saved, keep: Option<&str>) -> Result<()> {
     save_list(&list)
 }
 
+/// The login kept for the saved account `id`, to sign in with from the
+/// sign-in screen.
+pub fn saved_login(id: &str) -> Result<String> {
+    kept(id)?
+        .map(|kept| kept.token)
+        .ok_or_else(|| anyhow!("BACKCORD no longer has that account's login"))
+}
+
 /// Links the saved account `id` in place of the one linked, whose login
 /// stays where [`remember`] put it. What the cache kept was the other's.
 pub fn use_saved(id: &str) -> Result<()> {

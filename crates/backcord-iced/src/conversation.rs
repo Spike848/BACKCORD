@@ -85,13 +85,19 @@ pub fn conversation(app: &App) -> Element<'_, Message> {
 
 /// The conversation column's left edge: the navigation's right.
 pub fn chat_left(app: &App) -> f32 {
+    // A voice channel's chat is beside its call, at the window's right.
+    if crate::call::stage::voice_chat_shown(app) {
+        return app.window.width - crate::call::stage::voice_chat_width(app);
+    }
     navigation(&app.layout)
 }
 
 /// The conversation column's right edge: the member list's left.
 pub fn chat_right(app: &App) -> f32 {
     app.window.width
-        - if crate::search::search_shown(app) {
+        - if crate::call::stage::voice_panel(app) {
+            0.0
+        } else if crate::search::search_shown(app) {
             crate::search::WIDTH
         } else if crate::thread::aside_shown(app) {
             crate::thread::aside_width(app)

@@ -10,6 +10,7 @@ pub mod controls;
 pub mod dialog;
 pub mod elide;
 pub mod field;
+pub mod field_markdown;
 pub mod fonts;
 pub mod form;
 pub mod frames;

@@ -392,7 +392,11 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             text: "\u{1F44B}".to_owned(),
         }),
         Event::OpenChat(room) => app.client.dispatch(Action::OpenChat(room)),
-        Event::VoiceChat(chat) => app.client.dispatch(Action::ShowVoiceChat(chat)),
+        Event::VoiceChat(chat) => {
+            app.client.dispatch(Action::ShowVoiceChat(chat));
+            // The stage is narrower or wider by the chat beside it.
+            crate::call::stage::place_videos(app);
+        }
         Event::CreateIn(category) => {
             return crate::place_menus::choose_place(app, category, MenuChoice::CreateChannel);
         }

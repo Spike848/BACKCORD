@@ -19,7 +19,14 @@ composer, the edit, a thread's and a post's, the searches) a click with
 Shift held extends the selection, text selected with the pointer becomes
 the desktop's primary selection, and a middle click pastes it at the
 pointer, taking no autoscroll; the field that took the keys last, by any
-button, holds them alone.
+button, holds them alone. The message fields (the composer, the edit, a
+thread's) show Discord's Markdown as it's written
+(`backcord-iced-kit/src/field_markdown.rs`), as Discord's own field
+does: the marks stay, greyed, and `**bold**` shows bold, `*italic*` and
+`_italic_` italic, `***both***` both, inline code and fenced blocks in
+the monospace face, a heading's line bold; underline, strikethrough and
+spoilers grey their marks only. Only lines whose looks changed are shaped
+again.
 
 Files go with the next message (`uploads.rs`) from the system's file
 dialog (the + where nothing else can start, or the + menu's "Upload a

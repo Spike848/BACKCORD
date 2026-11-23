@@ -224,6 +224,7 @@ pub(super) fn preview_room(id: &str, name: &str, direct: bool, members: u64) -> 
         preview: None,
         voice_started: None,
         voice_limit: 0,
+        voice_moves: false,
         voice_status: None,
         voice_status_emoji: Vec::new(),
     }

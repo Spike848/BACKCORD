@@ -893,6 +893,7 @@ fn dm_room(snapshot: &Snapshot, dm: &Conversation, premium: u8, me: &str) -> Cha
         }),
         voice_started: None,
         voice_limit: 0,
+        voice_moves: false,
         voice_status: None,
         voice_status_emoji: Vec::new(),
     }
@@ -1018,6 +1019,10 @@ fn server_rooms(
                 people: in_voice(snapshot, &channel.id),
                 voice_started: voice_started(snapshot, &channel.id),
                 voice_limit: channel.user_limit,
+                voice_moves: server.roles.is_empty()
+                    || server.channel_permissions(channel, me, &server.marks.roles)
+                        & backcord_discord::ready::permission::MOVE_MEMBERS
+                        != 0,
                 voice_status: voice_status(snapshot, &channel.id).0,
                 voice_status_emoji: voice_status(snapshot, &channel.id).1,
                 ringing: vec![],
@@ -1097,6 +1102,7 @@ fn server_rooms(
                 preview: None,
                 voice_started: None,
                 voice_limit: 0,
+                voice_moves: false,
                 voice_status: None,
                 voice_status_emoji: Vec::new(),
             }
@@ -1256,6 +1262,7 @@ fn thread_room(
         preview: None,
         voice_started: None,
         voice_limit: 0,
+        voice_moves: false,
         voice_status: None,
         voice_status_emoji: Vec::new(),
     }

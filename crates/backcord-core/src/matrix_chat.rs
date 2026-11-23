@@ -1232,6 +1232,7 @@ async fn room_index(client: &Client) -> RoomIndex {
             preview: None,
             voice_started: None,
             voice_limit: 0,
+            voice_moves: false,
             voice_status: None,
             voice_status_emoji: Vec::new(),
         });

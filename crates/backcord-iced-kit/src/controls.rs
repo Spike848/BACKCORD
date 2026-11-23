@@ -1135,6 +1135,8 @@ pub struct Slider<'a, M> {
     step: u32,
     shown: Option<String>,
     mark: bool,
+    /// The value can be typed, sending this with it.
+    typed: Option<Box<dyn Fn(u32) -> M + 'a>>,
 }
 
 /// A [`Slider`] for `value` out of `maximum`.
@@ -1153,6 +1155,7 @@ pub fn slider<'a, M: Clone + 'a>(
         step: 5,
         shown: None,
         mark: maximum > 100,
+        typed: None,
     }
 }
 
@@ -1175,6 +1178,13 @@ impl<'a, M: Clone + 'a> Slider<'a, M> {
         self
     }
 
+    /// Its percentage can be typed in a field in place of the label's,
+    /// sending `on_typed` with each value typed, within the slider's.
+    pub fn typed(mut self, on_typed: impl Fn(u32) -> M + 'a) -> Self {
+        self.typed = Some(Box::new(on_typed));
+        self
+    }
+
     /// Whether 100% is marked and snapped to; past 100% unless set.
     pub fn mark(mut self, mark: bool) -> Self {
         self.mark = mark;
@@ -1191,18 +1201,64 @@ impl<'a, M: Clone + 'a> Slider<'a, M> {
             step,
             shown,
             mark,
+            typed,
         } = self;
-        let head = row![
-            text(label)
-                .size(13)
-                .font(MEDIUM)
-                .color(theme.secondary)
-                .width(Length::Fill),
-            text(shown.unwrap_or_else(|| format!("{value}%")))
-                .size(13)
-                .font(MEDIUM)
-                .color(theme.text),
-        ];
+        let label = text(label)
+            .size(13)
+            .font(MEDIUM)
+            .color(theme.secondary)
+            .width(Length::Fill);
+        let head: Element<'a, M> = match typed {
+            // Digits alone, read as they're typed; none is 0.
+            Some(typed) => {
+                let (field, line, ink, accent) =
+                    (theme.field, theme.line, theme.text, theme.accent);
+                let input = iced::widget::text_input("0", &value.to_string())
+                    .on_input(move |typed_text: String| {
+                        let digits: String = typed_text
+                            .chars()
+                            .filter(char::is_ascii_digit)
+                            .take(4)
+                            .collect();
+                        typed(digits.parse::<u32>().unwrap_or(0).min(maximum))
+                    })
+                    .size(13)
+                    .font(MEDIUM)
+                    .padding([2, 6])
+                    .width(48)
+                    .align_x(iced::alignment::Horizontal::Right)
+                    .style(move |_, status| iced::widget::text_input::Style {
+                        background: field.into(),
+                        border: Border::default().rounded(4).width(1).color(
+                            if matches!(status, iced::widget::text_input::Status::Focused { .. }) {
+                                accent
+                            } else {
+                                line
+                            },
+                        ),
+                        icon: ink,
+                        placeholder: ink,
+                        value: ink,
+                        selection: Color { a: 0.35, ..accent },
+                    });
+                row![
+                    label,
+                    input,
+                    text("%").size(13).font(MEDIUM).color(theme.text)
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+                .into()
+            }
+            None => row![
+                label,
+                text(shown.unwrap_or_else(|| format!("{value}%")))
+                    .size(13)
+                    .font(MEDIUM)
+                    .color(theme.text),
+            ]
+            .into(),
+        };
         let (field, accent, knob) = (theme.field, theme.accent, theme.text);
         let track = iced::widget::slider(0..=maximum, value, move |value| {
             let value = if mark && value.abs_diff(100) <= 4 {

@@ -123,10 +123,14 @@ impl Application {
         if !self.state.can_join_voice(&id) {
             return vec![];
         }
+        if self.state.voice.active() && self.state.voice.room.as_ref() == Some(&id) {
+            return vec![];
+        }
+        if self.state.voice_full(&id) {
+            self.state.notice = Some("This voice channel is full.".into());
+            return vec![];
+        }
         if self.state.voice.active() {
-            if self.state.voice.room.as_ref() == Some(&id) {
-                return vec![];
-            }
             self.state.switch_voice = Some(id);
             if self.state.skip_switch_prompt {
                 return self.confirm_voice_switch();
@@ -190,6 +194,11 @@ impl Application {
         };
         if !self.state.can_join_voice(&id) {
             self.state.pending_watch = None;
+            return vec![];
+        }
+        if self.state.voice_full(&id) {
+            self.state.pending_watch = None;
+            self.state.notice = Some("This voice channel is full.".into());
             return vec![];
         }
         // Leaving the call it's in keeps the stream it switches to watch.

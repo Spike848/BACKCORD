@@ -47,10 +47,26 @@ pub fn voice_selected(app: &App) -> bool {
     })
 }
 
-/// A voice channel is open on its call, not on its chat.
+/// A voice channel is open: its call shows, with its chat beside it
+/// when that's open.
 pub fn voice_panel(app: &App) -> bool {
-    voice_selected(app) && !app.client.state().voice_chat
+    voice_selected(app)
 }
+
+/// The voice channel's chat is open beside its call, as Discord's chat
+/// button opens it.
+pub fn voice_chat_shown(app: &App) -> bool {
+    voice_selected(app) && app.client.state().voice_chat
+}
+
+/// The chat's width beside a voice channel's call: Discord's 400 px, less
+/// where the window leaves the call under 320.
+pub fn voice_chat_width(app: &App) -> f32 {
+    let call = app.window.width - crate::conversation::navigation(&app.layout);
+    VOICE_CHAT.min(call - 320.0).max(280.0)
+}
+
+const VOICE_CHAT: f32 = 400.0;
 
 /// The open room's call is the one this account is in.
 pub fn voice_here(app: &App) -> bool {
@@ -78,7 +94,9 @@ pub fn stage_size(app: &App) -> Size {
         return app.window;
     }
     let below_header = app.window.height - header::HEIGHT - 1.0;
-    let (right, height) = if voice_panel(app) {
+    let (right, height) = if voice_chat_shown(app) {
+        (app.window.width - voice_chat_width(app), below_header)
+    } else if voice_panel(app) {
         (app.window.width, below_header)
     } else {
         // Above a DM's messages, beside its profile panel.
@@ -87,7 +105,7 @@ pub fn stage_size(app: &App) -> Size {
             crate::call::dm::dm_panel_height(app, below_header),
         )
     };
-    let width = right - crate::conversation::chat_left(app);
+    let width = right - crate::conversation::navigation(&app.layout);
     Size::new(width, (height - CONTROLS).max(0.0))
 }
 
@@ -298,11 +316,61 @@ pub fn call_view(app: &App) -> Element<'_, Message> {
     let column = column![crate::header::view(app.ctx()), line]
         .extend(crate::banners::view(app.ctx()))
         .push(body);
-    container(column)
+    let call = container(column)
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(move |_| stage.map(fill).unwrap_or_default())
-        .into()
+        .style(move |_| stage.map(fill).unwrap_or_default());
+    if voice_chat_shown(app) {
+        row![call, voice_chat_view(app)].into()
+    } else {
+        call.into()
+    }
+}
+
+/// The voice channel's chat beside its call, as Discord shows it: a head
+/// with its name and a close button, its messages, and its composer.
+fn voice_chat_view(app: &App) -> Element<'_, Message> {
+    let ctx = app.ctx();
+    let theme = &app.theme;
+    let name = app
+        .client
+        .state()
+        .selected_room()
+        .map_or("", |room| room.name.as_str());
+    let head = row![
+        ctx.look.glyph(Icon::MessageCircle, 18, theme.muted),
+        container(
+            backcord_iced_kit::elide::elide(name)
+                .size(15)
+                .font(crate::fonts::BOLD)
+                .color(theme.text)
+        )
+        .width(Length::Fill),
+        ctx.look
+            .icon_button(
+                Icon::X,
+                backcord_iced_kit::i18n::tr("Close chat"),
+                Message::Side(crate::sidebar::Event::VoiceChat(false))
+            )
+            .below(),
+    ];
+    let ground = theme.chat;
+    let body = column![
+        crate::thread::panel_head(ctx, head),
+        crate::timeline::view::timeline(ctx),
+        crate::composer::view(ctx),
+    ]
+    .height(Length::Fill);
+    row![
+        bar(theme.line, 1, Length::Fill),
+        container(body)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(move |_| fill(ground)),
+    ]
+    .width(voice_chat_width(app))
+    .height(Length::Fill)
+    .into()
 }
 
 /// The call this account is in: the line over the stage, the stage

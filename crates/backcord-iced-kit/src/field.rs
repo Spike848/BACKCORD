@@ -44,7 +44,10 @@ use iced::{
     window,
 };
 
-use crate::fonts::{REGULAR, SEMIBOLD};
+use crate::{
+    field_markdown::Mark,
+    fonts::{REGULAR, SEMIBOLD},
+};
 
 type Renderer = iced::Renderer;
 
@@ -112,7 +115,7 @@ struct Inner {
     preedit: Option<(Position, Position)>,
     /// The height last laid out, for what opens over the composer.
     height: f32,
-    /// The text has runs in semibold, which a layout without pills undoes.
+    /// The text has styled runs, which a layout without them undoes.
     styled: bool,
     /// How far a one-line field's text is scrolled left, to keep the caret
     /// in view.
@@ -390,6 +393,9 @@ pub struct Field<'a, M> {
     tabs: bool,
     /// Takes no input, its text greyed.
     enabled: bool,
+    /// Discord's Markdown shows as it's written: its marks greyed, what
+    /// they mark styled.
+    markdown: bool,
     /// Runs drawn as pills, and their inks.
     pills: Vec<Pill>,
     pill_inks: Option<PillInks>,
@@ -463,6 +469,7 @@ impl<'a, M: Clone> Field<'a, M> {
             pastes: false,
             tabs: false,
             enabled: true,
+            markdown: false,
             pills: Vec::new(),
             pill_inks: None,
             atoms: Vec::new(),
@@ -482,6 +489,12 @@ impl<'a, M: Clone> Field<'a, M> {
     /// Tab and Backspace at an empty field's start go to the app.
     pub fn tabs(mut self, tabs: bool) -> Self {
         self.tabs = tabs;
+        self
+    }
+
+    /// Shows Discord's Markdown as it's written, as its message field does.
+    pub fn markdown(mut self) -> Self {
+        self.markdown = true;
         self
     }
 
@@ -805,25 +818,60 @@ impl<M: Clone> Widget<M, Theme, Renderer> for Field<'_, M> {
             wrapping,
             &mut PlainText::new(&()),
         );
-        // Keys in semibold, or back to regular once there are none; not
-        // while an input method composes, which moves the text.
-        let bold: Vec<Range<usize>> = if inner.preedit.is_none() {
+        // Keys in semibold and Markdown styled, or back to regular once
+        // there are none; not while an input method composes, which moves
+        // the text. A line whose looks didn't change isn't shaped again.
+        let runs: Vec<(Range<usize>, Mark)> = if inner.preedit.is_none()
+            && (self.markdown || self.pills.iter().any(|pill| pill.bold))
+        {
             let text = whole(&inner.editor);
-            self.pills
+            let mut runs: Vec<_> = self
+                .pills
                 .iter()
                 .filter(|pill| pill.bold && fits(&text, &pill.range))
-                .map(|pill| pill.range.clone())
-                .collect()
+                .map(|pill| (pill.range.clone(), Mark::Key))
+                .collect();
+            if self.markdown {
+                runs.extend(crate::field_markdown::runs(&text));
+            }
+            runs
         } else {
             Vec::new()
         };
-        if !bold.is_empty() || inner.styled {
-            inner.styled = !bold.is_empty();
+        if !runs.is_empty() || inner.styled {
+            inner.styled = !runs.is_empty();
+            let (font, syntax) = (self.font, self.colors.placeholder);
             inner
                 .editor
-                .highlight(self.font, &mut Bold::new(&bold), |_| highlighter::Format {
-                    color: None,
-                    font: Some(SEMIBOLD),
+                .highlight(font, &mut Runs::new(&runs), |mark| match *mark {
+                    Mark::Key => highlighter::Format {
+                        color: None,
+                        font: Some(SEMIBOLD),
+                    },
+                    Mark::Syntax => highlighter::Format {
+                        color: Some(syntax),
+                        font: None,
+                    },
+                    Mark::Style { bold, italic, code } => highlighter::Format {
+                        color: None,
+                        font: Some(if code {
+                            Font::MONOSPACE
+                        } else {
+                            Font {
+                                weight: if bold {
+                                    iced::font::Weight::Bold
+                                } else {
+                                    font.weight
+                                },
+                                style: if italic {
+                                    iced::font::Style::Italic
+                                } else {
+                                    font.style
+                                },
+                                ..font
+                            }
+                        }),
+                    },
                 });
         }
         let content = inner.editor.min_bounds().height.clamp(self.line, most);
@@ -1398,19 +1446,19 @@ fn fits(text: &str, range: &Range<usize>) -> bool {
         && text.is_char_boundary(range.end)
 }
 
-/// Marks the pills' keys for the editor's semibold, from the first line on:
-/// runs by byte offsets in the whole text, cut to each line.
-struct Bold {
-    runs: Vec<Range<usize>>,
+/// Marks the pills' keys and Markdown for the editor, from the first line
+/// on: runs by byte offsets in the whole text, cut to each line.
+struct Runs {
+    runs: Vec<(Range<usize>, Mark)>,
     line: usize,
     /// Where the next line starts in the whole text.
     start: usize,
 }
 
-impl Highlighter for Bold {
-    type Settings = Vec<Range<usize>>;
-    type Highlight = ();
-    type Iterator<'a> = std::vec::IntoIter<(Range<usize>, ())>;
+impl Highlighter for Runs {
+    type Settings = Vec<(Range<usize>, Mark)>;
+    type Highlight = Mark;
+    type Iterator<'a> = std::vec::IntoIter<(Range<usize>, Mark)>;
 
     fn new(runs: &Self::Settings) -> Self {
         Self {
@@ -1435,8 +1483,13 @@ impl Highlighter for Bold {
         self.start = end + 1;
         self.runs
             .iter()
-            .filter(|run| run.start < end && run.end > start)
-            .map(|run| (run.start.max(start) - start..run.end.min(end) - start, ()))
+            .filter(|(run, _)| run.start < end && run.end > start)
+            .map(|(run, mark)| {
+                (
+                    run.start.max(start) - start..run.end.min(end) - start,
+                    *mark,
+                )
+            })
             .collect::<Vec<_>>()
             .into_iter()
     }

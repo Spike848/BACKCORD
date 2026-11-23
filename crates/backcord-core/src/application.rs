@@ -1579,8 +1579,39 @@ impl AppState {
             .collect()
     }
 
+    /// Whether the call is busy joining or leaving, so another join waits.
+    /// A Discord join that's still waiting for its server isn't: Discord
+    /// says nothing for a channel it won't let this account into, so
+    /// another channel may be chosen meanwhile, which leaves that one.
+    fn voice_busy(&self) -> bool {
+        match self.voice.phase {
+            Phase::Leaving => true,
+            Phase::Joining => self
+                .voice
+                .room
+                .as_deref()
+                .is_none_or(|room| Network::of(room) != Network::Discord),
+            _ => false,
+        }
+    }
+
+    /// Whether a Discord voice channel is full for this account: it holds as
+    /// many as its limit, and this account may not move members, who may join
+    /// one anyway. Discord's client checks it before asking to join, as
+    /// Discord answers nothing to a join it refuses.
+    pub fn voice_full(&self, id: &str) -> bool {
+        self.rooms.iter().any(|room| {
+            room.id == id
+                && room.voice
+                && !room.direct
+                && room.voice_limit > 0
+                && !room.voice_moves
+                && room.people.len() >= room.voice_limit as usize
+        })
+    }
+
     pub fn can_join_voice(&self, id: &str) -> bool {
-        !matches!(self.voice.phase, Phase::Joining | Phase::Leaving)
+        !self.voice_busy()
             && self.rooms.iter().any(|room| {
                 room.id == id
                     // A Discord DM or group DM has a call; a request waits for an answer.
@@ -2372,8 +2403,12 @@ pub enum Action {
     OpenDiscordCaptcha,
     CancelDiscordLink,
     UnlinkDiscord,
-    /// The accounts kept to switch to, for the account's popover.
+    /// The accounts kept to switch to, for the account's popover, or for
+    /// the sign-in screen while no account is linked.
     LoadAccounts,
+    /// Signs in from the sign-in screen with a saved account's login, by
+    /// its id, as linking with a token does.
+    UseSavedAccount(String),
     /// Keeps the linked account's login and switches to the saved account
     /// by its id, or to the sign-in, to add another.
     SwitchAccount(Option<String>),
@@ -2545,6 +2580,11 @@ pub enum Effect {
         ticket: String,
         code: String,
     },
+    /// Link the saved account with this id again, with its kept login.
+    LinkDiscordSaved(String),
+    /// List the saved accounts, with no account linked, for the sign-in
+    /// screen; they go in `AppState::saved_accounts`.
+    ListSavedAccounts,
     StopDiscordLink,
     /// Open this web page in the browser.
     OpenPage(String),
@@ -2630,6 +2670,9 @@ pub struct Application {
     /// The profile frames were asked for, once a Discord account connected.
     #[cfg(feature = "discord")]
     frames_asked: bool,
+    /// The connected account as its login was last kept to switch back to.
+    #[cfg(feature = "discord")]
+    remembered: Option<chat::SavedAccount>,
     /// The server icons fetched ahead, so each is fetched once.
     #[cfg(feature = "discord")]
     server_icons_prefetched: HashSet<String>,
@@ -4296,9 +4339,18 @@ impl Application {
             Action::LoadAccounts => {
                 if self.state.discord_linked {
                     vec![Effect::Backend(Command::Discord(DiscordCommand::Accounts))]
+                } else if cfg!(feature = "discord") && !self.state.preview {
+                    vec![Effect::ListSavedAccounts]
                 } else {
                     vec![]
                 }
+            }
+            Action::UseSavedAccount(id) => {
+                if self.state.preview || self.state.discord_linked || !cfg!(feature = "discord") {
+                    return vec![];
+                }
+                self.state.discord_link = Some(DiscordLink::Checking);
+                vec![Effect::LinkDiscordSaved(id)]
             }
             Action::SwitchAccount(to) => self.switch_account(to),
             Action::ForgetAccount(id) => {

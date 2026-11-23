@@ -358,20 +358,18 @@ fn header_buttons<'a>(ctx: crate::ctx::Ctx<'a>) -> Vec<Element<'a, Message>> {
         backcord_iced_kit::i18n::tr("Show member list")
     };
     let mut buttons: Vec<Element<'a, Message>> = Vec::new();
-    // A voice channel's chat, or its call again.
+    // A voice channel's chat beside its call, opened or closed; lit while
+    // it shows, as Discord's.
     if let Some(chat) = header.voice_chat {
-        let (icon, label) = if chat {
-            (
-                Icon::Volume,
-                backcord_iced_kit::i18n::tr("Show voice channel"),
-            )
+        let (ink, label) = if chat {
+            (theme.text, backcord_iced_kit::i18n::tr("Close chat"))
         } else {
-            (Icon::Forum, backcord_iced_kit::i18n::tr("Open chat"))
+            (theme.secondary, backcord_iced_kit::i18n::tr("Open chat"))
         };
         buttons.push(
             ctx.look
                 .face_button(
-                    ctx.look.glyph(icon, GLYPH, theme.secondary),
+                    ctx.look.glyph(Icon::MessageCircle, GLYPH, ink),
                     BUTTON,
                     label,
                     Message::Side(crate::sidebar::Event::VoiceChat(!chat)),

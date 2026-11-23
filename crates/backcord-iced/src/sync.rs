@@ -386,6 +386,18 @@ impl App {
         tasks.push(self.channel_settings_sync());
         tasks.push(self.ask());
         tasks.push(self.sign_in.sync(self.client.state(), self.client.root()));
+        // The sign-in screen offers the accounts used here before.
+        let state = self.client.state();
+        let version = state.reset_version;
+        if !state.discord_linked
+            && !state.preview
+            && !state.busy
+            && self.sign_in.accounts_for != Some(version)
+        {
+            self.sign_in.accounts_for = Some(version);
+            self.client
+                .dispatch(backcord_core::application::Action::LoadAccounts);
+        }
         tasks.push(self.shell_sync());
         tasks.push(self.mfa.sync(&self.client.app));
         tasks.push(self.follow_backend());

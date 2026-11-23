@@ -243,7 +243,12 @@ impl Settings {
                 return;
             }
             Event::Volume(input, value, done) => {
-                let value = value.min(200) as u8;
+                let most = if input {
+                    backcord_core::volume::MOST
+                } else {
+                    200
+                };
+                let value = value.min(most) as u16;
                 let (kept, key) = if input {
                     (&mut voice.microphone_volume, "microphone_volume")
                 } else {
@@ -394,10 +399,11 @@ impl<'a> Page<'a> {
                     slider(
                         backcord_iced_kit::i18n::tr("Microphone volume"),
                         mic_volume,
-                        200,
+                        backcord_core::volume::MOST,
                         |value| voice_message(Event::Volume(true, value, false)),
                     )
                     .on_release(voice_message(Event::Volume(true, mic_volume, true)))
+                    .typed(|value| voice_message(Event::Volume(true, value, true)))
                     .view(theme),
                 ]),
                 form::group([

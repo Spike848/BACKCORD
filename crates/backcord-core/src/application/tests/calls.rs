@@ -315,6 +315,76 @@ fn a_voice_channel_whose_chat_mentions_you_opens_its_chat_as_it_joins() {
 }
 
 #[test]
+fn a_full_voice_channel_says_so_and_leaves_the_others_to_join() {
+    let mut app = connected();
+    app.state.discord_online = true;
+    let joins = |effects: &[Effect], id: &str| {
+        effects.iter().any(|effect| {
+            matches!(effect, Effect::Backend(Command::Voice(voice::Command::Join(room))) if room == id)
+        })
+    };
+    let leaves = |effects: &[Effect]| {
+        effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::Backend(Command::Voice(voice::Command::Leave))
+            )
+        })
+    };
+    let person = |id: &str| chat::VoicePerson {
+        id: id.into(),
+        ..Default::default()
+    };
+    for (id, people) in [
+        ("discord:10:11", 2),
+        ("discord:10:12", 1),
+        ("discord:10:13", 0),
+    ] {
+        let mut room = preview_room(id, "Lounge", false, 3);
+        room.network = Network::Discord;
+        room.voice = true;
+        room.voice_limit = 2;
+        room.people = (0..people).map(|at| person(&at.to_string())).collect();
+        app.state.rooms.push(Arc::new(room));
+        Arc::make_mut(&mut app.state.servers[0])
+            .channels
+            .push(id.into());
+    }
+    let server = app.state.servers[0].id.clone();
+    app.dispatch(Action::Navigate(Navigation::Server(server)));
+
+    // Two of two: Discord would answer nothing, so it says why at once.
+    let effects = app.dispatch(Action::SelectRoom("discord:10:11".into()));
+    assert!(!joins(&effects, "discord:10:11"));
+    assert_eq!(
+        app.state.notice.as_deref(),
+        Some("This voice channel is full.")
+    );
+    assert!(!app.state.voice.active());
+    // One with room joins.
+    let effects = app.dispatch(Action::SelectRoom("discord:10:12".into()));
+    assert!(joins(&effects, "discord:10:12"));
+    // While that join waits for Discord, another channel may be chosen,
+    // which leaves it.
+    app.state.voice.room = Some("discord:10:12".into());
+    app.state.voice.phase = voice::Phase::Joining;
+    app.state.skip_switch_prompt = true;
+    let effects = app.dispatch(Action::SelectRoom("discord:10:13".into()));
+    assert!(leaves(&effects) && joins(&effects, "discord:10:13"));
+    // One who may move members joins a full one, as in Discord.
+    app.state.voice.phase = voice::Phase::Disconnected;
+    app.state.voice.room = None;
+    let full = app
+        .state
+        .rooms
+        .iter_mut()
+        .find(|room| room.id == "discord:10:11");
+    Arc::make_mut(full.unwrap()).voice_moves = true;
+    let effects = app.dispatch(Action::SelectRoom("discord:10:11".into()));
+    assert!(joins(&effects, "discord:10:11"));
+}
+
+#[test]
 fn a_discord_voice_channels_chat_opens_without_joining_it() {
     let mut app = connected();
     let id = "discord:10:11";

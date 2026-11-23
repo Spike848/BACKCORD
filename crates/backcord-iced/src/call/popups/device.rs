@@ -113,7 +113,12 @@ pub(super) fn device_label(name: &str) -> String {
 /// A device menu's volume: how loud calls send the microphone or play,
 /// kept as the drag lets go.
 pub(in crate::call) fn device_volume(app: &mut App, input: bool, value: u32, done: bool) {
-    let value = value.min(200) as u8;
+    let most = if input {
+        backcord_core::volume::MOST
+    } else {
+        200
+    };
+    let value = value.min(most) as u16;
     let voice = &mut app.layout.voice;
     let (kept, key) = if input {
         (&mut voice.microphone_volume, "microphone_volume")
@@ -204,19 +209,26 @@ pub(super) fn device_menu<'a>(ctx: crate::ctx::Ctx<'a>, input: bool) -> Element<
     }
     .unwrap_or(100);
     let volume = u32::from(volume);
-    menu = menu.push(separator(theme)).push(
-        container(
-            controls::slider(
-                backcord_iced_kit::i18n::t(format!("{kind} Volume")),
-                volume,
-                200,
-                move |value| Message::Call(Event::DeviceVolume(input, value, false)),
-            )
-            .on_release(Message::Call(Event::DeviceVolume(input, volume, true)))
-            .view(theme),
-        )
-        .padding([4, 8]),
-    );
+    // The microphone goes to 400% and takes a typed percentage.
+    let slider = controls::slider(
+        backcord_iced_kit::i18n::t(format!("{kind} Volume")),
+        volume,
+        if input {
+            backcord_core::volume::MOST
+        } else {
+            200
+        },
+        move |value| Message::Call(Event::DeviceVolume(input, value, false)),
+    )
+    .on_release(Message::Call(Event::DeviceVolume(input, volume, true)));
+    let slider = if input {
+        slider.typed(|value| Message::Call(Event::DeviceVolume(true, value, true)))
+    } else {
+        slider
+    };
+    menu = menu
+        .push(separator(theme))
+        .push(container(slider.view(theme)).padding([4, 8]));
     if input {
         menu = menu.push(separator(theme)).push(input_level(ctx));
         if ctx.state.discord_user.is_some() {

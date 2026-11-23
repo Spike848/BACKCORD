@@ -375,8 +375,10 @@ fn a_categorys_plus_makes_a_channel_in_it() {
     assert!(shows(&app, "In Talk"));
 }
 
+/// As Discord's chat button does, a voice channel's chat opens beside its
+/// call, which narrows by its width and stays, and closes again.
 #[test]
-fn a_voice_channels_chat_opens_from_its_row_and_its_header_goes_back() {
+fn a_voice_channels_chat_opens_beside_its_call_from_its_row() {
     let (mut app, _folder) = discord_server(0, |_, _| {});
     let lounge = "discord:10:14";
     let _ = app.update(Message::Side(crate::sidebar::Event::OpenChat(
@@ -384,13 +386,22 @@ fn a_voice_channels_chat_opens_from_its_row_and_its_header_goes_back() {
     )));
     let state = app.client.state();
     assert_eq!(state.selected.as_deref(), Some(lounge));
-    assert!(state.voice_chat, "its chat, not its call");
+    assert!(state.voice_chat, "its chat");
     assert_eq!(app.header.voice_chat, Some(true));
-    assert!(!shows(&app, "Join voice"));
+    assert!(crate::call::stage::voice_chat_shown(&app));
+    assert!(shows(&app, "Join voice"), "beside the call");
+    let width = crate::call::stage::voice_chat_width(&app);
+    let narrow = crate::call::stage::stage_size(&app).width;
+    assert_eq!(
+        crate::conversation::chat_left(&app),
+        app.window.width - width,
+        "its messages at the right"
+    );
     let _ = app.update(Message::Side(crate::sidebar::Event::VoiceChat(false)));
     assert!(!app.client.state().voice_chat);
     assert_eq!(app.header.voice_chat, Some(false));
-    assert!(shows(&app, "Join voice"), "the call's view again");
+    assert!(shows(&app, "Join voice"), "the call alone");
+    assert_eq!(crate::call::stage::stage_size(&app).width, narrow + width);
 }
 
 #[test]
