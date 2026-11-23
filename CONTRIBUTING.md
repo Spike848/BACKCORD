@@ -116,8 +116,8 @@ quality, default to the cheaper setting and put the heavier one behind a switch.
 - The maintainer has no Mac, so a macOS change needs a run on a real Mac by you
   or another contributor.
 
-Your contribution is licensed under the [GPL, version 3 or later](LICENSE), as
-the rest of BACKCORD is.
+Your contribution is released into the public domain under [the
+Unlicense](LICENSE), as the rest of BACKCORD is.
 
 ## Reporting a bug
 

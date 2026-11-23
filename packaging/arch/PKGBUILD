@@ -12,7 +12,7 @@ _webrtc=webrtc-51ef663
 pkgdesc='Native Discord client that stays light on memory'
 arch=(x86_64)
 url='https://github.com/Spike848/BACKCORD'
-license=(GPL-3.0-or-later)
+license=(Unlicense)
 # The binary links glib2, libpulse, libstdc++, libgcc and glibc. Its one ld-linux entry is real: it imports
 # __tls_get_addr from the loader, which namcap reports as an unused library.
 # The rest is loaded at runtime with dlopen, so namcap reports it as "may not be needed": wayland and libxkbcommon

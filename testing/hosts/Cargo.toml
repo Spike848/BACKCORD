@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.97"
 publish = false
-license = "GPL-3.0-or-later"
+license = "Unlicense"
 description = "Stand-ins scripts/ui-session runs beside BACKCORD: a tray and a recorder of the test display"
 
 # A package of their own, not examples of backcord: an example builds with

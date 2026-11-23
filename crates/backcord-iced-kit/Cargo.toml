@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.97"
 publish = false
-license = "GPL-3.0-or-later"
+license = "Unlicense"
 description = "The pieces BACKCORD's iced client builds its screens from; see docs/client/kit.md"
 
 [lints]

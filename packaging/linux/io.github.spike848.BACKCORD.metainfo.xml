@@ -5,7 +5,7 @@
   <name>BACKCORD</name>
   <summary>A Discord client without the web browser</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>GPL-3.0-or-later</project_license>
+  <project_license>Unlicense</project_license>
   <developer id="io.github.backcord">
     <name>wiredtenshi</name>
   </developer>

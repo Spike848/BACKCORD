@@ -72,7 +72,7 @@ rustPlatform.buildRustPackage {
   meta = {
     description = "Native Discord client that stays light on memory";
     homepage = "https://github.com/Spike848/BACKCORD";
-    license = lib.licenses.gpl3Plus;
+    license = lib.licenses.unlicense;
     mainProgram = "BACKCORD";
     platforms = [ "x86_64-linux" ];
   };
