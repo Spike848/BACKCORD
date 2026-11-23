@@ -29,120 +29,21 @@ SmartScreen potrebbe mostrare "Windows ha protetto il PC": clicca
 **Ulteriori informazioni → Esegui comunque**.
 
 Al primo avvio accedi con il tuo account Discord. Impostazioni, temi e cache
-vengono salvati in `%LOCALAPPDATA%\Spike848\BACKCORD\data` (dalla 1.2; la
-cartella delle versioni precedenti viene spostata lì da sola). Il token
+vengono salvati in `%LOCALAPPDATA%\Spike848\BACKCORD\data`. Il token
 dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
 ## Novità della 1.2.7
 
-- **Caricamenti più rapidi**: all'avvio non scarica più tutte le emoji e gli
-  sticker di ogni server, ma solo quelli del server aperto e i preferiti.
-  Cache delle immagini su disco portata a 256 MB.
-- **Banner e decorazioni**: il banner animato del server, l'effetto profilo,
-  la cornice e il banner del tuo account restano in memoria invece di
-  essere riscaricati di continuo.
-- **Videocamere in chiamata**: ora si vedono. BACKCORD chiede subito al
-  mittente il fotogramma chiave e mostra anche le cam annunciate solo dal
-  server vocale.
-- **Popover del tuo account**: mostra la tua scheda profilo vera, con
-  effetto animato e cornice; "Modifica profilo" non è più doppio e
-  l'attività non compare due volte.
-- **Bacheca**: i giochi sono mostrati in una griglia.
-- **Visualizzatore avatar**: si apre sempre alla stessa dimensione, zoom con
-  la rotellina, tasto destro per "Scarica" o "Apri originale".
+- **Più veloce**: all'avvio scarica solo emoji e sticker del server aperto e
+  i tuoi preferiti; cache delle immagini da 256 MB.
+- **Videocamere in chiamata** di nuovo visibili.
+- **Profilo**: il popover del tuo account mostra la tua scheda con effetto e
+  cornice; la bacheca mostra i giochi in griglia.
+- **Avatar**: si aprono a dimensione fissa, con zoom dalla rotellina e tasto
+  destro per scaricarli o aprirli a piena risoluzione.
 - **Allegati audio** riproducibili direttamente nella chat.
-
-## Novità della 1.2.6
-
-- **Voce e video riorganizzata**: subito sotto il test del microfono ci sono
-  la modalità d'ingresso (attività vocale / push to talk) con la
-  sensibilità, poi il volume della soundboard, la Modalità studio, la
-  riduzione del rumore e la riduzione dell'eco.
-- **Modalità studio**: Opus a 320 kbit/s, banda piena, ottimizzato per la
-  musica. Riduzione del rumore e dell'eco si possono usare anche in
-  Modalità studio; con entrambe disattivate il microfono esce così com'è.
-- **Catena audio**: prima la riduzione del rumore, poi quella dell'eco, poi
-  il volume. Niente più controllo automatico del guadagno: il livello della
-  voce cambia solo con il volume del microfono.
-- **Rimossi** "Uniforma la tua voce" ed "Elimina l'eco della stanza".
-
-## Novità della 1.2.5
-
-- **Spostamenti in vocale**: quando un bot ti sposta (per esempio da un
-  canale "crea stanza") non risulti più silenziato nel canale nuovo, e la
-  chiamata non si disconnette più se Discord indica il nuovo server prima
-  di chiudere il vecchio.
-- **Messaggi diretti**: la lista dei DM non resta più vuota tornando dalla
-  lista canali di un server lungo; ogni lista riparte dall'alto.
-- **Profilo completo**: ha le misure di Discord e non si allarga più con la
-  finestra (banner, cornice e testo non si stirano né si tagliano); le date
-  di "Membro da" e "Amici dal" sono in italiano.
-
-## Novità della 1.2.4
-
-- **Interfaccia in italiano**: tradotte circa 2300 scritte rimaste in
-  inglese, comprese quelle con parti variabili (durate, conteggi, nomi) e
-  gli errori che arrivano da Discord.
-- **Invita amici** come in Discord: elenco di amici e membri del server con
-  *Invita*, ricerca, link con *Copia* e *Modifica il link d'invito*.
-- **Stream in riquadro**: si sposta ovunque nella finestra e si
-  ridimensiona da lati e angoli mantenendo le proporzioni.
-- **Richieste d'amicizia** come in Discord: username sotto il nome, pulsanti
-  tondi e menu col tasto destro.
-- **Menu col tasto destro**: con un menu aperto, un clic destro su un'altra
-  persona apre subito il suo.
-- **Qualità della diretta**: su schermi più larghi di 16:9 (ultrawide, due
-  monitor) la risoluzione scelta resta quella, invece di scendere a 540p.
-- **Nuove impostazioni predefinite**: rendering GPU, protezione stream nella
-  barra in alto (sfocatura locale e attivazione automatica) e i plugin
-  principali attivi.
-- **Correzioni**: copertine dei giochi nei widget del profilo, nome lungo
-  nello stile del nome, "Imposta stato del canale" offerto solo quando
-  Discord lo permette.
-
-## Novità della 1.2.3
-
-- **Spostamenti in vocale corretti**: quando un bot (per esempio quello di un
-  canale "crea stanza") ti sposta in un altro canale, la chiamata ti segue
-  invece di disconnettersi con "Vocale disconnessa".
-
-## Novità della 1.2.2
-
-- **Cancella tutto**: tasto destro su un DM o su un server → *Cancella
-  tutto* cancella, dopo una conferma, tutti i messaggi che hai mandato lì
-  (in un server, in tutti i canali), uno alla volta con il ritardo minimo
-  che Discord accetta. L'avviso in alto mostra quanti ne ha cancellati; dal
-  menu si può fermare.
-
-## Novità della 1.2.1
-
-- **Più dirette insieme** (fino a 4), come su Discord
-- Le dirette hanno un **riquadro separato** da quello della persona (la cam
-  resta in vista), con anteprima sfocata, **Guarda diretta** e l'occhio per
-  guardarne più di una
-- Sulla diretta guardata: la **qualità scelta** da chi trasmette
-  (es. `1080P 60FPS`) e LIVE, l'altoparlante per silenziarla e il menu **…**
-  (Smetti di guardare, Silenzia, volume)
-- I **temi personalizzati** di nuovo tra i temi in Aspetto
-
-## Novità della 1.2
-
-- **Sicurezza**: nuova sezione con proxy (SOCKS5/HTTP/HTTPS) e DNS cifrato
-  (Cloudflare, Google, Quad9 o un server tuo)
-- **Riduzione dell'eco** regolabile (Disattivata / Normale / Forte)
-- **Dirette più fluide** a 60 fps, con meno artefatti, e cattura corretta dei
-  giochi a schermo intero con lo schermo scalato
-- Restare in chiamata quando un bot ti **sposta di canale**
-- Si illumina chi fa partire un suono della **soundboard**; menu della
-  soundboard con i nomi interi
-- **Banner animati** dei server
-- **Message Logger**: opzione per registrare anche i propri messaggi
-- **Sicurezza rafforzata**: cookie cifrati, cartella e credenziali proprie di
-  BACKCORD, import dei temi controllato, link aperti nel
-  browser solo se sono indirizzi web
-- Dicitura "Chiaro" rinominata in "Minima"
 
 ## Cosa fa
 
