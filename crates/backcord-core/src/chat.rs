@@ -1515,6 +1515,50 @@ pub fn wire_emoji(text: &str, usable: &[CustomEmoji]) -> String {
     out
 }
 
+/// `text` with each custom emoji in Discord's form, `<:name:id>` or
+/// `<a:name:id>`, as its `:name:`, and those emoji, for
+/// [`wire_emoji`] to give back.
+pub fn named_emoji(text: &str) -> (String, Vec<CustomEmoji>) {
+    let mut out = String::with_capacity(text.len());
+    let mut emoji: Vec<CustomEmoji> = Vec::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('<') {
+        out.push_str(&rest[..start]);
+        rest = &rest[start..];
+        let inner = rest[1..].split_once('>').map(|(inner, _)| inner);
+        let parsed = inner.and_then(|inner| {
+            let (animated, inner) = match inner.strip_prefix("a:") {
+                Some(inner) => (true, inner),
+                None => (false, inner.strip_prefix(':')?),
+            };
+            let (name, id) = inner.split_once(':')?;
+            let named = name.len() >= 2
+                && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+                && !id.is_empty()
+                && id.bytes().all(|b| b.is_ascii_digit());
+            named.then_some((animated, name, id, inner.len() + 1 + usize::from(animated)))
+        });
+        let Some((animated, name, id, len)) = parsed else {
+            out.push('<');
+            rest = &rest[1..];
+            continue;
+        };
+        let _ = write!(out, ":{name}:");
+        if !emoji.iter().any(|known| known.id == id) {
+            emoji.push(CustomEmoji {
+                usable: true,
+                text: format!(":{name}:"),
+                id: id.to_owned(),
+                animated,
+                picture: String::new(),
+            });
+        }
+        rest = &rest[len + 2..];
+    }
+    out.push_str(rest);
+    (out, emoji)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reaction {
     pub key: String,
@@ -6078,6 +6122,17 @@ mod tests {
                 &usable
             ),
             "gg <:pog:5> <a:party:6><:pog:5> `:pog:` <:pog:5> :nope: 10:30:45"
+        );
+    }
+
+    #[test]
+    fn names_custom_emoji_and_gives_them_back() {
+        let (named, emoji) = named_emoji("hi <:pog:5> <a:party:6><:pog:5> <:x:1> <3 <:no:pe>");
+        assert_eq!(named, "hi :pog: :party::pog: <:x:1> <3 <:no:pe>");
+        assert_eq!(emoji.len(), 2);
+        assert_eq!(
+            wire_emoji(&named, &emoji),
+            "hi <:pog:5> <a:party:6><:pog:5> <:x:1> <3 <:no:pe>"
         );
     }
 

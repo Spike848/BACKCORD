@@ -53,6 +53,8 @@ pub struct Room {
     /// A DM with a call going on, and a DM pinned to the top.
     pub call: bool,
     pub pinned: bool,
+    /// The DM folder it's listed in, by id.
+    pub folder: Option<String>,
     /// A thread under its channel, and whether another of its follows.
     pub thread: bool,
     pub thread_continues: bool,
@@ -97,6 +99,16 @@ pub enum SideRow {
     /// them.
     Pinned,
     PinnedEnd,
+    /// A folder of DMs: its id and name, how many DMs it lists, whether it's
+    /// folded, and its DMs' unread mark and mentions.
+    DmFolder {
+        id: String,
+        name: String,
+        count: usize,
+        collapsed: bool,
+        unread: bool,
+        badge: String,
+    },
     /// A category's heading: its name, what it folds by, whether it's folded.
     Heading {
         name: String,
@@ -117,6 +129,7 @@ impl SideRow {
             SideRow::Pinned => "pinned".into(),
             SideRow::PinnedEnd => "pinned-end".into(),
             SideRow::Heading { fold, .. } => format!("heading:{fold}"),
+            SideRow::DmFolder { id, .. } => id.clone(),
             SideRow::Room(room) => room.id.clone(),
             SideRow::Empty(_) => "empty".into(),
         }
@@ -131,6 +144,7 @@ impl SideRow {
             SideRow::Pinned => 36.0,
             SideRow::PinnedEnd => 9.0,
             SideRow::Heading { .. } => HEADING,
+            SideRow::DmFolder { .. } => super::DM_FOLDER,
             SideRow::Room(room) => {
                 room.row_height()
                     + if room.voice_status.is_some() {
@@ -285,15 +299,24 @@ pub fn sidebar(
         listed.retain(|room| {
             !room.request && room.category != discord::REQUESTS && room.category != discord::SPAM
         });
-        // Pinned DMs come first, in the order they were pinned.
-        listed.sort_by_key(|room| {
-            state
-                .pinned
-                .iter()
-                .position(|id| *id == room.id)
-                .unwrap_or(usize::MAX)
-        });
+        // Pinned DMs come first, in the order they were pinned, then each
+        // folder's in its order, then the rest.
+        listed.sort_by_key(|room| dm_place(state, &room.id));
     }
+    // Each DM folder's count, unread mark and mentions, of the DMs listed.
+    let mut folders: HashMap<&str, (usize, bool, u64)> = HashMap::new();
+    if direct {
+        for room in &listed {
+            if let Some(folder) = state.dm_folder_of(&room.id) {
+                let (count, unread, mentions) = folders.entry(folder.id.as_str()).or_default();
+                *count += 1;
+                *unread |= room.unread > 0;
+                *mentions += room.mentions;
+            }
+        }
+    }
+    // The DM folder the rows now come under.
+    let mut in_folder: Option<&str> = None;
     let server = match &state.navigation {
         Navigation::Server(id) => state.servers.iter().find(|server| &server.id == id),
         Navigation::DirectMessages => None,
@@ -393,6 +416,27 @@ pub fn sidebar(
         }
         let selected = state.selected.as_ref() == Some(&room.id);
         let unread = room.unread > 0;
+        // A DM folder's heading over its DMs, which a folded one hides but
+        // for the open one.
+        let folder = direct.then(|| state.dm_folder_of(&room.id)).flatten();
+        if direct && folder.map(|folder| folder.id.as_str()) != in_folder {
+            in_folder = folder.map(|folder| folder.id.as_str());
+            if let Some(folder) = folder {
+                let (count, unread, mentions) =
+                    folders.get(folder.id.as_str()).copied().unwrap_or_default();
+                rows.push(SideRow::DmFolder {
+                    id: folder.id.clone(),
+                    name: folder.name.clone(),
+                    count,
+                    collapsed: folder.collapsed,
+                    unread,
+                    badge: count_badge(mentions),
+                });
+            }
+        }
+        if folder.is_some_and(|folder| folder.collapsed) && !selected {
+            continue;
+        }
         // Under a folded category only the open channel, unread ones and
         // voice channels with people in them stay, as in Discord.
         if !direct
@@ -490,6 +534,7 @@ pub fn sidebar(
                 }),
             call: room.direct && !room.people.is_empty(),
             pinned: room.direct && state.pinned.contains(&room.id),
+            folder: folder.map(|folder| folder.id.clone()),
             thread: room.parent.is_some(),
             thread_continues: false,
             people: if room.voice && !room.direct {
@@ -540,10 +585,12 @@ pub fn sidebar(
             room.thread_continues = true;
         }
     }
-    if !rows
-        .iter()
-        .any(|row| matches!(row, SideRow::Room(_) | SideRow::Heading { .. }))
-    {
+    if !rows.iter().any(|row| {
+        matches!(
+            row,
+            SideRow::Room(_) | SideRow::Heading { .. } | SideRow::DmFolder { .. }
+        )
+    }) {
         let empty = if state.scoped_rooms().next().is_some() {
             backcord_iced_kit::i18n::tr("No matching conversations.")
         } else if direct {
@@ -556,4 +603,21 @@ pub fn sidebar(
         rows.push(SideRow::Empty(empty));
     }
     rows
+}
+
+/// Where a DM goes in the list: pinned first, in the order they were
+/// pinned, then each folder's in its order, then the rest as they come.
+fn dm_place(state: &AppState, room: &str) -> (usize, usize) {
+    if let Some(at) = state.pinned.iter().position(|id| id == room) {
+        return (0, at);
+    }
+    state
+        .dm_folders
+        .iter()
+        .enumerate()
+        .find_map(|(index, folder)| {
+            let at = folder.rooms.iter().position(|id| id == room)?;
+            Some((index + 1, at))
+        })
+        .unwrap_or((usize::MAX, 0))
 }

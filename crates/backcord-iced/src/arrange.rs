@@ -95,6 +95,28 @@ pub struct Moving {
     avatar: Option<String>,
 }
 
+/// Where DMs dragged would land: a DM's row, a folder's heading, or the
+/// "Direct Messages" heading, out of folders and pins.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DmTarget {
+    Room(String),
+    Folder(String),
+    Loose,
+}
+
+/// DMs being dragged: the one pressed, with the rest picked along with it.
+#[derive(Clone, Debug)]
+pub struct DmMoving {
+    pub rooms: Vec<String>,
+    /// What the pointer is over.
+    pub hovered: Option<DmTarget>,
+    /// The pointer, in the window.
+    at: Point,
+    /// What follows the pointer: the pressed one's name and picture.
+    name: String,
+    avatar: Option<String>,
+}
+
 #[derive(Clone, Debug)]
 pub enum Event {
     /// The row at this place was pressed and moved, this far down it.
@@ -104,6 +126,10 @@ pub enum Event {
     /// The pointer came onto the voice channel's row or left it, while
     /// someone is dragged.
     Onto(String, bool),
+    /// A DM's row was pressed and moved, by its room id.
+    TakeDm(String),
+    /// The pointer came onto a row DMs may land on, or left it.
+    OntoDm(DmTarget, bool),
     /// Escape: nothing moves.
     Cancel,
     /// The pointer came onto the row at this place or left it.
@@ -170,7 +196,20 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 }
             }
         }
-        Event::Cancel => app.sidebar.moving_person = None,
+        Event::TakeDm(room) => start_dm(app, room),
+        Event::OntoDm(target, over) => {
+            if let Some(moving) = &mut app.sidebar.dm_moving {
+                if over {
+                    moving.hovered = Some(target);
+                } else if moving.hovered.as_ref() == Some(&target) {
+                    moving.hovered = None;
+                }
+            }
+        }
+        Event::Cancel => {
+            app.sidebar.moving_person = None;
+            app.sidebar.dm_moving = None;
+        }
         Event::Over(place, over) => {
             if let Some(arranging) = &mut app.sidebar.arranging {
                 if over {
@@ -187,8 +226,12 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             if let Some(moving) = &mut app.sidebar.moving_person {
                 moving.at = at;
             }
+            if let Some(moving) = &mut app.sidebar.dm_moving {
+                moving.at = at;
+            }
         }
         Event::Drop if app.sidebar.moving_person.is_some() => return finish_moving(app),
+        Event::Drop if app.sidebar.dm_moving.is_some() => return finish_dm(app),
         Event::Drop => return finish_arranging(app),
         Event::Scroll => {
             let Some(y) = drag_y(app) else {
@@ -379,6 +422,63 @@ fn finish_moving(app: &mut App) -> Task<Message> {
     }
 }
 
+/// Starts dragging the DM `room`, and the others picked along with it.
+fn start_dm(app: &mut App, room: String) {
+    let side = &app.sidebar;
+    if side.arranging.is_some() || side.moving_person.is_some() || side.dm_moving.is_some() {
+        return;
+    }
+    let Some(listed) = side.rows.iter().find_map(|row| match row {
+        SideRow::Room(listed) if listed.direct && listed.id == room => Some(listed),
+        _ => None,
+    }) else {
+        return;
+    };
+    let (name, avatar) = (listed.name.clone(), listed.avatar.clone());
+    let rooms = if side.dm_picked.contains(&room) {
+        side.dm_picked.clone()
+    } else {
+        vec![room]
+    };
+    app.sidebar.dm_moving = Some(DmMoving {
+        rooms,
+        hovered: None,
+        at: app.pressed.get(),
+        name,
+        avatar,
+    });
+}
+
+/// Drops the DMs dragged where the pointer is, within the list.
+fn finish_dm(app: &mut App) -> Task<Message> {
+    let Some(moving) = app.sidebar.dm_moving.take() else {
+        return Task::none();
+    };
+    let (top, bottom) = side_list_span(app);
+    let left = crate::rail::WIDTH;
+    let within = (left..left + sidebar::width(&app.layout)).contains(&moving.at.x)
+        && (top..bottom).contains(&moving.at.y);
+    match moving.hovered.filter(|_| within) {
+        Some(target) => sidebar::folders::drop_dms(app, moving.rooms, target),
+        None => Task::none(),
+    }
+}
+
+/// The DMs dragged stop once the DM home doesn't list the one pressed.
+pub fn dm_moving_listed(app: &mut App) {
+    let Some(moving) = &app.sidebar.dm_moving else {
+        return;
+    };
+    let listed = app
+        .sidebar
+        .rows
+        .iter()
+        .any(|row| matches!(row, SideRow::Room(room) if moving.rooms.contains(&room.id)));
+    if !listed {
+        app.sidebar.dm_moving = None;
+    }
+}
+
 /// The pointer's height in the window while a drag is on.
 fn drag_y(app: &App) -> Option<f32> {
     app.sidebar
@@ -386,6 +486,7 @@ fn drag_y(app: &App) -> Option<f32> {
         .as_ref()
         .map(|arranging| arranging.y)
         .or(app.sidebar.moving_person.as_ref().map(|moving| moving.at.y))
+        .or(app.sidebar.dm_moving.as_ref().map(|moving| moving.at.y))
 }
 
 /// The pointer's moves and the button's release while a drag is on,
@@ -443,6 +544,44 @@ impl<'a> crate::sidebar::View<'a> {
             ..iced::Padding::ZERO
         })
         .align_y(Alignment::Center);
+        let ground = faded(theme.active, GHOST);
+        let ghost = container(face)
+            .width(sidebar::width(self.cx.layout) - 48.0)
+            .height(30)
+            .align_y(Alignment::Center)
+            .style(move |_| rounded(ground, 4));
+        let (top, _) = self.s.list_span(self.cx.above);
+        Some((ghost.into(), moving.at.y - top + 12.0))
+    }
+
+    /// The DMs dragged, as someone dragged from a voice channel: the one
+    /// pressed, and how many more come along.
+    pub fn dm_moving_view(self) -> Option<(Element<'a, Message>, f32)> {
+        let moving = self.s.dm_moving.as_ref()?;
+        let theme = self.cx.look.theme;
+        let mut face = row![
+            self.cx
+                .avatar(moving.avatar.as_deref(), &moving.name, 22.0, 11.0, GHOST),
+            elide(moving.name.as_str())
+                .size(15)
+                .font(MEDIUM)
+                .color(faded(theme.text, GHOST)),
+        ]
+        .spacing(8)
+        .padding(iced::Padding {
+            left: 4.0,
+            right: 8.0,
+            ..iced::Padding::ZERO
+        })
+        .align_y(Alignment::Center);
+        if moving.rooms.len() > 1 {
+            face = face.push(
+                iced::widget::text(format!("+{}", moving.rooms.len() - 1))
+                    .size(13)
+                    .font(BOLD)
+                    .color(faded(theme.text, GHOST)),
+            );
+        }
         let ground = faded(theme.active, GHOST);
         let ghost = container(face)
             .width(sidebar::width(self.cx.layout) - 48.0)

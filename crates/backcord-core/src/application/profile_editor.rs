@@ -80,6 +80,9 @@ pub struct ProfileEditor {
     pub name: String,
     pub pronouns: String,
     pub bio: String,
+    /// The custom emoji in the bio Discord has, which the editor shows by
+    /// their `:name:` and saving gives back in Discord's form.
+    pub bio_emoji: Vec<crate::chat::CustomEmoji>,
     /// The banner colour, as `#rrggbb`, or empty for Discord's default.
     pub colour: String,
     /// The theme colours and name colours as written, the name's font, and
@@ -512,7 +515,15 @@ impl Application {
             Err(error) if refreshed => {
                 tracing::warn!(error, "could not read back the saved profile");
             }
-            Ok(profile) => {
+            Ok(mut profile) => {
+                // Custom emoji are written `:name:`, as in a message.
+                let (bio, emoji) = crate::chat::named_emoji(&profile.bio);
+                profile.bio = bio;
+                for found in emoji {
+                    if !editor.bio_emoji.iter().any(|known| known.id == found.id) {
+                        editor.bio_emoji.push(found);
+                    }
+                }
                 if unchanged(&editor.name, kept.map(|sent| sent.name.as_str())) {
                     editor.name.clone_from(&profile.name);
                 }
@@ -528,7 +539,6 @@ impl Application {
                 // The theme and name style are the main profile's, which is
                 // the fallback in a server.
                 editor.fill_look(&profile.fallback);
-                let mut profile = profile;
                 // Read back after a save, its board keeps the names it has.
                 if let Some(old) = editor
                     .profile
@@ -707,6 +717,13 @@ impl Application {
     }
 
     pub(super) fn save_profile(&mut self) -> Vec<Effect> {
+        // A bio's `:name:` goes out as Discord has custom emoji, as a
+        // message's does: the bio's own first, then any server's.
+        let known: Vec<crate::chat::CustomEmoji> = self
+            .emoji_sets()
+            .into_iter()
+            .flat_map(|set| set.emoji)
+            .collect();
         let Some(editor) = self
             .state
             .edited_profile()
@@ -720,12 +737,17 @@ impl Application {
         {
             return vec![];
         }
-        let Some(change) = editor.change() else {
+        let Some(mut change) = editor.change() else {
             // Nothing to save closes it, as nothing changed.
             self.state.profile_editor_changed();
             self.state.profile_editor = None;
             return vec![];
         };
+        if let Some(bio) = change.bio.as_mut() {
+            let emoji: Vec<crate::chat::CustomEmoji> =
+                editor.bio_emoji.iter().chain(&known).cloned().collect();
+            *bio = crate::chat::wire_emoji(bio, &emoji);
+        }
         editor.saving = true;
         editor.error = None;
         editor.sent = Some(Sent {

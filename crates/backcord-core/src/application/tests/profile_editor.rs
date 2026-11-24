@@ -754,3 +754,57 @@ fn a_long_bio_discord_kept_doesnt_stop_a_rename() {
     let editor = app.state.profile_editor.as_ref().unwrap();
     assert_eq!(editor.too_long(), Some(ProfileText::Bio));
 }
+
+#[test]
+#[cfg(feature = "discord")]
+fn a_bios_emoji_are_written_by_name_and_saved_as_discord_has_them() {
+    use backcord_discord::ready::{Emoji, Server};
+    use backcord_discord::service::{Snapshot, Status};
+    use chat::OwnProfile;
+    let mut app = connected();
+    app.apply(discord_event(Snapshot {
+        status: Status::Online,
+        servers: vec![MarkedServer::from(Server {
+            id: "10".into(),
+            name: "Elsewhere".into(),
+            emojis: vec![Emoji {
+                id: "7".into(),
+                name: "backporta".into(),
+                animated: false,
+                available: true,
+            }]
+            .into(),
+            ..Default::default()
+        })],
+        ..Default::default()
+    }));
+    app.state.discord_user = Some("1".into());
+    app.dispatch(Action::EditProfile);
+    app.apply(Event::OwnProfile {
+        server: None,
+        result: Ok(OwnProfile {
+            name: "Ann".into(),
+            bio: "hi <a:party:6>".into(),
+            ..Default::default()
+        }),
+    });
+    let editor = app.state.profile_editor.as_ref().unwrap();
+    assert_eq!(editor.bio, "hi :party:", "written by name");
+    assert_eq!(editor.change().map(|change| change.bio), None);
+    app.dispatch(Action::WriteProfile {
+        field: ProfileText::Bio,
+        text: "hi :party: :backporta: :nope:".into(),
+    });
+    let effects = app.dispatch(Action::SaveProfile);
+    let bio = effects.iter().find_map(|effect| match effect {
+        Effect::Backend(Command::Discord(DiscordCommand::SaveProfile { change, .. })) => {
+            change.bio.clone()
+        }
+        _ => None,
+    });
+    assert_eq!(
+        bio.as_deref(),
+        Some("hi <a:party:6> <:backporta:7> :nope:"),
+        "the bio's own emoji and any server's go out in Discord's form"
+    );
+}

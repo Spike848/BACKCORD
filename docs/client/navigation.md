@@ -125,6 +125,27 @@ The list stays where it's scrolled as any drag starts and ends: what's
 dragged is a layer over it, in a stack that's always there. The servers on
 the rail don't drag.
 
+On the DM home (`sidebar/folders.rs`), DMs pinned from their menu (Pin,
+Unpin) come first, then the DM folders, each a heading (a chevron, a folder,
+its name or "New folder", how many DMs it lists, their mentions) over its
+DMs, set in 12 px, then the rest. A click on a folder's heading folds it,
+keeping the open DM; its menu renames it, in a field in its place (Enter
+keeps the name), or deletes it, its DMs staying. A DM's menu offers New
+folder after Pin while it's in none, and Remove from folder while it's in
+one. A DM is in one place at a time: pinned, in one folder, or loose.
+Ctrl and a click picks a DM, outlined in the accent, or lets it go; a click
+without Ctrl, or a right click on one not picked, ends the picking. A
+right click on one of several picked opens their menu: how many, then Mark
+as read, Pin, Unpin, New folder and Remove from folder, as they fit. A DM
+pressed and moved 4 px drags, the others picked with it if it's one of
+them, its face and how many more following the pointer; what it would land
+on is outlined in green. Let go on a folder's heading, they go in it; on a
+DM in a folder, in that one; on a pinned DM, pinned; on another DM, in a
+new folder with it, as servers dropped on each other; on the "Direct
+Messages" heading, out of their folders and unpinned. A new folder opens
+its name's field. Pins and folders are the core's (`dm_folders.rs`), kept
+in `layout.json` as `pinned` and `dm_folders`.
+
 A server's top: with a banner, the picture with a
 shade over its top and the name and chevron in white on it, the banner
 asked for only while the server is open; Invite people beside the name for

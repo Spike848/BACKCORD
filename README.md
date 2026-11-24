@@ -34,13 +34,17 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.4.0
+## Novità della 1.4.1
 
-- **Anti-disconnessione** ora funziona: se ti disconnettono da un canale
-  vocale rientri subito (va attivata in Funzioni aggiuntive).
-- **Bio fino a 300 caratteri**, il limite di Discord.
-- **Modifica profilo**: una bio già più lunga del limite non blocca più il
-  salvataggio del nome o di altro.
+- **Cartelle dei messaggi diretti**: trascina un DM su un altro per creare
+  una cartella, trascinalo su una cartella per metterlo dentro, sulla scritta
+  "Messaggi diretti" per toglierlo. Clic sulla cartella per chiuderla, tasto
+  destro per rinominarla o eliminarla.
+- **Selezione multipla**: Ctrl+clic sui DM per selezionarne più di uno, poi
+  tasto destro per fissarli, metterli in una cartella o segnarli come letti;
+  trascinandone uno si spostano tutti.
+- **Fissa in alto** (Pin) nel menu dei DM, ora con un nome più chiaro.
+- **Emoji nella bio**: scrivi `:nome:` come in chat e diventa l'emoji.
 
 ## Cosa fa
 

@@ -829,7 +829,7 @@ Unlock with Nitro	Sblocca con Nitro
 Unlocks at Level 2	Si sblocca al livello 2
 Unmute	Riattiva audio
 Unmute server	Riattiva server
-Unpin	Sblocca dall'alto
+Unpin	Togli dall'alto
 Unpin channel	Rimuovi il canale dall'alto
 Unpin message	Rimuovi il messaggio fissato
 Unread messages from your unmuted channels show up here.	I messaggi non letti dei canali non silenziati compaiono qui.
@@ -1119,7 +1119,7 @@ Password	Password
 Permissions	Permessi
 Permissions synced with category: 	Permessi sincronizzati con la categoria: 
 Picked in the system's dialog	Scelto nella finestra di sistema
-Pin	Fissa
+Pin	Fissa in alto
 Pinned messages	Messaggi fissati
 Playing back your beautiful voice	Riproduzione della tua bellissima voce
 Plays to everyone in a voice channel or DM call as you join it, outside stage channels. A server's own comes before the one for all servers.	Viene riprodotto a tutti in un canale vocale o in una chiamata privata quando entri, esclusi i canali stage. Quello del server viene prima di quello per tutti i server.
@@ -3805,3 +3805,9 @@ Fake Mute	Finto muto
 Fake Deafen	Finte cuffie mute
 Others see you muted; you can still talk.	Gli altri ti vedono mutato, ma puoi parlare lo stesso.
 Others see you deafened; you can still hear.	Gli altri ti vedono con le cuffie mutate, ma senti lo stesso.
+New folder	Nuova cartella
+Remove from folder	Togli dalla cartella
+Rename folder	Rinomina cartella
+Delete folder	Elimina cartella
+Folder name	Nome della cartella
+{} conversations picked	{} conversazioni selezionate

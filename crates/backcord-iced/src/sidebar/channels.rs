@@ -127,14 +127,20 @@ impl<'a> super::View<'a> {
                 fold,
                 collapsed,
             } => self.heading(name, fold, *collapsed, place),
+            SideRow::DmFolder { .. } => self.dm_folder_row(row),
             SideRow::Room(room) => self.room_rows(room, place),
             SideRow::Empty(words) => container(text(*words).size(14).color(theme.muted))
                 .padding(8)
                 .into(),
         };
+        // A DM in a folder is set in under its heading.
+        let left = match row {
+            SideRow::Room(room) if room.folder.is_some() => INSET + super::IN_FOLDER,
+            _ => INSET,
+        };
         let inset = container(inner)
             .padding(Padding {
-                left: INSET,
+                left,
                 right: INSET,
                 bottom: GAP,
                 top: 0.0,
@@ -159,11 +165,30 @@ impl<'a> super::View<'a> {
             }
             None => inset.into(),
         };
-        // Where someone dragged from a voice channel would drop: outlined
-        // in the drop line's green.
-        let inset: Element<'a, Message> = match row {
-            SideRow::Room(room) if self.s.move_aimed(&room.id) => {
-                let live = theme.live;
+        // Where someone dragged from a voice channel would drop, or DMs
+        // dragged would land: outlined in the drop line's green; a DM picked
+        // with Ctrl, in the accent.
+        let dm_target = match row {
+            SideRow::Room(room) if room.direct => {
+                Some(crate::arrange::DmTarget::Room(room.id.clone()))
+            }
+            SideRow::DmFolder { id, .. } => Some(crate::arrange::DmTarget::Folder(id.clone())),
+            SideRow::DmHeading => Some(crate::arrange::DmTarget::Loose),
+            _ => None,
+        };
+        let outline = match row {
+            SideRow::Room(room) if self.s.move_aimed(&room.id) => Some(theme.live),
+            _ if dm_target
+                .as_ref()
+                .is_some_and(|target| self.s.dm_aimed(target)) =>
+            {
+                Some(theme.live)
+            }
+            SideRow::Room(room) if self.s.dm_picked.contains(&room.id) => Some(theme.accent),
+            _ => None,
+        };
+        let inset: Element<'a, Message> = match outline {
+            Some(live) => {
                 let outline = container(Space::new())
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -178,7 +203,7 @@ impl<'a> super::View<'a> {
                 stack![
                     inset,
                     container(outline).padding(Padding {
-                        left: INSET,
+                        left,
                         right: INSET,
                         bottom: GAP,
                         top: 0.0,
@@ -228,6 +253,7 @@ impl<'a> super::View<'a> {
             None if onto.is_some() => Drags::new(inset)
                 .tracking(moving, move |on| over(None, on))
                 .into(),
+            None if dm_target.is_some() => self.dm_drags(row, inset),
             None => inset,
         };
         match row {

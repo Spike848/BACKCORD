@@ -497,6 +497,49 @@ fn a_discord_dms_menu_manages_its_person_and_notifications() {
     ));
     assert!(app.state.pinned.is_empty());
 
+    // Folders: a new one takes both DMs; a DM is in one place at a time.
+    let group = "discord:@me:31";
+    app.dispatch(Action::Pin {
+        room: group.into(),
+        pinned: true,
+    });
+    app.dispatch(Action::DmFolder(DmFolderChange::Add {
+        rooms: vec![dm.into(), group.into(), "discord:@me:99".into()],
+        folder: None,
+    }));
+    assert_eq!(app.state.dm_folders.len(), 1);
+    let folder = app.state.dm_folders[0].clone();
+    assert_eq!(folder.id, "dm-folder:1");
+    assert_eq!(folder.rooms, [dm, group], "only listed DMs");
+    assert!(
+        app.state.pinned.is_empty(),
+        "a DM put in a folder is unpinned"
+    );
+    assert!(app.state.menu_choices(dm).contains(&RemoveFromDmFolder));
+    assert_eq!(
+        app.state.menu_choices(&folder.id),
+        [RenameDmFolder, DeleteDmFolder]
+    );
+    app.dispatch(Action::DmFolder(DmFolderChange::Rename {
+        folder: folder.id.clone(),
+        name: "  Amici ".into(),
+    }));
+    app.dispatch(Action::DmFolder(DmFolderChange::Toggle(folder.id)));
+    assert_eq!(app.state.dm_folders[0].name, "Amici");
+    assert!(app.state.dm_folders[0].collapsed);
+    // Pinned, a DM leaves its folder; the last one out, the folder goes.
+    app.dispatch(Action::Pin {
+        room: group.into(),
+        pinned: true,
+    });
+    assert_eq!(app.state.dm_folders[0].rooms, [dm]);
+    app.dispatch(Action::DmFolder(DmFolderChange::Remove(vec![dm.into()])));
+    assert!(app.state.dm_folders.is_empty());
+    app.dispatch(Action::Pin {
+        room: group.into(),
+        pinned: false,
+    });
+
     // Muting goes to Discord; a menu that offers unmuting doesn't mute.
     assert!(
         app.dispatch(Action::MuteDm {

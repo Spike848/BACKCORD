@@ -312,12 +312,17 @@ pub fn choose_person(
     Task::batch([app.sync(), focus])
 }
 
-/// DMs pinned to the top are kept in `layout.json`.
+/// DMs pinned to the top, and the DM list's folders, are kept in
+/// `layout.json`.
 pub fn keep_pins(app: &mut App) {
-    let pinned = &app.client.state().pinned;
-    if *pinned != app.layout.pinned {
-        app.layout.pinned = pinned.clone();
-        crate::layout::store(app.client.root(), "pinned", pinned);
+    let state = app.client.state();
+    if state.pinned != app.layout.pinned {
+        app.layout.pinned = state.pinned.clone();
+        crate::layout::store(app.client.root(), "pinned", &state.pinned);
+    }
+    if state.dm_folders != app.layout.dm_folders {
+        app.layout.dm_folders = state.dm_folders.clone();
+        crate::layout::store(app.client.root(), "dm_folders", &state.dm_folders);
     }
 }
 

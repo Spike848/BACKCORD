@@ -22,6 +22,12 @@ pub enum MenuChoice {
     /// Keep a DM at the top of the DM list on this device, or stop.
     Pin,
     Unpin,
+    /// Put a DM in a new folder of the DM list, on this device, or take it
+    /// out of its own; rename or delete a folder. See `dm_folders.rs`.
+    NewDmFolder,
+    RemoveFromDmFolder,
+    RenameDmFolder,
+    DeleteDmFolder,
     /// Start a DM's call, or join the one going on.
     Call,
     /// Write this account's note on a Discord DM's other person, or the
@@ -165,6 +171,8 @@ impl AppState {
             self.server_choices(id)
         } else if self.is_folder(id) {
             self.folder_choices(id)
+        } else if self.is_dm_folder(id) {
+            self.dm_folder_choices()
         } else if self.is_category(id) {
             self.notification_choices()
         } else {
@@ -300,6 +308,9 @@ impl AppState {
             } else {
                 MenuChoice::Pin
             });
+        }
+        if room.direct && self.dm_folder_of(&room.id).is_some() {
+            choices.push(MenuChoice::RemoveFromDmFolder);
         }
         if room.direct && !connected && self.can_join_voice(id) {
             choices.push(MenuChoice::Call);
@@ -776,6 +787,8 @@ impl Application {
         if self.state.menu_choices(&room).contains(&choice) {
             self.state.pinned.retain(|id| *id != room);
             if pinned {
+                // Pinned, it leaves its folder.
+                self.state.leave_dm_folders(std::slice::from_ref(&room));
                 self.state.pinned.push(room);
             }
             self.state.people_changed();
@@ -791,8 +804,9 @@ impl Application {
         {
             return vec![];
         }
-        // Closed, it isn't pinned either.
+        // Closed, it isn't pinned either, nor in a folder.
         self.state.pinned.retain(|id| *id != room);
+        self.state.leave_dm_folders(std::slice::from_ref(&room));
         self.state.people_changed();
         vec![Effect::Backend(Command::Discord(DiscordCommand::CloseDm {
             room,

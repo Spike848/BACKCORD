@@ -123,7 +123,8 @@ impl<'a> super::View<'a> {
         if !room.badge.is_empty() {
             face = face.push(count_pill(theme, &room.badge, ROW_COUNT, None));
         }
-        let select = Some(Message::Side(Event::Select(room.id.clone())));
+        // A click is its `Drags`' (`folders::dm_drags`), which a drag isn't.
+        let select = None;
         let Some((url, palette)) = room.nameplate.as_ref().filter(|_| pointed || room.selected)
         else {
             return self.row_face(

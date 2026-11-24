@@ -23,6 +23,7 @@ use crate::{
 
 mod channels;
 mod dms;
+pub mod folders;
 mod rows;
 mod top;
 mod voice;
@@ -44,6 +45,12 @@ pub struct Sidebar {
     pub arranging: Option<crate::arrange::Arranging>,
     /// Someone being dragged from a voice channel to another.
     pub moving_person: Option<crate::arrange::Moving>,
+    /// DMs being dragged, onto a folder or another DM.
+    pub dm_moving: Option<crate::arrange::DmMoving>,
+    /// The DMs picked with Ctrl, by room id, whose menu acts on them all.
+    pub dm_picked: Vec<String>,
+    /// The DM folder being renamed, and the name typed.
+    pub renaming: Option<(String, String)>,
     /// The width the sidebar had as its edge was pressed, while it's
     /// dragged.
     pub drag: Option<f32>,
@@ -93,6 +100,9 @@ impl Sidebar {
             places: Default::default(),
             arranging: None,
             moving_person: None,
+            dm_moving: None,
+            dm_picked: Vec::new(),
+            renaming: None,
             drag: None,
             filter: String::new(),
             filtered_in: None,
@@ -124,6 +134,13 @@ impl Sidebar {
     /// A drag of either kind is on, and the rows follow it.
     pub fn dragging(&self) -> bool {
         self.arranging.is_some() || self.moving_person.is_some()
+    }
+
+    /// Whether DMs dragged would land on this row's target.
+    pub fn dm_aimed(&self, target: &crate::arrange::DmTarget) -> bool {
+        self.dm_moving
+            .as_ref()
+            .is_some_and(|moving| moving.hovered.as_ref() == Some(target))
     }
 
     /// Whether the line showing where the dragged row would land is at the
@@ -192,6 +209,10 @@ const NAV_ROW: f32 = 38.0;
 /// A row's corners.
 const ROW_RADIUS: f32 = 6.0;
 const HEADING: f32 = 38.0;
+/// A DM folder's heading.
+const DM_FOLDER: f32 = 34.0;
+/// How far a DM in a folder is set in.
+const IN_FOLDER: f32 = 12.0;
 /// A row's own small button: a voice channel's Open chat, a category's "+".
 const CHAT_BUTTON: f32 = 24.0;
 const PERSON: f32 = 30.0;
@@ -264,10 +285,18 @@ pub enum Event {
     VoiceChat(bool),
     /// A category's "+": a channel made in it.
     CreateIn(String),
+    /// A DM folder's heading, by its id: it folds or opens.
+    ToggleFolder(String),
+    /// The name typed for the DM folder being renamed, and Enter.
+    FolderName(String),
+    FolderRenamed,
 }
 
 /// What's done in the sidebar.
 pub fn update(app: &mut App, event: Event) -> Task<Message> {
+    if let Some(task) = folders::update(app, &event) {
+        return task;
+    }
     match event {
         Event::Scrolled(viewport) => {
             app.sidebar.scroll = Scroll::of(viewport);
@@ -298,7 +327,13 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             // pointed at.
             return app.ask();
         }
-        Event::Select(id) => app.client.dispatch(Action::SelectRoom(id)),
+        Event::Select(id) => {
+            // With Ctrl, a DM is picked rather than opened.
+            if folders::click(app, &id) {
+                return Task::none();
+            }
+            app.client.dispatch(Action::SelectRoom(id));
+        }
         Event::Open(id) => app.client.dispatch(Action::Open(id)),
         // The core's `SelectRoom` joins a voice channel's call first, and
         // shows it once in it.
@@ -372,6 +407,9 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         }
         Event::Menu(id, at) => {
             app.sidebar.voice_card_off = true;
+            if let Some(task) = folders::open_if_picked(app, &id, at) {
+                return task;
+            }
             return crate::place_menus::open_place_menu(app, &id, at, false);
         }
         // A group's x leaves it, asking first, as Discord's does.
@@ -400,6 +438,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::CreateIn(category) => {
             return crate::place_menus::choose_place(app, category, MenuChoice::CreateChannel);
         }
+        Event::ToggleFolder(_) | Event::FolderName(_) | Event::FolderRenamed => {}
     }
     app.sync()
 }
@@ -434,6 +473,9 @@ impl<'a> View<'a> {
         // as a drag starts and ends.
         let mut list = stack![list];
         if let Some((ghost, y)) = self.moving_view() {
+            list = list.push(controls::placed(ghost, 40.0, y));
+        }
+        if let Some((ghost, y)) = self.dm_moving_view() {
             list = list.push(controls::placed(ghost, 40.0, y));
         }
         if let Some((ghost, y)) = self.arranged_view() {

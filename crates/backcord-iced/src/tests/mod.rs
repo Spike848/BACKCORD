@@ -390,6 +390,7 @@ mod calls;
 mod cards;
 mod channel_settings;
 mod dialogs;
+mod dm_folders;
 mod editor;
 mod header;
 mod link_dialogs;

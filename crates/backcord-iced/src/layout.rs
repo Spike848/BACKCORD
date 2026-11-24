@@ -53,6 +53,8 @@ pub struct Layout {
     /// DMs pinned to the top of the list, by room id, the first pinned
     /// first.
     pub pinned: Vec<String>,
+    /// The DM list's folders, in order.
+    pub dm_folders: Vec<backcord_core::application::DmFolder>,
     /// A one-to-one DM's profile beside it is hidden; messages from people
     /// blocked don't show at all; a call from someone's menu starts without
     /// asking; the member list's Activity shows its header alone.
@@ -457,6 +459,7 @@ impl Layout {
             Action::SkipSwitchPrompt(self.skip_switch_prompt),
             Action::ActivityCardsHidden(self.activity_cards_hidden),
             Action::SetPinned(self.pinned.clone()),
+            Action::SetDmFolders(self.dm_folders.clone()),
             Action::ShowHiddenChannels(self.prefs.show_hidden_channels),
             Action::SyncDiscordReads(self.prefs.sync_discord_reads.unwrap_or(true)),
             Action::ReplyPing(self.prefs.reply_ping.unwrap_or(true)),

@@ -28,6 +28,7 @@ mod compose;
 mod cosmetics;
 mod delete_all;
 mod discord_account;
+mod dm_folders;
 mod ephemeral;
 mod forum;
 mod gifs;
@@ -68,6 +69,7 @@ pub use channel_settings::{
 pub use commands::{AppCommands, CommandTarget, SlashCommand};
 pub use cosmetics::Cosmetics;
 pub use delete_all::{DeleteAllDialog, DeletingAll};
+pub use dm_folders::{DmFolder, DmFolderChange};
 pub use forum::{ForumInfo, ForumPost, ForumPosts, ForumView};
 pub use gifs::{AskedPicture, GifPicker, GifPicture, GifView};
 pub use gift::GiftDialog;
@@ -536,6 +538,8 @@ pub struct AppState {
     /// DMs pinned to the top of the DM list on this device, by room id, the
     /// first pinned first.
     pub pinned: Vec<String>,
+    /// The DM list's folders on this device, in order; see `dm_folders.rs`.
+    pub dm_folders: Vec<DmFolder>,
     pub person_dialog: Option<PersonDialog>,
     /// The people picked together with Ctrl, whose menu acts on them all.
     pub picked: Vec<Picked>,
@@ -2010,6 +2014,10 @@ pub enum Action {
     },
     /// The DMs pinned on this device, as it remembers them.
     SetPinned(Vec<String>),
+    /// The DM list's folders on this device, as it remembers them.
+    SetDmFolders(Vec<DmFolder>),
+    /// A change to the DM list's folders.
+    DmFolder(DmFolderChange),
     /// Close a Discord DM; it comes back when either side writes.
     CloseDm(String),
     /// Show the selected DM's pinned messages, or stop.
@@ -4044,6 +4052,12 @@ impl Application {
                 _ => vec![],
             },
             Action::Pin { room, pinned } => self.pin(room, pinned),
+            Action::SetDmFolders(folders) => {
+                self.state.dm_folders = folders;
+                self.state.people_changed();
+                vec![]
+            }
+            Action::DmFolder(change) => self.change_dm_folders(change),
             Action::SetPinned(pinned) => {
                 self.state.pinned = pinned;
                 self.state.people_changed();

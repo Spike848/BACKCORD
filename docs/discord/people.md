@@ -1024,6 +1024,11 @@ as for server profiles: the same crop and size, as a data URI, or `null`
 to remove it. The client never sends the bio, pronouns or banner to
 `/users/@me`, though Discord's docs list them there.
 
+A bio's custom emoji are `<:name:id>` or `<a:name:id>`, as in a message.
+The editor shows each as its `:name:`, and saving writes a `:name:` back in
+Discord's form: the bio's own emoji first, then any server's this account is
+in. Discord decides whether the account may use it.
+
 Saving keeps the editor open, as Discord's does. Afterwards BACKCORD asks for
 the profile again, once, for the editor, and drops the profiles it kept of
 this account. The main profile's answer also fills the account's card,

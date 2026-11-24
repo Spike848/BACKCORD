@@ -72,6 +72,15 @@ pub fn open_place_menu(app: &mut App, id: &str, at: Point, header: bool) -> Task
             choices.insert(at_end, choice);
         }
     }
+    // A DM out of any folder may start one, after Pin.
+    if !header
+        && let Some(pin) = choices
+            .iter()
+            .position(|choice| matches!(choice, MenuChoice::Pin | MenuChoice::Unpin))
+        && core.state.dm_folder_of(id).is_none()
+    {
+        choices.insert(pin + 1, MenuChoice::NewDmFolder);
+    }
     place_menu(app, id, at, header, choices)
 }
 
@@ -322,6 +331,12 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
             room: place,
             pinned: choice == MenuChoice::Pin,
         },
+        MenuChoice::NewDmFolder
+        | MenuChoice::RemoveFromDmFolder
+        | MenuChoice::RenameDmFolder
+        | MenuChoice::DeleteDmFolder => {
+            return crate::sidebar::folders::choose(app, place, choice);
+        }
         MenuChoice::CloseDm => Action::CloseDm(place),
         MenuChoice::LeaveGroup => Action::AskLeaveGroup(place),
         MenuChoice::EditGroup => Action::AskChannel(ChannelAsk::Group(place)),
@@ -755,7 +770,8 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         | MenuChoice::LeaveGroup
         | MenuChoice::EditGroup
         | MenuChoice::DeleteAll
-        | MenuChoice::StopDeleteAll => 7,
+        | MenuChoice::StopDeleteAll
+        | MenuChoice::DeleteDmFolder => 7,
         _ => 0,
     }
 }
@@ -774,6 +790,10 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::CancelFriendRequest | C::CloseDm => Icon::X,
         C::Pin | C::PinChannel => Icon::Pin,
         C::Unpin | C::UnpinChannel => Icon::PinOff,
+        C::NewDmFolder => Icon::FolderPlus,
+        C::RemoveFromDmFolder => Icon::Folder,
+        C::RenameDmFolder => Icon::Pencil,
+        C::DeleteDmFolder => Icon::Trash,
         C::AddNote => Icon::StickyNote,
         C::AddNickname | C::EditNickname => Icon::UserPen,
         C::LeaveGroup | C::LeaveServer | C::LeaveThread => Icon::LogOut,
@@ -828,6 +848,10 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::CancelFriendRequest => backcord_iced_kit::i18n::tr("Cancel friend request"),
         MenuChoice::Pin => backcord_iced_kit::i18n::tr("Pin"),
         MenuChoice::Unpin => backcord_iced_kit::i18n::tr("Unpin"),
+        MenuChoice::NewDmFolder => backcord_iced_kit::i18n::tr("New folder"),
+        MenuChoice::RemoveFromDmFolder => backcord_iced_kit::i18n::tr("Remove from folder"),
+        MenuChoice::RenameDmFolder => backcord_iced_kit::i18n::tr("Rename folder"),
+        MenuChoice::DeleteDmFolder => backcord_iced_kit::i18n::tr("Delete folder"),
         MenuChoice::Call => backcord_iced_kit::i18n::tr("Start call"),
         MenuChoice::AddNote => backcord_iced_kit::i18n::tr("Add note"),
         MenuChoice::AddNickname => backcord_iced_kit::i18n::tr("Add friend nickname"),

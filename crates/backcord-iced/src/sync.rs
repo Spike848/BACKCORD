@@ -187,6 +187,8 @@ impl App {
         // Someone dragged may drop where their menu's Move to offers, of
         // the channels listed now.
         crate::arrange::moving_targets(self);
+        crate::arrange::dm_moving_listed(self);
+        crate::sidebar::folders::keep_listed(self);
         // The open inbox follows the rooms' unread marks.
         crate::window_bar::inbox_sync(self);
     }
