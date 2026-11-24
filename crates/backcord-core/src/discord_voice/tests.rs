@@ -177,3 +177,61 @@ async fn undeafening_leaves_the_mute_as_it_was() {
     }
     call.await.unwrap();
 }
+
+/// Someone disconnecting this account ends the call with an error, leaving
+/// on its way out: what Anti-Disconnect joins again after.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs testing/fake_discord.ts and BACKCORD_DISCORD_TEST_SERVER"]
+async fn a_call_someone_disconnects_ends_with_an_error() {
+    assert!(
+        backcord_discord::client::test_server().is_some(),
+        "set BACKCORD_DISCORD_TEST_SERVER to the fake Discord"
+    );
+    let _alone = CALLS.lock().await;
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    let discord = Discord::start(backcord_discord::token::load().unwrap()).unwrap();
+    let mut online = discord.snapshots();
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        online.wait_for(|snapshot| snapshot.status == Status::Online),
+    )
+    .await
+    .expect("the fake Discord answers")
+    .unwrap();
+    let (_commands, mut received) = mpsc::unbounded_channel();
+    let (snapshots, mut states) = watch::channel(State::default());
+    let mut state = State::default();
+    let call = call(
+        &discord,
+        "1400000000000000100",
+        "1400000000000000103",
+        &mut state,
+        &mut received,
+        &snapshots,
+        None,
+    );
+    let kick = async {
+        tokio::time::timeout(
+            Duration::from_secs(20),
+            states.wait_for(|state| state.phase == Phase::Connected),
+        )
+        .await
+        .expect("the call connects")
+        .unwrap();
+        control("/_control/voice-kick").await;
+        std::future::pending::<()>().await;
+    };
+    let ended = tokio::time::timeout(Duration::from_secs(20), async {
+        tokio::select! {
+            ended = call => ended,
+            () = kick => unreachable!(),
+        }
+    })
+    .await
+    .expect("the call ended");
+    assert_eq!(
+        ended.unwrap_err().to_string(),
+        "You were disconnected from the voice channel."
+    );
+    assert_eq!(states.borrow().phase, Phase::Leaving);
+}

@@ -13,7 +13,7 @@ use crate::chat::{OwnProfile, Permission, PickedPicture, ProfileChange, ProfileP
 /// server nickname and a display name alike.
 pub const NAME_LIMIT: usize = 32;
 pub const PRONOUNS_LIMIT: usize = 40;
-pub const BIO_LIMIT: usize = 190;
+pub const BIO_LIMIT: usize = 300;
 
 /// Where Discord's client sends someone to get Nitro.
 const NITRO_PAGE: &str = "https://discord.com/nitro";
@@ -273,16 +273,36 @@ impl ProfileEditor {
         self.name_colours = style.map_or_else(Vec::new, |style| style.colors().to_vec());
     }
 
-    /// A text that's longer than Discord takes.
+    /// A text changed to one longer than Discord takes. One left as
+    /// Discord has it doesn't count: Discord kept it, as a bio written where
+    /// its limit was higher, and saving leaves it as it is.
     pub fn too_long(&self) -> Option<ProfileText> {
+        let profile = self.profile.as_ref();
         [
-            (ProfileText::Name, &self.name, NAME_LIMIT),
-            (ProfileText::Pronouns, &self.pronouns, PRONOUNS_LIMIT),
-            (ProfileText::Bio, &self.bio, BIO_LIMIT),
+            (
+                ProfileText::Name,
+                &self.name,
+                profile.map(|kept| &kept.name),
+                NAME_LIMIT,
+            ),
+            (
+                ProfileText::Pronouns,
+                &self.pronouns,
+                profile.map(|kept| &kept.pronouns),
+                PRONOUNS_LIMIT,
+            ),
+            (
+                ProfileText::Bio,
+                &self.bio,
+                profile.map(|kept| &kept.bio),
+                BIO_LIMIT,
+            ),
         ]
         .into_iter()
-        .find(|(_, text, limit)| text.chars().count() > *limit)
-        .map(|(field, _, _)| field)
+        .find(|(_, text, kept, limit)| {
+            text.chars().count() > *limit && kept.is_none_or(|kept| text.trim() != kept.as_str())
+        })
+        .map(|(field, ..)| field)
     }
 
     /// What saving would change; none when nothing does.

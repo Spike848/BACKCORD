@@ -951,7 +951,7 @@ profile's](#editing-ones-server-profile)). It reads the profile with `GET
 - Without Nitro, Banner Color: the colour the card's banner shows, as
   `#rrggbb` or one of nine swatches, "Default" for none. With Nitro,
   Profile Banner, with Change Banner and Remove Banner, in its place.
-- Bio, Markdown up to 190 characters, with what's left counted under it
+- Bio, Markdown up to 300 characters, with what's left counted under it
   near the limit.
 
 With Nitro, it also edits the profile's theme and the display name's style,
@@ -1063,7 +1063,7 @@ offers it to everyone; it reads the profile with `GET
 - Pronouns, up to 40.
 - Avatar, with Change Avatar and Reset Avatar.
 - Profile Banner, with Change Banner and Reset Banner.
-- Bio, Markdown up to 190 characters, with what's left counted under it
+- Bio, Markdown up to 300 characters, with what's left counted under it
   near the limit.
 
 The card shows the profile as the server will, the main profile's name,

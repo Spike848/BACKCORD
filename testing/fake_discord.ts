@@ -3683,7 +3683,10 @@ function announce(user: string) {
 function moved(user: string, before: VoiceState | undefined, origin: string) {
   const now = voice.get(user);
   if (before && (before.guild !== now?.guild || before.channel !== now?.channel)) {
-    const wire = wireVoiceState(user, undefined, before.guild);
+    // Out of voice, as Discord's: the session whose voice state went, no
+    // channel.
+    const left = now ? "voice-left" : before.session;
+    const wire = { ...wireVoiceState(user, undefined, before.guild), session_id: left };
     dispatch("VOICE_STATE_UPDATE", before.guild ? { ...wire, member: memberIn(before.guild, userById.get(user)!) } : wire);
     if (!before.guild) leftCall(before.channel, origin);
   }
@@ -7483,7 +7486,7 @@ async function api(req: Request, path: string, origin: string): Promise<Response
   if (method === "PATCH" && path === "/users/@me/profile") {
     const body: any = await req.json().catch(() => ({}));
     if (typeof body.pronouns === "string" && body.pronouns.length > 40) return tooLong("pronouns", 40);
-    if (typeof body.bio === "string" && body.bio.length > 190) return tooLong("bio", 190);
+    if (typeof body.bio === "string" && body.bio.length > 300) return tooLong("bio", 300);
     if (body.banner && !nitro) return premiumRequired("banner");
     if ("banner" in body) {
       const kept = body.banner === null ? { hash: null } : keepPicture(body.banner);
@@ -7515,7 +7518,7 @@ async function api(req: Request, path: string, origin: string): Promise<Response
     const body: any = await req.json().catch(() => ({}));
     const profile = serverProfile(ALICE);
     if (typeof body.pronouns === "string" && body.pronouns.length > 40) return tooLong("pronouns", 40);
-    if (typeof body.bio === "string" && body.bio.length > 190) return tooLong("bio", 190);
+    if (typeof body.bio === "string" && body.bio.length > 300) return tooLong("bio", 300);
     if (body.bio && !nitro) return premiumRequired("bio");
     if (body.banner && !nitro) return premiumRequired("banner");
     let banner: string | null | undefined;

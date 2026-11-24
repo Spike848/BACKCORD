@@ -2719,6 +2719,9 @@ pub struct Application {
     /// When Anti-Disconnect joined again lately, in ms: it stops after a few
     /// in a minute, as someone keeps disconnecting this account.
     rejoins: Vec<u64>,
+    /// The call this account is in got connected: one that ends with an
+    /// error after that was dropped, not one that failed to join.
+    voice_was_connected: bool,
     /// The voice channel the person followed was last seen in.
     follow_seen: Option<String>,
     /// A thread to show beside the selected channel once it's listed.
@@ -4759,13 +4762,20 @@ impl Application {
             | Event::AutocompleteChoices { .. } => return self.command_event(event),
             Event::Voice(state) => {
                 let sounds = call_sounds(&self.state.voice, &state);
-                // A call that ended with an error, not left: someone
-                // disconnected this account, or the connection dropped.
-                let dropped = (self.state.voice.phase == voice::Phase::Connected
-                    && !state.active()
-                    && state.error.is_some())
-                .then(|| self.state.voice.room.clone())
-                .flatten();
+                // A call that got connected and ended with an error, not
+                // left: someone disconnected this account, or the connection
+                // dropped. It leaves on its way out, so the error comes after
+                // `Leaving`, not straight after `Connected`.
+                if state.phase == voice::Phase::Connected {
+                    self.voice_was_connected = true;
+                }
+                let was_connected = self.voice_was_connected;
+                if !state.active() {
+                    self.voice_was_connected = false;
+                }
+                let dropped = (was_connected && !state.active() && state.error.is_some())
+                    .then(|| self.state.voice.room.clone())
+                    .flatten();
                 // Someone moved the call to another channel, as a bot does
                 // from one that makes rooms: its view goes along.
                 if let (Some(from), Some(to)) = (&self.state.voice.room, &state.room)

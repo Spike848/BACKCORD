@@ -1095,6 +1095,17 @@ fn anti_disconnect_joins_a_channel_again_when_someone_disconnects_this_account()
     app.dispatch(Action::AntiDisconnect(true));
     app.apply(call(Phase::Connected, "lounge", vec![]));
     assert_eq!(joins(&app.apply(disconnected())), ["lounge"]);
+    // As a call ends: leaving first, then the error.
+    app.apply(call(Phase::Connected, "lounge", vec![]));
+    assert!(joins(&app.apply(call(Phase::Leaving, "lounge", vec![]))).is_empty());
+    assert_eq!(joins(&app.apply(disconnected())), ["lounge"]);
+    // A join that failed isn't joined again.
+    app.apply(call(Phase::Joining, "lounge", vec![]));
+    app.apply(call(Phase::Leaving, "lounge", vec![]));
+    assert!(
+        joins(&app.apply(disconnected())).is_empty(),
+        "never connected"
+    );
     // Leaving by hand stays left.
     app.apply(call(Phase::Connected, "lounge", vec![]));
     assert!(joins(&app.apply(Event::Voice(voice::State::default()))).is_empty());

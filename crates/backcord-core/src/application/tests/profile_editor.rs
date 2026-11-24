@@ -706,3 +706,51 @@ fn the_profile_editor_names_its_boards_games_once() {
         .fallback;
     assert_eq!(fallback.widgets, named);
 }
+
+/// A bio longer than the limit, which Discord kept, doesn't stop saving a
+/// new name; writing it longer still, or making it so, does.
+#[test]
+#[cfg(feature = "discord")]
+fn a_long_bio_discord_kept_doesnt_stop_a_rename() {
+    use chat::OwnProfile;
+    let mut app = discord_server();
+    app.state.discord_user = Some("1".into());
+    app.dispatch(Action::EditProfile);
+    let long = "x".repeat(BIO_LIMIT + 100);
+    app.apply(Event::OwnProfile {
+        server: None,
+        result: Ok(OwnProfile {
+            name: "Ann".into(),
+            bio: long.clone(),
+            ..Default::default()
+        }),
+    });
+    app.dispatch(Action::WriteProfile {
+        field: ProfileText::Name,
+        text: "DARVO'd:".into(),
+    });
+    let editor = app.state.profile_editor.as_ref().unwrap();
+    assert_eq!(editor.too_long(), None, "the bio is as Discord has it");
+    let change = editor.change().expect("the name to save");
+    assert_eq!(change.name.as_deref(), Some("DARVO'd:"));
+    assert_eq!(change.bio, None);
+    assert!(!app.dispatch(Action::SaveProfile).is_empty(), "it saves");
+    // Changed, the limit counts again.
+    let mut app = discord_server();
+    app.state.discord_user = Some("1".into());
+    app.dispatch(Action::EditProfile);
+    app.apply(Event::OwnProfile {
+        server: None,
+        result: Ok(OwnProfile {
+            name: "Ann".into(),
+            bio: long.clone(),
+            ..Default::default()
+        }),
+    });
+    app.dispatch(Action::WriteProfile {
+        field: ProfileText::Bio,
+        text: format!("{long}y"),
+    });
+    let editor = app.state.profile_editor.as_ref().unwrap();
+    assert_eq!(editor.too_long(), Some(ProfileText::Bio));
+}

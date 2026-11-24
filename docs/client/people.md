@@ -134,7 +134,7 @@ member list, the DMs, and the lists still to come build on it.
   a text box of its own as Discord's (Enter breaks a line): the card's
   width, as far from its right as from its left, its Markdown shown as
   it's written, the emoji picker's and the formatting panel's buttons
-  inside it at its top right, and what's left of Discord's 190 characters
+  inside it at its top right, and what's left of Discord's 300 characters
   under it from 20 left; a click on the card that nothing on it
   takes ends the editing; the avatar and banner offer Change and Remove
   (Reset in a server) once there's one to remove, else open the file
@@ -170,8 +170,9 @@ member list, the DMs, and the lists still to come build on it.
   activity", that adding more from BACKCORD is coming soon, and the board's
   note while the profile loads or after it failed to). A server's has what it edits over its banner and Nitro's offer
   over what takes it. Once something changed the form kit's
-  `Unsaved` bar offers Reset and Save Changes, which waits while a text is
-  too long or a picture is read. Escape ends the editing, closes what's
+  `Unsaved` bar offers Reset and Save Changes, which waits while a text
+  changed is too long or a picture is read; one left as Discord has it,
+  such as a bio longer than the limit Discord kept, doesn't count. Escape ends the editing, closes what's
   open, then the editor.
 - The friends list (`friends/`, the Requests screen in `friends/requests.rs`), from Friends on the DM home: the
   header's Online, All and Pending tabs (Pending goes to Requests), Add Friend, which

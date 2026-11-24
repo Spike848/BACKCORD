@@ -696,9 +696,11 @@ format and as long, is what the speakers played, for echo cancellation;
 A VOICE_STATE_UPDATE for this account's session with no channel, while its
 call goes on, means someone disconnected it: `Live::VoiceLeft` ends the
 call at once with "You were disconnected from the voice channel.", rather
-than when the connection drops. With Anti-Disconnect on, a call that was
-connected and ends with an error (that, or a dropped connection) joins its
-channel again (`Application::rejoin_voice`), if it's a server's voice
+than when the connection drops (the update names the session whose state
+went, as the fake's `/_control/voice-kick` does). The call leaves on its way
+out, so the error comes after `Phase::Leaving`, not straight after
+`Connected`. With Anti-Disconnect on, a call that got connected and ends
+with an error (that, or a dropped connection) joins its channel again (`Application::rejoin_voice`), if it's a server's voice
 channel still listed that this account may join and isn't full; not after
 the fifth time in a minute. Leaving by hand, or joining on another client,
 ends without an error and stays left.

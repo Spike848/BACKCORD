@@ -34,18 +34,13 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.9
+## Novità della 1.4.0
 
-- **Finto muto e finte cuffie mute**: dalla freccetta vicino al microfono
-  o alle cuffie. Gli altri ti vedono mutato (o con le cuffie mutate), ma
-  continui a parlare (o a sentire). Restano attive fino alla chiusura.
-- **Chiamate private a schermo intero**: lo stesso pulsante in basso a
-  destra dei canali vocali, con la chat della conversazione in alto a destra.
-- **Segui** ora è anche nel menu delle persone in vocale e compare più in
-  alto nei menu.
-- Trascinando persone tra i canali vocali la lista non torna più in cima;
-  trascinando una persona selezionata (Ctrl+clic) si spostano tutte le
-  selezionate.
+- **Anti-disconnessione** ora funziona: se ti disconnettono da un canale
+  vocale rientri subito (va attivata in Funzioni aggiuntive).
+- **Bio fino a 300 caratteri**, il limite di Discord.
+- **Modifica profilo**: una bio già più lunga del limite non blocca più il
+  salvataggio del nome o di altro.
 
 ## Cosa fa
 
