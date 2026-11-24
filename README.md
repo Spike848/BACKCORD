@@ -41,6 +41,12 @@ cifrata.
   hai più di una), la risoluzione (144p, 240p, 360p, 480p, 720p, 1080p o
   Sorgente) e i fotogrammi (15, 30 o 60 fps), poi la accendi o la spegni. Se
   cambi qualità mentre è accesa, cambia subito. La scelta viene ricordata.
+- **Colori della webcam fedeli a ogni qualità**: cambiando risoluzione cambia
+  solo la nitidezza, non più i colori (prima alle risoluzioni alte alcune
+  webcam davano neri schiacciati e colori troppo saturi). E la webcam viene
+  inviata davvero alla risoluzione scelta, non a una più bassa.
+- **Menu della qualità anche dal pulsante grande della chiamata**: ora il
+  menu si apre anche dal pulsante della videocamera sotto il video.
 - **Menu della qualità più compatto**: anche per lo schermo condiviso la
   risoluzione e gli fps si scelgono da un menu piccolo a pulsanti, e ora ci
   sono anche 144p, 240p, 360p e 480p.

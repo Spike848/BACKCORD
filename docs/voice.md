@@ -79,8 +79,14 @@ the driver's buffer without converting it, and libyuv converts each one (YUY2,
 MJPEG, NV12, RGB and the rest) into the same I420 buffer, frame after frame. It
 asks for the camera quality chosen (`voice::CameraQuality`, kept in
 `devices.json`): 1280×720 at 30 frames a second unless chosen, as Discord's
-client films without Nitro and as LiveKit's default camera does, and scales
-down a camera that can't film that small. The resolutions are those of a
+client films without Nitro and as LiveKit's default camera does. Of the
+device's modes it films with the smallest at least as tall as chosen at the
+rate chosen, a raw format before MJPEG at the same size, and scales it down
+to fit, so what goes out has the lines chosen rather than the nearest mode's
+fewer; a device that can't film so tall gives its tallest. Only the pixels
+change with the quality, not the colours: webcams send their larger sizes as
+MJPEG, whose full range BT.601 `camera.cc` brings into the limited range of
+every other format, the one the encoders announce in the stream. The resolutions are those of a
 stream, 144p to 1080p and the source (up to 4K, the camera's own largest),
 at 15, 30 or 60 frames a second. A Discord call is told the size, and the
 picture goes at a bitrate that follows it (`CameraQuality::bitrate`):

@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -56,6 +57,26 @@ struct Planes {
   backcord_picture picture() {
     return backcord_picture{width, height, y(), u(), v(), width, chroma_stride(), chroma_stride()};
   }
+
+  /* JPEG's full range (0-255) brought into the limited range (16-235, and
+   * 16-240 for colour) every other format comes in and the encoders
+   * announce, so a camera's colours stay the same whichever format its
+   * resolution takes: webcams send their larger sizes as MJPEG, which
+   * libyuv decodes without changing the range. */
+  void limit_range() {
+    static const std::array<std::array<uint8_t, 256>, 2> tables = [] {
+      std::array<std::array<uint8_t, 256>, 2> made{};
+      for (int value = 0; value < 256; value++) {
+        made[0][value] = (uint8_t)(16 + (value * 219 + 127) / 255);
+        int chroma = (value - 128) * 224;
+        made[1][value] = (uint8_t)(128 + (chroma + (chroma >= 0 ? 127 : -127)) / 255);
+      }
+      return made;
+    }();
+    size_t luma = (size_t)width * height;
+    for (size_t at = 0; at < luma; at++) data[at] = tables[0][data[at]];
+    for (size_t at = luma; at < data.size(); at++) data[at] = tables[1][data[at]];
+  }
 };
 
 class Sink : public webrtc::RawVideoSinkInterface {
@@ -77,13 +98,15 @@ class Sink : public webrtc::RawVideoSinkInterface {
         width, info.height, width, height, libyuv::kRotate0,
         webrtc::ConvertVideoType(info.videoType));
     if (failed) return -1;
-    // A device that can't capture as small as asked is scaled down to fit,
-    // keeping its shape, at even sizes as encoders want.
+    // A capture larger than asked is scaled down to fit, keeping its shape,
+    // at even sizes as encoders want.
     double scale = std::min({1.0, (double)max_width_ / width, (double)max_height_ / height});
     int fit_width = std::max(2, (int)(width * scale) & ~1);
     int fit_height = std::max(2, (int)(height * scale) & ~1);
+    bool jpeg = info.videoType == webrtc::VideoType::kMJPEG;
     backcord_picture picture;
     if (fit_width == width && fit_height == height) {
+      if (jpeg) converted_.limit_range();
       picture = converted_.picture();
     } else {
       scaled_.resize(fit_width, fit_height);
@@ -93,6 +116,8 @@ class Sink : public webrtc::RawVideoSinkInterface {
                         scaled_.width, scaled_.u(), scaled_.chroma_stride(), scaled_.v(),
                         scaled_.chroma_stride(), fit_width, fit_height,
                         libyuv::kFilterBox);
+      // After scaling, over fewer pixels.
+      if (jpeg) scaled_.limit_range();
       picture = scaled_.picture();
     }
     frame_(user_, &picture);
@@ -107,6 +132,65 @@ class Sink : public webrtc::RawVideoSinkInterface {
   Planes converted_;
   Planes scaled_;
 };
+
+/* The device's mode to film `wanted` at: the smallest as tall as asked at
+ * the frame rate asked, scaled down to it, so what goes out has the lines
+ * chosen rather than the nearest mode's fewer; a raw format over MJPEG at
+ * the same size. A device that can't film so tall gives its tallest, at the
+ * rate if it can. One that lists no modes takes what was asked. */
+webrtc::VideoCaptureCapability choose(webrtc::VideoCaptureModule::DeviceInfo &info,
+                                      const char *id,
+                                      const webrtc::VideoCaptureCapability &wanted) {
+  int32_t count = info.NumberOfCapabilities(id);
+  std::vector<webrtc::VideoCaptureCapability> modes;
+  for (int32_t index = 0; index < count; index++) {
+    webrtc::VideoCaptureCapability mode;
+    if (info.GetCapability(id, index, mode) == 0 && mode.width > 0 && mode.height > 0) {
+      modes.push_back(mode);
+    }
+  }
+  if (modes.empty()) return wanted;
+  auto fast = [&](const webrtc::VideoCaptureCapability &mode) {
+    return mode.maxFPS <= 0 || mode.maxFPS >= wanted.maxFPS;
+  };
+  auto tall = [&](const webrtc::VideoCaptureCapability &mode) {
+    return mode.height >= wanted.height;
+  };
+  auto pixels = [](const webrtc::VideoCaptureCapability &mode) {
+    return (int64_t)mode.width * mode.height;
+  };
+  auto raw = [](const webrtc::VideoCaptureCapability &mode) {
+    return mode.videoType != webrtc::VideoType::kMJPEG;
+  };
+  // The best of each kind: smaller, then raw, then faster.
+  auto smaller = [&](const webrtc::VideoCaptureCapability &a,
+                     const webrtc::VideoCaptureCapability &b) {
+    if (pixels(a) != pixels(b)) return pixels(a) < pixels(b);
+    if (raw(a) != raw(b)) return raw(a);
+    return a.maxFPS > b.maxFPS;
+  };
+  const webrtc::VideoCaptureCapability *best = nullptr;
+  for (const auto &mode : modes) {
+    if (tall(mode) && fast(mode) && (!best || smaller(mode, *best))) best = &mode;
+  }
+  if (best) return *best;
+  for (const auto &mode : modes) {
+    if (tall(mode) && (!best || mode.maxFPS > best->maxFPS ||
+                       (mode.maxFPS == best->maxFPS && smaller(mode, *best)))) {
+      best = &mode;
+    }
+  }
+  if (best) return *best;
+  // Not so tall: its tallest, at the rate where it can.
+  for (const auto &mode : modes) {
+    if (!best || fast(mode) > fast(*best) ||
+        (fast(mode) == fast(*best) &&
+         (pixels(mode) > pixels(*best) || (pixels(mode) == pixels(*best) && raw(mode) && !raw(*best))))) {
+      best = &mode;
+    }
+  }
+  return *best;
+}
 
 }  // namespace
 
@@ -146,9 +230,7 @@ struct backcord_camera *backcord_camera_open(const char *id, int width, int heig
   wanted.width = width;
   wanted.height = height;
   wanted.maxFPS = fps;
-  webrtc::VideoCaptureCapability chosen;
-  // A device that lists no capabilities takes what was asked.
-  if (info->GetBestMatchedCapability(id, wanted, chosen) < 0) chosen = wanted;
+  webrtc::VideoCaptureCapability chosen = choose(*info, id, wanted);
   chosen.maxFPS = std::min(chosen.maxFPS > 0 ? chosen.maxFPS : fps, fps);
 
   auto camera = std::make_unique<backcord_camera>();

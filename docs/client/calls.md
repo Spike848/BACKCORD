@@ -32,8 +32,8 @@ The call's views and what they do are in `call/`.
   opens as a window; brought forward while full screen, it stays so. A
   right click opens the person's voice menu.
 - The controls under the stage, in this order: mute and
-  deafen (each with its device menu), the camera (its menu: the camera,
-  its quality, on or off), Go Live, the soundboard, and leave.
+  deafen (each with its device menu), the camera (its menu, from this button
+  and the one under the call alike: the camera, its quality, on or off), Go Live, the soundboard, and leave.
 - The device menus (`call/popups/`: the device menus, the share menu,
   the soundboard and someone's voice menu each a file): the device to use (one chosen that
   went away shows as not connected), its volume, which plays while it's

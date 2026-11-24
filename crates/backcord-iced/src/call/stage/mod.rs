@@ -875,10 +875,12 @@ fn call_controls(app: &App) -> Element<'_, Message> {
             when(Message::Call(Event::Open(Popup::Soundboard))),
         )));
     }
+    // As in the dock, the camera's button opens its menu: the camera, its
+    // quality, on or off.
     if voice.can_film {
         let on = voice.camera_phase != voice::CameraPhase::Off;
         let starting = voice.camera_phase == voice::CameraPhase::Starting;
-        controls = controls.push(controls::round_button(
+        let camera = controls::round_button(
             face(if on { Icon::Video } else { Icon::VideoOff }),
             if starting {
                 backcord_iced_kit::i18n::tr("Starting camera...")
@@ -893,8 +895,9 @@ fn call_controls(app: &App) -> Element<'_, Message> {
                 theme.raised
             },
             theme,
-            when(Message::Call(Event::Camera)),
-        ));
+            when(Message::Call(Event::Open(Popup::Camera))),
+        );
+        controls = controls.push(app.ctx().spot(camera));
     }
     let sharing = voice.sharing.is_some();
     if can_share(app.ctx()) || sharing {
