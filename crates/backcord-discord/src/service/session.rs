@@ -431,6 +431,7 @@ impl Session<'_> {
                 deaf,
                 video,
             } => {
+                let (mute, deaf) = crate::client::shown_voice(mute, deaf);
                 gateway
                     .update_voice_state(server(&guild), Some(&channel), mute, deaf, video)
                     .await

@@ -257,6 +257,34 @@ pub enum Depth {
 static EMULATED: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 static DEPTH: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 
+/// Fake mute and fake deafen: what this account's voice state says to
+/// others over what it is, the call sending and playing as it does.
+static FAKE_MUTE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static FAKE_DEAF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Has this account's voice state show others it's muted, or deafened,
+/// while the call still sends its microphone, or plays what others say.
+pub fn set_fake_voice(mute: bool, deaf: bool) {
+    FAKE_MUTE.store(mute, Ordering::Relaxed);
+    FAKE_DEAF.store(deaf, Ordering::Relaxed);
+}
+
+/// Fake mute and fake deafen, as [`set_fake_voice`] left them.
+pub fn fake_voice() -> (bool, bool) {
+    (
+        FAKE_MUTE.load(Ordering::Relaxed),
+        FAKE_DEAF.load(Ordering::Relaxed),
+    )
+}
+
+/// The mute and deafen this account's voice state says: its own, or
+/// faked; deafened, it's muted too, as Discord's are.
+pub fn shown_voice(mute: bool, deaf: bool) -> (bool, bool) {
+    let (fake_mute, fake_deaf) = fake_voice();
+    let deaf = deaf || fake_deaf;
+    (mute || fake_mute || deaf, deaf)
+}
+
 /// Emulate Platforms: the platform the next identify says, or none for
 /// BACKCORD's own description, and how much of it.
 pub fn set_emulation(platform: Option<Emulated>, depth: Depth) {
@@ -476,6 +504,18 @@ pub fn super_properties() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn faked_mute_and_deafen_show_over_the_real_ones() {
+        set_fake_voice(false, false);
+        assert_eq!(shown_voice(false, false), (false, false));
+        set_fake_voice(true, false);
+        assert_eq!(shown_voice(false, false), (true, false));
+        set_fake_voice(false, true);
+        assert_eq!(shown_voice(false, false), (true, true));
+        set_fake_voice(false, false);
+        assert_eq!(shown_voice(true, false), (true, false));
+    }
 
     #[test]
     fn emulating_a_platform_says_more_of_it_at_each_depth() {

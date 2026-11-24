@@ -60,6 +60,9 @@ pub struct Call {
     /// The voice channel's call over the whole screen: only its tiles,
     /// with its chat beside them when that's open.
     pub theatre: bool,
+    /// A DM's chat beside its call over the whole screen; a voice
+    /// channel's is the core's `voice_chat`.
+    pub theatre_chat: bool,
     /// How far the stage is scrolled, and the tile the pointer is on, by its
     /// place.
     pub scrolled: f32,
@@ -152,8 +155,14 @@ pub enum Event {
     /// A tile shown large, by its place, or none.
     Focus(Option<usize>),
     Full(bool),
-    /// The voice channel's call over the whole screen, or back.
+    /// The call over the whole screen, or back.
     Theatre(bool),
+    /// Fake mute (the microphone's menu) or fake deafen (the speaker's)
+    /// on or off: others see this account muted or deafened, and it still
+    /// talks or hears.
+    Fake(bool, bool),
+    /// A DM's chat beside its call over the whole screen, or not.
+    TheatreChat(bool),
     Scrolled(f32),
     Point(usize, bool),
     /// A control's popup, opened above it, or the open one closed.
@@ -255,8 +264,24 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             crate::call::stage::place_videos(app);
             return Task::none();
         }
+        Event::Fake(input, on) => {
+            let (mut mute, mut deaf) = backcord_core::discord::fake_voice();
+            if input {
+                mute = on;
+            } else {
+                deaf = on;
+            }
+            backcord_core::discord::set_fake_voice(mute, deaf);
+            Action::Voice(backcord_core::voice::Command::Announce)
+        }
+        Event::TheatreChat(on) => {
+            app.call.theatre_chat = on;
+            crate::call::stage::place_videos(app);
+            return Task::none();
+        }
         Event::Theatre(on) => {
             app.call.theatre = on;
+            app.call.theatre_chat = false;
             app.call.pointed = None;
             crate::call::stage::place_videos(app);
             return Task::none();
@@ -552,6 +577,7 @@ pub fn fit_screen(app: &mut App) -> Task<Message> {
     // Leaving the channel's call for another view leaves its full screen.
     if app.call.theatre && !crate::call::stage::theatre_shown(app) {
         app.call.theatre = false;
+        app.call.theatre_chat = false;
     }
     let wanted = (crate::call::stage::full_shown(app) || crate::call::stage::theatre_shown(app))
         .then_some(window)

@@ -106,7 +106,17 @@ pub(in crate::call) fn open_voice_menu(
     });
     let core = &app.client.app;
     // In the core's order, unlike the person menu's.
-    let choices = core.voice_person_choices(&room, &person);
+    let mut choices = core.voice_person_choices(&room, &person);
+    // Follow, as in their other menus: after Profile, Mention, Message and
+    // Call.
+    if !local && crate::person_menu::offers_follow(app, &person) {
+        let at = choices
+            .iter()
+            .rposition(|choice| crate::person_menu::discord_rank(*choice) <= 4)
+            .map_or(0, |at| at + 1);
+        choices.insert(at, MenuChoice::FollowVoice);
+    }
+    let following = state.following.as_deref() == Some(person.as_str());
     let developer = app.layout.developer_mode;
     let voice = &state.voice;
     let mut group = None;
@@ -125,6 +135,7 @@ pub(in crate::call) fn open_voice_menu(
                 MenuChoice::SelfDeafen => Some(voice.deafened),
                 MenuChoice::ServerMute => Some(server_muted),
                 MenuChoice::ServerDeafen => Some(server_deafened),
+                MenuChoice::FollowVoice => Some(following),
                 _ => None,
             };
             let mut row = MenuRow {
@@ -211,7 +222,7 @@ pub fn choose_voice(
                 user,
                 crate::person_menu::CONTEXT_MENU,
                 choice,
-                None,
+                ticked,
             );
         }
     };

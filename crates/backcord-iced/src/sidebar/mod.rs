@@ -429,23 +429,20 @@ impl<'a> View<'a> {
             .height(Length::Fill)
             .style(scrollbar(theme));
         // What's dragged follows the pointer, faint, over the list;
-        // someone dragged from a voice channel, below it.
-        let list: Element<'a, Message> = match self.moving_view() {
-            Some((ghost, y)) => stack![list, controls::placed(ghost, 40.0, y)].into(),
-            None => list.into(),
-        };
-        let list: Element<'a, Message> = match self.arranged_view() {
-            Some((ghost, y)) => stack![
-                list,
-                controls::placed(
-                    container(ghost).padding([0.0, INSET]),
-                    0.0,
-                    y.clamp(0.0, (viewport.height - ROW).max(0.0))
-                )
-            ]
-            .into(),
-            None => list,
-        };
+        // someone dragged from a voice channel, below it. Always a stack,
+        // the list its first layer, so the list keeps where it's scrolled
+        // as a drag starts and ends.
+        let mut list = stack![list];
+        if let Some((ghost, y)) = self.moving_view() {
+            list = list.push(controls::placed(ghost, 40.0, y));
+        }
+        if let Some((ghost, y)) = self.arranged_view() {
+            list = list.push(controls::placed(
+                container(ghost).padding([0.0, INSET]),
+                0.0,
+                y.clamp(0.0, (viewport.height - ROW).max(0.0)),
+            ));
+        }
         let ground = theme.sidebar;
         let mut top = column![self.side_header_view()];
         if let Some(events) = self

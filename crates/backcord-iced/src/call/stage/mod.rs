@@ -82,10 +82,27 @@ pub fn stage_shown(app: &App) -> bool {
             || full_shown(app))
 }
 
-/// The voice channel's call is over the whole screen, its tiles alone
-/// with its chat beside them when that's open; see [`theatre_view`].
+/// The call this account is in shows here, in its voice channel or its
+/// DM: it may go over the whole screen.
+pub fn theatre_room(app: &App) -> bool {
+    voice_here(app) && (voice_panel(app) || crate::call::dm::dm_call(app).is_some())
+}
+
+/// The call is over the whole screen, its tiles alone with its chat
+/// beside them when that's open; see [`theatre_view`].
 pub fn theatre_shown(app: &App) -> bool {
-    app.call.theatre && app.shell.window.is_some() && voice_here(app) && voice_panel(app)
+    app.call.theatre && app.shell.window.is_some() && theatre_room(app)
+}
+
+/// The chat is beside the call over the whole screen: a voice channel's
+/// as beside its call, a DM's as its button opened it.
+pub fn theatre_chat(app: &App) -> bool {
+    theatre_shown(app)
+        && if voice_panel(app) {
+            voice_chat_shown(app)
+        } else {
+            app.call.theatre_chat
+        }
 }
 
 /// The large tile is over the whole window.
@@ -100,7 +117,7 @@ pub fn stage_size(app: &App) -> Size {
         return app.window;
     }
     if theatre_shown(app) {
-        let chat = if voice_chat_shown(app) {
+        let chat = if theatre_chat(app) {
             voice_chat_width(app)
         } else {
             0.0
@@ -368,15 +385,20 @@ pub fn theatre_view(app: &App) -> Option<Element<'_, Message>> {
         .client
         .state()
         .selected_room()
-        .is_some_and(|room| !room.direct && room.voice_chat());
-    if has_chat && !voice_chat_shown(app) {
+        .is_some_and(|room| room.direct || room.voice_chat());
+    if has_chat && !theatre_chat(app) {
+        let open = if voice_panel(app) {
+            Message::Side(crate::sidebar::Event::VoiceChat(true))
+        } else {
+            Message::Call(Event::TheatreChat(true))
+        };
         let chat = controls::round_button(
             app.look()
                 .glyph(Icon::MessageCircle, ROUND_GLYPH, theme.text),
             backcord_iced_kit::i18n::tr("Show chat"),
             theme.raised,
             theme,
-            Some(Message::Side(crate::sidebar::Event::VoiceChat(true))),
+            Some(open),
         );
         stage = stage.push(
             container(chat)
@@ -388,7 +410,7 @@ pub fn theatre_view(app: &App) -> Option<Element<'_, Message>> {
     let ground = theme.stage;
     let mut screen =
         row![container(stage.width(size.width).height(size.height)).style(move |_| fill(ground))];
-    if voice_chat_shown(app) {
+    if theatre_chat(app) {
         screen = screen.push(voice_chat_view(app));
     }
     Some(iced::widget::opaque(
@@ -444,7 +466,11 @@ fn voice_chat_view(app: &App) -> Element<'_, Message> {
             .icon_button(
                 Icon::X,
                 backcord_iced_kit::i18n::tr("Close chat"),
-                Message::Side(crate::sidebar::Event::VoiceChat(false))
+                if voice_panel(app) {
+                    Message::Side(crate::sidebar::Event::VoiceChat(false))
+                } else {
+                    Message::Call(Event::TheatreChat(false))
+                }
             )
             .below(),
     ];
@@ -1083,7 +1109,7 @@ fn call_controls(app: &App) -> Element<'_, Message> {
         .height(CONTROLS_HEIGHT);
     // A voice channel's call goes over the whole screen from its bottom
     // right.
-    if !voice_panel(app) {
+    if !theatre_room(app) {
         return bar.into();
     }
     stack![

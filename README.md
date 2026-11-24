@@ -34,21 +34,18 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.8
+## Novità della 1.3.9
 
-- **Emula piattaforme** (Funzioni aggiuntive, accesa di default): accanto ai
-  nomi, nella lista membri, nei messaggi e nei profili, le icone delle
-  piattaforme da cui una persona è online (desktop, telefono, web, console,
-  VR), nel colore del suo stato. Dall'ingranaggio scegli la piattaforma su
-  cui Discord ti vede e il livello di emulazione (basso, medio, alto); vale
-  dal prossimo avvio.
-- **Anti-disconnessione** (spenta di default): se ti disconnettono da un
-  canale vocale, rientri subito, se esiste ancora e puoi entrarci.
-- **Segui**: tasto destro su una persona → Segui, ed entri nei canali vocali
-  in cui va, nei server in comune, finché non lo togli.
-- **Chiamata a schermo intero**: un pulsante in basso a destra nei canali
-  vocali mostra solo chi è in chiamata; in alto a destra si apre la chat,
-  e lo stesso pulsante (o Esc) torna alla vista normale.
+- **Finto muto e finte cuffie mute**: dalla freccetta vicino al microfono
+  o alle cuffie. Gli altri ti vedono mutato (o con le cuffie mutate), ma
+  continui a parlare (o a sentire). Restano attive fino alla chiusura.
+- **Chiamate private a schermo intero**: lo stesso pulsante in basso a
+  destra dei canali vocali, con la chat della conversazione in alto a destra.
+- **Segui** ora è anche nel menu delle persone in vocale e compare più in
+  alto nei menu.
+- Trascinando persone tra i canali vocali la lista non torna più in cima;
+  trascinando una persona selezionata (Ctrl+clic) si spostano tutte le
+  selezionate.
 
 ## Cosa fa
 
@@ -73,6 +70,7 @@ e le opzioni avanzate dall'ingranaggio:
 | Emula piattaforme | Mostra accanto ai nomi da quali piattaforme le persone sono online (desktop, telefono, web, console, VR), nel colore del loro stato; sceglie la piattaforma su cui Discord ti vede, a tre livelli di emulazione |
 | Anti-disconnessione | Rientra subito nel canale vocale da cui ti hanno disconnesso, se esiste ancora e puoi entrarci (spento di default) |
 | Segui | Tasto destro su una persona → Segui: entri nei canali vocali in cui va, nei server in comune, finché non lo togli |
+| Finto muto / finte cuffie mute | Dalla freccetta del microfono o delle cuffie: gli altri ti vedono mutato, ma parli e senti lo stesso |
 
 ## Avvertenze
 

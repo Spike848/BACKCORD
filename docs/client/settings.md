@@ -137,8 +137,10 @@ Local Blur and Auto Stream Proof on:
   [people](../discord/people.md#where-someone-is-online) has what each says.
 - Anti-Disconnect (`anti_disconnect`, off by default) and Follow
   (`follow_voice`): see [voice](../discord/voice.md#anti-disconnect-and-follow).
-  Follow adds Follow, ticked while following them, to the menu of another
-  Discord user; turned off, it stops following.
+  Follow adds Follow, ticked while following them, to the menus of another
+  Discord user, after Call: theirs in the member list, by a message, as a
+  friend, and their voice menu in a channel's list or on a call's tile;
+  turned off, it stops following.
 
 - Clickable Roles (`clickable_roles`): a role's chip on a profile opens the
   card of who holds it (`info_cards.rs`), as a role mention does.

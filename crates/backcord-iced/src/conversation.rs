@@ -21,6 +21,13 @@ pub fn navigation(layout: &crate::layout::Layout) -> f32 {
 /// The conversation column: the header, the timeline and the composer,
 /// with a server's member list beside them; or a voice channel's call.
 pub fn conversation(app: &App) -> Element<'_, Message> {
+    // Over the whole screen, the call and its chat are a layer of their own.
+    if crate::call::stage::theatre_shown(app) {
+        return iced::widget::Space::new()
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into();
+    }
     if crate::call::stage::voice_panel(app) {
         return crate::call::stage::call_view(app);
     }
@@ -86,7 +93,7 @@ pub fn conversation(app: &App) -> Element<'_, Message> {
 /// The conversation column's left edge: the navigation's right.
 pub fn chat_left(app: &App) -> f32 {
     // A voice channel's chat is beside its call, at the window's right.
-    if crate::call::stage::voice_chat_shown(app) {
+    if crate::call::stage::voice_chat_shown(app) || crate::call::stage::theatre_chat(app) {
         return app.window.width - crate::call::stage::voice_chat_width(app);
     }
     navigation(&app.layout)
@@ -95,7 +102,7 @@ pub fn chat_left(app: &App) -> f32 {
 /// The conversation column's right edge: the member list's left.
 pub fn chat_right(app: &App) -> f32 {
     app.window.width
-        - if crate::call::stage::voice_panel(app) {
+        - if crate::call::stage::voice_panel(app) || crate::call::stage::theatre_shown(app) {
             0.0
         } else if crate::search::search_shown(app) {
             crate::search::WIDTH

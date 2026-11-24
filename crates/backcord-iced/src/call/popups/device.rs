@@ -229,6 +229,34 @@ pub(super) fn device_menu<'a>(ctx: crate::ctx::Ctx<'a>, input: bool) -> Element<
     menu = menu
         .push(separator(theme))
         .push(container(slider.view(theme)).padding([4, 8]));
+    // Discord's voice state says muted or deafened, the call still sending
+    // and playing.
+    if ctx.state.discord_user.is_some() {
+        let (mute, deaf) = backcord_core::discord::fake_voice();
+        let (label, note, on) = if input {
+            (
+                backcord_iced_kit::i18n::tr("Fake Mute"),
+                backcord_iced_kit::i18n::tr("Others see you muted; you can still talk."),
+                mute,
+            )
+        } else {
+            (
+                backcord_iced_kit::i18n::tr("Fake Deafen"),
+                backcord_iced_kit::i18n::tr("Others see you deafened; you can still hear."),
+                deaf,
+            )
+        };
+        menu = menu
+            .push(separator(theme))
+            .push(crate::call::popups::popup_row(
+                ctx,
+                label,
+                Some(note.into()),
+                None,
+                Check::Box(on),
+                Some(Message::Call(Event::Fake(input, !on))),
+            ));
+    }
     if input {
         menu = menu.push(separator(theme)).push(input_level(ctx));
         if ctx.state.discord_user.is_some() {

@@ -119,8 +119,11 @@ it offers stay bright and the rest of the list dims, the one under the
 pointer is outlined in the same green, they follow the pointer just below
 it, and the list scrolls near its ends; let go anywhere else, beside the
 list included, or Escape, and nothing moves. The drag stops once no
-channel listed takes them, as when another list shows. The servers on the
-rail don't drag.
+channel listed takes them, as when another list shows. One of several
+picked with Ctrl and a click takes them all along, as their menu's Move to.
+The list stays where it's scrolled as any drag starts and ends: what's
+dragged is a layer over it, in a stack that's always there. The servers on
+the rail don't drag.
 
 A server's top: with a banner, the picture with a
 shade over its top and the name and chevron in white on it, the banner

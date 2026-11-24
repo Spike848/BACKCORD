@@ -61,6 +61,17 @@ pub struct Dialog {
     pub filled: bool,
 }
 
+/// Whether someone's menus offer Follow: for another Discord user, while
+/// it's on in Extra Features.
+pub(crate) fn offers_follow(app: &App, user: &str) -> bool {
+    let state = &app.client.app.state;
+    app.layout.prefs.follow_voice.unwrap_or(true)
+        && state.discord_user.is_some()
+        && !user.is_empty()
+        && !user.starts_with('@')
+        && state.relation(user) != backcord_core::application::Relation::Me
+}
+
 /// Opens `user`'s menu at `at`, said to come from `location`.
 pub fn open_person_menu(
     app: &mut App,
@@ -78,12 +89,7 @@ pub fn open_person_menu(
     {
         choices.push(MenuChoice::ViewAvatar);
     }
-    // Follow, for another Discord user.
-    if app.layout.prefs.follow_voice.unwrap_or(true)
-        && state.discord_user.is_some()
-        && !user.starts_with('@')
-        && state.relation(user) != backcord_core::application::Relation::Me
-    {
+    if offers_follow(app, user) {
         choices.push(MenuChoice::FollowVoice);
     }
     choices.sort_by_key(|choice| discord_rank(*choice));
@@ -844,7 +850,7 @@ pub(crate) fn discord_rank(choice: MenuChoice) -> u8 {
         MenuChoice::Profile => 1,
         MenuChoice::Mention => 2,
         MenuChoice::Message => 3,
-        MenuChoice::Call => 4,
+        MenuChoice::Call | MenuChoice::FollowVoice => 4,
         MenuChoice::AddNote => 5,
         MenuChoice::AddNickname | MenuChoice::EditNickname => 6,
         MenuChoice::EditServerProfile => 7,

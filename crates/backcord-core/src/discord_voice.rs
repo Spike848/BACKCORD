@@ -803,7 +803,7 @@ pub(crate) async fn call(
                             }
                             continue;
                         }
-                        Some(Command::LeaveStale) => {}
+                        Some(Command::LeaveStale | Command::Announce) => {}
                     }
                     discord.set_self(guild, &channel, state.muted, state.deafened, state.camera_phase == CameraPhase::On);
                     snapshots.send_replace(state.clone());

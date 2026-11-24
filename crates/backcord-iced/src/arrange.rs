@@ -14,7 +14,9 @@
 //! (`Application::move_to`): the channels Move to offers stay bright and
 //! the rest dim, the one under the pointer is outlined, they follow the
 //! pointer just below it, and let go anywhere else, or Escape, nothing
-//! moves.
+//! moves. One of several picked (`picks.rs`) takes them all along. The
+//! list stays where it's scrolled while a drag starts and ends: what's
+//! dragged is a layer over it, in a stack that's always there.
 
 use std::{collections::HashSet, time::Duration};
 
@@ -358,11 +360,17 @@ fn finish_moving(app: &mut App) -> Task<Message> {
     let left = crate::rail::WIDTH;
     let within = (left..left + sidebar::width(&app.layout)).contains(&moving.at.x)
         && (top..bottom).contains(&moving.at.y);
-    let action = moving
+    let Some(room) = moving
         .hovered
         .filter(|room| within && moving.targets.contains(room))
-        .and_then(|room| app.client.app.move_to(&moving.place, &moving.user, &room));
-    match action {
+    else {
+        return Task::none();
+    };
+    // One of several picked takes them all along, as their menu's Move to.
+    if crate::picks::picked(app.client.state(), &moving.user) {
+        return crate::picks::move_picked(app, &room);
+    }
+    match app.client.app.move_to(&moving.place, &moving.user, &room) {
         Some(action) => {
             app.client.dispatch(action);
             app.sync()

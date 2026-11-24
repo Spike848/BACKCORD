@@ -474,6 +474,9 @@ pub enum Command {
     /// Remove memberships this device left in voice channels, for example
     /// after BACKCORD was killed. Ignored during a call.
     LeaveStale,
+    /// Tell the network again whether this account is muted and deafened,
+    /// as fake mute or fake deafen changed; ignored outside a Discord call.
+    Announce,
 }
 
 /// The networks whose voice channels can be joined, one call at a time.

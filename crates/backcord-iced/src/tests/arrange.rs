@@ -270,3 +270,24 @@ fn someone_dragged_onto_another_voice_channel_moves_as_move_to_does() {
     take(&mut app, "4");
     assert!(app.sidebar.moving_person.is_none());
 }
+
+/// Several picked, one of them dragged onto another voice channel moves
+/// them all, and the picking ends.
+#[test]
+fn one_of_several_picked_dragged_takes_them_all() {
+    let (mut app, _folder) = voice_server(&["30"]);
+    for user in ["4", "1"] {
+        app.client.dispatch(Action::Pick {
+            place: LOUNGE.into(),
+            user: user.into(),
+        });
+    }
+    let _ = app.sync();
+    assert_eq!(app.client.state().picked.len(), 2);
+    let moves = app.client.app.move_picked(DEN);
+    assert_eq!(moves.len(), 2, "both may go to Den");
+    let _ = app.update(Message::Arrange(Event::Take(LOUNGE.into(), "4".into())));
+    drop_on(&mut app, DEN);
+    assert!(app.sidebar.moving_person.is_none());
+    assert!(app.client.state().picked.is_empty(), "the picking ends");
+}

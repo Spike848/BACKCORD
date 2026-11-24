@@ -670,7 +670,12 @@ fn someones_voice_menu_keeps_the_cores_order_with_an_icon_on_each_row() {
         Event::Person(lounge.into(), "4".into(), Point::new(400.0, 300.0)),
     );
     let menu = app.win.menu.as_ref().expect("Dave's voice menu");
-    let shown: Vec<_> = menu.rows.iter().map(|row| row.label.as_ref()).collect();
+    let shown: Vec<_> = menu
+        .rows
+        .iter()
+        .map(|row| row.label.as_ref())
+        .filter(|label| *label != "Follow")
+        .collect();
     let listed: Vec<_> = choices
         .iter()
         .map(|&choice| crate::place_menus::label(choice))
@@ -734,4 +739,102 @@ fn a_voice_channels_call_goes_full_screen_with_its_chat_beside_it() {
     let _ = app.update(Message::Nothing);
     assert!(!app.call.theatre, "left with the call's view");
     assert_eq!(app.call.screen, None);
+}
+
+/// Follow is in someone's voice menu too, ticked while following them.
+#[test]
+fn someones_voice_menu_offers_follow() {
+    use crate::app::Message;
+    use backcord_core::application::member_server;
+    let (mut app, _folder) = preview();
+    app.client.app = member_server(&["30"]);
+    app.client.app.state.discord_user = Some("30".into());
+    let _ = app.sync();
+    let lounge = "discord:10:12";
+    let open = |app: &mut App| {
+        let _ = crate::call::update(
+            app,
+            Event::Person(lounge.into(), "4".into(), Point::new(400.0, 300.0)),
+        );
+        let menu = app.win.menu.as_ref().expect("Dave's voice menu");
+        menu.rows
+            .iter()
+            .position(|row| row.label == "Follow")
+            .map(|at| (at, menu.rows[at].check))
+    };
+    let (at, check) = open(&mut app).expect("Follow offered");
+    assert_eq!(check, crate::controls::Check::Box(false));
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(app.client.state().following.as_deref(), Some("4"));
+    let (at, check) = open(&mut app).expect("Follow offered");
+    assert_eq!(check, crate::controls::Check::Box(true));
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(app.client.state().following, None);
+}
+
+/// A DM's call goes over the whole screen too, its chat beside it from
+/// the top right.
+#[test]
+fn a_dms_call_goes_full_screen_with_its_chat_beside_it() {
+    use crate::app::Message;
+    use crate::call::stage::{stage_size, theatre_chat, theatre_shown, voice_chat_width};
+    let (mut app, _folder) = preview();
+    super::change(&mut app, |state| {
+        let riley = state
+            .rooms
+            .iter_mut()
+            .find(|room| room.id == "riley")
+            .expect("Riley's DM");
+        std::sync::Arc::make_mut(riley).capabilities.dm_calls = true;
+    });
+    app.client
+        .dispatch(backcord_core::application::Action::Open("riley".into()));
+    let _ = app.sync();
+    // In Riley's call.
+    super::change(&mut app, |state| {
+        state.voice.room = Some("riley".into());
+        state.voice.phase = backcord_core::voice::Phase::Connected;
+    });
+    assert!(crate::call::stage::voice_here(&app), "in Riley's call");
+    assert!(
+        crate::call::stage::theatre_room(&app),
+        "the DM's call is here"
+    );
+    let id = app.shell.window.expect("a window");
+    let _ = app.update(Message::Call(Event::Theatre(true)));
+    assert!(theatre_shown(&app));
+    assert_eq!(app.call.screen, Some((id, false)));
+    assert_eq!(stage_size(&app), app.window);
+    let _ = app.view();
+    let _ = app.update(Message::Call(Event::TheatreChat(true)));
+    assert!(theatre_chat(&app));
+    assert_eq!(
+        stage_size(&app).width,
+        app.window.width - voice_chat_width(&app)
+    );
+    let _ = app.view();
+    let _ = app.update(Message::Call(Event::Theatre(false)));
+    assert!(!theatre_shown(&app) && !app.call.theatre_chat);
+    assert_eq!(app.call.screen, None);
+}
+
+/// The microphone's menu has Fake Mute and the speaker's Fake Deafen, for
+/// a Discord account: each ticked while on, and the call says it again.
+#[test]
+fn the_device_menus_fake_mute_and_deafen() {
+    let (mut app, _folder) = preview();
+    app.client.app.state.discord_user = Some("30".into());
+    let _ = app.sync();
+    let _ = crate::call::update(&mut app, Event::Open(Popup::Input));
+    assert!(shows(&app, "Fake Mute"));
+    assert!(!shows(&app, "Fake Deafen"));
+    let _ = crate::call::update(&mut app, Event::Fake(true, true));
+    assert_eq!(backcord_core::discord::fake_voice(), (true, false));
+    let _ = crate::call::update(&mut app, Event::Open(Popup::Output));
+    assert!(shows(&app, "Fake Deafen"));
+    let _ = crate::call::update(&mut app, Event::Fake(false, true));
+    assert_eq!(backcord_core::discord::fake_voice(), (true, true));
+    let _ = crate::call::update(&mut app, Event::Fake(true, false));
+    let _ = crate::call::update(&mut app, Event::Fake(false, false));
+    assert_eq!(backcord_core::discord::fake_voice(), (false, false));
 }

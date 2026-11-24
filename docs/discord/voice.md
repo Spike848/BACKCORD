@@ -777,3 +777,15 @@ buffer dropped as too old (more than 250 ms waiting); `late_p99_us` and
 most datagrams a tick read before playing and the longest that took;
 `speakers`, and the frames they `skipped` (to cut delay) and `concealed`;
 and `dave_dropped`, audio packets DAVE dropped.
+
+## Fake Mute and Fake Deafen
+
+The device menus' Fake Mute and Fake Deafen change only what this
+account's voice state says to others: `client::set_fake_voice` holds them,
+and every `VOICE_STATE_UPDATE` the session sends for a call
+(`Request::SelfState`) says `self_mute` while either is on and
+`self_deaf` while Fake Deafen is (`client::shown_voice`), as Discord says
+a deafened account muted too. The call goes on sending the microphone and
+playing what others say as the user's own mute and deafen have it. Turning
+either on or off sends the state again at once (`Command::Announce`).
+They last until BACKCORD closes.
