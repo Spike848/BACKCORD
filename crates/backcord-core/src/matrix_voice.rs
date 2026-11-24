@@ -141,6 +141,7 @@ async fn joining(
                     Some(Command::Microphone(id)) => state.microphone = Some(id),
                     Some(Command::Speaker(id)) => state.speaker = Some(id),
                     Some(Command::Camera(id)) => state.camera = Some(id),
+                    Some(Command::CameraQuality(quality)) => state.camera_quality = quality,
                     Some(Command::Devices) => { let _ = devices(state); }
                     _ => {}
                 }
@@ -478,10 +479,18 @@ async fn connected(
                     }
                     Some(Command::Camera(id)) => {
                         if state.camera_phase != CameraPhase::Off && let Some(filming) = &mut filming {
-                            opening = Some(Box::pin(filming.open(Some(&id))));
+                            opening = Some(Box::pin(filming.open(Some(&id), state.camera_quality)));
                         }
                         state.camera = Some(id);
                         Chosen::write(remembered, state);
+                    }
+                    // Filming, the camera opens again at the new size.
+                    Some(Command::CameraQuality(quality)) => {
+                        state.camera_quality = quality;
+                        Chosen::write(remembered, state);
+                        if state.camera_phase != CameraPhase::Off && let Some(filming) = &mut filming {
+                            opening = Some(Box::pin(filming.open(state.camera.as_deref(), quality)));
+                        }
                     }
                     Some(Command::Video(true)) => if state.camera_phase == CameraPhase::Off {
                         let made = match &mut filming {
@@ -490,7 +499,7 @@ async fn connected(
                         };
                         match made {
                             Ok(filming) => {
-                                opening = Some(Box::pin(filming.open(state.camera.as_deref())));
+                                opening = Some(Box::pin(filming.open(state.camera.as_deref(), state.camera_quality)));
                                 state.camera_phase = CameraPhase::Starting;
                                 state.error = None;
                             }
@@ -506,7 +515,7 @@ async fn connected(
                         state.camera_phase = CameraPhase::Off;
                     }
                     Some(Command::GoLive(_)) => state.error = Some("Screen sharing works in Discord calls for now.".into()),
-                    Some(Command::StopLive | Command::SwitchLive | Command::Watch(_) | Command::StopWatching(_) | Command::Soundboard(_) | Command::PreviewSound(_) | Command::FavoriteSound(..) | Command::LeaveStale) => {}
+                    Some(Command::StopLive | Command::StreamQuality(_) | Command::SwitchLive | Command::Watch(_) | Command::StopWatching(_) | Command::Soundboard(_) | Command::PreviewSound(_) | Command::FavoriteSound(..) | Command::LeaveStale) => {}
                 },
                 result = camera::opened(&mut opening) => {
                     opening = None;
@@ -1425,13 +1434,13 @@ mod tests {
                                         if index >= count && camera.filming() {
                                             camera.pause();
                                         } else if index < count && !camera.filming() {
-                                            let opened = camera.open(Some("test-pattern")).await.unwrap();
+                                            let opened = camera.open(Some("test-pattern"), crate::voice::CameraQuality::default()).await.unwrap();
                                             camera.opened(&calls[index], opened).await.unwrap();
                                         }
                                     }
                                     while cameras.len() < count.min(calls.len()) {
                                         let mut camera = crate::matrix_video::Filming::new().unwrap();
-                                        let opened = camera.open(Some("test-pattern")).await.unwrap();
+                                        let opened = camera.open(Some("test-pattern"), crate::voice::CameraQuality::default()).await.unwrap();
                                         camera.opened(&calls[cameras.len()], opened).await.unwrap();
                                         cameras.push(camera);
                                     }

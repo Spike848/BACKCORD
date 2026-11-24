@@ -1304,6 +1304,9 @@ Screenshare	Condivisione schermo
 Custom	Personalizzata
 Custom length	Durata personalizzata
 {} people picked	{} utenti selezionati
+Resolution	Risoluzione
+Frame rate	Frequenza
+CAMERA	FOTOCAMERA
 e.g. 60s, 90m, 2h 30m, 3d (up to 28 days)	es. 60s, 90m, 2h 30m, 3g (fino a 28 giorni)
 Write how long, such as 60s, 90m, 2h 30m or 3d, up to 28 days.	Scrivi quanto dura, per esempio 60s, 90m, 2h 30m o 3g, fino a 28 giorni.
 Smoother video (1080p, 60fps)	Video più fluido (1080p, 60fps)

@@ -114,6 +114,8 @@ pub enum Popup {
     /// What the share button opens while live: another window, the
     /// stream's quality, stopping.
     Live,
+    /// What the camera button opens: the camera, its quality, on or off.
+    Camera,
     Soundboard,
     /// The connection's details, from the signal.
     Link,
@@ -155,6 +157,10 @@ pub enum Event {
     Share(popups::ShareEvent),
     /// The live stream's quality changed in its menu.
     LiveQuality(backcord_core::voice::StreamQuality),
+    /// The camera's resolution and frame rate, from its menu.
+    CameraQuality(backcord_core::voice::CameraQuality),
+    /// The camera to film with, by id, from its menu.
+    ChooseCamera(String),
     /// The device list in a device menu, opened or closed; a device chosen,
     /// the microphone's or the speakers', by its row.
     List,
@@ -212,10 +218,15 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Leave => Action::Voice(Command::Leave),
         Event::Mute => Action::Voice(Command::Mute(!voice.muted)),
         Event::Deafen => Action::Voice(Command::Deafen(!voice.deafened)),
-        // A click while the camera starts cancels it.
-        Event::Camera => Action::Voice(Command::Video(
-            voice.camera_phase == voice::CameraPhase::Off,
-        )),
+        // A click while the camera starts cancels it. From its menu, the
+        // menu closes.
+        Event::Camera => {
+            let on = voice.camera_phase == voice::CameraPhase::Off;
+            if app.call.popup == Some(Popup::Camera) {
+                crate::call::popups::close_popup(app);
+            }
+            Action::Voice(Command::Video(on))
+        }
         Event::Noise => {
             toggle_noise(app);
             return Task::none();
@@ -225,6 +236,8 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             Action::Voice(Command::StopLive)
         }
         Event::LiveQuality(quality) => Action::Voice(Command::StreamQuality(quality)),
+        Event::CameraQuality(quality) => Action::Voice(Command::CameraQuality(quality)),
+        Event::ChooseCamera(id) => Action::Voice(Command::Camera(id)),
         Event::Watch(user) => Action::Voice(Command::Watch(user)),
         Event::StopWatching(user) => Action::Voice(Command::StopWatching(user)),
         Event::Focus(place) => {

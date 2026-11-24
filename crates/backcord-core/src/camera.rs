@@ -221,11 +221,16 @@ impl Camera {
         Self::native(&device.id, size, sink)
     }
 
-    /// Opens the camera `id`, or the first, as [`Self::open`] does, but on a
+    /// Opens the camera `id`, or the first, as [`Self::open_at`] does, but on a
     /// blocking thread, once `replaced` has closed there. Resolves when the
     /// first picture has gone to `sink`, which can be a while after the
     /// camera opens. Dropped before that, it closes the camera.
-    pub async fn start(replaced: Option<Self>, id: Option<String>, mut sink: Sink) -> Result<Self> {
+    pub async fn start(
+        replaced: Option<Self>,
+        id: Option<String>,
+        size: Size,
+        mut sink: Sink,
+    ) -> Result<Self> {
         let (first, came) = tokio::sync::oneshot::channel();
         let mut first = Some(first);
         let sink: Sink = Box::new(move |picture| {
@@ -236,7 +241,7 @@ impl Camera {
         });
         let camera = tokio::task::spawn_blocking(move || {
             drop(replaced);
-            Self::open(id.as_deref(), sink)
+            Self::open_at(id.as_deref(), size, sink)
         })
         .await??;
         // The sink lasts as long as the camera, so this ends with a picture.
@@ -389,7 +394,7 @@ mod tests {
         let sink: Sink = Box::new(move |_| {
             counted.fetch_add(1, Ordering::Relaxed);
         });
-        let camera = Camera::start(None, Some(TEST_PATTERN.into()), sink)
+        let camera = Camera::start(None, Some(TEST_PATTERN.into()), (WIDTH, HEIGHT, FPS), sink)
             .await
             .unwrap();
         assert!(pictures.load(Ordering::Relaxed) >= 1);
@@ -398,9 +403,14 @@ mod tests {
         let sink: Sink = Box::new(move |picture| {
             let _ = frames.send(picture.width);
         });
-        let _camera = Camera::start(Some(camera), Some(TEST_PATTERN.into()), sink)
-            .await
-            .unwrap();
+        let _camera = Camera::start(
+            Some(camera),
+            Some(TEST_PATTERN.into()),
+            (WIDTH, HEIGHT, FPS),
+            sink,
+        )
+        .await
+        .unwrap();
         let before = pictures.load(Ordering::Relaxed);
         std::thread::sleep(Duration::from_millis(100));
         assert_eq!(pictures.load(Ordering::Relaxed), before, "the first closed");

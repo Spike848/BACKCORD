@@ -26,11 +26,9 @@ use crate::{
     decode::Decoder,
     encode::{CLOCK, Effort, Encoder},
     picture::{Feed, I420, Turn},
+    voice::CameraQuality,
 };
 
-/// The camera's bitrate, in kbit/s: about what Discord's clients send 720p
-/// at.
-const BITRATE: u32 = 1500;
 /// How often the decoding thread lets go of decoders for tiles gone from
 /// sight.
 const PRUNE: Duration = Duration::from_secs(1);
@@ -58,19 +56,38 @@ pub(crate) struct Filming {
     pub feed: Feed,
     camera: Option<Camera>,
     sender: Arc<CameraSender>,
+    /// How it films: its size and frame rate, and the bitrate they take.
+    quality: CameraQuality,
     /// The capture clock's start, the same across cameras.
     started: Instant,
 }
 
 impl Filming {
     /// Sends a camera to the call, once [`Self::open`] has opened one.
-    pub fn start(call: &mut Call) -> Self {
+    pub fn start(call: &mut Call, quality: CameraQuality) -> Self {
+        let (width, height, fps) = quality.size();
         Self {
             feed: Feed::new(),
             camera: None,
-            sender: Arc::new(call.film(camera::WIDTH, camera::HEIGHT, camera::FPS)),
+            sender: Arc::new(call.film(width, height, fps)),
+            quality,
             started: Instant::now(),
         }
+    }
+
+    /// Films at `quality` from now on: the call told the new size, and the
+    /// camera `id` opened again at it, as [`Self::open`] does. The self-view
+    /// stays.
+    pub fn requality(
+        &mut self,
+        call: &mut Call,
+        quality: CameraQuality,
+        id: Option<&str>,
+    ) -> impl Future<Output = Result<Camera>> + use<> {
+        let (width, height, fps) = quality.size();
+        self.quality = quality;
+        self.sender = Arc::new(call.film(width, height, fps));
+        self.open(id)
     }
 
     /// Opens the camera `id`, or the first, off the call's loop, once the
@@ -78,7 +95,12 @@ impl Filming {
     /// as soon as it opens, and resolves with its first picture, for
     /// [`Self::opened`].
     pub fn open(&mut self, id: Option<&str>) -> impl Future<Output = Result<Camera>> + use<> {
-        Camera::start(self.camera.take(), id.map(str::to_owned), self.sink())
+        Camera::start(
+            self.camera.take(),
+            id.map(str::to_owned),
+            self.quality.size(),
+            self.sink(),
+        )
     }
 
     /// Keeps the camera [`Self::open`] opened.
@@ -97,7 +119,7 @@ impl Filming {
     /// into the call.
     fn sink(&self) -> camera::Sink {
         let mut view = self.feed.mirrored_sink();
-        let (sender, started) = (self.sender.clone(), self.started);
+        let (sender, started, quality) = (self.sender.clone(), self.started, self.quality);
         let mut encoder: Option<Encoder> = None;
         Box::new(move |picture: &I420<'_>| {
             view(picture);
@@ -111,8 +133,8 @@ impl Filming {
                     SEND_CODEC,
                     size.0,
                     size.1,
-                    camera::FPS,
-                    BITRATE,
+                    quality.size().2,
+                    CameraQuality::bitrate(size.0, size.1, quality.size().2),
                     Effort::Light,
                     false,
                 )

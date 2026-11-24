@@ -1133,9 +1133,8 @@ fn test_pattern(
 /// out at 1920 by 540; a taller one fits the lines.
 fn bounds(resolution: Resolution) -> (u32, u32) {
     let lines = match resolution {
-        Resolution::P720 => 720,
         Resolution::P1080 => SHARE_HEIGHT,
-        Resolution::Source => 2160,
+        other => other.lines(),
     };
     (lines * 32 / 9, lines)
 }

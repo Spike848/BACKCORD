@@ -77,9 +77,15 @@ Linux and DirectShow on Windows. The module reads the device on a thread of its
 own. BACKCORD registers for the device's raw frames, so the module hands over
 the driver's buffer without converting it, and libyuv converts each one (YUY2,
 MJPEG, NV12, RGB and the rest) into the same I420 buffer, frame after frame. It
-asks for 1280×720 at 30 frames a second, as Discord's client films without
-Nitro and as LiveKit's default camera does, and scales down a camera that can't
-film that small.
+asks for the camera quality chosen (`voice::CameraQuality`, kept in
+`devices.json`): 1280×720 at 30 frames a second unless chosen, as Discord's
+client films without Nitro and as LiveKit's default camera does, and scales
+down a camera that can't film that small. The resolutions are those of a
+stream, 144p to 1080p and the source (up to 4K, the camera's own largest),
+at 15, 30 or 60 frames a second. A Discord call is told the size, and the
+picture goes at a bitrate that follows it (`CameraQuality::bitrate`):
+1.5 Mbit/s at 720p and 30 a second, growing with the pixels and, less, the
+frames.
 
 A picture on screen, such as the preview, is a `picture::Feed`: whoever makes
 the frames converts each straight to RGBA at the size it shows, in one of at
@@ -87,8 +93,12 @@ most four buffers the feed reuses, which the window makes
 (`picture::set_frame_buffers`) and draws straight from. Off screen, a feed
 converts nothing and lets go of its buffers.
 
-In a call that carries video, the camera button in the call's controls turns
-the camera on and off. Each participant whose camera is on has a feed of
+In a call that carries video, the camera button in the call's controls opens
+the camera's menu, as Go Live's does a stream's: the camera, when there's
+more than one, the compact quality picker (resolutions in two rows of small
+buttons, then the frame rates) and Turn on or Turn off camera, which closes
+it. A quality chosen while filming applies at once: the camera opens again
+at the new size, and a Discord call is told it. Each participant whose camera is on has a feed of
 their own, and their tile in the grid shows it in place of their avatar; the
 people list beside the channel marks them with a camera. Your own camera shows
 mirrored, as a mirror would. Up to four people take the columns that make

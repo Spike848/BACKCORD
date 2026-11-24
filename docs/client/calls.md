@@ -32,8 +32,8 @@ The call's views and what they do are in `call/`.
   opens as a window; brought forward while full screen, it stays so. A
   right click opens the person's voice menu.
 - The controls under the stage, in this order: mute and
-  deafen (each with its device menu), the camera, Go Live, the soundboard,
-  and leave.
+  deafen (each with its device menu), the camera (its menu: the camera,
+  its quality, on or off), Go Live, the soundboard, and leave.
 - The device menus (`call/popups/`: the device menus, the share menu,
   the soundboard and someone's voice menu each a file): the device to use (one chosen that
   went away shows as not connected), its volume, which plays while it's
@@ -44,7 +44,10 @@ The call's views and what they do are in `call/`.
 - Go Live's menu lists the screens with a picture of each (from a stream
   worker started for them and gone once they're in), the windows, the
   system's own dialog where the portal picks, and the cameras, then the
-  resolution, frame rate and encoding; it fits a short window by
+  stream's mode and its gear, whose compact quality picker
+  (`call/popups/quality.rs`, the camera menu's too) shows the resolutions,
+  144p to 1080p and the source, as two rows of small buttons and the frame
+  rates, 15, 30 and 60, as a third, and the encoding; it fits a short window by
   scrolling, keeping its button in view. It opens once they're listed (on
   a thread of their own); meanwhile Escape, a second click, another popup
   or leaving the call cancels it, and a listing cancelled opens nothing. While live, the same menu

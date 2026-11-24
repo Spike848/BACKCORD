@@ -95,11 +95,47 @@ pub struct Watching {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Resolution {
+    P144,
+    P240,
+    P360,
+    P480,
     P720,
     #[default]
     P1080,
-    /// The screen's own size, up to 4K.
+    /// The screen's or camera's own size, up to 4K.
     Source,
+}
+
+impl Resolution {
+    /// Every one, smallest first, as the quality pickers list them.
+    pub const ALL: [Self; 7] = [
+        Self::P144,
+        Self::P240,
+        Self::P360,
+        Self::P480,
+        Self::P720,
+        Self::P1080,
+        Self::Source,
+    ];
+
+    /// Its lines, as "1080p" counts them; 4K's for the source.
+    pub fn lines(self) -> u32 {
+        match self {
+            Self::P144 => 144,
+            Self::P240 => 240,
+            Self::P360 => 360,
+            Self::P480 => 480,
+            Self::P720 => 720,
+            Self::P1080 => 1080,
+            Self::Source => 2160,
+        }
+    }
+
+    /// The largest 16:9 picture at its lines, in even pixels.
+    pub fn size(self) -> (u32, u32) {
+        let lines = self.lines();
+        ((lines * 16 / 9 + 1) & !1, lines)
+    }
 }
 
 /// How a screen is shared: chosen before going live, and remembered.
@@ -121,6 +157,43 @@ impl Default for StreamQuality {
             fps: 30,
             high_quality: false,
         }
+    }
+}
+
+/// How the camera films in a call: chosen from its button, and remembered.
+/// 720p at 30 a second unless chosen, as Discord's client films without
+/// Nitro.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct CameraQuality {
+    pub resolution: Resolution,
+    /// Frames a second: 15, 30 or 60.
+    pub fps: u32,
+}
+
+impl Default for CameraQuality {
+    fn default() -> Self {
+        Self {
+            resolution: Resolution::P720,
+            fps: 30,
+        }
+    }
+}
+
+impl CameraQuality {
+    /// The largest picture asked of the camera, and how many a second.
+    pub fn size(self) -> (u32, u32, u32) {
+        let (width, height) = self.resolution.size();
+        (width, height, self.fps.clamp(1, 60))
+    }
+
+    /// The bitrate a camera's `width` by `height` pictures go at, `fps` a
+    /// second, in kbit/s: 1.5 Mbit/s at 720p and 30 a second, about what
+    /// Discord's clients send, growing with the pixels and, less, with the
+    /// frames.
+    pub fn bitrate(width: u32, height: u32, fps: u32) -> u32 {
+        let pixels = f64::from(width * height) / f64::from(1280 * 720);
+        let frames = (f64::from(fps) / 30.0).sqrt();
+        ((1500.0 * pixels.powf(0.75) * frames) as u32).clamp(150, 6000)
     }
 }
 
@@ -249,6 +322,8 @@ pub struct State {
     pub watching: Vec<Watching>,
     /// How the next screen share is sent.
     pub quality: StreamQuality,
+    /// How the camera films, remembered.
+    pub camera_quality: CameraQuality,
     /// This account's camera, turned on or starting.
     pub camera_phase: CameraPhase,
     /// The call carries camera video, so the camera can be turned on.
@@ -319,6 +394,7 @@ impl Default for State {
             sharing: None,
             watching: Vec::new(),
             quality: StreamQuality::default(),
+            camera_quality: CameraQuality::default(),
             camera_phase: CameraPhase::Off,
             can_film: false,
             link: None,
@@ -371,6 +447,9 @@ pub enum Command {
     Camera(String),
     /// Turn this account's camera on or off in the call.
     Video(bool),
+    /// Film at this quality from now on, the camera going on if it's on;
+    /// remembered for next time.
+    CameraQuality(CameraQuality),
     /// Share a screen or window with Discord's Go Live, at this quality,
     /// which is remembered for next time.
     GoLive(StreamQuality),
@@ -445,6 +524,7 @@ impl Controller {
             initial.speaker = chosen.speaker;
             initial.camera = chosen.camera;
             initial.quality = chosen.quality;
+            initial.camera_quality = chosen.camera_quality;
         }
         let (states, snapshots) = watch::channel(initial.clone());
         let worker = thread::Builder::new()
@@ -566,6 +646,10 @@ async fn worker(
                 state.camera = Some(id);
                 Chosen::write(remembered.as_deref(), &state);
             }
+            Command::CameraQuality(quality) => {
+                state.camera_quality = quality;
+                Chosen::write(remembered.as_deref(), &state);
+            }
             #[cfg(feature = "matrix")]
             Command::LeaveStale => crate::matrix_voice::leave_stale(&calls.session).await,
             _ => {}
@@ -640,6 +724,8 @@ pub(crate) struct Chosen {
     camera: Option<String>,
     #[serde(default)]
     quality: StreamQuality,
+    #[serde(default)]
+    camera_quality: CameraQuality,
 }
 
 impl Chosen {
@@ -657,6 +743,7 @@ impl Chosen {
             speaker: state.speaker.clone(),
             camera: state.camera.clone(),
             quality: state.quality,
+            camera_quality: state.camera_quality,
         };
         let result = serde_json::to_vec_pretty(&chosen)
             .map_err(std::io::Error::other)
@@ -738,6 +825,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_cameras_quality_asks_its_size_and_a_bitrate_to_match() {
+        let quality = |resolution, fps| CameraQuality { resolution, fps };
+        assert_eq!(quality(Resolution::P720, 30).size(), (1280, 720, 30));
+        assert_eq!(quality(Resolution::P144, 15).size(), (256, 144, 15));
+        assert_eq!(quality(Resolution::P480, 30).size(), (854, 480, 30));
+        assert_eq!(quality(Resolution::Source, 60).size(), (3840, 2160, 60));
+        assert_eq!(CameraQuality::bitrate(1280, 720, 30), 1500);
+        assert!(CameraQuality::bitrate(1920, 1080, 60) > CameraQuality::bitrate(1920, 1080, 30));
+        assert_eq!(CameraQuality::bitrate(256, 144, 15), 150);
+    }
+
+    #[test]
     fn devices_without_a_guid_are_known_by_name_and_choices_stay_on_disk() {
         assert_eq!(device_id("", "Null Output"), "name:Null Output");
         assert_eq!(device_id("{0.0.1}", "Speakers"), "{0.0.1}");
@@ -753,6 +852,10 @@ mod tests {
                 fps: 60,
                 high_quality: true,
             },
+            camera_quality: CameraQuality {
+                resolution: Resolution::P1080,
+                fps: 60,
+            },
             ..Default::default()
         };
         Chosen::write(Some(&path), &state);
@@ -761,6 +864,7 @@ mod tests {
         assert_eq!(chosen.speaker.as_deref(), Some("name:Null Output"));
         assert_eq!(chosen.camera.as_deref(), Some("usb-0000:00:14.0-1"));
         assert_eq!(chosen.quality, state.quality);
+        assert_eq!(chosen.camera_quality, state.camera_quality);
         // Choices saved before there was a quality to choose still load.
         std::fs::write(
             &path,
@@ -768,6 +872,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(Chosen::read(&path).quality, StreamQuality::default());
+        assert_eq!(Chosen::read(&path).camera_quality, CameraQuality::default());
         std::fs::write(&path, b"not json").unwrap();
         assert!(Chosen::read(&path).speaker.is_none());
     }

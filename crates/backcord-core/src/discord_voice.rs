@@ -397,6 +397,7 @@ pub(crate) async fn call(
                 Some(Command::Microphone(id)) => state.microphone = Some(id),
                 Some(Command::Speaker(id)) => state.speaker = Some(id),
                 Some(Command::Camera(id)) => state.camera = Some(id),
+                Some(Command::CameraQuality(quality)) => state.camera_quality = quality,
                 Some(Command::Devices) => { let _ = devices(state); }
                 _ => {}
             },
@@ -689,10 +690,18 @@ pub(crate) async fn call(
                         }
                         Some(Command::Video(true)) => {
                             if filming.is_none() {
-                                let started = filming.insert(Filming::start(&mut call));
+                                let started = filming.insert(Filming::start(&mut call, state.camera_quality));
                                 opening = Some(Box::pin(started.open(state.camera.as_deref())));
                                 state.camera_phase = CameraPhase::Starting;
                                 state.error = None;
+                            }
+                        }
+                        // Filming, the camera opens again at the new size.
+                        Some(Command::CameraQuality(quality)) => {
+                            state.camera_quality = quality;
+                            Chosen::write(remembered, state);
+                            if let Some(going) = &mut filming {
+                                opening = Some(Box::pin(going.requality(&mut call, quality, state.camera.as_deref())));
                             }
                         }
                         Some(Command::Video(false)) => {

@@ -85,8 +85,17 @@ impl Filming {
     /// one filming has closed: one camera at a time. It films into the
     /// track as soon as it opens, and resolves with its first picture, for
     /// [`Self::opened`].
-    pub fn open(&mut self, id: Option<&str>) -> impl Future<Output = Result<Camera>> + use<> {
-        Camera::start(self.camera.take(), id.map(str::to_owned), self.sink())
+    pub fn open(
+        &mut self,
+        id: Option<&str>,
+        quality: crate::voice::CameraQuality,
+    ) -> impl Future<Output = Result<Camera>> + use<> {
+        Camera::start(
+            self.camera.take(),
+            id.map(str::to_owned),
+            quality.size(),
+            self.sink(),
+        )
     }
 
     /// Keeps the camera [`Self::open`] opened, and sends the track: published

@@ -18,8 +18,10 @@ use crate::{
     widgets::{Anchor, Place},
 };
 
+pub mod camera;
 pub mod device;
 pub mod person;
+pub mod quality;
 pub mod share;
 pub mod soundboard;
 use device::DEVICE_WIDTH;
@@ -80,6 +82,11 @@ pub(super) fn open_popup(app: &mut App, popup: Popup) -> Task<Message> {
             return Task::none();
         }
         Popup::Live => app.call.popup = Some(popup),
+        Popup::Camera => {
+            app.client
+                .dispatch(backcord_core::application::Action::Voice(Command::Devices));
+            app.call.popup = Some(popup);
+        }
     }
     Task::batch([app.sync(), operation::focus(NOBODY)])
 }
@@ -122,6 +129,10 @@ pub fn call_popup_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Messa
             ctx.state.voice.sharing.as_ref()?;
             (crate::call::popups::share::live_menu(ctx), LIVE_WIDTH)
         }
+        Popup::Camera => (
+            crate::call::popups::camera::camera_menu(ctx),
+            camera::CAMERA_WIDTH,
+        ),
         Popup::Soundboard => (
             crate::call::popups::soundboard::soundboard(ctx),
             SOUNDBOARD_WIDTH,

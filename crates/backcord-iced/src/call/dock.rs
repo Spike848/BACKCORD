@@ -195,13 +195,15 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
             } else {
                 backcord_iced_kit::i18n::tr("Turn on camera")
             };
-            buttons = buttons.push(controls::dock_button(
+            // As the share button does, it opens a menu: the camera, its
+            // quality, and turning it on or off.
+            buttons = buttons.push(ctx.spot(controls::dock_button(
                 face(if on { Icon::Video } else { Icon::VideoOff }),
                 label,
                 on,
                 theme,
-                when(Message::Call(Event::Camera)),
-            ));
+                when(Message::Call(Event::Open(Popup::Camera))),
+            )));
         }
         // Stopping is beside "Your screen"; while the system's dialog
         // first picks what to share, there's nothing to switch yet.

@@ -162,6 +162,35 @@ fn call_volumes_play_while_dragged_and_are_remembered() {
     crate::layout::Voice::default().play_volumes();
 }
 
+/// The camera button opens its menu, as the share button does: the
+/// quality chosen there is the call's, and turning the camera on closes it.
+#[test]
+fn the_camera_button_opens_its_quality_and_turns_it_on() {
+    use backcord_core::voice::{CameraQuality, Resolution};
+    let (mut app, _folder, _) = in_call();
+    let _ = crate::call::update(&mut app, Event::Open(Popup::Camera));
+    assert_eq!(app.call.popup, Some(Popup::Camera));
+    let chosen = CameraQuality {
+        resolution: Resolution::P1080,
+        fps: 60,
+    };
+    let _ = crate::call::update(&mut app, Event::CameraQuality(chosen));
+    let _ = app.sync();
+    assert_eq!(app.client.state().voice.camera_quality, chosen);
+    assert_eq!(
+        app.call.popup,
+        Some(Popup::Camera),
+        "a choice keeps it open"
+    );
+    let _ = crate::call::update(&mut app, Event::Camera);
+    let _ = app.sync();
+    assert_eq!(app.call.popup, None);
+    assert_ne!(
+        app.client.state().voice.camera_phase,
+        voice::CameraPhase::Off
+    );
+}
+
 /// What a listing of the screens and windows says, as it comes.
 fn listed(count: u64) -> Event {
     use crate::call::{Listing, ShareEvent};

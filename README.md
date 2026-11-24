@@ -34,19 +34,16 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.4
+## Novità della 1.3.5
 
-- **Selezione multipla con Ctrl**: tieni premuto Ctrl e clicca sugli utenti
-  (nella lista membri o in un canale vocale) per selezionarne più di uno;
-  col tasto destro su uno dei selezionati hai le azioni per tutti insieme.
-  Se hai i permessi puoi spostarli in un altro canale vocale,
-  disconnetterli, silenziarli o assordarli sul server, metterli in timeout,
-  espellerli o bannarli con un colpo solo; in più menzionarli, aggiungerli
-  agli amici, ignorarli o bloccarli. Chi non puoi toccare (per esempio un
-  amministratore per il timeout) viene saltato. Un clic normale annulla la
-  selezione.
-- **Esempio dei secondi nel timeout**: tra gli esempi della durata ora c'è
-  anche `60s`.
+- **Qualità della webcam**: il pulsante della videocamera in chiamata ora apre
+  un menu, come quello dello schermo condiviso: scegli la videocamera (se ne
+  hai più di una), la risoluzione (144p, 240p, 360p, 480p, 720p, 1080p o
+  Sorgente) e i fotogrammi (15, 30 o 60 fps), poi la accendi o la spegni. Se
+  cambi qualità mentre è accesa, cambia subito. La scelta viene ricordata.
+- **Menu della qualità più compatto**: anche per lo schermo condiviso la
+  risoluzione e gli fps si scelgono da un menu piccolo a pulsanti, e ora ci
+  sono anche 144p, 240p, 360p e 480p.
 
 ## Cosa fa
 

@@ -44,8 +44,6 @@ pub enum ShareTab {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GearPage {
     Main,
-    Resolution,
-    Fps,
 }
 
 /// The stream's mode, as Discord's gear names them: two kept qualities,
@@ -75,16 +73,7 @@ impl StreamMode {
     }
 }
 
-fn resolution_name(resolution: Resolution) -> &'static str {
-    match resolution {
-        Resolution::P720 => "720p",
-        Resolution::P1080 => "1080p",
-        Resolution::Source => tr("Source"),
-    }
-}
-
-const RESOLUTIONS: [Resolution; 3] = [Resolution::P720, Resolution::P1080, Resolution::Source];
-const RATES: [u32; 3] = [15, 30, 60];
+use super::quality::resolution_name;
 
 /// The share window's sources and choices.
 pub struct Share {
@@ -635,21 +624,12 @@ fn gear_menu<'a>(
                 ));
             }
             rows = rows.push(controls::menu_separator(theme));
-            rows = rows.push(crate::call::popups::popup_row(
+            rows = rows.push(super::quality::quality_picker(
                 ctx,
-                format!("{} \u{203a}", tr("Screen Resolution")),
-                Some(resolution_name(quality.resolution).into()),
-                None,
-                Check::None,
-                Some(share_message(ShareEvent::Gear(Some(GearPage::Resolution)))),
-            ));
-            rows = rows.push(crate::call::popups::popup_row(
-                ctx,
-                format!("{} \u{203a}", tr("Frame Rate")),
-                Some(format!("{} fps", quality.fps).into()),
-                None,
-                Check::None,
-                Some(share_message(ShareEvent::Gear(Some(GearPage::Fps)))),
+                quality.resolution,
+                quality.fps,
+                |resolution| share_message(ShareEvent::Resolution(resolution)),
+                |fps| share_message(ShareEvent::Fps(fps)),
             ));
             rows = rows.push(crate::call::popups::popup_row(
                 ctx,
@@ -659,54 +639,6 @@ fn gear_menu<'a>(
                 Check::Box(quality.high_quality),
                 Some(share_message(ShareEvent::HighQuality)),
             ));
-        }
-        GearPage::Resolution => {
-            rows = rows.push(crate::call::popups::popup_row(
-                ctx,
-                format!("\u{2039} {}", tr("Screen Resolution")),
-                None,
-                None,
-                Check::None,
-                Some(share_message(ShareEvent::Gear(Some(GearPage::Main)))),
-            ));
-            for resolution in RESOLUTIONS {
-                rows = rows.push(crate::call::popups::popup_row(
-                    ctx,
-                    resolution_name(resolution),
-                    None,
-                    None,
-                    if quality.resolution == resolution {
-                        Check::Current
-                    } else {
-                        Check::None
-                    },
-                    Some(share_message(ShareEvent::Resolution(resolution))),
-                ));
-            }
-        }
-        GearPage::Fps => {
-            rows = rows.push(crate::call::popups::popup_row(
-                ctx,
-                format!("\u{2039} {}", tr("Frame Rate")),
-                None,
-                None,
-                Check::None,
-                Some(share_message(ShareEvent::Gear(Some(GearPage::Main)))),
-            ));
-            for fps in RATES {
-                rows = rows.push(crate::call::popups::popup_row(
-                    ctx,
-                    format!("{fps} fps"),
-                    None,
-                    None,
-                    if quality.fps == fps {
-                        Check::Current
-                    } else {
-                        Check::None
-                    },
-                    Some(share_message(ShareEvent::Fps(fps))),
-                ));
-            }
         }
     }
     container(rows)
@@ -813,39 +745,18 @@ pub(super) fn live_menu<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         Check::None,
         Some(Message::Call(Event::Open(Popup::Share))),
     ));
-    rows = rows.push(heading(theme, tr("RESOLUTION"), 8.0));
-    for resolution in RESOLUTIONS {
-        rows = rows.push(crate::call::popups::popup_row(
-            ctx,
-            resolution_name(resolution),
-            None,
-            None,
-            if quality.resolution == resolution {
-                Check::Current
-            } else {
-                Check::None
-            },
-            live(StreamQuality {
+    rows = rows.push(super::quality::quality_picker(
+        ctx,
+        quality.resolution,
+        quality.fps,
+        |resolution| {
+            Message::Call(Event::LiveQuality(StreamQuality {
                 resolution,
                 ..quality
-            }),
-        ));
-    }
-    rows = rows.push(heading(theme, tr("FRAME RATE"), 8.0));
-    for fps in RATES {
-        rows = rows.push(crate::call::popups::popup_row(
-            ctx,
-            format!("{fps} fps"),
-            None,
-            None,
-            if quality.fps == fps {
-                Check::Current
-            } else {
-                Check::None
-            },
-            live(StreamQuality { fps, ..quality }),
-        ));
-    }
+            }))
+        },
+        |fps| Message::Call(Event::LiveQuality(StreamQuality { fps, ..quality })),
+    ));
     rows = rows.push(crate::call::popups::popup_row(
         ctx,
         tr("Higher quality"),
