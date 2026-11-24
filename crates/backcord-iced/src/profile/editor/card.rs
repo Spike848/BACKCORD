@@ -21,7 +21,7 @@ use crate::{
     form,
     pictures::Icon,
     popover::{Popover, Side, Width},
-    style::{corners, faded, hex, rounded, scrollbar},
+    style::{corners, hex, rounded, scrollbar},
     widgets::{Hover, Pic},
 };
 
@@ -674,16 +674,24 @@ pub(super) fn editor_bio<'a>(
             .size(12)
             .color(inks.ink3)
     };
+    let writing = editor.editing == Some(Text::Bio);
+    let width = if main {
+        Length::Fixed(281.0)
+    } else {
+        Length::Fill
+    };
     let mut bio = column![head].spacing(6);
-    if editor.editing == Some(Text::Bio) {
+    if writing {
+        // As Discord's: a box the card's width, as far from its right as
+        // its left, so nothing reaches under the card's edge or frame; the
+        // Markdown shown as it's written, and the emoji's and formatting's
+        // buttons inside it at its top right.
         let colors = field::Colors {
-            ground: theme.sunken,
+            ground: iced::Color::TRANSPARENT,
             text: theme.text,
             placeholder: theme.muted,
             selection: theme.selection,
         };
-        let accent = theme.accent;
-        let sunken = theme.sunken;
         let field = Field::new(
             &editor.bio,
             Id::new(BIO),
@@ -696,35 +704,49 @@ pub(super) fn editor_bio<'a>(
         // A plain text box: Enter breaks the line, and a click elsewhere
         // or Escape ends the editing.
         .breaks()
+        .markdown()
         .padding(Padding::from([8.0, 10.0]));
+        let buttons = column![
+            crate::composer::composer_button(
+                ctx,
+                Icon::Smile,
+                backcord_iced_kit::i18n::tr("Add an emoji"),
+                20,
+                inks.ink2,
+                Some(Message::Format(crate::format::Event::BioEmoji)),
+            ),
+            crate::format::button(ctx, crate::format::Target::Bio),
+        ]
+        .spacing(2);
+        let (ground, edge) = (theme.sunken, theme.outline_field);
         bio = bio.push(
-            container(field)
-                .height(110)
-                .style(move |_| crate::style::outlined(sunken, faded(accent, 0.8), 6)),
+            container(
+                row![
+                    field,
+                    container(buttons).padding(Padding::ZERO.top(4).right(4))
+                ]
+                .spacing(2),
+            )
+            .height(110)
+            .width(Length::Fill)
+            .style(move |_| crate::style::outlined(ground, edge, 8.0)),
         );
-        bio = bio.push(
-            row![
-                text(backcord_iced_kit::i18n::tr(
-                    "You can use markdown and links if you'd like."
-                ))
-                .size(12)
-                .color(inks.ink3)
-                .width(Length::Fill),
-                count
-            ]
-            .spacing(8),
-        );
+        // Discord counts down only near its limit.
+        if left <= 20 {
+            bio = bio.push(container(count).width(Length::Fill).align_x(Alignment::End));
+        }
+        if main {
+            // The body's right padding is 8 px for its scrollbar; the box
+            // keeps its left's 32.
+            bio = bio.padding(Padding::ZERO.right(24));
+        }
     } else {
         let shown: Element<'a, Message> = match &editor.shown.look.bio {
             Some(body) => crate::profile::body::bio_view(ctx, body, inks, Mode::Side),
             None => text(placeholder).size(14).color(inks.ink3).into(),
         };
         bio = bio.push(hover_edit(
-            container(shown).width(if main {
-                Length::Fixed(281.0)
-            } else {
-                Length::Fill
-            }),
+            container(shown).width(width),
             ready && enabled,
             message(Event::Edit(Some(Text::Bio))),
         ));

@@ -118,6 +118,8 @@ pub struct App {
     pub playback: crate::playback::Playback,
     /// A masked link clicked, while the question before it shows.
     pub leaving: Option<String>,
+    /// The text formatting panel, while open.
+    pub format: Option<crate::format::Open>,
     /// The profiles on screen.
     pub profiles: crate::profile::Profiles,
     /// Where in the window the last press was, for a menu its button opens.
@@ -293,6 +295,7 @@ impl App {
             keyed: None,
             playback: Default::default(),
             leaving: None,
+            format: None,
             profiles: Default::default(),
             pressed: Default::default(),
             link_spot: Default::default(),
@@ -421,6 +424,7 @@ impl App {
             Message::Minute => crate::timeline::clocks::minute_turned(self),
             Message::Day => crate::timeline::clocks::day_turned(self),
             Message::Write(event) => crate::composer::update(self, event),
+            Message::Format(event) => crate::format::update(self, event),
             Message::OpenPicker(target, tab) => crate::picker::open_picker(self, target, tab),
             Message::Picker(event) => crate::picker::picker_event(self, event),
             Message::Forward(event) => {

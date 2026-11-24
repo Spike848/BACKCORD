@@ -113,10 +113,24 @@ pub enum Event {
     Close,
     /// In the Display Name Style window.
     Style(crate::profile::name_style::Event),
+    /// A style from the text formatting panel, for the bio.
+    Format(crate::format::Style),
+    /// An emoji's text picked for the bio, in place of its selection.
+    Insert(String),
 }
 
 fn message(event: Event) -> Message {
     Message::Profile(ProfileEvent::Editor(event))
+}
+
+/// `inserted` in the bio being written, at its caret.
+pub fn insert_in_bio(inserted: String) -> Message {
+    message(Event::Insert(inserted))
+}
+
+/// `style` applied to the bio being written.
+pub fn format_bio(style: crate::format::Style) -> Message {
+    message(Event::Format(style))
 }
 
 /// The editor on screen: its card, and what's open in it.
@@ -351,6 +365,35 @@ impl Editor {
                     field,
                     text: format!("#{:06x}", hsv_rgb(hsv)),
                 });
+            }
+            Event::Insert(inserted) => {
+                let bio = &editor.bio;
+                let text = bio.text();
+                let at = bio.selected().unwrap_or_else(|| {
+                    let caret = bio.caret().min(text.len());
+                    caret..caret
+                });
+                let written = format!("{}{inserted}{}", &text[..at.start], &text[at.end..]);
+                let caret = at.start + inserted.len();
+                bio.replace(&written, caret);
+                editor.editing = Some(Text::Bio);
+                cx.dispatch(Action::WriteProfile {
+                    field: ProfileText::Bio,
+                    text: written,
+                });
+                return operation::focus(Id::new(BIO));
+            }
+            Event::Format(style) => {
+                let bio = &editor.bio;
+                let (written, selected) =
+                    crate::format::apply(style, &bio.text(), bio.selected(), bio.caret());
+                bio.replace_selecting(&written, selected);
+                editor.editing = Some(Text::Bio);
+                cx.dispatch(Action::WriteProfile {
+                    field: ProfileText::Bio,
+                    text: written,
+                });
+                return operation::focus(Id::new(BIO));
             }
             Event::Bio(event) => match event {
                 field::Event::Edited(text, _) => {

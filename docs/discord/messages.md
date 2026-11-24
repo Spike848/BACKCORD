@@ -391,7 +391,9 @@ BACKCORD is back, rather than showing an error.
 - Markdown shows as Discord's client shows it. Bold, italics, strikethrough,
   inline code, lists and links are runs of styled text
   (`crates/backcord-iced/src/markdown.rs`, which reads them with
-  pulldown-cmark). Headings (`#` to `###`),
+  pulldown-cmark, and the same in bios). A space before the star that
+  closes italics, `*like this *`, still makes them, as in Discord, where
+  CommonMark wouldn't. Headings (`#` to `###`),
   subtext (`-# `), quotes (`> ` lines, or `>>> ` and the rest) and code fenced
   by three backticks are blocks that `blocks.rs` in `backcord-core` splits out
   by Discord's rules, read from its web client, before anything else changes

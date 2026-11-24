@@ -117,11 +117,15 @@ impl App {
                     Place::new(shown, Point::new(right - size.width, bottom), 8.0)
                         .anchor(Anchor::Bottom)
                 }
-                Target::React(_, at) | Target::Status(at) | Target::Poll(_, at) => {
-                    Place::new(shown, *at, 8.0).anchor(Anchor::Pointer)
-                }
+                Target::React(_, at)
+                | Target::Status(at)
+                | Target::Poll(_, at)
+                | Target::Bio(at) => Place::new(shown, *at, 8.0).anchor(Anchor::Pointer),
             };
-            if matches!(picker.target, Target::Status(_) | Target::Poll(..)) {
+            if matches!(
+                picker.target,
+                Target::Status(_) | Target::Poll(..) | Target::Bio(_)
+            ) {
                 over_dialogs = Some(place);
             } else {
                 layers = layers
@@ -259,6 +263,13 @@ impl App {
         }
         if let Some(icon) = crate::icon_viewer::view(&self.icon, self.ctx()) {
             layers = layers.push(icon);
+        }
+        if let Some(panel) = crate::format::view(self.format.as_ref(), self.window, self.ctx()) {
+            layers = layers
+                .push(backcord_iced_kit::controls::menu_outside(Message::Format(
+                    crate::format::Event::Close,
+                )))
+                .push(panel);
         }
         if let Some(menu) = self
             .win

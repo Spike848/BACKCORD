@@ -7,7 +7,8 @@
 //! Discord's rules, not CommonMark's, where they differ: every line break
 //! and blank line shows, and what CommonMark would make a heading, a rule
 //! or indented code beyond Discord's shows as typed. `__text__` is
-//! underlined, as in Discord, and `**text**` bold.
+//! underlined, as in Discord, and `**text**` bold. `*text *` is italic
+//! as in Discord, though CommonMark won't close on a space.
 //! Custom emoji ([`with_emoji`]) take the room of their picture in the
 //! text, which is drawn there.
 
@@ -282,7 +283,9 @@ pub fn parse(
             let linked = mention::linked(&typed, &here, link_color);
             let marked = spoiler::mark(&linked, item, spoilers, &revealed);
             spoilers += spoiler::count(&linked);
-            inline(&links::mark_masked(&links::linkify(&marked)))
+            inline(&discord_emphasis(&links::mark_masked(&links::linkify(
+                &marked,
+            ))))
         };
         let (margin, padding) = spacing(&split, index);
         parts.push(Part {
@@ -580,6 +583,73 @@ struct Style {
 
 /// Inline Markdown as runs. Paragraphs and list items keep the line breaks
 /// between them as typed; block syntax Discord hasn't shows as typed.
+/// `markdown` with each `*italic *` that Discord's client closes, but
+/// CommonMark doesn't for the space before its last star, written
+/// `*italic* `: the same length, the space out of the italics, where it
+/// shows the same. A single star followed by more than a space opens, and the
+/// next single star on its line closes, as in Discord; code is left as it is.
+fn discord_emphasis(markdown: &str) -> std::borrow::Cow<'_, str> {
+    let bytes = markdown.as_bytes();
+    let single = |at: usize| {
+        bytes[at] == b'*'
+            && (at == 0 || (bytes[at - 1] != b'*' && bytes[at - 1] != b'\\'))
+            && bytes.get(at + 1) != Some(&b'*')
+    };
+    // Past the inline code starting at `at`, if its backticks close.
+    let past_code = |at: usize| {
+        let run = bytes[at..].iter().take_while(|&&b| b == b'`').count();
+        let fence = &markdown[at..at + run];
+        let rest = &markdown[at + run..];
+        let line = rest.find('\n').unwrap_or(rest.len());
+        rest[..line]
+            .find(fence)
+            .map_or(at + run, |close| at + run + close + run)
+    };
+    let mut swaps = Vec::new();
+    let mut open: Option<usize> = None;
+    let mut at = 0;
+    while at < bytes.len() {
+        match bytes[at] {
+            b'`' => {
+                at = past_code(at);
+                continue;
+            }
+            b'\n' => open = None,
+            b'*' if single(at) => match open {
+                None => {
+                    let next = markdown[at + 1..].chars().next();
+                    if next.is_some_and(|next| !next.is_whitespace()) {
+                        open = Some(at);
+                    }
+                }
+                Some(opened) => {
+                    open = None;
+                    let before = markdown[opened + 1..at].trim_end();
+                    let space = opened + 1 + before.len();
+                    if space < at && !before.is_empty() {
+                        swaps.push((space, at));
+                    }
+                }
+            },
+            _ => {}
+        }
+        at += 1;
+    }
+    if swaps.is_empty() {
+        return std::borrow::Cow::Borrowed(markdown);
+    }
+    let mut out = String::with_capacity(markdown.len());
+    let mut from = 0;
+    for (space, star) in swaps {
+        out.push_str(&markdown[from..space]);
+        out.push('*');
+        out.push_str(&markdown[space..star]);
+        from = star + 1;
+    }
+    out.push_str(&markdown[from..]);
+    std::borrow::Cow::Owned(out)
+}
+
 fn inline(markdown: &str) -> Vec<Run> {
     let mut runs: Vec<Run> = Vec::new();
     let mut style = Style::default();
@@ -1099,6 +1169,24 @@ mod tests {
         assert!(find("gone").strike);
         assert!(find("code").code);
         assert!(find("under").underline && !find("under").bold);
+    }
+
+    #[test]
+    fn a_space_before_the_closing_star_still_makes_italics_as_in_discord() {
+        let runs = runs("*Organismo infettivo pluricellulare *\n*a\u{a0}* `*b *` 2 * 3 *");
+        let find = |text: &str| runs.iter().find(|run| run.text == text).cloned();
+        assert!(
+            find("Organismo infettivo pluricellulare").unwrap().italic,
+            "{runs:?}"
+        );
+        assert!(find("a").unwrap().italic, "{runs:?}");
+        assert!(find("*b *").unwrap().code, "code as typed");
+        let plain: String = runs.iter().map(|run| run.text.as_str()).collect();
+        assert!(
+            plain.ends_with(" 2 * 3 *"),
+            "a star before a space opens nothing: {plain:?}"
+        );
+        assert_eq!(discord_emphasis("*fine*"), "*fine*");
     }
 
     #[test]

@@ -653,7 +653,7 @@ pub fn edited(app: &mut App, which: Writing, text: String, caret: usize) {
 }
 
 /// The core's draft or edit takes a field's text.
-fn keep_text(app: &mut App, which: Writing, text: String) {
+pub(crate) fn keep_text(app: &mut App, which: Writing, text: String) {
     match which {
         Writing::Edit => app.client.dispatch(Action::SetEditText(text)),
         Writing::Draft if app.client.state().selected.is_some() => {
@@ -932,6 +932,12 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
     // As Discord's: the GIFs, the stickers, then the emoji, in one
     // picker, in a Discord room.
     let mut buttons = row![].spacing(6).align_y(Alignment::End);
+    if look.enabled {
+        buttons = buttons.push(lift(crate::format::button(
+            ctx,
+            crate::format::Target::Writing(Writing::Draft),
+        )));
+    }
     let state = ctx.state;
     if state.can_pick_gifs() {
         buttons = buttons.push(lift(composer_button(

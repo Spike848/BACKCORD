@@ -1,6 +1,7 @@
 //! Discord's Markdown as its message field shows it while you write: the
 //! marks stay, greyed, and what they mark takes its style. `**bold**` is
-//! bold between its stars, `*italic*` and `_italic_` italic, `***both***`
+//! bold between its stars, `*italic*` and `_italic_` italic (`*italic *` too,
+//! as Discord closes a star after a space), `***both***`
 //! both, `\`code\`` and fenced blocks in the monospace face, and a heading's
 //! line (`# `, `## `, `### `) bold. Underline, strikethrough and spoilers
 //! have their marks greyed only, as the editor draws neither line nor cover.
@@ -135,7 +136,9 @@ fn line_flags(line: &str, flags: &mut [u8]) {
         };
         let mut at = 0;
         while at + size <= length {
-            let opens = &line[at..at + size] == mark
+            // Bytes, not text: a mark is ASCII, and a slice of the line
+            // could end inside a character of several bytes, such as ▢.
+            let opens = &bytes[at..at + size] == mark.as_bytes()
                 && free(flags, at..at + size)
                 && alone(at)
                 && at + size < length
@@ -146,10 +149,11 @@ fn line_flags(line: &str, flags: &mut [u8]) {
                 continue;
             }
             let close = (at + size + 1..=length - size).find(|&end| {
-                &line[end..end + size] == mark
+                &bytes[end..end + size] == mark.as_bytes()
                     && free(flags, end..end + size)
                     && alone(end)
-                    && !bytes[end - 1].is_ascii_whitespace()
+                    // `*italic *` closes as in Discord, where CommonMark won't.
+                    && (!bytes[end - 1].is_ascii_whitespace() || (single && sign == b'*'))
                     && !(sign == b'_' && single && word(end + 1))
             });
             let Some(end) = close else {
@@ -210,6 +214,15 @@ mod tests {
 
     const fn style(bold: bool, italic: bool, code: bool) -> Mark {
         Mark::Style { bold, italic, code }
+    }
+
+    #[test]
+    fn marks_beside_characters_of_several_bytes_dont_split_them() {
+        assert_eq!(shown("`[▢]` ▢*a*▢")[1], ("[▢]", style(false, false, true)));
+        assert_eq!(shown("*a ▢ *")[1], ("a ▢ ", style(false, true, false)));
+        for text in ["▢", "*▢", "▢**", "~~▢", "|▢|", "*Organismo  *\n ▢ __"] {
+            let _ = runs(text);
+        }
     }
 
     #[test]

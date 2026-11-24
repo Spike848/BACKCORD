@@ -199,6 +199,46 @@ impl Draft {
         self.0.borrow().editor.copy()
     }
 
+    /// Where the selected text is, in bytes of the whole text; none when
+    /// nothing is selected.
+    pub fn selected(&self) -> Option<std::ops::Range<usize>> {
+        let inner = self.0.borrow();
+        // The selected text, which a word's or a line's selection (a double
+        // or triple click) reaches past its caret and anchor, both inside
+        // it: found where it holds the caret.
+        let selected = inner
+            .editor
+            .copy()
+            .filter(|selected| !selected.is_empty())?;
+        let text = whole(&inner.editor);
+        let cursor = inner.editor.cursor();
+        let at = offset(&inner.editor, cursor.position);
+        let anchor = cursor.selection.map(|other| offset(&inner.editor, other));
+        let holds = |start: usize| {
+            let end = start + selected.len();
+            let inside = |point: usize| start <= point && point <= end;
+            inside(at) && anchor.is_none_or(inside)
+        };
+        text.match_indices(selected.as_str())
+            .map(|(start, _)| start)
+            .find(|&start| holds(start))
+            .map(|start| start..start + selected.len())
+    }
+
+    /// [`Self::replace`], with `selected` selected afterwards, or the caret
+    /// at its end when it's empty: one undo step.
+    pub fn replace_selecting(&self, text: &str, selected: std::ops::Range<usize>) {
+        self.replace(text, selected.end);
+        if selected.is_empty() {
+            return;
+        }
+        let mut inner = self.0.borrow_mut();
+        inner.editor.move_to(Cursor {
+            position: position(text, selected.end),
+            selection: Some(position(text, selected.start)),
+        });
+    }
+
     /// Takes a new text, as when another channel opens: its history goes.
     pub fn reset(&self, text: &str) {
         let mut inner = self.0.borrow_mut();

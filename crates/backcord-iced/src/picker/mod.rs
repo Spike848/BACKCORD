@@ -44,6 +44,9 @@ pub enum Target {
     Status(Point),
     /// A poll's answer's emoji, by its place, likewise.
     Poll(usize, Point),
+    /// The bio being written in the profile editor, beside its emoji
+    /// button.
+    Bio(Point),
 }
 
 /// The expression picker's tabs, as Discord orders them.
@@ -586,6 +589,7 @@ pub fn place_emoji(app: &mut App, target: Target, key: String) -> Task<Message> 
             app.dirty = true;
         }
         Target::Status(_) => app.status.emoji(key),
+        Target::Bio(_) => return app.update(crate::profile::editor::insert_in_bio(text)),
         Target::Poll(index, _) => {
             crate::switcher::poll_draft_emoji(app, index, key);
             app.dirty = true;

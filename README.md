@@ -34,15 +34,21 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.6
+## Novità della 1.3.7
 
-- **La webcam non si blocca più cambiando qualità**: se cambi risoluzione o
-  fps mentre la webcam è accesa, gli altri continuano a vederti (dopo una
-  breve pausa mentre la webcam si riapre), invece di restare con
-  l'immagine ferma.
-- **Colori della stream uguali a ogni qualità**: passando da 360p a 480p o
-  più, chi guarda dal client ufficiale di Discord non vede più cambiare i
-  colori; cambia solo la nitidezza.
+- **Pulsante "Aa" per la formattazione**: nei messaggi, nella modifica di un
+  messaggio, nei thread, nei post dei forum e nella bio, un pannello applica
+  grassetto, corsivo, sottolineato, barrato, spoiler, codice, citazioni,
+  elenchi e stili di lettere (apice, maiuscoletto, capovolto, Extra Thicc…)
+  al testo selezionato, anche a una sola parola presa col doppio clic.
+- **Bio come su Discord**: in Modifica profilo il riquadro della bio resta
+  dentro la scheda, mostra la formattazione mentre scrivi e ha i pulsanti
+  emoji e "Aa"; `*corsivo *` con uno spazio prima dell'ultimo asterisco
+  esce in corsivo come su Discord.
+- **Tasto destro nelle chat delle vocali**: il menu dei messaggi (per
+  cancellarli, rispondere…) si apre di nuovo dove clicchi.
+- **Niente più crash** scrivendo caratteri come ▢ accanto ai simboli del
+  Markdown.
 
 ## Cosa fa
 

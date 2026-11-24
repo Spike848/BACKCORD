@@ -60,6 +60,8 @@ pub enum Message {
     Day,
     /// The composer's and the inline edit's fields, bars and buttons.
     Write(crate::composer::Event),
+    /// The text formatting button and its panel.
+    Format(crate::format::Event),
     /// The expression picker: opened for the composer, the edit or a
     /// reaction on a tab, and what's done in it.
     OpenPicker(Target, crate::picker::Tab),

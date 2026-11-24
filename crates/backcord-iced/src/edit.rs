@@ -151,6 +151,11 @@ pub fn inline_edit<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     );
     let line = row![
         field,
+        container(crate::format::button(
+            ctx,
+            crate::format::Target::Writing(Writing::Edit)
+        ))
+        .padding(Padding::ZERO.bottom(BUTTON_INSET)),
         container(emoji).padding(Padding::ZERO.bottom(BUTTON_INSET))
     ]
     .spacing(6)

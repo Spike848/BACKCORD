@@ -730,3 +730,60 @@ fn the_typing_lines_words_breathe_while_animations_play_and_hold_still_otherwise
     );
     assert_eq!(dim, full, "held still");
 }
+
+/// The composer's "Aa" opens the formatting panel by it, whose Bold puts
+/// Discord's Markdown around the selected words, still selected.
+#[test]
+fn the_formatting_buttons_bold_wraps_the_selected_words() {
+    let (mut app, _folder) = preview();
+    app.composer.draft.replace_selecting("say hi now", 4..6);
+    crate::composer::keep_text(
+        &mut app,
+        crate::composer::Writing::Draft,
+        "say hi now".into(),
+    );
+    interact(&mut app, |ui| {
+        let _ = ui.click("Aa").expect("the formatting button");
+    });
+    assert!(app.format.is_some(), "the panel opened");
+    assert!(shows(&app, "Italic"));
+    interact(&mut app, |ui| {
+        let _ = ui.click("Bold").expect("Bold in the panel");
+    });
+    assert!(app.format.is_none(), "the panel closed");
+    assert_eq!(app.composer.draft.text(), "say **hi** now");
+    assert_eq!(app.composer.draft.selected(), Some(6..8));
+    assert_eq!(app.client.state().draft(), "say **hi** now");
+}
+
+/// A word picked with a double click, as the pointer selects one, is all
+/// the formatting panel changes.
+#[test]
+fn the_formatting_panel_changes_only_a_double_clicked_word() {
+    let (mut app, _folder) = preview();
+    interact(&mut app, |ui| {
+        ui.click(Id::new(COMPOSER)).expect("the composer");
+        ui.typewrite("say hi now");
+    });
+    interact(&mut app, |ui| {
+        let field = ui.find(Id::new(COMPOSER)).expect("the composer");
+        let bounds = field.visible_bounds().expect("in view");
+        // Inside "say", the first word, as the field lays it out.
+        ui.point_at(iced::Point::new(bounds.x + 22.0, bounds.center_y()));
+        ui.simulate(iced_test::simulator::click());
+        ui.simulate(iced_test::simulator::click());
+    });
+    assert_eq!(
+        app.composer.draft.selection().as_deref(),
+        Some("say"),
+        "the word selected"
+    );
+    assert_eq!(app.composer.draft.selected(), Some(0..3), "where");
+    let _ = app.update(Message::Format(crate::format::Event::Open(
+        crate::format::Target::Writing(crate::composer::Writing::Draft),
+    )));
+    let _ = app.update(Message::Format(crate::format::Event::Apply(
+        crate::format::Style::Upper,
+    )));
+    assert_eq!(app.composer.draft.text(), "SAY hi now");
+}

@@ -60,6 +60,7 @@ use backcord_iced_kit::elide;
 use backcord_iced_kit::field;
 use backcord_iced_kit::fonts;
 use backcord_iced_kit::form;
+mod format;
 mod forum;
 mod forward;
 mod found;

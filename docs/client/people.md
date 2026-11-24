@@ -131,8 +131,11 @@ member list, the DMs, and the lists still to come build on it.
   editor changes; a picture
   just chosen shows from the core's preview of it. Each text is edited in
   place: the name and pronouns turn into fields when clicked, the bio into
-  a plain text box of its own (Enter breaks a line) with what's left of
-  Discord's 190 characters, and a click on the card that nothing on it
+  a text box of its own as Discord's (Enter breaks a line): the card's
+  width, as far from its right as from its left, its Markdown shown as
+  it's written, the emoji picker's and the formatting panel's buttons
+  inside it at its top right, and what's left of Discord's 190 characters
+  under it from 20 left; a click on the card that nothing on it
   takes ends the editing; the avatar and banner offer Change and Remove
   (Reset in a server) once there's one to remove, else open the file
   dialog, and without Nitro the main banner opens its colour, with

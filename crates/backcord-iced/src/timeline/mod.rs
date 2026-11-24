@@ -574,18 +574,25 @@ impl<'a> crate::ctx::Ctx<'a> {
                     + (aside.height - aside.total_height()).max(0.0)
                     - aside.view_top(),
             ),
-            _ => (
-                LanePlace {
-                    left: crate::conversation::navigation(self.layout),
-                    width: self.lanes.timeline.width,
-                    top: Some(self.lanes.timeline.place.get())
-                        .filter(|place| place.height > 0.0)
-                        .map_or(crate::header::HEIGHT + 1.0, |place| place.y),
-                },
-                self.lanes.timeline.tops.get(row).copied().unwrap_or(0.0)
-                    + (self.lanes.timeline.height - self.lanes.timeline.total_height()).max(0.0)
-                    - self.lanes.timeline.view_top(),
-            ),
+            // Where the timeline was last laid out, which is at the window's
+            // right beside a voice channel's call; else where it usually is.
+            _ => {
+                let place =
+                    Some(self.lanes.timeline.place.get()).filter(|place| place.height > 0.0);
+                (
+                    LanePlace {
+                        left: place.map_or(crate::conversation::navigation(self.layout), |place| {
+                            place.x
+                        }),
+                        width: self.lanes.timeline.width,
+                        top: place.map_or(crate::header::HEIGHT + 1.0, |place| place.y),
+                    },
+                    self.lanes.timeline.tops.get(row).copied().unwrap_or(0.0)
+                        + (self.lanes.timeline.height - self.lanes.timeline.total_height())
+                            .max(0.0)
+                        - self.lanes.timeline.view_top(),
+                )
+            }
         }
     }
 

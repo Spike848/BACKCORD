@@ -268,9 +268,11 @@ impl Picker {
             let lists = &app.state.discord_emojis;
             let used = match self.target {
                 Target::React(..) => &lists.reactions,
-                Target::Composer | Target::Edit | Target::Status(_) | Target::Poll(..) => {
-                    &lists.frequent
-                }
+                Target::Composer
+                | Target::Edit
+                | Target::Status(_)
+                | Target::Poll(..)
+                | Target::Bio(_) => &lists.frequent,
             };
             let mut frequent = names::discord_keys(used, &by_id);
             for key in app.frequent_reactions(16) {
@@ -737,6 +739,7 @@ impl<'a> View<'a> {
                     Target::Status(_) => {
                         backcord_iced_kit::i18n::tr("Pick an emoji for your status.")
                     }
+                    Target::Bio(_) => backcord_iced_kit::i18n::tr("Pick an emoji for your bio."),
                     Target::Poll(..) => {
                         backcord_iced_kit::i18n::tr("Pick an emoji for your message.")
                     }

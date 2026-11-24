@@ -690,6 +690,12 @@ impl<'a> SideComposer<'a> {
             )));
         }
         line = line.push(field);
+        if self.enabled {
+            line = line.push(lift(crate::format::button(
+                cx,
+                crate::format::Target::Writing(self.which),
+            )));
+        }
         if let Some((label, message, lit)) = self.send {
             let tint = if lit { theme.accent } else { theme.secondary };
             line = line.push(lift(crate::composer::composer_button(

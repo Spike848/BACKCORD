@@ -28,6 +28,21 @@ the monospace face, a heading's line bold; underline, strikethrough and
 spoilers grey their marks only. Only lines whose looks changed are shaped
 again.
 
+Beside every field Discord reads Markdown in (the composer, so a voice
+channel's chat too, the edit, a thread's, a new thread's and a post's, and
+the profile's bio while it's written), an "Aa" button opens the text
+formatting panel (`format.rs`) over the window by it, which a click
+elsewhere closes. Its first row puts Discord's Markdown around the
+selection, or at the caret: bold, italic, underline, strikethrough,
+spoiler, inline code, a code block; markdown already around the selection
+comes off again. Blockquote and Bullet List mark each line the selection
+touches, or take the marks off when they all have them. The rest write the
+selection, or the whole text when nothing is selected, in other letters,
+which are Unicode and show anywhere: superscript, small caps, fullwidth,
+upside down, varied caps, leet speak, Extra Thicc, upper and lower case,
+and first capitals. Each is one undo step, and the field takes the keys
+again with what it changed selected.
+
 Files go with the next message (`uploads.rs`) from the system's file
 dialog (the + where nothing else can start, or the + menu's "Upload a
 File", whose Create Thread shows greyed until threads come; its Create

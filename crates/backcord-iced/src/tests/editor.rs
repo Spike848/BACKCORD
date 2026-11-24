@@ -270,13 +270,20 @@ fn bio(app: &App) -> String {
         .clone()
 }
 
+/// Whether the bio's field is open.
+fn writing_bio(app: &App) -> bool {
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
+    ui.find(iced::widget::Id::new("profile-edit-bio")).is_ok()
+}
+
 /// The bio's field, opened by a click on its text.
 fn edit_bio(app: &mut App) {
     interact(app, |ui| {
         ui.click("Tell everyone a bit about yourself")
             .expect("the bio");
     });
-    assert!(shows(app, "You can use markdown and links if you'd like."));
+    assert!(writing_bio(app));
 }
 
 #[test]
@@ -291,18 +298,12 @@ fn enter_in_the_bio_breaks_the_line_and_a_click_on_the_card_ends_the_editing() {
         ui.typewrite("b");
     });
     assert_eq!(bio(&app), "a\nb");
-    assert!(
-        shows(&app, "You can use markdown and links if you'd like."),
-        "still editing"
-    );
+    assert!(writing_bio(&app), "still editing");
     // A click on the card's plain words, which nothing takes.
     interact(&mut app, |ui| {
         ui.click("Bio").expect("the bio's heading");
     });
-    assert!(
-        !shows(&app, "You can use markdown and links if you'd like."),
-        "the editing ends"
-    );
+    assert!(!writing_bio(&app), "the editing ends");
     assert!(
         app.client.state().profile_editor.is_some(),
         "the editor stays"
@@ -399,4 +400,97 @@ fn a_frame_shows_on_the_first_view_after_its_pictures_came() {
         !shows(&app, "Frame on"),
         "the tile wears the frame at once, rather than waiting on a copy"
     );
+}
+
+/// The bio's "Aa" opens the formatting panel while it's written, which
+/// keeps the field open and puts the style at its caret.
+#[test]
+fn the_bios_formatting_button_writes_markdown_at_its_caret() {
+    let mut app = open();
+    edit_bio(&mut app);
+    interact(&mut app, |ui| {
+        ui.click(iced::widget::Id::new("profile-edit-bio"))
+            .expect("the bio's field");
+        ui.typewrite("hey");
+    });
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
+    let field = ui
+        .find(iced::widget::Id::new("profile-edit-bio"))
+        .expect("the bio's field")
+        .visible_bounds()
+        .expect("in view");
+    // The bio's "Aa", not the composer's under the editor.
+    let (top, bottom) = (field.y - 8.0, field.y + 110.0);
+    let aa = ui
+        .find(
+            |candidate: iced_test::selector::Candidate<'_>| match candidate {
+                iced_test::selector::Candidate::Text {
+                    content: "Aa",
+                    visible_bounds: Some(bounds),
+                    ..
+                } if bounds.y > top && bounds.y < bottom => Some(bounds),
+                _ => None,
+            },
+        )
+        .expect("the bio's formatting button");
+    assert!(
+        aa.x > field.x + field.width && aa.x + aa.width < field.x + field.width + 48.0,
+        "inside the box, right of the text: {aa:?} by {field:?}"
+    );
+    ui.point_at(aa.center());
+    ui.simulate(iced_test::simulator::click());
+    let sent: Vec<crate::app::Message> = ui.into_messages().collect();
+    for message in sent {
+        let _ = app.update(message);
+    }
+    assert!(app.format.is_some(), "the panel opened");
+    assert!(writing_bio(&app), "still editing with the panel open");
+    interact(&mut app, |ui| {
+        let _ = ui.click("Italic").expect("Italic in the panel");
+    });
+    assert_eq!(bio(&app), "hey**");
+    assert!(writing_bio(&app), "still editing");
+}
+
+/// The bio's emoji button opens the picker over the editor, whose emoji
+/// goes in the bio at its caret.
+#[test]
+fn the_bios_emoji_button_puts_an_emoji_in_the_bio() {
+    let mut app = open();
+    edit_bio(&mut app);
+    interact(&mut app, |ui| {
+        ui.click(iced::widget::Id::new("profile-edit-bio"))
+            .expect("the bio's field");
+        ui.typewrite("hi ");
+    });
+    let _ = app.update(crate::app::Message::Format(crate::format::Event::BioEmoji));
+    let target = app.win.picker.get().map(|picker| picker.target.clone());
+    assert!(
+        matches!(target, Some(crate::picker::Target::Bio(_))),
+        "{target:?}"
+    );
+    let _ = crate::picker::place_emoji(
+        &mut app,
+        crate::picker::Target::Bio(iced::Point::ORIGIN),
+        "😀".into(),
+    );
+    assert_eq!(bio(&app), "hi 😀");
+    assert!(writing_bio(&app), "still editing");
+}
+
+/// A bio of code, italics with spaces before their last star, a box
+/// drawing and a link on a line of its own's blanks, written in its field,
+/// lays out.
+#[test]
+fn a_bio_of_code_italics_and_blanks_shows_in_its_field() {
+    let mut app = open();
+    edit_bio(&mut app);
+    for bio in [
+        "`discord.gg/backdoor666 [-] [\u{25a2}] [X]`\n *Organismo infettivo pluricellulare  *\n                https://discord.gg/backdoor666",
+        "`discord.gg/backdoor666 [-] [\u{25a2}] [X]`\n\u{3164}*Organismo infettivo pluricellulare\u{a0}\u{a0}*\n\u{3164}\u{3164}\u{3164}https://discord.gg/backdoor666",
+    ] {
+        let _ = app.update(crate::profile::editor::insert_in_bio(bio.into()));
+        assert!(writing_bio(&app), "still editing");
+    }
 }

@@ -404,6 +404,49 @@ fn a_voice_channels_chat_opens_beside_its_call_from_its_row() {
     assert_eq!(crate::call::stage::stage_size(&app).width, narrow + width);
 }
 
+/// A message in a voice channel's chat opens its menu where it was right
+/// clicked, over the chat at the window's right, as in a text channel.
+#[test]
+fn a_right_click_in_a_voice_channels_chat_opens_the_messages_menu_there() {
+    let (mut app, _folder) = discord_server(0, |_, _| {});
+    let _ = app.update(Message::Side(crate::sidebar::Event::OpenChat(
+        "discord:10:14".into(),
+    )));
+    change(&mut app, |state| {
+        state.messages = Arc::new(
+            (0..5)
+                .map(|index| {
+                    Arc::new(backcord_core::chat::ChatMessage {
+                        id: format!("long-{index}"),
+                        item: format!("long-{index}"),
+                        body: format!("Message number {index}"),
+                        sender: "someone".into(),
+                        author: "Someone".into(),
+                        timestamp: 1_700_000_000 + index * 600,
+                        ..Default::default()
+                    })
+                })
+                .collect(),
+        );
+    });
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
+    let body = ui.find("Message number 3").expect("the message");
+    let pointed = body.visible_bounds().expect("in view").center();
+    super::right_click(&mut ui, "Message number 3");
+    let sent: Vec<Message> = ui.into_messages().collect();
+    for message in sent {
+        let _ = app.update(message);
+    }
+    let menu = app.win.menu.as_ref().expect("a menu");
+    assert_eq!(menu.item.as_deref(), Some("long-3"));
+    assert!(
+        (menu.at.x - pointed.x).abs() < 1.0 && (menu.at.y - pointed.y).abs() < 1.0,
+        "at the pointer {pointed:?}, not {:?}",
+        menu.at
+    );
+}
+
 #[test]
 fn browse_channels_join_joins_a_voice_channels_call() {
     use backcord_core::application::{Action, Navigation};
