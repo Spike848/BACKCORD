@@ -3773,3 +3773,31 @@ lowercase	minuscolo
 First Caps	Iniziali maiuscole
 Text formatting	Formattazione del testo
 Pick an emoji for your bio.	Scegli una emoji per la tua bio.
+Emulate Platforms	Emula piattaforme
+Shows the platforms people are online on beside their names, coloured by their status, and chooses the platform Discord sees you on.	Mostra accanto ai nomi le piattaforme da cui le persone sono online, colorate secondo il loro stato, e sceglie la piattaforma su cui Discord ti vede.
+Anti-Disconnect	Anti-disconnessione
+Joins the voice channel you were disconnected from again at once, while it's still there and you may join it.	Rientra subito nel canale vocale da cui sei stato disconnesso, se esiste ancora e hai il permesso di entrarci.
+Adds Follow to people's menus: you join each voice channel they go to, in servers you share with them, until you turn it off.	Aggiunge Segui al menu delle persone: entri in ogni canale vocale in cui vanno, nei server che avete in comune, finché non lo disattivi.
+PLATFORM TO EMULATE	PIATTAFORMA DA EMULARE
+Discord sees you on it from your next start. Saying you're on a platform you aren't on may get your account flagged: use it at your own risk.	Discord ti vede su questa piattaforma dal prossimo avvio. Fingere di essere su una piattaforma diversa può far segnalare il tuo account: usala a tuo rischio.
+EMULATION LEVEL	LIVELLO DI EMULAZIONE
+Low: device and locale. Medium: also the version and release channel. High: also the user agent and client build.	Basso: dispositivo e lingua. Medio: anche versione e canale di rilascio. Alto: anche agente utente e build del client.
+VR Headset	Visore VR
+Desktop	Desktop
+Mobile	Mobile
+Console	Console
+Web	Web
+You were disconnected from the voice channel.	Sei stato disconnesso dal canale vocale.
+Windows	Windows
+Linux	Linux
+macOS	macOS
+Android	Android
+iOS	iOS
+Xbox	Xbox
+PlayStation	PlayStation
+Don't emulate	Non emulare
+Low level	Basso
+Medium level	Medio
+High level	Alto
+Full screen call	Chiamata a schermo intero
+Show chat	Mostra chat

@@ -335,7 +335,7 @@ impl Gateway {
         let identify = json!({
             "token": token,
             "capabilities": CAPABILITIES,
-            "properties": client::properties(),
+            "properties": client::identify_properties(),
             "presence": presence,
             "compress": false,
             "client_state": {"guild_versions": {}},

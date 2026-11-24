@@ -69,6 +69,9 @@ pub mod network;
 pub mod new_tags;
 pub mod noise;
 pub mod picture;
+/// Where each person is online; see `backcord_discord::platforms`.
+#[cfg(feature = "discord")]
+pub use backcord_discord::platforms;
 #[cfg(feature = "discord")]
 pub mod playback;
 pub mod push_to_talk;

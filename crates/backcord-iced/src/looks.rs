@@ -623,6 +623,50 @@ impl<'a> crate::ctx::Ctx<'a> {
             .into()
     }
 
+    /// Emulate Platforms: the platforms `user` is online on, as Discord's
+    /// presences say, each in its status's colour, at `size`; none while
+    /// it's off, or where Discord says they're on none.
+    pub fn platforms(self, user: &str, size: u32, opacity: f32) -> Option<Element<'a, Message>> {
+        use backcord_core::platforms::{Platform, Status};
+        if !self.layout.prefs.platform_indicators.unwrap_or(true) {
+            return None;
+        }
+        let user = backcord_core::application::network_id(user);
+        let clients = backcord_core::platforms::of(user);
+        if clients.is_empty() {
+            return None;
+        }
+        let theme = self.look.theme;
+        let mut line = row![].spacing(2).align_y(Alignment::Center);
+        for (platform, status) in clients.iter() {
+            let (icon, name) = match platform {
+                Platform::Desktop => (crate::pictures::Icon::Monitor, "Desktop"),
+                Platform::Mobile => (crate::pictures::Icon::Smartphone, "Mobile"),
+                Platform::Web => (crate::pictures::Icon::Globe, "Web"),
+                Platform::Embedded => (crate::pictures::Icon::Gamepad, "Console"),
+                Platform::Vr => (crate::pictures::Icon::VrHeadset, "VR Headset"),
+            };
+            // Discord's status colours, as its dots draw them.
+            let colour = match status {
+                Status::Online => 0x23a55a,
+                Status::Idle => 0xf0b232,
+                Status::DoNotDisturb => 0xf23f43,
+                Status::Invisible => 0x80848e,
+            };
+            let glyph =
+                Pic::square(self.look.icon(icon, size, colour), size as f32).opacity(opacity);
+            line = line.push(
+                iced::widget::tooltip(
+                    glyph,
+                    crate::controls::tip(theme, backcord_iced_kit::i18n::tr(name)),
+                    iced::widget::tooltip::Position::Top,
+                )
+                .gap(6),
+            );
+        }
+        Some(line.into())
+    }
+
     /// The APP tag a bot's name wears.
     pub fn bot_tag(self, opacity: f32) -> Element<'a, Message> {
         self.blurple_tag("APP", opacity)

@@ -219,6 +219,17 @@ pub struct Prefs {
     pub message_logger: Option<bool>,
     /// Message Logger keeps one's own messages too.
     pub message_logger_own: Option<bool>,
+    /// Emulate Platforms: where people are online shows beside their names
+    /// (on unless turned off); the platform this account says it is, one
+    /// past its index in `Emulated::ALL` (none unless chosen), and how much
+    /// of it it says, low, medium or high.
+    pub platform_indicators: Option<bool>,
+    pub emulated_platform: Option<usize>,
+    pub emulation_depth: Option<usize>,
+    /// Anti-Disconnect (off unless turned on), and Follow in people's menus
+    /// (on unless turned off).
+    pub anti_disconnect: Option<bool>,
+    pub follow_voice: Option<bool>,
     /// Security: the proxy, whether it's used, and the encrypted DNS
     /// (`pages::security::DNS` by index after the system's, then one's own).
     pub proxy_on: Option<bool>,
@@ -452,6 +463,7 @@ impl Layout {
             Action::SetCosmetics(self.prefs.cosmetics()),
             Action::StripTracking(self.prefs.strip_tracking.unwrap_or(true)),
             Action::HideNameplates(!self.prefs.nameplates.unwrap_or(true)),
+            Action::AntiDisconnect(self.prefs.anti_disconnect.unwrap_or(false)),
         ]
     }
 }

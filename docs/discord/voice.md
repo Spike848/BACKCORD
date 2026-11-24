@@ -691,6 +691,25 @@ To hear the processing, run a recording through it: raw mono 16-bit 48 kHz in
 format and as long, is what the speakers played, for echo cancellation;
 `BACKCORD_AUDIO_ECHOED` then gets the microphone with only echo cancelled.
 
+## Anti-Disconnect and Follow
+
+A VOICE_STATE_UPDATE for this account's session with no channel, while its
+call goes on, means someone disconnected it: `Live::VoiceLeft` ends the
+call at once with "You were disconnected from the voice channel.", rather
+than when the connection drops. With Anti-Disconnect on, a call that was
+connected and ends with an error (that, or a dropped connection) joins its
+channel again (`Application::rejoin_voice`), if it's a server's voice
+channel still listed that this account may join and isn't full; not after
+the fifth time in a minute. Leaving by hand, or joining on another client,
+ends without an error and stays left.
+
+Follow (`Action::FollowVoice`) follows one Discord user: each time the
+lists show them in another server voice channel this account may join,
+which is in a server it shares with them, it leaves its call and joins
+theirs (`follow_into_voice`, after each list and voice change). It acts
+once per channel they go to, so leaving theirs by hand stays left until
+they move; going offline or leaving voice does nothing.
+
 ## Push to talk
 
 Settings → Voice & video → Input mode chooses voice activity or push to talk,

@@ -122,10 +122,23 @@ it.
 Extra Features (`pages/extras.rs`), under its own group at the foot of the
 column, has a card for each feature, its switch with what it does and its
 own choices under it while it's on, each kept in `layout.json`. All of
-them start on, Message Logger with Log my own messages, Silent Typing (not
-sharing this account's typing) and No Push To Talk included, and Stream
-Proof's button sits in the header bar, with Local Blur and Auto Stream
-Proof on:
+them but Anti-Disconnect start on, Message Logger with Log my own
+messages, Silent Typing (not sharing this account's typing) and No Push To
+Talk included, and Stream Proof's button sits in the header bar, with
+Local Blur and Auto Stream Proof on:
+
+- Emulate Platforms (`platform_indicators`, `emulated_platform`,
+  `emulation_depth`): where someone is online shows beside their name in
+  the member list, a message's author line and a profile's username line
+  (`Ctx::platforms` in `looks.rs`), a monitor, phone, globe, gamepad or VR
+  headset for each platform, in its status's colour, its name on a
+  tooltip. Its dialog chooses the platform this account says it's on, none
+  by default, in two rows, and how much of it it says, low, medium or high;
+  [people](../discord/people.md#where-someone-is-online) has what each says.
+- Anti-Disconnect (`anti_disconnect`, off by default) and Follow
+  (`follow_voice`): see [voice](../discord/voice.md#anti-disconnect-and-follow).
+  Follow adds Follow, ticked while following them, to the menu of another
+  Discord user; turned off, it stops following.
 
 - Clickable Roles (`clickable_roles`): a role's chip on a profile opens the
   card of who holds it (`info_cards.rs`), as a role mention does.

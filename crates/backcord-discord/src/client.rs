@@ -211,6 +211,263 @@ pub fn properties() -> Value {
     })
 }
 
+/// The platforms Emulate Platforms can say BACKCORD is when it identifies
+/// on the gateway, in its list's order; Discord shows the others where this
+/// account is online from what it says.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Emulated {
+    Windows,
+    Linux,
+    MacOs,
+    Android,
+    Ios,
+    Xbox,
+    PlayStation,
+    Vr,
+    Web,
+}
+
+impl Emulated {
+    pub const ALL: [Self; 9] = [
+        Self::Windows,
+        Self::Linux,
+        Self::MacOs,
+        Self::Android,
+        Self::Ios,
+        Self::Xbox,
+        Self::PlayStation,
+        Self::Vr,
+        Self::Web,
+    ];
+}
+
+/// How much of a platform's description Emulate Platforms sends.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Depth {
+    /// Its system, client and device, and locale.
+    Low,
+    /// And its client's version and release channel.
+    Medium,
+    /// And its user agent and build numbers.
+    High,
+}
+
+/// The platform emulated, one past its index in [`Emulated::ALL`]; 0 for
+/// none.
+static EMULATED: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static DEPTH: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Emulate Platforms: the platform the next identify says, or none for
+/// BACKCORD's own description, and how much of it.
+pub fn set_emulation(platform: Option<Emulated>, depth: Depth) {
+    let index = platform.map_or(0, |platform| {
+        Emulated::ALL
+            .iter()
+            .position(|known| *known == platform)
+            .unwrap_or(0)
+            + 1
+    });
+    EMULATED.store(index as u8, Ordering::Relaxed);
+    DEPTH.store(depth as u8, Ordering::Relaxed);
+}
+
+fn emulation() -> Option<(Emulated, Depth)> {
+    let index = EMULATED.load(Ordering::Relaxed) as usize;
+    let platform = *Emulated::ALL.get(index.checked_sub(1)?)?;
+    let depth = match DEPTH.load(Ordering::Relaxed) {
+        0 => Depth::Low,
+        1 => Depth::Medium,
+        _ => Depth::High,
+    };
+    Some((platform, depth))
+}
+
+/// What a platform's own client says of itself, as docs.discord.food shows
+/// each: its system, client and device; its client's version, release
+/// channel and system version; its user agent, architecture and native
+/// build.
+struct Described {
+    os: &'static str,
+    browser: &'static str,
+    device: &'static str,
+    client_version: Option<&'static str>,
+    browser_version: &'static str,
+    release_channel: &'static str,
+    os_version: &'static str,
+    user_agent: &'static str,
+    arch: Option<&'static str>,
+    client_build_number: Option<u64>,
+    native_build_number: Option<u64>,
+    design_id: Option<u64>,
+}
+
+fn described(platform: Emulated) -> Described {
+    const DESKTOP: Described = Described {
+        os: "Windows",
+        browser: "Discord Client",
+        device: "",
+        client_version: Some("1.0.9219"),
+        browser_version: "37.6.0",
+        release_channel: "stable",
+        os_version: "10.0.26100",
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9219 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36",
+        arch: Some("x64"),
+        client_build_number: None,
+        native_build_number: Some(72186),
+        design_id: None,
+    };
+    const CONSOLE: Described = Described {
+        os: "Xbox",
+        browser: "Discord Embedded",
+        device: "",
+        client_version: None,
+        browser_version: "0.0.8",
+        release_channel: "unknown",
+        os_version: "",
+        user_agent: "Discord Embedded/0.0.8",
+        arch: None,
+        client_build_number: Some(4440),
+        native_build_number: None,
+        design_id: Some(0),
+    };
+    match platform {
+        Emulated::Windows => DESKTOP,
+        Emulated::Linux => Described {
+            os: "Linux",
+            client_version: Some("0.0.112"),
+            os_version: "6.14.0",
+            user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.112 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36",
+            native_build_number: None,
+            ..DESKTOP
+        },
+        Emulated::MacOs => Described {
+            os: "Mac OS X",
+            client_version: Some("0.0.366"),
+            os_version: "24.6.0",
+            user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) discord/0.0.366 Chrome/138.0.7204.251 Electron/37.6.0 Safari/537.36",
+            arch: Some("arm64"),
+            native_build_number: None,
+            ..DESKTOP
+        },
+        Emulated::Android => Described {
+            os: "Android",
+            browser: "Discord Android",
+            device: "Pixel 8",
+            client_version: Some("297.18 - rn"),
+            browser_version: "",
+            release_channel: "googleRelease",
+            os_version: "35",
+            user_agent: "",
+            arch: None,
+            client_build_number: Some(297018),
+            native_build_number: None,
+            design_id: Some(2),
+        },
+        Emulated::Ios => Described {
+            os: "iOS",
+            browser: "Discord iOS",
+            device: "iPhone16,2",
+            client_version: Some("297.0"),
+            browser_version: "",
+            release_channel: "stable",
+            os_version: "18.6.2",
+            user_agent: "",
+            arch: None,
+            client_build_number: Some(85871),
+            native_build_number: None,
+            design_id: Some(2),
+        },
+        Emulated::Xbox => CONSOLE,
+        Emulated::PlayStation => Described {
+            os: "Playstation",
+            ..CONSOLE
+        },
+        Emulated::Vr => Described {
+            os: "Android",
+            browser: "Discord VR",
+            device: "Quest 3",
+            client_version: Some("297.18 - rn"),
+            browser_version: "",
+            release_channel: "googleRelease",
+            os_version: "34",
+            user_agent: "",
+            arch: Some("arm64"),
+            client_build_number: Some(297018),
+            native_build_number: None,
+            design_id: Some(2),
+        },
+        Emulated::Web => Described {
+            os: if cfg!(windows) { "Windows" } else { "Linux" },
+            browser: "Chrome",
+            device: "",
+            client_version: None,
+            browser_version: "140.0.0.0",
+            release_channel: "stable",
+            os_version: if cfg!(windows) { "10" } else { "" },
+            user_agent: if cfg!(windows) {
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+            } else {
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+            },
+            arch: None,
+            client_build_number: None,
+            native_build_number: None,
+            design_id: None,
+        },
+    }
+}
+
+/// `properties` as Emulate Platforms has them say `platform`, to
+/// `depth`: the rest stays BACKCORD's own.
+fn emulate(properties: &mut Value, platform: Emulated, depth: Depth) {
+    let shown = described(platform);
+    let Some(properties) = properties.as_object_mut() else {
+        return;
+    };
+    let mut put = |key: &str, value: Value| {
+        properties.insert(key.to_owned(), value);
+    };
+    put("os", shown.os.into());
+    put("browser", shown.browser.into());
+    put("device", shown.device.into());
+    put("system_locale", LOCALE.into());
+    if depth >= Depth::Medium {
+        put("release_channel", shown.release_channel.into());
+        put("os_version", shown.os_version.into());
+        put("browser_version", shown.browser_version.into());
+        if let Some(version) = shown.client_version {
+            put("client_version", version.into());
+        }
+        if let Some(design) = shown.design_id {
+            put("design_id", design.into());
+        }
+    }
+    if depth >= Depth::High {
+        put("browser_user_agent", shown.user_agent.into());
+        if let Some(arch) = shown.arch {
+            put("os_arch", arch.into());
+            put("app_arch", arch.into());
+        }
+        if let Some(build) = shown.client_build_number {
+            put("client_build_number", build.into());
+        }
+        if let Some(native) = shown.native_build_number {
+            put("native_build_number", native.into());
+        }
+    }
+}
+
+/// The `properties` the gateway's identify sends: [`properties`], as
+/// Emulate Platforms has them say another platform. HTTP requests keep
+/// BACKCORD's own, which match the user agent they're sent with.
+pub fn identify_properties() -> Value {
+    let mut sent = properties();
+    if let Some((platform, depth)) = emulation() {
+        emulate(&mut sent, platform, depth);
+    }
+    sent
+}
+
 /// The same properties for HTTP requests' `X-Super-Properties` header.
 pub fn super_properties() -> String {
     STANDARD.encode(properties().to_string())
@@ -219,6 +476,34 @@ pub fn super_properties() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn emulating_a_platform_says_more_of_it_at_each_depth() {
+        let mut low = properties();
+        emulate(&mut low, Emulated::Android, Depth::Low);
+        assert_eq!(low["os"], "Android");
+        assert_eq!(low["browser"], "Discord Android");
+        assert_eq!(low["device"], "Pixel 8");
+        assert_eq!(low["release_channel"], "stable", "still BACKCORD's");
+        let mut medium = properties();
+        emulate(&mut medium, Emulated::Android, Depth::Medium);
+        assert_eq!(medium["release_channel"], "googleRelease");
+        assert_eq!(medium["client_version"], "297.18 - rn");
+        assert_eq!(
+            medium["browser_user_agent"],
+            user_agent(),
+            "still BACKCORD's"
+        );
+        let mut high = properties();
+        emulate(&mut high, Emulated::Xbox, Depth::High);
+        assert_eq!(high["os"], "Xbox");
+        assert_eq!(high["browser"], "Discord Embedded");
+        assert_eq!(high["browser_user_agent"], "Discord Embedded/0.0.8");
+        assert_eq!(high["client_build_number"], 4440);
+        // None is BACKCORD's own.
+        set_emulation(None, Depth::High);
+        assert_eq!(identify_properties()["browser"], "Firefox");
+    }
 
     #[test]
     fn reads_the_build_number_from_the_web_page() {

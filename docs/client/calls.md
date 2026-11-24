@@ -34,6 +34,15 @@ The call's views and what they do are in `call/`.
 - The controls under the stage, in this order: mute and
   deafen (each with its device menu), the camera (its menu, from this button
   and the one under the call alike: the camera, its quality, on or off), Go Live, the soundboard, and leave.
+  At their right, in a voice channel, Full screen call (`Event::Theatre`)
+  puts the call over the whole screen (`theatre_view`, a layer of
+  `call_layers`): its tiles alone, no rail, sidebar, header or controls,
+  the window full screen on the desktop as for the large tile. The same
+  button at the tiles' bottom right, Escape (its layer is the last, so a
+  reply or the picker in its chat goes first), leaving the call or opening
+  another view go back. While a Discord channel's chat is closed, a button
+  at the tiles' top right opens it, beside them as beside the call, the
+  tiles narrowing to make room.
 - The device menus (`call/popups/`: the device menus, the share menu,
   the soundboard and someone's voice menu each a file): the device to use (one chosen that
   went away shows as not connected), its volume, which plays while it's

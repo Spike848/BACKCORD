@@ -78,6 +78,14 @@ pub fn open_person_menu(
     {
         choices.push(MenuChoice::ViewAvatar);
     }
+    // Follow, for another Discord user.
+    if app.layout.prefs.follow_voice.unwrap_or(true)
+        && state.discord_user.is_some()
+        && !user.starts_with('@')
+        && state.relation(user) != backcord_core::application::Relation::Me
+    {
+        choices.push(MenuChoice::FollowVoice);
+    }
     choices.sort_by_key(|choice| discord_rank(*choice));
     let name = state
         .person(user)
@@ -155,8 +163,10 @@ fn voice_ticks(
         (person.server_muted, person.server_deafened)
     });
     let (muted, deafened) = (voice.muted, voice.deafened);
+    let followed = core.state.following.as_deref() == Some(user);
     let user = user.to_owned();
     move |choice| match choice {
+        MenuChoice::FollowVoice => Some(followed),
         MenuChoice::LocalMute => Some(backcord_core::volume::muted(&user)),
         MenuChoice::SoundboardMute => Some(backcord_core::volume::soundboard_muted(&user)),
         MenuChoice::SelfMute => Some(muted),
@@ -222,6 +232,10 @@ pub fn choose_person(
             large: true,
         }),
         MenuChoice::Message => Some(Action::MessagePerson(user.clone())),
+        MenuChoice::FollowVoice => {
+            let follow = ticked.unwrap_or(state.following.as_deref() != Some(user.as_str()));
+            Some(Action::FollowVoice(follow.then(|| user.clone())))
+        }
         MenuChoice::Call => Some(ask(PersonAsk::Call)),
         MenuChoice::AddFriend | MenuChoice::AcceptFriend => Some(Action::Befriend(user.clone())),
         MenuChoice::CancelFriendRequest => Some(Action::RemoveFriendRequest(user.clone())),

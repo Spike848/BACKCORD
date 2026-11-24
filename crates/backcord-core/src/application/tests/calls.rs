@@ -1052,3 +1052,103 @@ fn a_video_call_joins_then_turns_the_camera_on_once_connected_and_forgets_a_fail
     }));
     assert!(app.state.pending_camera.is_none());
 }
+
+/// The voice channels effects join.
+fn joins(effects: &[Effect]) -> Vec<&str> {
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::Backend(Command::Voice(voice::Command::Join(room))) => Some(room.as_str()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// `connected()`, with the Lounge a Discord server's voice channel and
+/// Discord online.
+fn discord_lounge() -> Application {
+    let mut app = connected();
+    let lounge = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == "lounge")
+        .unwrap();
+    lounge.network = Network::Discord;
+    lounge.voice = true;
+    app.state.discord_online = true;
+    app
+}
+
+#[test]
+fn anti_disconnect_joins_a_channel_again_when_someone_disconnects_this_account() {
+    let mut app = discord_lounge();
+    let disconnected = || {
+        Event::Voice(voice::State {
+            error: Some("You were disconnected from the voice channel.".into()),
+            ..Default::default()
+        })
+    };
+    app.apply(call(Phase::Connected, "lounge", vec![]));
+    assert!(joins(&app.apply(disconnected())).is_empty(), "off");
+    app.dispatch(Action::AntiDisconnect(true));
+    app.apply(call(Phase::Connected, "lounge", vec![]));
+    assert_eq!(joins(&app.apply(disconnected())), ["lounge"]);
+    // Leaving by hand stays left.
+    app.apply(call(Phase::Connected, "lounge", vec![]));
+    assert!(joins(&app.apply(Event::Voice(voice::State::default()))).is_empty());
+    // Not into a channel this account may no longer join.
+    app.apply(call(Phase::Connected, "lounge", vec![]));
+    let lounge = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == "lounge");
+    lounge.unwrap().join_locked = true;
+    assert!(joins(&app.apply(disconnected())).is_empty());
+}
+
+#[test]
+fn anti_disconnect_gives_up_after_five_times_in_a_minute() {
+    let mut app = discord_lounge();
+    app.dispatch(Action::AntiDisconnect(true));
+    let mut rejoined = 0;
+    for _ in 0..8 {
+        app.apply(call(Phase::Connected, "lounge", vec![]));
+        let effects = app.apply(Event::Voice(voice::State {
+            error: Some("Discord voice disconnected. Join again to reconnect.".into()),
+            ..Default::default()
+        }));
+        rejoined += joins(&effects).len();
+    }
+    assert_eq!(rejoined, 5);
+}
+
+#[test]
+fn follow_joins_the_channel_the_person_goes_to_once() {
+    let mut app = discord_lounge();
+    assert!(
+        joins(&app.dispatch(Action::FollowVoice(Some("bob".into())))).is_empty(),
+        "not in voice"
+    );
+    let lounge = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == "lounge");
+    lounge.unwrap().people = vec![chat::VoicePerson {
+        id: "bob".into(),
+        name: "Bob".into(),
+        ..Default::default()
+    }];
+    // As the lists show him there.
+    assert_eq!(joins(&app.follow_into_voice()), ["lounge"]);
+    // Left by hand: stays left until Bob moves.
+    assert!(joins(&app.follow_into_voice()).is_empty());
+    app.dispatch(Action::FollowVoice(None));
+    assert!(app.state.following.is_none());
+    assert!(joins(&app.follow_into_voice()).is_empty(), "stopped");
+}

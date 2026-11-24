@@ -822,6 +822,9 @@ fn author_line<'a>(
         line = line.push(ctx.look.glyph(Icon::StarFilled, 14, theme.live));
     }
     // OP gives way to the APP tag, as in Discord's client.
+    if let Some(platforms) = ctx.platforms(&message.sender, 14, 1.0) {
+        line = line.push(platforms);
+    }
     if message.bot {
         line = line.push(ctx.bot_tag(1.0));
     } else if ctx

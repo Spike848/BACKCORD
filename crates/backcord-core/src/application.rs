@@ -636,6 +636,11 @@ pub struct AppState {
     /// Joining another voice channel while in a call switches without
     /// asking first.
     pub skip_switch_prompt: bool,
+    /// Anti-Disconnect is on; see [`Action::AntiDisconnect`].
+    pub anti_disconnect: bool,
+    /// The Discord user Follow follows into voice; see
+    /// [`Action::FollowVoice`].
+    pub following: Option<String>,
     /// The member list's Activity panel's feed, in Discord's order: what
     /// everyone this account knows is doing, not just one server.
     pub activity_feed: Arc<[crate::chat::FeedEntry]>,
@@ -2516,6 +2521,12 @@ pub enum Action {
     SkipCallPrompt(bool),
     /// Switching voice channels no longer asks, or asks again.
     SkipSwitchPrompt(bool),
+    /// Anti-Disconnect: a call someone ends joins its channel again at
+    /// once, while it's there and this account may join it.
+    AntiDisconnect(bool),
+    /// Follow: joins the voice channels this Discord user goes to, in
+    /// servers this account shares with them, until it's none.
+    FollowVoice(Option<String>),
     /// A server or folder on the rail, by its id, dropped before another,
     /// or after the last.
     MoveServer {
@@ -2705,6 +2716,11 @@ pub struct Application {
     searched: HashSet<String>,
     /// A conversation to open once it's listed, such as a DM just started.
     pending_open: Option<String>,
+    /// When Anti-Disconnect joined again lately, in ms: it stops after a few
+    /// in a minute, as someone keeps disconnecting this account.
+    rejoins: Vec<u64>,
+    /// The voice channel the person followed was last seen in.
+    follow_seen: Option<String>,
     /// A thread to show beside the selected channel once it's listed.
     pending_aside: Option<String>,
     /// A thread just started, whose first message, its draft, goes once
@@ -4588,6 +4604,12 @@ impl Application {
                 self.state.skip_switch_prompt = skip;
                 vec![]
             }
+            Action::AntiDisconnect(on) => {
+                self.state.anti_disconnect = on;
+                self.rejoins.clear();
+                vec![]
+            }
+            Action::FollowVoice(user) => self.follow_voice(user),
             Action::MoveServer {
                 moved,
                 before,
@@ -4737,6 +4759,13 @@ impl Application {
             | Event::AutocompleteChoices { .. } => return self.command_event(event),
             Event::Voice(state) => {
                 let sounds = call_sounds(&self.state.voice, &state);
+                // A call that ended with an error, not left: someone
+                // disconnected this account, or the connection dropped.
+                let dropped = (self.state.voice.phase == voice::Phase::Connected
+                    && !state.active()
+                    && state.error.is_some())
+                .then(|| self.state.voice.room.clone())
+                .flatten();
                 // Someone moved the call to another channel, as a bot does
                 // from one that makes rooms: its view goes along.
                 if let (Some(from), Some(to)) = (&self.state.voice.room, &state.room)
@@ -4764,6 +4793,11 @@ impl Application {
                 let mut effects = sounds;
                 effects.extend(self.watch_when_connected());
                 effects.extend(self.film_when_connected());
+                if let Some(room) = dropped {
+                    effects.extend(self.rejoin_voice(room));
+                }
+                // One the call kept Follow from joining.
+                effects.extend(self.follow_into_voice());
                 return effects;
             }
             Event::Connected {

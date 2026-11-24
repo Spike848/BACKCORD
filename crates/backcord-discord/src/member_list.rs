@@ -106,6 +106,9 @@ struct Person {
     /// says enough until Discord sends the presence again.
     #[serde(skip)]
     activities: Activities,
+    /// Where they're online; see [`crate::platforms`].
+    #[serde(skip)]
+    clients: crate::platforms::Clients,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -279,12 +282,16 @@ impl MemberList {
         let presence = Presence::parse(data);
         let activity = activity(&data["activities"]);
         let activities = activities(&data["activities"]);
+        let clients =
+            crate::platforms::learn(data["user"]["id"].as_str().unwrap_or_default(), data);
         let changed = person.presence != presence
             || person.activity != activity
-            || person.activities != activities;
+            || person.activities != activities
+            || person.clients != clients;
         person.presence = presence;
         person.activity = activity;
         person.activities = activities;
+        person.clients = clients;
         changed
     }
 
@@ -372,6 +379,7 @@ fn row(guild: &str, item: &Value, names: &mut Names, people: &mut HashMap<String
             presence: Presence::parse(presence),
             activity: activity(&presence["activities"]),
             activities: activities(&presence["activities"]),
+            clients: crate::platforms::learn(user, presence),
         },
     );
     Row::Member(user.to_owned())

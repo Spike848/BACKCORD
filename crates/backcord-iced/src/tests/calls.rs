@@ -680,3 +680,58 @@ fn someones_voice_menu_keeps_the_cores_order_with_an_icon_on_each_row() {
         assert!(row.icon.is_some(), "{} has its icon", row.label);
     }
 }
+
+/// The voice channel's call over the whole screen: its tiles alone, the
+/// window full screen, the chat beside them once its button opens it, and
+/// Escape or the button again back.
+#[test]
+fn a_voice_channels_call_goes_full_screen_with_its_chat_beside_it() {
+    use crate::app::Message;
+    use crate::call::stage::{stage_size, theatre_shown, voice_chat_width};
+    use iced::keyboard::{Key, key};
+    let (mut app, _folder, _) = in_call();
+    let id = app.shell.window.expect("a window");
+    assert!(crate::call::stage::voice_panel(&app));
+    let _ = app.update(Message::Call(Event::Theatre(true)));
+    assert!(theatre_shown(&app));
+    assert_eq!(
+        app.call.screen,
+        Some((id, false)),
+        "the window goes full screen"
+    );
+    assert_eq!(stage_size(&app), app.window, "the tiles take it all");
+    let _ = app.view();
+    // Its chat, from the top right, beside the tiles: a Discord channel's.
+    super::change(&mut app, |state| {
+        let lounge = state.rooms.iter_mut().find(|room| room.id == "lounge");
+        std::sync::Arc::make_mut(lounge.expect("Lounge")).network =
+            backcord_core::network::Network::Discord;
+    });
+    let _ = app.update(Message::Side(crate::sidebar::Event::VoiceChat(true)));
+    assert!(app.client.state().voice_chat, "its chat opened");
+    let _ = app.view();
+    assert!(theatre_shown(&app), "still full screen");
+    assert_eq!(
+        stage_size(&app).width,
+        app.window.width - voice_chat_width(&app)
+    );
+    // Escape goes back, and the window with it.
+    let _ = app.update(Message::Key(
+        Key::Named(key::Named::Escape),
+        Default::default(),
+    ));
+    assert!(!app.call.theatre);
+    assert_eq!(app.call.screen, None);
+    // The button again, then another channel, goes back too.
+    let _ = app.update(Message::Call(Event::Theatre(true)));
+    let _ = app.update(Message::Call(Event::Theatre(false)));
+    assert!(!theatre_shown(&app));
+    let _ = app.update(Message::Call(Event::Theatre(true)));
+    app.client
+        .dispatch(backcord_core::application::Action::SelectRoom(
+            "general".into(),
+        ));
+    let _ = app.update(Message::Nothing);
+    assert!(!app.call.theatre, "left with the call's view");
+    assert_eq!(app.call.screen, None);
+}

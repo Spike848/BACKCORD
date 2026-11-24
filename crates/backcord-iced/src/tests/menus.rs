@@ -849,3 +849,53 @@ fn every_row_of_a_persons_and_a_places_menu_has_its_icon() {
         assert_eq!(iconless(&app), [""; 0], "{place}'s, {header}");
     }
 }
+
+/// Follow in someone's menu: ticked while following them, untick to stop.
+#[test]
+fn follow_in_a_members_menu_ticks_while_following_them() {
+    let (mut app, _folder) = lounge_member_menu("4");
+    let follow = |app: &App| {
+        rows(app)
+            .into_iter()
+            .find(|row| row.0 == "Follow")
+            .map(|row| row.2)
+    };
+    assert_eq!(follow(&app), Some(Check::Box(false)));
+    let at = index(&app, "Follow");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(app.client.state().following.as_deref(), Some("4"));
+    let reopen = |app: &mut App| {
+        let _ = crate::person_menu::open_person_menu(
+            app,
+            "4",
+            Point::new(300.0, 200.0),
+            crate::person_menu::CONTEXT_MENU,
+        );
+    };
+    reopen(&mut app);
+    assert_eq!(follow(&app), Some(Check::Box(true)));
+    let at = index(&app, "Follow");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(app.client.state().following, None);
+    // Off in Extra Features, menus don't offer it.
+    app.layout.prefs.follow_voice = Some(false);
+    reopen(&mut app);
+    assert_eq!(follow(&app), None);
+}
+
+/// Emulate Platforms marks where someone is online beside their name,
+/// while it's on.
+#[test]
+fn emulate_platforms_marks_where_someone_is_online_while_on() {
+    use backcord_core::platforms::{Clients, Platform, Status};
+    let (mut app, _folder) = super::preview();
+    let user = "platforms-window-test";
+    backcord_core::platforms::set(
+        user,
+        Clients::default().with(Platform::Mobile, Status::Idle),
+    );
+    assert!(app.ctx().platforms(user, 14, 1.0).is_some());
+    assert!(app.ctx().platforms("nobody-online", 14, 1.0).is_none());
+    app.layout.prefs.platform_indicators = Some(false);
+    assert!(app.ctx().platforms(user, 14, 1.0).is_none());
+}

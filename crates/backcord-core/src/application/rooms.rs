@@ -61,6 +61,9 @@ pub enum MenuChoice {
     /// View Icons: their avatar, or a server's icon, large. The window adds
     /// them while Extra Features turn it on.
     ViewAvatar,
+    /// Follow them into voice, or stop, with its box ticked while it
+    /// does; the window adds it while Extra Features turn Follow on.
+    FollowVoice,
     ViewIcon,
     /// A server's banner, large.
     ViewBanner,
@@ -1197,6 +1200,12 @@ impl Application {
     /// Shows the Matrix and Discord lists together, leaving a server or
     /// conversation that disappeared.
     pub(super) fn show_lists(&mut self) -> Vec<Effect> {
+        let mut effects = self.show_lists_only();
+        effects.extend(self.follow_into_voice());
+        effects
+    }
+
+    fn show_lists_only(&mut self) -> Vec<Effect> {
         #[cfg(feature = "discord")]
         let (discord_rooms, discord_servers) =
             (self.discord_index.rooms(), self.discord_index.servers());

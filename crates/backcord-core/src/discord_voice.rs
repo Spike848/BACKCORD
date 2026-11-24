@@ -1019,6 +1019,12 @@ pub(crate) async fn call(
                         tracing::info!("joined voice on another client; ending the call here");
                         break;
                     }
+                    // Someone such as a moderator disconnected this account:
+                    // the call ends now, not once the connection drops.
+                    Live::VoiceLeft { guild: left } if left == guild => {
+                        tracing::info!("Discord disconnected this account from the voice channel");
+                        bail!("You were disconnected from the voice channel.");
+                    }
                     // Who watches this account's stream, or the one it watches.
                     Live::StreamUpdated { stream_key, viewers, .. } => {
                         let shown = if share.as_ref().is_some_and(|share| share.key.as_ref() == Some(&stream_key)) {

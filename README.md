@@ -34,21 +34,21 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.3.7
+## Novità della 1.3.8
 
-- **Pulsante "Aa" per la formattazione**: nei messaggi, nella modifica di un
-  messaggio, nei thread, nei post dei forum e nella bio, un pannello applica
-  grassetto, corsivo, sottolineato, barrato, spoiler, codice, citazioni,
-  elenchi e stili di lettere (apice, maiuscoletto, capovolto, Extra Thicc…)
-  al testo selezionato, anche a una sola parola presa col doppio clic.
-- **Bio come su Discord**: in Modifica profilo il riquadro della bio resta
-  dentro la scheda, mostra la formattazione mentre scrivi e ha i pulsanti
-  emoji e "Aa"; `*corsivo *` con uno spazio prima dell'ultimo asterisco
-  esce in corsivo come su Discord.
-- **Tasto destro nelle chat delle vocali**: il menu dei messaggi (per
-  cancellarli, rispondere…) si apre di nuovo dove clicchi.
-- **Niente più crash** scrivendo caratteri come ▢ accanto ai simboli del
-  Markdown.
+- **Emula piattaforme** (Funzioni aggiuntive, accesa di default): accanto ai
+  nomi, nella lista membri, nei messaggi e nei profili, le icone delle
+  piattaforme da cui una persona è online (desktop, telefono, web, console,
+  VR), nel colore del suo stato. Dall'ingranaggio scegli la piattaforma su
+  cui Discord ti vede e il livello di emulazione (basso, medio, alto); vale
+  dal prossimo avvio.
+- **Anti-disconnessione** (spenta di default): se ti disconnettono da un
+  canale vocale, rientri subito, se esiste ancora e puoi entrarci.
+- **Segui**: tasto destro su una persona → Segui, ed entri nei canali vocali
+  in cui va, nei server in comune, finché non lo togli.
+- **Chiamata a schermo intero**: un pulsante in basso a destra nei canali
+  vocali mostra solo chi è in chiamata; in alto a destra si apre la chat,
+  e lo stesso pulsante (o Esc) torna alla vista normale.
 
 ## Cosa fa
 
@@ -70,6 +70,9 @@ e le opzioni avanzate dall'ingranaggio:
 | Silent Typing | Nasconde "sta scrivendo…" |
 | View Icons | Apre avatar, banner e icone in grande (fino a 1024 px, anche animati), con download |
 | Stream Proof | Nasconde la finestra di BACKCORD dalle catture e dirette dello schermo |
+| Emula piattaforme | Mostra accanto ai nomi da quali piattaforme le persone sono online (desktop, telefono, web, console, VR), nel colore del loro stato; sceglie la piattaforma su cui Discord ti vede, a tre livelli di emulazione |
+| Anti-disconnessione | Rientra subito nel canale vocale da cui ti hanno disconnesso, se esiste ancora e puoi entrarci (spento di default) |
+| Segui | Tasto destro su una persona → Segui: entri nei canali vocali in cui va, nei server in comune, finché non lo togli |
 
 ## Avvertenze
 

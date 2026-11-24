@@ -23,6 +23,7 @@ use crate::{
 /// The features with settings of their own, whose dialog the gear opens.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Extra {
+    EmulatePlatforms,
     MessageLogger,
     SilentTyping,
     ViewIcons,
@@ -31,6 +32,39 @@ pub enum Extra {
 
 /// The dialog's width.
 const DIALOG: f32 = 560.0;
+
+/// Emulate Platforms' platforms, by the index the preferences keep (none,
+/// then `Emulated::ALL`'s), in the two rows its dialog shows them in.
+const PLATFORM_ROWS: [[usize; 5]; 2] = [[0, 1, 2, 3, 9], [4, 5, 6, 7, 8]];
+const PLATFORM_NAMES: [&str; 10] = [
+    "Don't emulate",
+    "Windows",
+    "Linux",
+    "macOS",
+    "Android",
+    "iOS",
+    "Xbox",
+    "PlayStation",
+    "VR Headset",
+    "Web",
+];
+const DEPTHS: [&str; 3] = ["Low level", "Medium level", "High level"];
+
+/// Hands Discord's side the platform Emulate Platforms says this account
+/// is on, which its next identify sends.
+pub fn emulate_platform(prefs: &crate::layout::Prefs) {
+    use backcord_core::discord::{Emulated, EmulationDepth};
+    let platform = prefs
+        .emulated_platform
+        .and_then(|index| index.checked_sub(1))
+        .and_then(|index| Emulated::ALL.get(index).copied());
+    let depth = match prefs.emulation_depth.unwrap_or(0) {
+        0 => EmulationDepth::Low,
+        1 => EmulationDepth::Medium,
+        _ => EmulationDepth::High,
+    };
+    backcord_core::discord::set_emulation(platform, depth);
+}
 
 fn show(extra: Option<Extra>) -> Message {
     Message::Settings(Event::Extra(extra))
@@ -47,7 +81,31 @@ impl<'a> Page<'a> {
         let logger = prefs.message_logger.unwrap_or(true);
         let silent = !prefs.share_typing.unwrap_or(false);
         let no_ptt = prefs.no_push_to_talk.unwrap_or(true);
+        let platforms = prefs.platform_indicators.unwrap_or(true);
+        let anti_disconnect = prefs.anti_disconnect.unwrap_or(false);
+        let follow = prefs.follow_voice.unwrap_or(true);
         let cards = vec![
+            self.plugin(
+                tr("Emulate Platforms"),
+                tr("Shows the platforms people are online on beside their names, coloured by their status, and chooses the platform Discord sees you on."),
+                platforms,
+                Pref::PlatformIndicators(!platforms),
+                Some(Extra::EmulatePlatforms),
+            ),
+            self.plugin(
+                tr("Anti-Disconnect"),
+                tr("Joins the voice channel you were disconnected from again at once, while it's still there and you may join it."),
+                anti_disconnect,
+                Pref::AntiDisconnect(!anti_disconnect),
+                None,
+            ),
+            self.plugin(
+                tr("Follow"),
+                tr("Adds Follow to people's menus: you join each voice channel they go to, in servers you share with them, until you turn it off."),
+                follow,
+                Pref::FollowVoice(!follow),
+                None,
+            ),
             self.plugin(
                 tr("Clickable Roles"),
                 tr("Click on roles in user profiles to see which members have them."),
@@ -161,6 +219,46 @@ impl<'a> Page<'a> {
         let prefs = &self.cx.layout.prefs;
         let tr = backcord_iced_kit::i18n::tr;
         let (name, description, options): (&str, &str, Vec<Element<'a, Message>>) = match extra {
+            Extra::EmulatePlatforms => {
+                let chosen = prefs.emulated_platform.unwrap_or(0);
+                let mut options = vec![
+                    form::heading(theme, tr("PLATFORM TO EMULATE")),
+                    form::note(
+                        theme,
+                        tr(
+                            "Discord sees you on it from your next start. Saying you're on a platform you aren't on may get your account flagged: use it at your own risk.",
+                        ),
+                    ),
+                ];
+                for indices in PLATFORM_ROWS {
+                    let names = indices.map(|index| tr(PLATFORM_NAMES[index]));
+                    let current = indices
+                        .iter()
+                        .position(|index| *index == chosen)
+                        .unwrap_or(usize::MAX);
+                    options.push(choices(theme, &names, current, move |at| {
+                        pref(Pref::EmulatedPlatform(indices[at]))
+                    }));
+                }
+                options.push(form::heading(theme, tr("EMULATION LEVEL")));
+                options.push(form::note(
+                    theme,
+                    tr("Low: device and locale. Medium: also the version and release channel. High: also the user agent and client build."),
+                ));
+                options.push(choices(
+                    theme,
+                    &DEPTHS.map(tr),
+                    prefs.emulation_depth.unwrap_or(0),
+                    |index| pref(Pref::EmulationDepth(index)),
+                ));
+                (
+                    tr("Emulate Platforms"),
+                    tr(
+                        "Shows the platforms people are online on beside their names, coloured by their status, and chooses the platform Discord sees you on.",
+                    ),
+                    options,
+                )
+            }
             Extra::MessageLogger => {
                 let own = prefs.message_logger_own.unwrap_or(true);
                 (

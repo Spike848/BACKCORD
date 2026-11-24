@@ -345,6 +345,28 @@ threads](servers.md#a-channels-list-of-threads).
   confirms. A group holds ten people, this account included, so the picker
   stops there, and it offers only friends who aren't there already.
 
+## Where someone is online
+
+A presence's `client_status` says which platforms someone is online on,
+each with its own status: `desktop`, `mobile`, `web`, `embedded` (a
+console) and `vr`. It says no more: which desktop or phone system, or
+which console, is in no one's presence. `platforms.rs` keeps them by user
+id wherever presences are read (friends' and DMs' in the tracker, a member
+list's rows and updates), and this account's own from SESSIONS_REPLACE,
+whose sessions name their client; a status change on one platform alone
+changes the row it shows in. Someone offline everywhere leaves it.
+
+Emulate Platforms has the gateway's identify (`client::identify_properties`)
+say another platform's properties, from docs.discord.food's examples of
+each client: low sends its `os`, `browser` (which Discord reads the
+platform from: `Discord Client` the desktop, `Discord Android` and
+`Discord iOS` a phone, `Discord Embedded` a console, `Discord VR` a
+headset, a browser's name the web), `device` and `system_locale`; medium
+adds the client's version, release channel and system version; high adds
+its user agent, architecture and build numbers. HTTP requests keep
+BACKCORD's own properties, which match the user agent they go with. It
+takes effect at the next identify, not on a resume.
+
 ## Profiles
 
 Clicking someone in a channel's member list or under a voice channel, or

@@ -70,10 +70,13 @@ pub enum Layer {
     /// The thread beside's New Thread form, then its reply.
     AsideForm,
     AsideReply,
+    /// A voice channel's call over the whole screen: last, so Escape
+    /// leaves its chat's reply or picker first.
+    Theatre,
 }
 
 /// Every layer, in the order they take keys and Escape.
-const LAYERS: [Layer; 43] = [
+const LAYERS: [Layer; 44] = [
     Layer::Inbox,
     Layer::Mfa,
     Layer::ConfirmDelete,
@@ -117,6 +120,7 @@ const LAYERS: [Layer; 43] = [
     Layer::Compose,
     Layer::AsideForm,
     Layer::AsideReply,
+    Layer::Theatre,
 ];
 
 /// The popups that open and close in motion (`widgets::motion`), layer by
@@ -218,6 +222,7 @@ impl Layer {
                 | Layer::Compose
                 | Layer::AsideForm
                 | Layer::AsideReply
+                | Layer::Theatre
         )
     }
 
@@ -290,6 +295,7 @@ impl App {
             Layer::CallPopup => self.call.popup.is_some() || self.call.share_listing.is_some(),
             Layer::ClipFull => self.playback.clip_full,
             Layer::FullCall => crate::call::stage::full_shown(self),
+            Layer::Theatre => crate::call::stage::theatre_shown(self),
             Layer::Picker => self.win.picker.is_open(),
             Layer::ServerCard => self.cards.server.is_some(),
             Layer::ExpressionCard => self.cards.expression.is_some(),
@@ -599,6 +605,7 @@ impl App {
                 crate::playback::clip_event(self, crate::playback::Clip::Full(false))
             }
             Layer::FullCall => crate::call::update(self, crate::call::Event::Full(false)),
+            Layer::Theatre => crate::call::update(self, crate::call::Event::Theatre(false)),
             Layer::Picker => {
                 crate::picker::picker_event(self, picker::Event::Field(field::Event::Escape))
             }

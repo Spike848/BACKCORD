@@ -377,6 +377,9 @@ fn don_t_show_again(app: &App) -> Element<'_, Message> {
 /// corner picture, a call ringing, the question before switching.
 pub fn call_layers(app: &App) -> Vec<Element<'_, Message>> {
     let mut layers = Vec::new();
+    if let Some(theatre) = crate::call::stage::theatre_view(app) {
+        layers.push(theatre);
+    }
     if let Some(full) = crate::call::corner::stage_full_view(app) {
         layers.push(full);
     }

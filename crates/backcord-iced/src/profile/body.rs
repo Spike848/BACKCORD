@@ -910,6 +910,9 @@ fn handle_line<'a>(
     if badges {
         line = line.push(badge_rows(ctx, shown));
     }
+    if let Some(platforms) = ctx.platforms(&profile.id, 16, 1.0) {
+        line = line.push(platforms);
+    }
     if let Some(tag) = tag {
         let fill = if inks.light {
             Color {

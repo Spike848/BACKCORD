@@ -214,7 +214,10 @@ pub fn bar_height(app: &App) -> f32 {
 /// Something full screen covers the window and the bar, or the window
 /// is full screen itself.
 fn full_screen(app: &App) -> bool {
-    app.shell.full_screen || app.playback.clip_full || crate::call::stage::full_shown(app)
+    app.shell.full_screen
+        || app.playback.clip_full
+        || crate::call::stage::full_shown(app)
+        || crate::call::stage::theatre_shown(app)
 }
 
 /// Asks the window whether it's maximized or full screen, as its size

@@ -682,6 +682,11 @@ pub enum Live {
     VoiceElsewhere {
         guild: String,
     },
+    /// This account left voice in `guild` from this client without asking:
+    /// someone such as a moderator disconnected it.
+    VoiceLeft {
+        guild: String,
+    },
     /// Discord moved this account's call in `guild`, or with [`PRIVATE`] its
     /// DM call, to another voice server, which the call connects to.
     VoiceMoved {

@@ -75,3 +75,5 @@ sketches: a comic shout balloon with typing dots cut out of it.
 - Drawn for BACKCORD: pen, for the profile editor name field.
 - Drawn for BACKCORD: brush and chevrons-right, for the profile editor's Show
   Styles and Hide Styles.
+- Drawn for BACKCORD: monitor, smartphone, globe and vr-headset, where
+  someone is online beside their name (gamepad marks a console).

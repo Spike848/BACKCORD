@@ -696,6 +696,9 @@ impl<'a> View<'a> {
         if look.bot {
             name_line = name_line.push(self.cx.bot_tag(opacity));
         }
+        if let Some(platforms) = self.cx.platforms(&look.id, 14, opacity) {
+            name_line = name_line.push(platforms);
+        }
         if look.owner {
             let crown = self.cx.look.icon(Icon::Crown, 14, CROWN);
             name_line = name_line.push(Pic::square(crown, 14.0).opacity(opacity));

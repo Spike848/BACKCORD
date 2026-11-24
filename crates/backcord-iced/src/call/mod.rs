@@ -57,6 +57,9 @@ pub struct Call {
     pub previews_asked: std::collections::HashMap<String, std::time::Instant>,
     /// The large tile over the whole window.
     pub full: bool,
+    /// The voice channel's call over the whole screen: only its tiles,
+    /// with its chat beside them when that's open.
+    pub theatre: bool,
     /// How far the stage is scrolled, and the tile the pointer is on, by its
     /// place.
     pub scrolled: f32,
@@ -149,6 +152,8 @@ pub enum Event {
     /// A tile shown large, by its place, or none.
     Focus(Option<usize>),
     Full(bool),
+    /// The voice channel's call over the whole screen, or back.
+    Theatre(bool),
     Scrolled(f32),
     Point(usize, bool),
     /// A control's popup, opened above it, or the open one closed.
@@ -246,6 +251,12 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         }
         Event::Full(full) => {
             app.call.full = full && app.call.focus.is_some();
+            app.call.pointed = None;
+            crate::call::stage::place_videos(app);
+            return Task::none();
+        }
+        Event::Theatre(on) => {
+            app.call.theatre = on;
             app.call.pointed = None;
             crate::call::stage::place_videos(app);
             return Task::none();
@@ -474,6 +485,7 @@ pub fn call_sync(app: &mut App) {
     let voice = &app.client.state().voice;
     if !voice.active() {
         app.call.full = false;
+        app.call.theatre = false;
         if matches!(app.call.popup, Some(Popup::Share | Popup::Soundboard))
             || app.call.share_listing.is_some()
         {
@@ -537,7 +549,11 @@ pub fn toggle_on_join(app: &mut App, deafen: bool) {
 pub fn fit_screen(app: &mut App) -> Task<Message> {
     use iced::window;
     let window = app.shell.window;
-    let wanted = crate::call::stage::full_shown(app)
+    // Leaving the channel's call for another view leaves its full screen.
+    if app.call.theatre && !crate::call::stage::theatre_shown(app) {
+        app.call.theatre = false;
+    }
+    let wanted = (crate::call::stage::full_shown(app) || crate::call::stage::theatre_shown(app))
         .then_some(window)
         .flatten();
     match (app.call.screen, wanted) {

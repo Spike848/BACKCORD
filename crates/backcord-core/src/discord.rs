@@ -221,6 +221,11 @@ pub fn parse_room(id: &str) -> Option<(&str, &str)> {
 #[cfg(feature = "discord")]
 pub use backcord_discord::link::Route as DiscordRoute;
 
+/// Emulate Platforms: what BACKCORD says it is as it identifies on Discord's
+/// gateway, from its next connection.
+#[cfg(feature = "discord")]
+pub use backcord_discord::client::{Depth as EmulationDepth, Emulated, set_emulation};
+
 /// The Discord route a link names, when BACKCORD can open it itself.
 #[cfg(feature = "discord")]
 pub fn discord_route(link: &str) -> Option<DiscordRoute> {

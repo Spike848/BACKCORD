@@ -85,6 +85,8 @@ fn fingerprint(value: &impl Hash) -> u64 {
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 struct Known {
     presence: Presence,
+    /// Where they're online; see [`crate::platforms`].
+    clients: crate::platforms::Clients,
     /// Their custom status, else what they're doing, on one line.
     activity: Option<String>,
     activities: Activities,
@@ -360,7 +362,11 @@ impl Tracker {
     /// shows it doing changed.
     fn sessions(&mut self, sessions: &Value) -> bool {
         self.elsewhere = crate::activity::elsewhere(sessions, self.session.as_deref());
-        self.own_activities_changed()
+        // Where this account is online, which its own presence never says.
+        let clients = crate::platforms::Clients::of_sessions(sessions);
+        let moved = crate::platforms::of(&self.me) != clients;
+        crate::platforms::set(&self.me, clients);
+        self.own_activities_changed() || moved
     }
 
     /// Takes in what this session sends Discord it's doing; returns whether
@@ -1339,6 +1345,7 @@ impl Tracker {
         };
         let presence = Known {
             presence: Presence::parse(data),
+            clients: crate::platforms::learn(user, data),
             activity: member_list::activity(&data["activities"]),
             activities: activity::activities(&data["activities"]),
         };

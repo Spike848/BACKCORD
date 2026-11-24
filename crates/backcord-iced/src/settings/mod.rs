@@ -24,7 +24,7 @@ pub(crate) use pages::copy_sound;
 pub mod updates;
 
 pub use pages::message_size;
-pub use pages::network;
+pub use pages::{emulate_platform, network};
 pub mod voice;
 
 use crate::widgets::scroll_view;

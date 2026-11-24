@@ -251,6 +251,8 @@ impl App {
         backcord_core::push_to_talk::set_ignore_required(
             layout.prefs.no_push_to_talk.unwrap_or(true),
         );
+        // The platform Emulate Platforms says, before Discord connects.
+        crate::settings::emulate_platform(&layout.prefs);
         // The window opens at its size in the desktop's pixels whatever the
         // zoom, and its layout gets fewer.
         let zoom = backcord_core::zoom::saved(layout.zoom);

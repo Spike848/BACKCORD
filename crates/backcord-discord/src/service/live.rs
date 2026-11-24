@@ -286,6 +286,9 @@ pub(super) fn live_events(
                     guild: guild.to_owned(),
                     channel: channel.to_owned(),
                 }],
+                (Some(guild), None) if here => vec![Live::VoiceLeft {
+                    guild: guild.to_owned(),
+                }],
                 _ => vec![],
             }
         }

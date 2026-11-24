@@ -78,6 +78,12 @@ pub enum Icon {
     Plus,
     Crown,
     Gamepad,
+    /// Where someone is online: the desktop app, a phone, the web, a VR
+    /// headset (a console is [`Icon::Gamepad`]).
+    Monitor,
+    Smartphone,
+    Globe,
+    VrHeadset,
     Music,
     Tv,
     Video,
@@ -293,6 +299,10 @@ impl Icon {
             Icon::Plus => icon!("circle-plus.svg"),
             Icon::Crown => icon!("crown.svg"),
             Icon::Gamepad => icon!("gamepad.svg"),
+            Icon::Monitor => icon!("monitor.svg"),
+            Icon::Smartphone => icon!("smartphone.svg"),
+            Icon::Globe => icon!("globe.svg"),
+            Icon::VrHeadset => icon!("vr-headset.svg"),
             Icon::Music => icon!("music.svg"),
             Icon::Tv => icon!("tv.svg"),
             Icon::Video => icon!("video.svg"),

@@ -82,6 +82,12 @@ pub fn stage_shown(app: &App) -> bool {
             || full_shown(app))
 }
 
+/// The voice channel's call is over the whole screen, its tiles alone
+/// with its chat beside them when that's open; see [`theatre_view`].
+pub fn theatre_shown(app: &App) -> bool {
+    app.call.theatre && app.shell.window.is_some() && voice_here(app) && voice_panel(app)
+}
+
 /// The large tile is over the whole window.
 pub fn full_shown(app: &App) -> bool {
     app.call.full && app.client.state().voice.active() && app.call.focus.is_some()
@@ -92,6 +98,14 @@ pub fn full_shown(app: &App) -> bool {
 pub fn stage_size(app: &App) -> Size {
     if full_shown(app) {
         return app.window;
+    }
+    if theatre_shown(app) {
+        let chat = if voice_chat_shown(app) {
+            voice_chat_width(app)
+        } else {
+            0.0
+        };
+        return Size::new(app.window.width - chat, app.window.height);
     }
     let below_header = app.window.height - header::HEIGHT - 1.0;
     let (right, height) = if voice_chat_shown(app) {
@@ -301,6 +315,10 @@ pub fn frame<'a>(
 /// A voice channel's view: its header, then its call's stage with the
 /// controls, or its Join while this account is elsewhere.
 pub fn call_view(app: &App) -> Element<'_, Message> {
+    // Over the whole screen, the call is a layer of its own.
+    if theatre_shown(app) {
+        return Space::new().width(Length::Fill).height(Length::Fill).into();
+    }
     let line = bar(app.theme.outline_chat, Length::Fill, 1);
     let body = if voice_here(app) {
         call_panel(app)
@@ -325,6 +343,82 @@ pub fn call_view(app: &App) -> Element<'_, Message> {
     } else {
         call.into()
     }
+}
+
+/// The voice channel's call over the whole screen: only its tiles, the
+/// button back at their bottom right and, while the chat is closed, its
+/// button at their top right; the chat beside them when it's open, as
+/// beside the call.
+pub fn theatre_view(app: &App) -> Option<Element<'_, Message>> {
+    if !theatre_shown(app) {
+        return None;
+    }
+    let theme = &app.theme;
+    let size = stage_size(app);
+    let mut stage = stack![
+        stage_view(app),
+        container(theatre_button(app))
+            .padding(16)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Alignment::End)
+            .align_y(Alignment::End),
+    ];
+    let has_chat = app
+        .client
+        .state()
+        .selected_room()
+        .is_some_and(|room| !room.direct && room.voice_chat());
+    if has_chat && !voice_chat_shown(app) {
+        let chat = controls::round_button(
+            app.look()
+                .glyph(Icon::MessageCircle, ROUND_GLYPH, theme.text),
+            backcord_iced_kit::i18n::tr("Show chat"),
+            theme.raised,
+            theme,
+            Some(Message::Side(crate::sidebar::Event::VoiceChat(true))),
+        );
+        stage = stage.push(
+            container(chat)
+                .padding(16)
+                .width(Length::Fill)
+                .align_x(Alignment::End),
+        );
+    }
+    let ground = theme.stage;
+    let mut screen =
+        row![container(stage.width(size.width).height(size.height)).style(move |_| fill(ground))];
+    if voice_chat_shown(app) {
+        screen = screen.push(voice_chat_view(app));
+    }
+    Some(iced::widget::opaque(
+        container(screen).width(Length::Fill).height(Length::Fill),
+    ))
+}
+
+/// The button that puts the voice channel's call over the whole screen,
+/// or back.
+fn theatre_button(app: &App) -> Element<'_, Message> {
+    let theme = &app.theme;
+    let on = theatre_shown(app);
+    let (icon, label) = if on {
+        (
+            Icon::Minimize,
+            backcord_iced_kit::i18n::tr("Exit full screen"),
+        )
+    } else {
+        (
+            Icon::Maximize,
+            backcord_iced_kit::i18n::tr("Full screen call"),
+        )
+    };
+    controls::round_button(
+        app.look().glyph(icon, ROUND_GLYPH, theme.text),
+        label,
+        theme.raised,
+        theme,
+        Some(Message::Call(Event::Theatre(!on))),
+    )
 }
 
 /// The voice channel's chat beside its call, as Discord shows it: a head
@@ -978,7 +1072,7 @@ fn call_controls(app: &App) -> Element<'_, Message> {
         iced::widget::tooltip::Position::Top,
     )
     .gap(6);
-    container(controls.push(leave))
+    let bar = container(controls.push(leave))
         .padding(Padding {
             top: 8.0,
             bottom: 16.0,
@@ -986,8 +1080,25 @@ fn call_controls(app: &App) -> Element<'_, Message> {
             right: 16.0,
         })
         .center_x(Length::Fill)
-        .height(CONTROLS_HEIGHT)
-        .into()
+        .height(CONTROLS_HEIGHT);
+    // A voice channel's call goes over the whole screen from its bottom
+    // right.
+    if !voice_panel(app) {
+        return bar.into();
+    }
+    stack![
+        bar,
+        container(theatre_button(app))
+            .padding(Padding {
+                top: 8.0,
+                right: 16.0,
+                bottom: 16.0,
+                left: 0.0,
+            })
+            .width(Length::Fill)
+            .align_x(Alignment::End),
+    ]
+    .into()
 }
 
 /// The frames of the screen this account shares, by their key.

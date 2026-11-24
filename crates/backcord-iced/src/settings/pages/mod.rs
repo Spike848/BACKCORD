@@ -19,7 +19,7 @@ pub(super) use account::BLOCKED_STEP;
 mod advanced;
 mod discord;
 mod extras;
-pub use extras::Extra;
+pub use extras::{Extra, emulate_platform};
 mod games;
 mod messages;
 mod notifications;
@@ -74,6 +74,11 @@ pub enum Pref {
     NoPushToTalk(bool),
     MessageLogger(bool),
     MessageLoggerOwn(bool),
+    PlatformIndicators(bool),
+    EmulatedPlatform(usize),
+    EmulationDepth(usize),
+    AntiDisconnect(bool),
+    FollowVoice(bool),
     ProxyOn(bool),
     Proxy(String),
     Dns(usize),
@@ -376,6 +381,32 @@ impl Settings {
                 prefs.message_logger_own = Some(on);
                 backcord_core::extras::set_log_own(on);
                 cx.keep("message_logger_own", on);
+            }
+            Pref::PlatformIndicators(on) => {
+                prefs.platform_indicators = Some(on);
+                cx.keep("platform_indicators", on);
+            }
+            Pref::EmulatedPlatform(index) => {
+                prefs.emulated_platform = Some(index);
+                crate::settings::emulate_platform(prefs);
+                cx.keep("emulated_platform", index);
+            }
+            Pref::EmulationDepth(index) => {
+                prefs.emulation_depth = Some(index);
+                crate::settings::emulate_platform(prefs);
+                cx.keep("emulation_depth", index);
+            }
+            Pref::AntiDisconnect(on) => {
+                prefs.anti_disconnect = Some(on);
+                cx.dispatch(backcord_core::application::Action::AntiDisconnect(on));
+                cx.keep("anti_disconnect", on);
+            }
+            Pref::FollowVoice(on) => {
+                prefs.follow_voice = Some(on);
+                if !on {
+                    cx.dispatch(backcord_core::application::Action::FollowVoice(None));
+                }
+                cx.keep("follow_voice", on);
             }
             Pref::ProxyOn(on) => {
                 prefs.proxy_on = Some(on);

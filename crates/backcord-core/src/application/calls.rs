@@ -188,6 +188,94 @@ impl Application {
         effects
     }
 
+    /// Anti-Disconnect: joins the Discord server voice channel `room` again,
+    /// which the call in it just ended in, while it's still there and this
+    /// account may join it; not after the fifth time in a minute.
+    pub(super) fn rejoin_voice(&mut self, room: String) -> Vec<Effect> {
+        const TIMES: usize = 5;
+        const MINUTE: u64 = 60_000;
+        let server_channel = self.state.rooms.iter().any(|known| {
+            known.id == room && known.voice && !known.direct && known.network == Network::Discord
+        });
+        if !self.state.anti_disconnect
+            || !server_channel
+            || !self.state.can_join_voice(&room)
+            || self.state.voice_full(&room)
+        {
+            return vec![];
+        }
+        let now = crate::clock::now_ms();
+        self.rejoins.retain(|at| now.saturating_sub(*at) < MINUTE);
+        if self.rejoins.len() >= TIMES {
+            return vec![];
+        }
+        self.rejoins.push(now);
+        tracing::info!("Anti-Disconnect: joining the voice channel again");
+        self.state.voice.error = None;
+        self.voice_command(voice::Command::Join(room))
+    }
+
+    /// Follows `user` into voice, or stops with none; joins where they are
+    /// now at once.
+    pub(super) fn follow_voice(&mut self, user: Option<String>) -> Vec<Effect> {
+        self.state.following = user;
+        self.follow_seen = None;
+        self.follow_into_voice()
+    }
+
+    /// Follow: joins the voice channel the person followed went to, once each
+    /// time they go to another: leaving theirs by hand stays left until they
+    /// move. Only Discord servers' channels this account may join, which
+    /// are those of servers it shares with them.
+    pub(super) fn follow_into_voice(&mut self) -> Vec<Effect> {
+        let Some(user) = self.state.following.as_deref() else {
+            return vec![];
+        };
+        let user = super::rooms::network_id(user);
+        let found = self
+            .state
+            .rooms
+            .iter()
+            .find(|room| {
+                room.voice
+                    && !room.direct
+                    && room.network == Network::Discord
+                    && room
+                        .people
+                        .iter()
+                        .any(|person| super::rooms::network_id(&person.id) == user)
+            })
+            .map(|room| room.id.clone());
+        if found == self.follow_seen {
+            return vec![];
+        }
+        let Some(room) = found else {
+            self.follow_seen = None;
+            return vec![];
+        };
+        let here = self.state.voice.active() && self.state.voice.room.as_ref() == Some(&room);
+        if here {
+            self.follow_seen = Some(room);
+            return vec![];
+        }
+        // Tried again with the next list while a call starts or ends.
+        if self.state.voice_busy()
+            || !self.state.can_join_voice(&room)
+            || self.state.voice_full(&room)
+        {
+            return vec![];
+        }
+        self.follow_seen = Some(room.clone());
+        tracing::info!("Follow: joining the voice channel of the person followed");
+        let mut effects = if self.state.voice.active() {
+            self.voice_command(voice::Command::Leave)
+        } else {
+            vec![]
+        };
+        effects.extend(self.voice_command(voice::Command::Join(room)));
+        effects
+    }
+
     pub(super) fn confirm_voice_switch(&mut self) -> Vec<Effect> {
         let Some(id) = self.state.switch_voice.take() else {
             return vec![];
