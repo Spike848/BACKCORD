@@ -32,7 +32,93 @@ unsafe extern "C" {
         stride: c_int,
         width: c_int,
         height: c_int,
+        bt709: c_int,
     );
+    #[allow(clippy::too_many_arguments, reason = "the C function's parameters")]
+    fn backcord_argb_to_h420(
+        argb: *const c_uchar,
+        source_stride: c_int,
+        source_width: c_int,
+        source_height: c_int,
+        scratch: *mut c_uchar,
+        y: *mut c_uchar,
+        y_stride: c_int,
+        u: *mut c_uchar,
+        u_stride: c_int,
+        v: *mut c_uchar,
+        v_stride: c_int,
+        width: c_int,
+        height: c_int,
+    );
+}
+
+/// The colours a picture's YUV stands for, both in the limited range.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Colours {
+    #[default]
+    Bt601,
+    Bt709,
+}
+
+impl Colours {
+    /// A stream's, by its height: BT.709 above 360 lines, BT.601 at or
+    /// below, as Discord's client takes them whatever the stream says, so
+    /// its viewers see the same colours at every quality.
+    pub fn of_stream(height: u32) -> Self {
+        if height > 360 {
+            Self::Bt709
+        } else {
+            Self::Bt601
+        }
+    }
+}
+
+/// An ARGB picture (B, G, R, A in memory, as screens are captured) of
+/// `source` size with rows `stride` bytes apart, scaled down to `width` by
+/// `height` through `scratch`, which it sizes and keeps, as BT.709's I420
+/// in `y`, `u` and `v` at `strides`.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "an ARGB picture in, I420 planes out"
+)]
+pub fn argb_to_h420(
+    argb: &[u8],
+    stride: u32,
+    source: (u32, u32),
+    scratch: &mut Vec<u8>,
+    (y, u, v): (&mut [u8], &mut [u8], &mut [u8]),
+    strides: (u32, u32, u32),
+    width: u32,
+    height: u32,
+) {
+    let (chroma_width, chroma_rows) = (width.div_ceil(2), height.div_ceil(2) as usize);
+    assert!(source.0 >= width && source.1 >= height && stride >= source.0 * 4);
+    assert!(argb.len() >= stride as usize * (source.1 as usize - 1) + source.0 as usize * 4);
+    assert!(strides.0 >= width && y.len() >= strides.0 as usize * height as usize);
+    assert!(strides.1 >= chroma_width && u.len() >= strides.1 as usize * chroma_rows);
+    assert!(strides.2 >= chroma_width && v.len() >= strides.2 as usize * chroma_rows);
+    if source != (width, height) {
+        scratch.resize(width as usize * height as usize * 4, 0);
+    }
+    // SAFETY: the sizes were checked above, and `scratch` holds the scaled
+    // picture when there is one.
+    unsafe {
+        backcord_argb_to_h420(
+            argb.as_ptr(),
+            stride as c_int,
+            source.0 as c_int,
+            source.1 as c_int,
+            scratch.as_mut_ptr(),
+            y.as_mut_ptr(),
+            strides.0 as c_int,
+            u.as_mut_ptr(),
+            strides.1 as c_int,
+            v.as_mut_ptr(),
+            strides.2 as c_int,
+            width as c_int,
+            height as c_int,
+        );
+    }
 }
 
 /// An I420 picture's planes, borrowed from whoever made it.
@@ -100,6 +186,18 @@ impl<'a> I420<'a> {
     /// `width * 4` bytes a row, scaling through `scratch`, which it sizes
     /// once and keeps for the next picture.
     pub fn to_rgba(&self, scratch: &mut Vec<u8>, rgba: &mut [u8], width: u32, height: u32) {
+        self.to_rgba_as(scratch, rgba, width, height, Colours::Bt601);
+    }
+
+    /// [`Self::to_rgba`], for a picture of `colours`.
+    pub fn to_rgba_as(
+        &self,
+        scratch: &mut Vec<u8>,
+        rgba: &mut [u8],
+        width: u32,
+        height: u32,
+        colours: Colours,
+    ) {
         assert!(rgba.len() >= width as usize * height as usize * 4);
         // libyuv reads each plane at its stride, trusting it to be there.
         let (w, h) = (self.width as usize, self.height as usize);
@@ -124,6 +222,7 @@ impl<'a> I420<'a> {
                 (width * 4) as c_int,
                 width as c_int,
                 height as c_int,
+                c_int::from(colours == Colours::Bt709),
             );
         }
     }
@@ -584,6 +683,58 @@ mod tests {
             "{rgba:?}"
         );
         assert_eq!(fit(1920, 1080, (640, 640)), (640, 360));
+    }
+
+    #[test]
+    fn a_colour_comes_back_the_same_through_bt709() {
+        // 4 by 4 of one colour, B, G, R, A in memory, sent at 2 by 2 and
+        // shown as RGBA.
+        let (red, green, blue) = (200u8, 90, 40);
+        let argb = [blue, green, red, 255].repeat(16);
+        let (mut y, mut u, mut v) = ([0u8; 4], [0u8; 1], [0u8; 1]);
+        let mut scratch = vec![];
+        argb_to_h420(
+            &argb,
+            16,
+            (4, 4),
+            &mut scratch,
+            (&mut y, &mut u, &mut v),
+            (2, 1, 1),
+            2,
+            2,
+        );
+        let picture = I420 {
+            width: 2,
+            height: 2,
+            y: &y,
+            u: &u,
+            v: &v,
+            strides: [2, 1, 1],
+        };
+        let mut rgba = vec![0; 16];
+        picture.to_rgba_as(&mut scratch, &mut rgba, 2, 2, Colours::Bt709);
+        for pixel in rgba.chunks(4) {
+            for (got, wanted) in pixel[..3].iter().zip([red, green, blue]) {
+                assert!(got.abs_diff(wanted) <= 3, "{pixel:?}");
+            }
+        }
+        // White and black at the ends of the limited range.
+        let mut ends = [255u8, 255, 255, 255].repeat(2);
+        ends.extend([0, 0, 0, 255].repeat(2));
+        let (mut y, mut u, mut v) = ([0u8; 4], [0u8; 1], [0u8; 1]);
+        argb_to_h420(
+            &ends,
+            8,
+            (2, 2),
+            &mut scratch,
+            (&mut y, &mut u, &mut v),
+            (2, 1, 1),
+            2,
+            2,
+        );
+        assert_eq!((y, u, v), ([235, 235, 16, 16], [128], [128]));
+        assert_eq!(Colours::of_stream(360), Colours::Bt601);
+        assert_eq!(Colours::of_stream(480), Colours::Bt709);
     }
 
     #[test]

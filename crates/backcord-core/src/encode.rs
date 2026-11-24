@@ -19,6 +19,8 @@ use livekit::webrtc::{
 use ffmpeg_src as _;
 use x264_src as _;
 
+pub use crate::picture::Colours;
+
 #[repr(C)]
 struct Raw {
     _private: [u8; 0],
@@ -75,6 +77,7 @@ unsafe extern "C" {
         kbps: c_uint,
         threads: c_uint,
         effort: c_uint,
+        bt709: c_uint,
     ) -> *mut Raw;
     #[allow(clippy::too_many_arguments, reason = "the C function's parameters")]
     fn backcord_h264_encode(
@@ -104,6 +107,7 @@ unsafe extern "C" {
         height: c_uint,
         fps: c_uint,
         kbps: c_uint,
+        bt709: c_uint,
         report: *mut std::ffi::c_char,
         report_size: usize,
     ) -> *mut Raw;
@@ -145,6 +149,8 @@ pub struct Encoder {
     raw: *mut Raw,
     codec: Codec,
     effort: Effort,
+    /// The colours its pictures come in, as the stream says.
+    colours: Colours,
     /// Which encoder runs: "libvpx", "x264", or FFmpeg's name for a
     /// hardware one, such as "h264_nvenc".
     engine: String,
@@ -180,6 +186,7 @@ impl Encoder {
     /// An encoder for `width` by `height` frames, which must be even. With
     /// `hardware`, H264 goes to the GPU's encoder where there is one, and to
     /// x264 otherwise. H265 and AV1 have only the GPU's.
+    #[allow(clippy::too_many_arguments, reason = "an encoder's every setting")]
     pub fn new(
         codec: Codec,
         width: u32,
@@ -188,13 +195,15 @@ impl Encoder {
         kbps: u32,
         effort: Effort,
         hardware: bool,
+        colours: Colours,
     ) -> Result<Self> {
         if width == 0 || height == 0 || !width.is_multiple_of(2) || !height.is_multiple_of(2) {
             bail!("{codec:?} frames need an even size, not {width}x{height}");
         }
-        let opened = match hardware.then(|| open_hardware(codec, width, height, fps, kbps)) {
+        let bt709 = c_uint::from(colours == Colours::Bt709);
+        let opened = match hardware.then(|| open_hardware(codec, width, height, fps, kbps, bt709)) {
             Some(Some(opened)) => opened,
-            _ => open_software(codec, width, height, fps, kbps, effort)?,
+            _ => open_software(codec, width, height, fps, kbps, effort, bt709)?,
         };
         let (raw, encode, set_bitrate, free, engine) = opened;
         let pixels = (width * height) as usize;
@@ -202,6 +211,7 @@ impl Encoder {
             raw,
             codec,
             effort,
+            colours,
             engine,
             encode,
             set_bitrate,
@@ -350,7 +360,9 @@ impl Encoder {
             Err(error) if self.hardware() && self.codec == Codec::H264 => {
                 tracing::warn!(engine = self.engine, %error, "the GPU's encoder failed; encoding with x264");
                 let (codec, width, height, fps) = (self.codec, self.width, self.height, self.fps);
-                let opened = open_software(codec, width, height, fps, self.kbps, self.effort)?;
+                let bt709 = c_uint::from(self.colours == Colours::Bt709);
+                let opened =
+                    open_software(codec, width, height, fps, self.kbps, self.effort, bt709)?;
                 self.replace(opened);
                 self.encode_once(planes, pts, true)
             }
@@ -408,6 +420,7 @@ fn open_software(
     fps: u32,
     kbps: u32,
     effort: Effort,
+    bt709: c_uint,
 ) -> Result<Opened> {
     let threads = std::thread::available_parallelism().map_or(1, |cores| cores.get().min(4)) as u32;
     // Null means the library refused the configuration.
@@ -422,7 +435,9 @@ fn open_software(
         ),
         Codec::H264 => (
             // SAFETY: plain values.
-            unsafe { backcord_h264_new(width, height, fps, kbps, threads, effort as c_uint) },
+            unsafe {
+                backcord_h264_new(width, height, fps, kbps, threads, effort as c_uint, bt709)
+            },
             backcord_h264_encode,
             backcord_h264_set_bitrate,
             backcord_h264_free,
@@ -441,7 +456,14 @@ fn open_software(
 
 /// The GPU's encoder for `codec`, if it has one that opens.
 #[cfg(hwenc)]
-fn open_hardware(codec: Codec, width: u32, height: u32, fps: u32, kbps: u32) -> Option<Opened> {
+fn open_hardware(
+    codec: Codec,
+    width: u32,
+    height: u32,
+    fps: u32,
+    kbps: u32,
+    bt709: c_uint,
+) -> Option<Opened> {
     let number = match codec {
         Codec::H264 => 0,
         Codec::H265 => 1,
@@ -458,6 +480,7 @@ fn open_hardware(codec: Codec, width: u32, height: u32, fps: u32, kbps: u32) -> 
             height,
             fps,
             kbps,
+            bt709,
             report.as_mut_ptr().cast(),
             report.len(),
         )
@@ -481,7 +504,7 @@ fn open_hardware(codec: Codec, width: u32, height: u32, fps: u32, kbps: u32) -> 
 }
 
 #[cfg(not(hwenc))]
-fn open_hardware(_: Codec, _: u32, _: u32, _: u32, _: u32) -> Option<Opened> {
+fn open_hardware(_: Codec, _: u32, _: u32, _: u32, _: u32, _: c_uint) -> Option<Opened> {
     None
 }
 
@@ -505,7 +528,17 @@ mod tests {
         (width, height): (u32, u32),
         hardware: bool,
     ) -> (Vec<(bool, Vec<u8>)>, String) {
-        let mut encoder = Encoder::new(codec, width, height, 30, 500, effort, hardware).unwrap();
+        let mut encoder = Encoder::new(
+            codec,
+            width,
+            height,
+            30,
+            500,
+            effort,
+            hardware,
+            Colours::Bt601,
+        )
+        .unwrap();
         let mut rgba = vec![0u8; (width * height * 4) as usize];
         let mut frames = vec![];
         for frame in 0..4u64 {
@@ -522,7 +555,7 @@ mod tests {
                 .unwrap();
             frames.push((encoded.keyframe, encoded.data.to_vec()));
         }
-        assert!(Encoder::new(codec, 63, 36, 30, 500, effort, hardware).is_err());
+        assert!(Encoder::new(codec, 63, 36, 30, 500, effort, hardware, Colours::Bt601).is_err());
         (frames, encoder.engine().to_owned())
     }
 
@@ -589,11 +622,34 @@ mod tests {
     /// so this reads the units' types.
     #[test]
     fn encodes_h265_on_the_gpu() {
-        if Encoder::new(Codec::H265, 320, 180, 30, 500, Effort::Light, true).is_err() {
+        if Encoder::new(
+            Codec::H265,
+            320,
+            180,
+            30,
+            500,
+            Effort::Light,
+            true,
+            Colours::Bt601,
+        )
+        .is_err()
+        {
             eprintln!("no GPU encoder for H265 here");
             return;
         }
-        assert!(Encoder::new(Codec::H265, 320, 180, 30, 500, Effort::Light, false).is_err());
+        assert!(
+            Encoder::new(
+                Codec::H265,
+                320,
+                180,
+                30,
+                500,
+                Effort::Light,
+                false,
+                Colours::Bt601
+            )
+            .is_err()
+        );
         let (frames, engine) = encode_four(Codec::H265, Effort::Light, (320, 180), true);
         eprintln!("encoded with {engine}");
         let types = |data| -> Vec<u8> {
@@ -619,11 +675,34 @@ mod tests {
     /// OBUs that packetize whole.
     #[test]
     fn encodes_av1_on_the_gpu() {
-        if Encoder::new(Codec::Av1, 320, 180, 30, 500, Effort::Light, true).is_err() {
+        if Encoder::new(
+            Codec::Av1,
+            320,
+            180,
+            30,
+            500,
+            Effort::Light,
+            true,
+            Colours::Bt601,
+        )
+        .is_err()
+        {
             eprintln!("no GPU encoder for AV1 here");
             return;
         }
-        assert!(Encoder::new(Codec::Av1, 320, 180, 30, 500, Effort::Light, false).is_err());
+        assert!(
+            Encoder::new(
+                Codec::Av1,
+                320,
+                180,
+                30,
+                500,
+                Effort::Light,
+                false,
+                Colours::Bt601
+            )
+            .is_err()
+        );
         let (frames, engine) = encode_four(Codec::Av1, Effort::Light, (320, 180), true);
         eprintln!("encoded with {engine}");
         let sequence = |data| {

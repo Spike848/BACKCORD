@@ -40,7 +40,7 @@ use livekit::webrtc::{
 
 use crate::{
     decode::Decoder,
-    encode::{self, Effort, Encoder},
+    encode::{self, Colours, Effort, Encoder},
     frames::{Frames, Writer},
     stream_audio,
     voice::{Resolution, StreamQuality, StreamStats},
@@ -647,10 +647,12 @@ impl Sink {
                 Some(smaller) => smaller,
                 None => &mut *picture,
             };
-            self.writer
-                .write(preview.0, preview.1, |pixels| to_rgba(shown, pixels));
+            let colours = Colours::of_stream(height);
+            self.writer.write(preview.0, preview.1, |pixels| {
+                to_rgba(shown, pixels, colours);
+            });
             if thumbnail_due && !is_black(shown) {
-                match thumbnail(shown) {
+                match thumbnail(shown, colours) {
                     Ok(thumbnail) => self.thumbnail = Some(thumbnail),
                     Err(error) => {
                         tracing::warn!(error = format!("{error:#}"), "could not make a preview");
@@ -794,6 +796,7 @@ impl Sink {
             (target / 1000) as u32,
             self.effort,
             self.hardware,
+            Colours::of_stream(height),
         )
     }
 
@@ -883,7 +886,7 @@ fn is_black(picture: &I420Buffer) -> bool {
 
 /// A preview of a picture as Discord's client makes one: scaled down to fit
 /// 512 by 288, a JPEG as a data URI.
-fn thumbnail(picture: &mut I420Buffer) -> Result<String> {
+fn thumbnail(picture: &mut I420Buffer, colours: Colours) -> Result<String> {
     use base64::Engine;
     use image::{ExtendedColorType, codecs::jpeg::JpegEncoder};
     let (width, height) = fit(
@@ -894,7 +897,7 @@ fn thumbnail(picture: &mut I420Buffer) -> Result<String> {
     );
     let small = picture.scale(width as i32, height as i32);
     let mut rgba = vec![0; (width * height * 4) as usize];
-    to_rgba(&small, &mut rgba);
+    to_rgba(&small, &mut rgba, colours);
     let rgb: Vec<u8> = rgba
         .chunks_exact(4)
         .flat_map(|pixel| [pixel[0], pixel[1], pixel[2]])
@@ -1054,14 +1057,20 @@ fn watch(
             }
         };
         let (width, height) = (picture.width, picture.height);
-        if writer.fits(width, height) && width <= max_width && height <= max_height {
-            writer.write(width, height, |pixels| picture.to_rgba(pixels));
-        } else {
-            let (width, height) = fit(width, height, max_width, max_height);
-            writer.write(width, height, |pixels| {
-                picture.i420().to_rgba(&mut scratch, pixels, width, height);
-            });
-        }
+        // The colours Discord's client and BACKCORD send a stream of this
+        // height in.
+        let colours = Colours::of_stream(height);
+        let (width, height) =
+            if writer.fits(width, height) && width <= max_width && height <= max_height {
+                (width, height)
+            } else {
+                fit(width, height, max_width, max_height)
+            };
+        writer.write(width, height, |pixels| {
+            picture
+                .i420()
+                .to_rgba_as(&mut scratch, pixels, width, height, colours);
+        });
         if !shown {
             shown = true;
             tracing::info!(width, height, codec = ?frame.codec, "showing the stream");
@@ -1156,11 +1165,24 @@ pub fn fit(width: u32, height: u32, max_width: u32, max_height: u32) -> (u32, u3
     )
 }
 
-/// Converts an I420 picture into RGBA pixels of its size.
-fn to_rgba(picture: &I420Buffer, pixels: &mut [u8]) {
+/// Converts an I420 picture of `colours` into RGBA pixels of its size.
+fn to_rgba(picture: &I420Buffer, pixels: &mut [u8], colours: Colours) {
     let (y, u, v) = picture.data();
     let (y_stride, u_stride, v_stride) = picture.strides();
     let (width, height) = (picture.width(), picture.height());
+    if colours == Colours::Bt709 {
+        let planes = crate::picture::I420 {
+            width,
+            height,
+            y,
+            u,
+            v,
+            strides: [y_stride, u_stride, v_stride],
+        };
+        // At its own size, nothing is scaled through the scratch.
+        planes.to_rgba_as(&mut Vec::new(), pixels, width, height, colours);
+        return;
+    }
     yuv_helper::i420_to_abgr(
         y,
         y_stride,
@@ -1359,22 +1381,19 @@ impl Capture {
             };
             Some(found.context("That screen or window is gone.")?)
         };
+        // The scaled ARGB a BT.709 frame passes through, kept frame to frame.
+        let mut scratch = Vec::new();
         capturer.start_capture(source, move |result| {
             let mut seen = seen.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             match result {
                 Ok(frame) => {
-                    let mut picture = picture_of(&frame);
-                    let (width, height) = (picture.width(), picture.height());
-                    let size = fit(width, height, max_width, max_height);
-                    if size != (width, height) {
-                        picture = picture.scale(size.0 as i32, size.1 as i32);
-                    }
+                    let mut picture = picture_sent(&frame, max_width, max_height, &mut scratch);
                     let taken = into
                         .lock()
                         .unwrap_or_else(|poisoned| poisoned.into_inner())
                         .frame(&mut picture);
                     match taken {
-                        Ok(()) => seen.size = Some(size),
+                        Ok(()) => seen.size = Some((picture.width(), picture.height())),
                         Err(error) => seen.failed = Some(format!("{error:#}")),
                     }
                 }
@@ -1483,7 +1502,41 @@ fn copy_planes(frame: &crate::picture::I420<'_>, picture: &mut I420Buffer) {
     }
 }
 
-/// A captured frame as an I420 picture of its size.
+/// A captured frame as it's sent: scaled down to fit `max_width` by
+/// `max_height`, in the colours of a stream of its height. BT.709 is scaled
+/// in ARGB, through `scratch`, and converted at the size sent.
+fn picture_sent(
+    frame: &livekit::webrtc::desktop_capturer::DesktopFrame,
+    max_width: u32,
+    max_height: u32,
+    scratch: &mut Vec<u8>,
+) -> I420Buffer {
+    let source = (frame.width().max(1) as u32, frame.height().max(1) as u32);
+    let (width, height) = fit(source.0, source.1, max_width, max_height);
+    if Colours::of_stream(height) == Colours::Bt601 {
+        let mut picture = picture_of(frame);
+        return if (width, height) == source {
+            picture
+        } else {
+            picture.scale(width as i32, height as i32)
+        };
+    }
+    let mut picture = I420Buffer::new(width, height);
+    let strides = picture.strides();
+    crate::picture::argb_to_h420(
+        frame.data(),
+        frame.stride(),
+        source,
+        scratch,
+        picture.data_mut(),
+        strides,
+        width,
+        height,
+    );
+    picture
+}
+
+/// A captured frame as an I420 picture of its size, in BT.601's colours.
 fn picture_of(frame: &livekit::webrtc::desktop_capturer::DesktopFrame) -> I420Buffer {
     let (width, height) = (frame.width().max(1) as u32, frame.height().max(1) as u32);
     let mut picture = I420Buffer::new(width, height);
@@ -1534,7 +1587,7 @@ fn glance(
                     picture = picture.scale(width as i32, height as i32);
                 }
                 let mut rgba = vec![0; (width * height * 4) as usize];
-                to_rgba(&picture, &mut rgba);
+                to_rgba(&picture, &mut rgba, Colours::Bt601);
                 report(Report::Screen {
                     id,
                     window,

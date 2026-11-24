@@ -97,7 +97,7 @@ static int open_vaapi(struct backcord_hwenc *h, AVCodecContext *codec, struct va
 
 static int open_encoder(struct backcord_hwenc *h, const AVCodec *found, struct va_device device,
                         unsigned codec_id, unsigned width, unsigned height, unsigned fps,
-                        unsigned kbps) {
+                        unsigned kbps, unsigned bt709) {
   int vaapi = device.path != NULL, amf = strstr(found->name, "_amf") != NULL;
   AVCodecContext *codec = h->codec = avcodec_alloc_context3(found);
   if (!codec) return AVERROR(ENOMEM);
@@ -109,10 +109,10 @@ static int open_encoder(struct backcord_hwenc *h, const AVCodec *found, struct v
   codec->gop_size = (int)fps * 6;
   codec->max_b_frames = 0;
   codec->pix_fmt = vaapi ? AV_PIX_FMT_VAAPI : amf ? AV_PIX_FMT_NV12 : AV_PIX_FMT_YUV420P;
-  /* libyuv converts captured pixels with BT.601's limited range. */
-  codec->color_primaries = AVCOL_PRI_SMPTE170M;
-  codec->color_trc = AVCOL_TRC_SMPTE170M;
-  codec->colorspace = AVCOL_SPC_SMPTE170M;
+  /* The colours the pixels were converted with, BT.601's or BT.709's. */
+  codec->color_primaries = bt709 ? AVCOL_PRI_BT709 : AVCOL_PRI_SMPTE170M;
+  codec->color_trc = bt709 ? AVCOL_TRC_BT709 : AVCOL_TRC_SMPTE170M;
+  codec->colorspace = bt709 ? AVCOL_SPC_BT709 : AVCOL_SPC_SMPTE170M;
   codec->color_range = AVCOL_RANGE_MPEG;
   set_rate(codec, kbps);
   if (codec_id == CODEC_H264) codec->profile = AV_PROFILE_H264_MAIN;
@@ -207,7 +207,7 @@ static void kernel_driver(int n, char *name, size_t size) {
 }
 
 struct opening {
-  unsigned codec_id, width, height, fps, kbps;
+  unsigned codec_id, width, height, fps, kbps, bt709;
   char *report;
   size_t report_size, used;
 };
@@ -225,7 +225,8 @@ static struct backcord_hwenc *try_open(struct opening *o, const AVCodec *found,
   struct backcord_hwenc *h = av_mallocz(sizeof *h);
   if (!h) return NULL;
   first_error[0] = 0;
-  int ret = open_encoder(h, found, device, o->codec_id, o->width, o->height, o->fps, o->kbps);
+  int ret = open_encoder(h, found, device, o->codec_id, o->width, o->height, o->fps, o->kbps,
+                         o->bt709);
   if (ret >= 0) {
     snprintf(o->report, o->report_size, "%s", label);
     return h;
@@ -243,13 +244,13 @@ static struct backcord_hwenc *try_open(struct opening *o, const AVCodec *found,
  * that has a driver for it, and writes its name to `report`, or each one's
  * failure when none does. */
 struct backcord_hwenc *backcord_hwenc_new(unsigned codec_id, unsigned width, unsigned height,
-                                        unsigned fps, unsigned kbps, char *report,
-                                        size_t report_size) {
+                                        unsigned fps, unsigned kbps, unsigned bt709,
+                                        char *report, size_t report_size) {
   if (report_size) report[0] = 0;
   if (codec_id > CODEC_AV1) return NULL;
   av_log_set_level(AV_LOG_ERROR);
   av_log_set_callback(keep_error);
-  struct opening o = {codec_id, width, height, fps, kbps, report, report_size, 0};
+  struct opening o = {codec_id, width, height, fps, kbps, bt709, report, report_size, 0};
   for (const char *const *name = ENCODERS[codec_id]; *name; name++) {
     const AVCodec *found = avcodec_find_encoder_by_name(*name);
     if (!found) continue;

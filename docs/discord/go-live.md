@@ -69,6 +69,16 @@ gives a frame, it replaces the first. If the dialog is cancelled, the first
 one goes on. The encoder takes the new size on the same connection.
 `BACKCORD_STREAM_TEST_PATTERN=1` shares moving colour bars instead of a screen.
 
+A stream's colours follow its height (`picture::Colours::of_stream`):
+BT.709 above 360 lines, BT.601 at or below, both in the limited range.
+Discord's client takes a stream's colours from its size whatever the stream
+says, so a stream in one matrix at every size changed colour for its
+viewers between 360p and 480p. Captured frames at BT.709 are scaled in ARGB
+and converted at the size sent (`argb_to_h420` in `native/picture.c`,
+libyuv converting from BT.709 but not to it); the encoders announce the
+matrix used, and a watched stream, the preview and the thumbnail are shown
+by the same rule. The camera stays BT.601 at every size.
+
 A camera can be shared too, such as OBS's virtual camera (v4l2loopback on
 Linux, its DirectShow filter on Windows). The share menu lists the cameras
 [the call's camera](voice.md#camera-video) lists, under CAMERAS, after the

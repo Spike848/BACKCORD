@@ -104,7 +104,9 @@ the camera's menu, as Go Live's does a stream's: the camera, when there's
 more than one, the compact quality picker (resolutions in two rows of small
 buttons, then the frame rates) and Turn on or Turn off camera, which closes
 it. A quality chosen while filming applies at once: the camera opens again
-at the new size, and a Discord call is told it. Each participant whose camera is on has a feed of
+at the new size, and a Discord call is told it with op 12 while its packets
+keep their numbering (`Sending::replace`), so the others' picture goes on
+from the first keyframe at the new size. Each participant whose camera is on has a feed of
 their own, and their tile in the grid shows it in place of their avatar; the
 people list beside the channel marks them with a camera. Your own camera shows
 mirrored, as a mirror would. Up to four people take the columns that make

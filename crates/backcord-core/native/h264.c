@@ -29,7 +29,8 @@ static void set_rate(x264_param_t *param, unsigned kbps) {
  * sends; adaptive quantization off, which kept text sharper and games no
  * worse; parameter sets before each IDR. */
 struct backcord_h264 *backcord_h264_new(unsigned width, unsigned height, unsigned fps,
-                                      unsigned kbps, unsigned threads, unsigned effort) {
+                                      unsigned kbps, unsigned threads, unsigned effort,
+                                      unsigned bt709) {
   struct backcord_h264 *h264 = calloc(1, sizeof *h264);
   if (!h264) return NULL;
   x264_param_t *param = &h264->param;
@@ -54,10 +55,11 @@ struct backcord_h264 *backcord_h264_new(unsigned width, unsigned height, unsigne
   param->rc.i_rc_method = X264_RC_ABR;
   set_rate(param, kbps);
   param->rc.i_aq_mode = X264_AQ_NONE;
-  /* libyuv converts captured pixels with BT.601's limited range. */
-  param->vui.i_colorprim = 6;
-  param->vui.i_transfer = 6;
-  param->vui.i_colmatrix = 6;
+  /* The colours the pixels were converted with, in the limited range:
+   * BT.601's (6), or BT.709's (1). */
+  param->vui.i_colorprim = bt709 ? 1 : 6;
+  param->vui.i_transfer = bt709 ? 1 : 6;
+  param->vui.i_colmatrix = bt709 ? 1 : 6;
   param->vui.b_fullrange = 0;
   if (x264_param_apply_profile(param, "main") < 0) {
     free(h264);

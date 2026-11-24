@@ -112,6 +112,23 @@ impl Sending {
         }
     }
 
+    /// Sends `camera` in place of the one sending, at its own size: the same
+    /// numbering goes on, so receivers keep decoding from its first
+    /// keyframe, and op 12 tells the new size. A new numbering on the same
+    /// SSRC looked like old packets to the server and the other clients,
+    /// which dropped them, and the picture froze.
+    pub async fn replace(&mut self, camera: Camera, connection: &mut Connection) -> Result<()> {
+        self.camera = camera;
+        self.camera.keyframe.store(true, Ordering::Relaxed);
+        let (ssrc, video, rtx) = (connection.ssrc, connection.video, connection.rtx);
+        send_json(
+            &mut connection.ws,
+            12,
+            video_attributes(ssrc, video, rtx, self.camera.size, self.camera.fps),
+        )
+        .await
+    }
+
     /// Announces the camera with op 12, as on a new connection.
     pub async fn announce(&mut self, connection: &mut Connection) -> Result<()> {
         self.packetizer = Packetizer::new(connection.video, SEND_CODEC);

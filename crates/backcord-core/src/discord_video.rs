@@ -24,7 +24,7 @@ use tokio::sync::Notify;
 use crate::{
     camera::{self, Camera},
     decode::Decoder,
-    encode::{CLOCK, Effort, Encoder},
+    encode::{CLOCK, Colours, Effort, Encoder},
     picture::{Feed, I420, Turn},
     voice::CameraQuality,
 };
@@ -137,6 +137,8 @@ impl Filming {
                     CameraQuality::bitrate(size.0, size.1, quality.size().2),
                     Effort::Light,
                     false,
+                    // camera.cc converts with BT.601's colours.
+                    Colours::Bt601,
                 )
                 .inspect_err(|error| tracing::warn!(%error, "could not encode the camera"))
                 .ok();

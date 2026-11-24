@@ -541,11 +541,16 @@ impl Media {
                     order = orders.recv() => match order {
                         None | Some(Order::Leave) => return Ok(Ended::Left),
                         Some(Order::Move(to, reply)) => return Ok(Ended::Moved(to, reply)),
-                        Some(Order::Film(Some(camera))) => {
-                            let mut filming = call_video::Sending::new(camera, connection);
-                            filming.announce(connection).await?;
-                            self.filming = Some(filming);
-                        }
+                        // Filming already, at another quality: the same
+                        // numbering goes on.
+                        Some(Order::Film(Some(camera))) => match self.filming.as_mut() {
+                            Some(filming) => filming.replace(camera, connection).await?,
+                            None => {
+                                let mut filming = call_video::Sending::new(camera, connection);
+                                filming.announce(connection).await?;
+                                self.filming = Some(filming);
+                            }
+                        },
                         Some(Order::Film(None)) => {
                             if self.filming.take().is_some() {
                                 call_video::Sending::clear(connection).await?;
