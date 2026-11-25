@@ -1031,6 +1031,16 @@ impl App {
         {
             want(Some(&url));
         }
+        // The open menu's pictures, and its submenus': roles'.
+        if let Some(menu) = &self.win.menu {
+            for row in menu
+                .rows
+                .iter()
+                .flat_map(|row| std::iter::once(row).chain(&row.submenu))
+            {
+                want(row.picture.as_deref());
+            }
+        }
         for url in crate::channel_settings::pictures(self.client.state())
             .collect::<Vec<_>>()
             .into_iter()

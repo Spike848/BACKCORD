@@ -935,7 +935,7 @@ pub(super) fn command(
         }
         return None;
     }
-    if let Command::Discord(DiscordCommand::AddToGroup { room, users }) = command {
+    if let Command::Discord(DiscordCommand::AddToGroup { room, users, ring }) = command {
         let discord = match discord {
             Ok(discord) => discord.clone(),
             Err(why) => {
@@ -950,10 +950,17 @@ pub(super) fn command(
                 .and_then(discord::parse_room)
                 .map(|(_, channel)| channel.to_owned());
             let result = match (&room, channel) {
-                (Some(room), Some(channel)) => discord
-                    .add_to_group(&channel, &users)
-                    .await
-                    .map(|()| room.clone()),
+                (Some(room), Some(channel)) => {
+                    let added = discord.add_to_group(&channel, &users).await;
+                    // Added to the call this account is in, they're rung.
+                    if added.is_ok()
+                        && ring
+                        && let Err(error) = discord.ring_people(&channel, &users).await
+                    {
+                        tracing::warn!(error = format!("{error:#}"), "could not ring them");
+                    }
+                    added.map(|()| room.clone())
+                }
                 (Some(_), None) => Err(anyhow::anyhow!(NOT_DISCORD)),
                 (None, _) => discord
                     .create_group(&users)

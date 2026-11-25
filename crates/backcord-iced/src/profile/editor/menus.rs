@@ -26,6 +26,7 @@ pub(super) fn item<'a>(
     danger: bool,
 ) -> Item<'a> {
     Item {
+        picture: None,
         label,
         icon,
         danger,

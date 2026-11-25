@@ -1931,6 +1931,11 @@ impl Tracker {
                 && self.unreads.last_message(&private.id) == 0,
             group: private.group,
             people: private.recipients.len() + 1,
+            recipients: if private.group {
+                private.recipients.clone()
+            } else {
+                Vec::new()
+            },
             owner: private.owner.clone(),
             request: private.request,
             spam: private.spam,

@@ -355,6 +355,7 @@ impl<'a> View<'a> {
         movable: bool,
     ) -> Element<'a, Message> {
         let item = |label: &'static str, danger: bool, enabled: bool| Item {
+            picture: None,
             label: label.into(),
             icon: None,
             danger,

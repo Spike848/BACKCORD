@@ -917,7 +917,7 @@ fn friends_added_to_a_dm_make_a_group_that_opens() {
     assert_eq!(app.state.add_people.as_ref().unwrap().chosen, ["4"]);
     assert!(matches!(
         app.dispatch(Action::AddPeople).as_slice(),
-        [Effect::Backend(Command::Discord(DiscordCommand::AddToGroup { room: None, users }))]
+        [Effect::Backend(Command::Discord(DiscordCommand::AddToGroup { room: None, users, ring: false }))]
             if users == &["2", "4"]
     ));
     app.dispatch(Action::ChoosePerson("3".into()));
@@ -953,7 +953,7 @@ fn friends_added_to_a_group_fill_it_to_ten() {
     app.dispatch(Action::ChoosePerson("4".into()));
     assert!(matches!(
         app.dispatch(Action::AddPeople).as_slice(),
-        [Effect::Backend(Command::Discord(DiscordCommand::AddToGroup { room: Some(room), users }))]
+        [Effect::Backend(Command::Discord(DiscordCommand::AddToGroup { room: Some(room), users, ring: false }))]
             if *room == group && users == &["4"]
     ));
     app.apply(Event::GroupChanged(Err("Could not add them: no.".into())));
@@ -967,6 +967,72 @@ fn friends_added_to_a_group_fill_it_to_ten() {
         app.state.selected.as_ref(),
         Some(&group),
         "the group stays open"
+    );
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn a_friend_is_added_to_a_group_from_their_dm_and_rung_for_its_call() {
+    use backcord_discord::service::Conversation;
+    let group = |id: &str, name: &str, recipients: &[&str], people: usize| Conversation {
+        id: id.into(),
+        name: name.into(),
+        group: true,
+        people,
+        recipients: recipients.iter().map(|&id| id.to_owned()).collect(),
+        ..Default::default()
+    };
+    let mut app = discord_dms(vec![
+        group("32", "With Annie", &["2", "3"], 3),
+        group("33", "Full", &["3"], GROUP_LIMIT),
+        group("34", "Calling", &["3"], 2),
+    ]);
+    assert!(
+        app.menu_choices("discord:@me:30")
+            .contains(&MenuChoice::AddToGroup)
+    );
+    let rooms = |app: &Application, user: &str| -> Vec<(String, bool)> {
+        app.group_choices(user)
+            .into_iter()
+            .map(|group| (group.room, group.in_call))
+            .collect()
+    };
+    assert_eq!(
+        rooms(&app, "2"),
+        [
+            ("discord:@me:31".to_owned(), false),
+            ("discord:@me:34".to_owned(), false)
+        ],
+        "not a group they're in, nor a full one"
+    );
+    assert!(rooms(&app, "9").is_empty(), "only friends");
+
+    // In the group's call, it comes first, and adding them rings them.
+    app.state.voice.room = Some("discord:@me:34".into());
+    app.state.voice.phase = Phase::Connected;
+    assert_eq!(rooms(&app, "2")[0], ("discord:@me:34".to_owned(), true));
+    assert!(matches!(
+        app.dispatch(Action::AddToGroup { user: "2".into(), room: "discord:@me:34".into() }).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::AddToGroup { room: Some(room), users, ring: true }))]
+            if room == "discord:@me:34" && users == &["2"]
+    ));
+    assert!(matches!(
+        app.dispatch(Action::AddToGroup {
+            user: "2".into(),
+            room: "discord:@me:31".into()
+        })
+        .as_slice(),
+        [Effect::Backend(Command::Discord(
+            DiscordCommand::AddToGroup { ring: false, .. }
+        ))]
+    ));
+    assert!(
+        app.dispatch(Action::AddToGroup {
+            user: "2".into(),
+            room: "discord:@me:32".into()
+        })
+        .is_empty(),
+        "they're in it already"
     );
 }
 

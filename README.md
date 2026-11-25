@@ -34,21 +34,15 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.0
+## Novità della 1.5.1
 
-- **Esplora server**: il nuovo pulsante col mappamondo apre un elenco di
-  server italiani presi da DISBOARD, con ricerca, ordinamento per membri
-  online o per nome e descrizioni espandibili. "Unisciti" entra senza
-  uscire da BACKCORD quando il server ha un invito pubblico; altrimenti
-  "Ottieni invito" apre la pagina di DISBOARD. L'elenco resta salvato per
-  mezz'ora, così si carica subito e DISBOARD non chiede di rallentare.
-- **Regole e domande dei server**: entrando in un server ne vedi le regole
-  da accettare (o il modulo da compilare) e le domande di benvenuto, dentro
-  BACKCORD. "Canali e ruoli" nel menu dei server Community le riapre.
-- **Barra dei server**: "Aggiungi server" ed "Esplora server" ora stanno in
-  cima, subito sotto i messaggi diretti.
-- **Invita persone**: le foto delle persone non lampeggiano più.
-- **Emoji**: compaiono anche alcuni simboli che mancavano.
+- **Aggiungi al gruppo**: nel menu di un amico (e della sua DM) c'è
+  "Aggiungi al gruppo", con i tuoi gruppi in cui lui non c'è ancora e che non
+  sono pieni. Se sei nella chiamata di un gruppo, quel gruppo compare per primo
+  con la scritta "Nella chiamata" e l'amico aggiunto riceve la chiamata.
+- **Ruoli con icona**: nel menu dei ruoli di un membro compaiono le immagini e
+  le emoji dei ruoli, nei server potenziati che possono usarle.
+- **Sottomenu lunghi**: un sottomenu più alto della finestra ora scorre.
 
 ## Cosa fa
 

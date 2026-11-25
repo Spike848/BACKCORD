@@ -485,6 +485,7 @@ impl<'a> View<'a> {
         if dialog.ask == PersonAsk::Call {
             body = body.push(self.cx.look.menu_item(
                 Item {
+                    picture: None,
                     label: backcord_iced_kit::i18n::tr("Don't ask again").into(),
                     icon: Some(if self.s.ticked {
                         Icon::Check
@@ -530,6 +531,7 @@ impl<'a> View<'a> {
     fn choice_item(self, label: String, chosen: bool, index: usize) -> Element<'a, Message> {
         self.cx.look.menu_item(
             Item {
+                picture: None,
                 label: label.into(),
                 icon: chosen.then_some(Icon::Check),
                 danger: false,
@@ -799,10 +801,20 @@ pub(crate) fn submenu(
                 // As Discord's list: a role this account can't give or take
                 // shows only while the member holds it, and can't be changed.
                 .filter(|choice| choice.grantable || choice.held)
-                .map(|choice| MenuRow {
-                    check: crate::controls::Check::Box(choice.held),
-                    disabled: !choice.grantable,
-                    ..MenuRow::plain(MenuAct::Role, choice.role.name).key(choice.role.id)
+                .map(|choice| {
+                    // A role's emoji leads its name, as its picture does.
+                    let label = match &choice.role.emoji {
+                        Some(emoji) if choice.role.icon.is_none() => {
+                            format!("{emoji} {}", choice.role.name)
+                        }
+                        _ => choice.role.name,
+                    };
+                    MenuRow {
+                        check: crate::controls::Check::Box(choice.held),
+                        disabled: !choice.grantable,
+                        picture: choice.role.icon,
+                        ..MenuRow::plain(MenuAct::Role, label).key(choice.role.id)
+                    }
                 })
                 .collect(),
             _ => Vec::new(),
@@ -813,6 +825,19 @@ pub(crate) fn submenu(
                     .into_iter()
                     .map(|server| {
                         MenuRow::plain(MenuAct::InviteTo, server.name.clone()).key(&server.id)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+        MenuChoice::AddToGroup => user
+            .map(|user| {
+                app.group_choices(user)
+                    .into_iter()
+                    .map(|group| MenuRow {
+                        subtitle: group
+                            .in_call
+                            .then(|| backcord_iced_kit::i18n::tr("In the call").into()),
+                        ..MenuRow::plain(MenuAct::AddTo, group.name).key(group.room)
                     })
                     .collect()
             })
@@ -860,7 +885,7 @@ pub(crate) fn discord_rank(choice: MenuChoice) -> u8 {
         MenuChoice::AddNickname | MenuChoice::EditNickname => 6,
         MenuChoice::EditServerProfile => 7,
         MenuChoice::Apps => 10,
-        MenuChoice::InviteToServer => 11,
+        MenuChoice::InviteToServer | MenuChoice::AddToGroup => 11,
         MenuChoice::AddFriend
         | MenuChoice::AcceptFriend
         | MenuChoice::CancelFriendRequest

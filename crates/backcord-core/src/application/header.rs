@@ -214,10 +214,12 @@ impl Application {
                 users: std::iter::once(person)
                     .chain(picker.chosen.iter().cloned())
                     .collect(),
+                ring: false,
             },
             None => DiscordCommand::AddToGroup {
                 room: Some(picker.room.clone()),
                 users: picker.chosen.clone(),
+                ring: false,
             },
         };
         vec![Effect::Backend(Command::Discord(command))]

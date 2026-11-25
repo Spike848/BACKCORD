@@ -2324,6 +2324,15 @@ impl Api {
             .await
     }
 
+    /// Rings `recipients` alone for a DM or group DM call, as Discord's
+    /// client does for someone added to a group while its call goes on.
+    pub async fn ring_people(&self, channel: &str, recipients: &[String]) -> Result<()> {
+        let path = format!("/channels/{channel}/call/ring");
+        let body = json!({ "recipients": recipients });
+        self.empty(with_json(self.request(Method::POST, &path), &body))
+            .await
+    }
+
     /// Stops ringing this account for a call, which declines it.
     pub async fn stop_ringing(&self, channel: &str, me: &str) -> Result<()> {
         let path = format!("/channels/{channel}/call/stop-ringing");

@@ -194,6 +194,7 @@ pub fn view<'a>(mfa: &'a Mfa, cx: Ctx<'a>) -> Option<Element<'a, Message>> {
             };
             list = list.push(cx.look.menu_item(
                 Item {
+                    picture: None,
                     label: label.into(),
                     icon: None,
                     danger: false,

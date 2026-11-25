@@ -115,6 +115,16 @@ pub struct InvitePerson {
     pub friend: bool,
 }
 
+/// A group DM someone's Add to group submenu offers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GroupChoice {
+    /// Its room id, and its name as the DM list shows it.
+    pub room: String,
+    pub name: String,
+    /// This account is in its call, which adding them rings them for.
+    pub in_call: bool,
+}
+
 /// An invite dialog: where it invites to, the link Discord made, and the
 /// people it lists to send it to, as Discord's.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -169,6 +179,7 @@ impl Application {
                 .flatten()
         }) {
             self.offer_invite(person, &mut listed);
+            self.offer_group(person, &mut listed);
             self.offer_apps(id, person, &mut listed);
         }
         listed
@@ -900,6 +911,99 @@ impl Application {
             })
             .unwrap_or(choices.len());
         choices.insert(at, MenuChoice::InviteToServer);
+    }
+
+    /// The Discord group DMs a friend may be added to: those this account
+    /// is in that they aren't, with room for one more of the
+    /// [`GROUP_LIMIT`]. The group whose call this account is in comes
+    /// first, then the DM list's order. Discord lets only friends be
+    /// added, so for anyone else there are none.
+    pub fn group_choices(&self, user: &str) -> Vec<GroupChoice> {
+        #[cfg(feature = "discord")]
+        {
+            let Some(snapshot) = self.discord.as_ref() else {
+                return vec![];
+            };
+            if !self.state.discord_online
+                || snapshot.user_id.as_deref() == Some(user)
+                || !snapshot.friends.iter().any(|friend| friend == user)
+            {
+                return vec![];
+            }
+            let voice = &self.state.voice;
+            let mut groups: Vec<GroupChoice> = snapshot
+                .conversations
+                .iter()
+                .filter(|dm| dm.group && !dm.request && dm.people < GROUP_LIMIT)
+                .filter(|dm| !dm.recipients.iter().any(|known| known == user))
+                .map(|dm| {
+                    let room = discord::room_id(backcord_discord::ready::PRIVATE, &dm.id);
+                    let name = self
+                        .state
+                        .rooms
+                        .iter()
+                        .find(|known| known.id == room)
+                        .map_or_else(|| dm.name.clone(), |known| known.name.clone());
+                    GroupChoice {
+                        in_call: voice.active() && voice.room.as_deref() == Some(room.as_str()),
+                        room,
+                        name,
+                    }
+                })
+                .collect();
+            groups.sort_by_key(|group| !group.in_call);
+            groups
+        }
+        #[cfg(not(feature = "discord"))]
+        {
+            let _ = user;
+            vec![]
+        }
+    }
+
+    /// Puts Add to group in someone's menu after Invite to server, when
+    /// there's a group to add them to.
+    pub(super) fn offer_group(&self, user: &str, choices: &mut Vec<MenuChoice>) {
+        if self.group_choices(user).is_empty() {
+            return;
+        }
+        let at = choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    MenuChoice::AddFriend
+                        | MenuChoice::AcceptFriend
+                        | MenuChoice::CancelFriendRequest
+                        | MenuChoice::Unfriend
+                        | MenuChoice::Ignore
+                        | MenuChoice::Unignore
+                        | MenuChoice::Block
+                        | MenuChoice::Unblock
+                        | MenuChoice::CopyId
+                )
+            })
+            .unwrap_or(choices.len());
+        choices.insert(at, MenuChoice::AddToGroup);
+    }
+
+    /// Adds a friend to a group DM its submenu offers, ringing them when
+    /// this account is in the group's call.
+    pub(super) fn add_to_group(&self, user: String, room: String) -> Vec<Effect> {
+        let Some(group) = self
+            .group_choices(&user)
+            .into_iter()
+            .find(|group| group.room == room)
+        else {
+            return vec![];
+        };
+        vec![Effect::Backend(Command::Discord(
+            DiscordCommand::AddToGroup {
+                room: Some(group.room),
+                users: vec![user],
+                ring: group.in_call,
+            },
+        ))]
     }
 
     /// The channel an invite from someone's menu lands them in, as Discord's

@@ -172,6 +172,7 @@ fn popup_row<'a>(
     press: Option<Message>,
 ) -> Element<'a, Message> {
     let item = Item {
+        picture: None,
         label: label.into(),
         icon,
         danger: false,

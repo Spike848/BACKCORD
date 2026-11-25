@@ -147,6 +147,9 @@ pub struct Conversation {
     pub empty: bool,
     /// Everyone in it, this account included.
     pub people: usize,
+    /// A group DM's people besides this account, by user id; none in a DM.
+    #[serde(default)]
+    pub recipients: Vec<String>,
     /// Who made a group DM; its member list crowns them.
     #[serde(default)]
     pub owner: Option<String>,
@@ -2894,6 +2897,11 @@ impl Discord {
         }
         self.api.ring(channel).await?;
         Ok(true)
+    }
+
+    /// Rings `users` for the call going on in a group DM they were added to.
+    pub async fn ring_people(&self, channel: &str, users: &[String]) -> Result<()> {
+        self.api.ring_people(channel, users).await
     }
 
     /// Ends this login's session on Discord; the token stops working.

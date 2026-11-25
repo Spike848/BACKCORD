@@ -49,6 +49,10 @@ pub enum MenuChoice {
     /// Send someone an invite to one of this account's Discord servers, in
     /// a submenu of them; see `places.rs`.
     InviteToServer,
+    /// Add a friend to one of this account's Discord group DMs, in a
+    /// submenu of them, the group whose call it's in first; they're rung
+    /// for that call. See `places.rs`.
+    AddToGroup,
     Unfriend,
     Ignore,
     Unignore,

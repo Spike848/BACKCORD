@@ -202,6 +202,8 @@ pub enum MenuAct {
     /// channel to move to.
     Role,
     InviteTo,
+    /// A group DM to add someone to.
+    AddTo,
     App,
     MoveTo,
     /// One of a server's scheduled events, which only shows.
@@ -250,6 +252,8 @@ pub struct MenuRow {
     pub key: String,
     /// The submenu it opens beside it; empty for none.
     pub submenu: Vec<MenuRow>,
+    /// The address of a picture in its icon's place, as a role's.
+    pub picture: Option<String>,
     /// What a click on the row itself does instead of opening its submenu,
     /// as a mute row mutes until it's turned back on.
     pub click: Option<MenuAct>,
@@ -278,6 +282,7 @@ impl MenuRow {
             key: String::new(),
             submenu: Vec::new(),
             click: None,
+            picture: None,
         }
     }
 
@@ -749,6 +754,7 @@ fn carry_out(app: &mut App, row: &MenuRow, ticked: Option<bool>, stays: bool) ->
         | MenuAct::ShowAll
         | MenuAct::Role
         | MenuAct::InviteTo
+        | MenuAct::AddTo
         | MenuAct::App
         | MenuAct::MoveTo => {
             Task::batch([focus, crate::place_menus::sub_act(app, &menu, row, ticked)])
@@ -965,6 +971,7 @@ pub fn act(
         | MenuAct::ShowAll
         | MenuAct::Role
         | MenuAct::InviteTo
+        | MenuAct::AddTo
         | MenuAct::App
         | MenuAct::MoveTo
         | MenuAct::Picked(_)
@@ -1183,6 +1190,10 @@ impl<'a> View<'a> {
             } else {
                 crate::controls::Check::Submenu
             },
+            picture: entry.picture.as_deref().and_then(|url| {
+                let size = 2 * crate::controls::ITEM_ICON;
+                self.cx.picture(url, size, size, false)
+            }),
         }
     }
 
@@ -1206,10 +1217,18 @@ impl<'a> View<'a> {
                 .on_enter(Message::Menu(Event::SubLight(index))),
             );
         }
-        container(rows)
-            .width(menu.fit(Some(sub)))
-            .style(menu_panel(theme))
-            .into()
+        // A submenu taller than the window scrolls, as the menu does.
+        container(
+            scroll_view(
+                container(rows)
+                    .width(menu.fit(Some(sub)))
+                    .style(menu_panel(theme)),
+            )
+            .height(Length::Shrink)
+            .style(crate::style::scrollbar(theme)),
+        )
+        .max_height(self.cx.look.window.height - 2.0 * MENU_MARGIN)
+        .into()
     }
 }
 

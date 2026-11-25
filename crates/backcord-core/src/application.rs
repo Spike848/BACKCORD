@@ -88,8 +88,8 @@ pub use new_post::{NewPost, POST_TAGS, POST_TITLE_LIMIT};
 pub use oauth::OAuthDialog;
 pub use place_search::Place;
 pub use places::{
-    ChannelAsk, ChannelDialog, INVITE_AGES, INVITE_USES, InviteDialog, InvitePerson, LeaveDialog,
-    ListedCategory, SLOWMODES,
+    ChannelAsk, ChannelDialog, GroupChoice, INVITE_AGES, INVITE_USES, InviteDialog, InvitePerson,
+    LeaveDialog, ListedCategory, SLOWMODES,
 };
 pub use polls::{
     ANSWER_LIMIT, DraftAnswer, POLL_ANSWERS, POLL_HOURS, PollDraft, PollEdit, QUESTION_LIMIT,
@@ -2221,6 +2221,12 @@ pub enum Action {
         user: String,
         server: String,
     },
+    /// Add a friend to a Discord group DM, by its room id, from their menu's
+    /// Add to group submenu.
+    AddToGroup {
+        user: String,
+        room: String,
+    },
     /// Send someone the invite dialog lists an invite to its channel.
     InviteFromDialog(String),
     /// Open Join a Server; look up the invite in what was typed or pasted
@@ -3799,12 +3805,20 @@ impl Application {
                 let start = range.start().saturating_sub(PICTURED_AROUND);
                 &messages[start..(range.end() + 1 + PICTURED_AROUND).min(messages.len())]
             });
+        // The open server's roles' pictures, which its roles menu shows.
+        let roles = self
+            .state
+            .selected
+            .as_deref()
+            .map(|place| self.server_roles(place))
+            .unwrap_or_default();
         let shown: HashSet<String> = pictures_on_screen(&self.state, timeline, true, true)
             .chain(
                 aside
                     .into_iter()
                     .flat_map(|aside| pictures_on_screen(&self.state, aside, true, false)),
             )
+            .chain(roles.iter().filter_map(|role| role.icon.as_deref()))
             .map(str::to_owned)
             .collect();
         // A card's or the open server's large pictures go with them; see
@@ -4310,6 +4324,7 @@ impl Application {
                 vec![]
             }
             Action::InviteToServer { user, server } => self.invite_to_server(user, server),
+            Action::AddToGroup { user, room } => self.add_to_group(user, room),
             Action::InviteFromDialog(user) => self.invite_from_dialog(user),
             Action::OpenJoinServer => self.open_join(),
             Action::FindInvite(typed) => self.find_invite(typed),

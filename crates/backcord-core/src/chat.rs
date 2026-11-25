@@ -600,6 +600,10 @@ pub struct ServerRole {
     /// An integration such as a bot or boosting gives it; nobody grants or
     /// takes it by hand.
     pub managed: bool,
+    /// The address of its picture, or the emoji it shows instead, where
+    /// the server may give roles icons.
+    pub icon: Option<String>,
+    pub emoji: Option<String>,
 }
 
 /// What a Discord server's roles may let this account do, as Discord names
@@ -3342,6 +3346,8 @@ pub enum DiscordCommand {
     AddToGroup {
         room: Option<String>,
         users: Vec<String>,
+        /// Ring them once added: the group's call this account is in.
+        ring: bool,
     },
     /// Mute a Discord DM or group DM, or unmute it.
     Mute {

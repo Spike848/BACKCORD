@@ -513,6 +513,7 @@ impl<'a> View<'a> {
     fn popover_row(self, label: &'a str, icon: Icon, pressed: Message) -> Element<'a, Message> {
         self.cx.look.menu_item_sized(
             Item {
+                picture: None,
                 label: label.into(),
                 icon: Some(icon),
                 danger: false,

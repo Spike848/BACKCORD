@@ -119,6 +119,14 @@ impl Application {
                     position: server.role_positions.get(id).copied().unwrap_or_default(),
                     color: server.role_colors.get(id).map(|(_, color)| *color),
                     managed: server.managed_roles.contains(id),
+                    icon: server
+                        .role_icons_allowed
+                        .then(|| server.role_icons.get(id).map(|url| url.to_string()))
+                        .flatten(),
+                    emoji: server
+                        .role_icons_allowed
+                        .then(|| server.role_emoji.get(id).cloned())
+                        .flatten(),
                 })
                 .collect();
             roles.sort_by(|a, b| b.position.cmp(&a.position).then_with(|| a.id.cmp(&b.id)));

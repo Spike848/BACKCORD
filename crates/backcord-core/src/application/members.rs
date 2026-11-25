@@ -128,6 +128,7 @@ impl Application {
             choices = self.request_choices(user);
         }
         self.offer_invite(user, &mut choices);
+        self.offer_group(user, &mut choices);
         if let Some(room) = self.state.selected.as_deref() {
             self.offer_apps(room, user, &mut choices);
         }
@@ -144,6 +145,7 @@ impl Application {
         if self.is_member_place(room, user) {
             let mut choices = self.member_choices(room, user);
             self.offer_invite(user, &mut choices);
+            self.offer_group(user, &mut choices);
             return choices;
         }
         let _ = (room, user);

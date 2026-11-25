@@ -4,6 +4,51 @@ use super::*;
 
 #[test]
 #[cfg(feature = "discord")]
+fn a_roles_menu_shows_their_pictures_and_emoji_where_the_server_may() {
+    use backcord_discord::service::{Snapshot, Status};
+    let app = |tier: u64| {
+        let server = backcord_discord::ready::server(&serde_json::json!({
+            "id": "10", "owner_id": "1",
+            "properties": {"name": "Test", "premium_tier": tier},
+            "roles": [
+                {"id": "10", "name": "@everyone", "position": 0, "permissions": "0"},
+                {"id": "20", "name": "Mods", "position": 2, "permissions": "0", "icon": "abc"},
+                {"id": "30", "name": "Fire", "position": 1, "permissions": "0",
+                 "unicode_emoji": "🔥"},
+            ],
+        }))
+        .unwrap();
+        let mut app = Application::default();
+        app.apply(discord_event(Snapshot {
+            status: Status::Online,
+            user_id: Some("1".into()),
+            servers: vec![MarkedServer {
+                server: Arc::new(server),
+                marks: Arc::default(),
+            }],
+            ..Default::default()
+        }));
+        app
+    };
+    let looks = |app: &Application| -> Vec<(Option<String>, Option<String>)> {
+        app.server_roles("discord:10")
+            .into_iter()
+            .map(|role| (role.icon, role.emoji))
+            .collect()
+    };
+    let boosted = looks(&app(2));
+    assert!(
+        boosted[0]
+            .0
+            .as_deref()
+            .is_some_and(|url| url.contains("/role-icons/20/abc.png"))
+    );
+    assert_eq!(boosted[1], (None, Some("🔥".to_owned())));
+    assert_eq!(looks(&app(0)), [(None, None), (None, None)], "not boosted");
+}
+
+#[test]
+#[cfg(feature = "discord")]
 fn discord_servers_say_what_this_account_may_do() {
     use chat::Permission;
     let app = discord_server();

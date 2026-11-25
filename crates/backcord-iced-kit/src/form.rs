@@ -528,6 +528,7 @@ impl<'a, M: Clone + 'a> Dropdown<'a, M> {
             let mut rows = column![].spacing(2);
             for (index, option) in self.options.iter().enumerate() {
                 let item = Item {
+                    picture: None,
                     label: option.clone().into(),
                     icon: None,
                     danger: false,

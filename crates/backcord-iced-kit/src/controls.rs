@@ -593,6 +593,8 @@ pub struct Item<'a> {
     /// chosen, what a choice does.
     pub subtitle: Option<std::borrow::Cow<'a, str>>,
     pub check: Check,
+    /// A picture in its icon's place, as a role's.
+    pub picture: Option<iced::widget::image::Handle>,
 }
 
 /// What marks a row as chosen: nothing, a tick in the accent in its icon's
@@ -666,7 +668,9 @@ impl crate::look::Look<'_> {
         light: Light,
         press: M,
     ) -> Element<'a, M> {
-        let iconic = item.icon.is_some() || matches!(item.check, Check::Current | Check::Box(_));
+        let iconic = item.icon.is_some()
+            || item.picture.is_some()
+            || matches!(item.check, Check::Current | Check::Box(_));
         let height = if item.subtitle.is_some() {
             51.0
         } else if iconic {
@@ -714,6 +718,11 @@ impl crate::look::Look<'_> {
         let mut face = row![].spacing(8).align_y(Alignment::Center);
         match item.icon {
             _ if current => face = face.push(self.glyph(Icon::Check, ITEM_ICON, theme.accent)),
+            _ if item.picture.is_some() => {
+                if let Some(picture) = item.picture {
+                    face = face.push(iced::widget::image(picture).width(slot).height(slot));
+                }
+            }
             Some(icon) => face = face.push(self.glyph(icon, ITEM_ICON, icon_ink)),
             None if item.slot => face = face.push(Space::new().width(slot).height(slot)),
             None => {}

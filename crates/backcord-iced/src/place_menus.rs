@@ -217,7 +217,10 @@ fn place_menu(
                     }
                 }
                 // A DM's, about its person.
-                MenuChoice::Mute | MenuChoice::InviteToServer | MenuChoice::Apps => {
+                MenuChoice::Mute
+                | MenuChoice::InviteToServer
+                | MenuChoice::AddToGroup
+                | MenuChoice::Apps => {
                     crate::person_menu::submenu(core, &mut row, choice, person, Some(id), None);
                 }
                 MenuChoice::Unmute => row.act = MenuAct::MuteDm(Muting::Off),
@@ -512,6 +515,10 @@ pub fn sub_act(
             user,
             server: row.key.clone(),
         }),
+        MenuAct::AddTo => user.map(|user| Action::AddToGroup {
+            user,
+            room: row.key.clone(),
+        }),
         // On a message, by its item; on someone, by their id.
         MenuAct::App => menu
             .item
@@ -715,6 +722,7 @@ pub fn until(seconds: u64, twelve_hour: bool) -> String {
 pub fn group_of(choice: MenuChoice) -> u8 {
     match choice {
         MenuChoice::InviteToServer
+        | MenuChoice::AddToGroup
         | MenuChoice::AddFriend
         | MenuChoice::AcceptFriend
         | MenuChoice::CancelFriendRequest
@@ -788,6 +796,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::Profile => Icon::User,
         C::Message => Icon::Dm,
         C::AddFriend | C::AcceptFriend | C::InviteToServer | C::Invite => Icon::UserPlus,
+        C::AddToGroup => Icon::Users,
         C::CancelFriendRequest | C::CloseDm => Icon::X,
         C::Pin | C::PinChannel => Icon::Pin,
         C::Unpin | C::UnpinChannel => Icon::PinOff,
@@ -864,6 +873,7 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::DeleteAll => backcord_iced_kit::i18n::tr("Delete all"),
         MenuChoice::StopDeleteAll => backcord_iced_kit::i18n::tr("Stop deleting"),
         MenuChoice::InviteToServer => backcord_iced_kit::i18n::tr("Invite to server"),
+        MenuChoice::AddToGroup => backcord_iced_kit::i18n::tr("Add to group"),
         MenuChoice::Apps => backcord_iced_kit::i18n::tr("Apps"),
         MenuChoice::Unfriend => backcord_iced_kit::i18n::tr("Remove friend"),
         MenuChoice::Ignore => backcord_iced_kit::i18n::tr("Ignore"),

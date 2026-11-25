@@ -167,6 +167,9 @@ pub struct Server {
     /// list draws by the role's name.
     #[serde(default)]
     pub role_icons: Arc<HashMap<String, Arc<str>>>,
+    /// The emoji a role shows in place of a picture, by id.
+    #[serde(default)]
+    pub role_emoji: Arc<HashMap<String, String>>,
     /// Each role's position, by id: higher roles list first.
     pub role_positions: Arc<HashMap<String, i64>>,
     /// Roles anyone may mention, by id.
@@ -1334,6 +1337,17 @@ impl Server {
                     Arc::make_mut(&mut self.role_icons).remove(&id);
                 }
             }
+            match value["unicode_emoji"]
+                .as_str()
+                .filter(|emoji| !emoji.is_empty())
+            {
+                Some(emoji) => {
+                    Arc::make_mut(&mut self.role_emoji).insert(id.clone(), emoji.to_owned());
+                }
+                None => {
+                    Arc::make_mut(&mut self.role_emoji).remove(&id);
+                }
+            }
             Arc::make_mut(&mut self.role_positions)
                 .insert(id.clone(), value["position"].as_i64().unwrap_or_default());
             match value["color"].as_u64().filter(|color| *color != 0) {
@@ -1356,6 +1370,7 @@ impl Server {
         Arc::make_mut(&mut self.role_names).remove(id);
         Arc::make_mut(&mut self.role_colors).remove(id);
         Arc::make_mut(&mut self.role_icons).remove(id);
+        Arc::make_mut(&mut self.role_emoji).remove(id);
         Arc::make_mut(&mut self.role_positions).remove(id);
         Arc::make_mut(&mut self.mentionable_roles).remove(id);
         Arc::make_mut(&mut self.managed_roles).remove(id);
