@@ -7,7 +7,10 @@
 //! in docs/discord/people.md.
 
 use super::*;
-use crate::chat::{OwnProfile, Permission, PickedPicture, ProfileChange, ProfilePicture, Wishlist};
+use crate::chat::{
+    CollectibleKind, OwnProfile, Permission, PickedPicture, ProfileChange, ProfilePicture,
+    Wardrobe, Wishlist,
+};
 
 /// The longest name, pronouns and bio Discord takes, in characters: a
 /// server nickname and a display name alike.
@@ -76,6 +79,24 @@ pub struct ProfileEditor {
     pub profile: Option<OwnProfile>,
     /// The wishlist its tab shows, asked for when that tab first opens.
     pub wishlist: Wishlist,
+    /// The collectibles to choose from, asked for when their choice first
+    /// opens.
+    pub wardrobe: crate::chat::Wardrobe,
+    /// The kind of collectible being worn or taken off, while Discord saves it.
+    pub wearing: Option<crate::chat::CollectibleKind>,
+    /// Why the last collectible didn't go on.
+    pub wear_error: Option<String>,
+    /// The collectible last worn went on.
+    pub wear_saved: bool,
+    /// This account's badges, asked for when their window opens.
+    pub badges: crate::chat::OwnBadges,
+    /// The badges are being arranged, while Discord saves it.
+    pub arranging: bool,
+    /// How the last arranging went: none before one.
+    pub arranged: Option<Result<(), String>>,
+    /// A collectible chosen and not yet worn, which the preview wears: its
+    /// kind, and its SKU or none to take that kind off.
+    pub chosen: Option<(CollectibleKind, Option<String>)>,
     /// As written, starting from the profile.
     pub name: String,
     pub pronouns: String,
@@ -468,6 +489,176 @@ impl Application {
             Wishlist::Unasked | Wishlist::Failed | Wishlist::Hidden => editor.ask_wishlist(),
             Wishlist::Loading | Wishlist::Loaded(_) => vec![],
         }
+    }
+
+    /// Opens the choice of collectibles: asks Discord the first time, and
+    /// again after a failure. Only the main profile wears them.
+    pub(super) fn open_wardrobe(&mut self) -> Vec<Effect> {
+        let Some(editor) = self.state.edited_profile().filter(|editor| editor.main()) else {
+            return vec![];
+        };
+        editor.wear_error = None;
+        match editor.wardrobe {
+            Wardrobe::Unasked | Wardrobe::Failed(_) => {
+                editor.wardrobe = Wardrobe::Loading;
+                vec![Effect::Backend(Command::Discord(DiscordCommand::Wardrobe))]
+            }
+            Wardrobe::Loading | Wardrobe::Loaded { .. } => vec![],
+        }
+    }
+
+    pub(super) fn wardrobe_loaded(&mut self, wardrobe: Wardrobe) {
+        if let Some(editor) = self.state.edited_profile() {
+            editor.wardrobe = wardrobe;
+        }
+    }
+
+    /// Opens the badges' window: asks Discord for them, keeping those shown
+    /// meanwhile. Only the main profile has them.
+    pub(super) fn open_badges(&mut self) -> Vec<Effect> {
+        let Some(editor) = self.state.edited_profile().filter(|editor| editor.main()) else {
+            return vec![];
+        };
+        editor.arranged = None;
+        if !matches!(editor.badges, crate::chat::OwnBadges::Loaded(_)) {
+            editor.badges = crate::chat::OwnBadges::Loading;
+        }
+        vec![Effect::Backend(Command::Discord(DiscordCommand::OwnBadges))]
+    }
+
+    pub(super) fn own_badges_loaded(&mut self, badges: crate::chat::OwnBadges) {
+        if let Some(editor) = self.state.edited_profile() {
+            // A failure keeps what was shown.
+            if !(matches!(badges, crate::chat::OwnBadges::Failed(_))
+                && matches!(editor.badges, crate::chat::OwnBadges::Loaded(_)))
+            {
+                editor.badges = badges;
+            }
+        }
+    }
+
+    /// Saves the badges' order and which are hidden, one save at a time.
+    pub(super) fn arrange_badges(&mut self, order: Vec<u32>, hidden: Vec<u32>) -> Vec<Effect> {
+        let Some(editor) = self
+            .state
+            .edited_profile()
+            .filter(|editor| editor.main() && !editor.arranging)
+        else {
+            return vec![];
+        };
+        editor.arranging = true;
+        editor.arranged = None;
+        vec![Effect::Backend(Command::Discord(
+            DiscordCommand::ArrangeBadges { order, hidden },
+        ))]
+    }
+
+    /// The badges were arranged, or weren't: they, and the profile that
+    /// shows them, are asked for again.
+    pub(super) fn badges_arranged(&mut self, result: Result<(), String>) -> Vec<Effect> {
+        let Some(editor) = self
+            .state
+            .edited_profile()
+            .filter(|editor| editor.arranging)
+        else {
+            return vec![];
+        };
+        editor.arranging = false;
+        editor.arranged = Some(result);
+        vec![
+            Effect::Backend(Command::Discord(DiscordCommand::OwnBadges)),
+            Effect::Backend(Command::Discord(DiscordCommand::OwnProfile {
+                server: None,
+            })),
+        ]
+    }
+
+    /// Chooses a collectible for the preview to wear, or with none forgets
+    /// the choice. A profile effect not seen yet is asked for, to play it.
+    pub(super) fn choose_collectible(
+        &mut self,
+        chosen: Option<(CollectibleKind, Option<String>)>,
+    ) -> Vec<Effect> {
+        let Some(editor) = self.state.edited_profile().filter(|editor| editor.main()) else {
+            return vec![];
+        };
+        if editor.chosen == chosen {
+            return vec![];
+        }
+        editor.chosen.clone_from(&chosen);
+        editor.wear_saved = false;
+        editor.wear_error = None;
+        self.state.profile_editor_changed();
+        match chosen {
+            Some((CollectibleKind::Effect, Some(sku)))
+                if !self
+                    .state
+                    .profile_effects
+                    .iter()
+                    .any(|effect| effect.sku == sku) =>
+            {
+                vec![Effect::Backend(Command::Discord(
+                    DiscordCommand::ProfileEffect { sku },
+                ))]
+            }
+            _ => vec![],
+        }
+    }
+
+    /// Wears a collectible this account owns, or takes its kind off, one at
+    /// a time.
+    pub(super) fn wear(&mut self, kind: CollectibleKind, sku: Option<String>) -> Vec<Effect> {
+        let Some(editor) = self
+            .state
+            .edited_profile()
+            .filter(|editor| editor.main() && editor.wearing.is_none())
+        else {
+            return vec![];
+        };
+        let owned = match (&editor.wardrobe, sku.as_deref()) {
+            (_, None) => true,
+            (Wardrobe::Loaded { owned, .. }, Some(sku)) => owned
+                .iter()
+                .any(|item| item.kind == kind && item.sku == sku),
+            _ => false,
+        };
+        if !owned {
+            return vec![];
+        }
+        editor.wearing = Some(kind);
+        editor.wear_error = None;
+        editor.wear_saved = false;
+        vec![Effect::Backend(Command::Discord(DiscordCommand::Wear {
+            kind,
+            sku,
+        }))]
+    }
+
+    /// The collectible went on, or didn't: the profile is asked for again,
+    /// so the editor and the account's card wear what Discord now has.
+    pub(super) fn worn(
+        &mut self,
+        kind: CollectibleKind,
+        result: Result<(), String>,
+    ) -> Vec<Effect> {
+        let Some(editor) = self
+            .state
+            .edited_profile()
+            .filter(|editor| editor.wearing == Some(kind))
+        else {
+            return vec![];
+        };
+        editor.wearing = None;
+        editor.wear_saved = result.is_ok();
+        // What went on is what the profile now wears, once it comes again.
+        if result.is_ok() {
+            editor.chosen = None;
+        }
+        editor.wear_error = result.err();
+        self.state.profile_editor_changed();
+        vec![Effect::Backend(Command::Discord(
+            DiscordCommand::OwnProfile { server: None },
+        ))]
     }
 
     pub(super) fn wishlist_loaded(&mut self, id: &str, wishlist: Wishlist) {

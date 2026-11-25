@@ -111,7 +111,7 @@ pub fn header(state: &AppState, was: &Header, link: u32) -> Header {
         && !state.preview
         && state.discord_user.is_some();
     Header {
-        name: room.name.clone(),
+        name: crate::sidebar::channel_name(&room.name),
         direct: room.direct,
         one_to_one: room.person.is_some(),
         thread: room.parent.is_some(),

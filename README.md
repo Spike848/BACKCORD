@@ -34,17 +34,22 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.4.1
+## Novità della 1.4.2
 
-- **Cartelle dei messaggi diretti**: trascina un DM su un altro per creare
-  una cartella, trascinalo su una cartella per metterlo dentro, sulla scritta
-  "Messaggi diretti" per toglierlo. Clic sulla cartella per chiuderla, tasto
-  destro per rinominarla o eliminarla.
-- **Selezione multipla**: Ctrl+clic sui DM per selezionarne più di uno, poi
-  tasto destro per fissarli, metterli in una cartella o segnarli come letti;
-  trascinandone uno si spostano tutti.
-- **Fissa in alto** (Pin) nel menu dei DM, ora con un nome più chiaro.
-- **Emoji nella bio**: scrivi `:nome:` come in chat e diventa l'emoji.
+- **Decorazioni, effetti, targhette e cornici dentro BACKCORD**: nell'editor
+  del profilo scegli tra quelli che possiedi, li vedi in anteprima sul tuo
+  profilo e li applichi dopo una conferma. Quelli del negozio si vedono in
+  anteprima e si comprano con "Compra su Discord".
+- **Badge**: nascondi i badge che non vuoi mostrare e, con Nitro,
+  riordinali trascinandoli. Vedi subito cosa vedranno gli altri.
+- **Canali nascosti**: "Mostra canali nascosti" è ora tra le funzioni
+  aggiuntive, e i canali che Discord nasconde hanno il loro nome quando
+  BACKCORD l'ha già visto, altrimenti "Canale nascosto".
+- **Account bloccati**: la sezione "Discord" delle impostazioni ora si
+  chiama così e mostra la foto di chi hai bloccato.
+- **Condivisione dello schermo**: la scelta della finestra ora vede anche le
+  finestre che prima mancavano.
+- **Videocamere**: una cam che restava nera ora si riprende da sola.
 
 ## Cosa fa
 

@@ -88,7 +88,7 @@ def compile_installer(package, version, flavour, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--exe", type=Path, default=ROOT / "target" / TARGET / "release/backcord.exe")
+    parser.add_argument("--exe", type=Path, default=ROOT / "target" / TARGET / "release/BACKCORD.exe")
     parser.add_argument("--flavour", choices=FLAVOURS, default="discord",
                         help="the features the executable was built with (default: discord)")
     parser.add_argument("--output", type=Path, help="default: target/dist/FLAVOUR")

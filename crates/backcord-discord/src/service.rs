@@ -3250,6 +3250,57 @@ impl Discord {
         }
     }
 
+    /// The collectibles this account owns, and those the shop sells now,
+    /// for the profile editor's choices. A shop that doesn't answer leaves
+    /// its list empty.
+    pub async fn wardrobe(
+        &self,
+    ) -> Result<(Vec<crate::wardrobe::Item>, Vec<crate::wardrobe::Item>)> {
+        let (owned, shop) = tokio::join!(
+            self.api.collectibles_purchases(),
+            self.api.collectibles_categories()
+        );
+        let owned = crate::wardrobe::owned(&owned?);
+        let shop = match shop.map(|answer| serde_json::from_slice::<Value>(&answer)) {
+            Ok(Ok(answer)) => crate::wardrobe::shop(&answer, now_ms()),
+            Ok(Err(error)) => {
+                tracing::warn!(%error, "could not read the shop's collectibles");
+                Vec::new()
+            }
+            Err(error) => {
+                tracing::warn!(%error, "could not fetch the shop's collectibles");
+                Vec::new()
+            }
+        };
+        Ok((owned, shop))
+    }
+
+    /// This account's badges, every one Discord has, those owned in the
+    /// order the profile shows them.
+    pub async fn own_badges(&self) -> Result<Vec<crate::badges::Badge>> {
+        crate::badges::parse(&self.api.my_badges().await?)
+            .ok_or_else(|| anyhow!("could not understand Discord's answer"))
+    }
+
+    /// Shows this account's badges in `order`, with `hidden` hidden.
+    pub async fn arrange_badges(&self, order: &[u32], hidden: &[u32]) -> Result<()> {
+        self.api
+            .badge_settings(&crate::badges::settings(order, hidden))
+            .await?;
+        Ok(())
+    }
+
+    /// Wears the collectible `sku` of `kind`, or with none takes that kind
+    /// off, as Discord's profile editor saves it.
+    pub async fn wear(&self, kind: crate::wardrobe::Kind, sku: Option<&str>) -> Result<()> {
+        let body = kind.wear(sku);
+        if let Err(error) = self.api.modify_profile_me(&body).await {
+            tracing::info!(%error, ?kind, "the profile wouldn't wear it; trying the user");
+            self.api.modify_me(&body).await?;
+        }
+        Ok(())
+    }
+
     /// The items on a wishlist, by the id a profile gave, as Discord's client
     /// fetches them for either its own account or someone else.
     pub async fn wishlist(&self, id: &str) -> Result<Vec<crate::wishlist::Item>> {

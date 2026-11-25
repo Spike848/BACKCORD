@@ -397,6 +397,31 @@ pub(super) fn frame_tile<'a>(
     )
 }
 
+/// A frame of the shop's round a small blank card `size` big, once its
+/// pictures came, for the choice of a frame.
+pub(super) fn frame_preview<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    frame: &[backcord_core::chat::ProfileFrameLayer],
+    size: Size,
+) -> Option<Element<'a, Message>> {
+    let width = (size.width * 0.5).round();
+    let layers = layers_art(ctx, frame, false, width);
+    if layers.is_empty() {
+        return None;
+    }
+    let ground = ctx.look.theme.panel;
+    let card: Element<'a, Message> = container(Space::new())
+        .width(width)
+        .height((size.height * 0.62).round())
+        .style(move |_: &iced::Theme| crate::style::rounded(ground, 6))
+        .into();
+    Some(
+        container(Framed::contained(card, layers, FRAME_SIDE))
+            .center(Length::Fill)
+            .into(),
+    )
+}
+
 /// The frame's layers at the width it's drawn, `side` past each of the
 /// card's sides; the full profile leaves out the staple at the foot,
 /// as Discord's does.
@@ -406,11 +431,18 @@ fn frame_art(ctx: crate::ctx::Ctx<'_>, shown: &Shown, mode: Mode, width: f32) ->
     let Some(frame) = state.cosmetics.frame(Some(&profile.frame)) else {
         return Vec::new();
     };
-    let side = if mode.large() {
-        FRAME_SIDE_LARGE
-    } else {
-        FRAME_SIDE
-    };
+    layers_art(ctx, frame, mode.large(), width)
+}
+
+/// A frame's layers at the width it's drawn, those whose pictures came.
+fn layers_art(
+    ctx: crate::ctx::Ctx<'_>,
+    frame: &[backcord_core::chat::ProfileFrameLayer],
+    large: bool,
+    width: f32,
+) -> Vec<FrameLayer> {
+    let state = ctx.state;
+    let side = if large { FRAME_SIDE_LARGE } else { FRAME_SIDE };
     let across = width + 2.0 * side;
     frame
         .iter()
@@ -426,7 +458,7 @@ fn frame_art(ctx: crate::ctx::Ctx<'_>, shown: &Shown, mode: Mode, width: f32) ->
                 "center" => FrameAnchor::Center,
                 _ => FrameAnchor::Top,
             };
-            if mode.large() && kind == FrameKind::Staple && anchor == FrameAnchor::Bottom {
+            if large && kind == FrameKind::Staple && anchor == FrameAnchor::Bottom {
                 return None;
             }
             let picture = state.pictures.get(&layer.src)?;

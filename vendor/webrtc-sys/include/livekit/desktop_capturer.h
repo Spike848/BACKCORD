@@ -44,6 +44,9 @@ class DesktopCapturer : public webrtc::DesktopCapturer::Callback {
   void start(rust::Box<DesktopCapturerCallbackWrapper> callback);
   void capture_frame() const { capturer->CaptureFrame(); }
 
+  // A window capturer, whose list BACKCORD fills in on Windows.
+  bool lists_windows = false;
+
  private:
   std::unique_ptr<webrtc::DesktopCapturer> capturer;
   std::optional<rust::Box<DesktopCapturerCallbackWrapper>> callback;

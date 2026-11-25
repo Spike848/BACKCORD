@@ -236,7 +236,7 @@ message does and the settle pass (`app/`), taking in the core's state
   was opened for, the pictures in view as a list scrolls, where the keys go (the
   composer's or nobody's, or a field by its id; the last asked wins), a title bar, a look at the releases,
   and `Changed` with a preference others show (`ctx::Pref`: the clock,
-  the timeline's rows, the member list's, the keybinds, going idle,
+  the timeline's rows, the member list's, the keybinds,
   the theme, noise suppression).
 - Its view is a free function of its state and a `ctx::Ctx`
   (`settings::view`), with its parts on a view type of its own

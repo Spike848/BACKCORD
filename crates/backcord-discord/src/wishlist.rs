@@ -100,7 +100,7 @@ fn collectible_picture(id: &str, sku: &Value) -> Option<String> {
 
 /// The picture for a collectible's item, by its kind, as Discord's client finds
 /// it.
-fn collectible_item_picture(id: &str, item: &Value) -> Option<String> {
+pub(crate) fn collectible_item_picture(id: &str, item: &Value) -> Option<String> {
     let id = item["sku_id"].as_str().unwrap_or(id);
     match item["type"].as_u64()? {
         DECORATION => text(&item["asset"]).map(decoration_still),

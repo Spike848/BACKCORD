@@ -128,7 +128,7 @@ def build(profile, backcord=True, tray=False, record=False):
     # The hosts are a package of their own (testing/hosts), so this builds
     # the same backcord as a plain cargo build and scripts/check do.
     hosts = [*(['--bin', 'tray_host'] if tray else []), *(['--bin', 'record_host'] if record else [])]
-    targets = [*(['-p', 'backcord', '--bin', 'backcord'] if backcord else []),
+    targets = [*(['-p', 'backcord', '--bin', 'BACKCORD'] if backcord else []),
                *(['-p', 'backcord-test-hosts', *hosts] if hosts else [])]
     command = ['nix', 'develop', 'path:./nix', '--command', 'cargo', 'build', '--locked', '--profile', profile,
                *targets]
@@ -139,7 +139,7 @@ def build(profile, backcord=True, tray=False, record=False):
         tail(log, 40)
         raise SystemExit(f'The build failed; see {log.relative_to(ROOT)}')
     # Replace, never overwrite, so a running copy keeps its file.
-    built = [('backcord', f'target/{profile}/backcord')] if backcord else []
+    built = [('backcord', f'target/{profile}/BACKCORD')] if backcord else []
     built += [('tray-host', f'target/{profile}/tray_host')] if tray else []
     built += [('record-host', f'target/{profile}/record_host')] if record else []
     for name, path in built:

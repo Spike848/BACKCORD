@@ -366,6 +366,9 @@ pub struct Framed {
     layers: Vec<FrameLayer>,
     side: f32,
     top_shift: f32,
+    /// Draws nothing past what its parent shows, as in a list that
+    /// scrolls under other things.
+    contained: bool,
 }
 
 impl Framed {
@@ -381,14 +384,44 @@ impl Framed {
                 layers,
                 side,
                 top_shift,
+                contained: false,
             },
         )
     }
 
-    fn draw_layers(&self, renderer: &mut Renderer, card: Rectangle, front: bool) {
+    /// [`Framed::new`] kept within what its parent shows.
+    pub fn contained<'a, M>(
+        child: impl Into<Element<'a, M>>,
+        layers: Vec<FrameLayer>,
+        side: f32,
+    ) -> Wrap<'a, Self, M> {
+        Wrap::new(
+            child,
+            Self {
+                layers,
+                side,
+                top_shift: 0.0,
+                contained: true,
+            },
+        )
+    }
+
+    fn draw_layers(
+        &self,
+        renderer: &mut Renderer,
+        card: Rectangle,
+        front: bool,
+        shown: Option<Rectangle>,
+    ) {
         use iced::advanced::Renderer as _;
         let (x, width) = (card.x - self.side, card.width + 2.0 * self.side);
-        let whole = Rectangle::new(Point::new(x, card.y), Size::new(width, card.height));
+        let mut whole = Rectangle::new(Point::new(x, card.y), Size::new(width, card.height));
+        if let Some(shown) = shown {
+            match whole.intersection(&shown) {
+                Some(inside) => whole = inside,
+                None => return,
+            }
+        }
         let layers = || self.layers.iter().filter(move |layer| layer.front == front);
         let at = |y: f32, height: f32| {
             Rectangle::new(Point::new(x, card.y + y), Size::new(width, height))
@@ -453,11 +486,18 @@ impl<M> Hooks<M> for Framed {
         let card = at.bounds;
         // The back layers under the card's ground, the card in a layer of
         // its own over them, and the front ones in another over it.
-        self.draw_layers(renderer, card, false);
-        let room = at.viewport.expand(self.side);
+        let shown = self.contained.then_some(at.viewport);
+        self.draw_layers(renderer, card, false, shown);
+        let room = if self.contained {
+            at.viewport
+        } else {
+            at.viewport.expand(self.side)
+        };
         renderer.with_layer(room, |renderer| child(renderer));
         if self.layers.iter().any(|layer| layer.front) {
-            renderer.with_layer(room, |renderer| self.draw_layers(renderer, card, true));
+            renderer.with_layer(room, |renderer| {
+                self.draw_layers(renderer, card, true, shown);
+            });
         }
     }
 }

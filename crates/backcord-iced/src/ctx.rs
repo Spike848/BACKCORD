@@ -197,8 +197,6 @@ pub enum Pref {
     /// Push to talk's key, the input mode or the Keybinds page's: the
     /// keybinds are watched again.
     Keybinds,
-    /// Going idle after a while, or not.
-    Idle,
     /// The theme chosen, or the one a screen previews: the window shows
     /// it again.
     Theme,

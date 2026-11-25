@@ -149,8 +149,16 @@ member list, the DMs, and the lists still to come build on it.
   saturation across and brightness down a
   square of the hue, the hues under it, and the code, each following the
   others), the effect worn as its still
-  over a little card, the frame worn round a small blank card, and the
-  shop's for the rest; with Nitro the
+  over a little card, the frame worn round a small blank card; the
+  nameplate, decoration, effect and frame tiles open the choice of that
+  kind (`profile/editor/wardrobe.rs`): None and what the account owns,
+  then the shop's 48 at a time (Show More); one clicked is chosen and
+  ringed, and the preview beside the list and the editor's card wear it;
+  Apply, for one owned, asks before Discord saves it, Buy on Discord opens
+  one of the shop's there; the Badges tile opens their window
+  (`profile/editor/badges.rs`): the badges owned, each picked to see it,
+  hidden or shown, and with Nitro dragged to a new place, those
+  to unlock, the row others see, and Save, which asks first; with Nitro the
   Display Name Style tile opens its window (`profile/name_style.rs`):
   the fonts' tiles (each one's name
   over it under the pointer), the effects' (each name drawn in the

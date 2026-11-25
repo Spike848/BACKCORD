@@ -34,10 +34,12 @@ use crate::{
     widgets::{Hsv, hsv_rgb, rgb_hsv},
 };
 
+mod badges;
 mod card;
 mod colour;
 mod menus;
 mod styles;
+mod wardrobe;
 
 use colour::parse_colour;
 use menus::item;
@@ -117,6 +119,29 @@ pub enum Event {
     Format(crate::format::Style),
     /// An emoji's text picked for the bio, in place of its selection.
     Insert(String),
+    /// The choice of a collectible opened for a kind, or closed.
+    Wardrobe(Option<backcord_core::chat::CollectibleKind>),
+    /// More of the shop's collectibles in their choice.
+    ShopMore,
+    /// The badges' window opened, or closed.
+    Badges(bool),
+    /// A badge pressed: picked, and with Nitro being dragged.
+    BadgeGrab(u32, bool),
+    /// The pointer, dragging a badge, came over another.
+    BadgeOver(u32),
+    /// Let go of the badge being dragged.
+    BadgeDrop,
+    /// A badge hidden, or shown again.
+    BadgeHide(u32),
+    /// The badges' confirmation opened, or closed.
+    BadgeConfirm(bool),
+    BadgeSave,
+    /// A collectible chosen for the preview, or with none its kind taken off.
+    Choose(backcord_core::chat::CollectibleKind, Option<String>),
+    /// The choice's confirmation opened, or closed.
+    Confirm(bool),
+    /// A collectible owned worn, or with none its kind taken off.
+    Wear(backcord_core::chat::CollectibleKind, Option<String>),
 }
 
 fn message(event: Event) -> Message {
@@ -147,6 +172,14 @@ pub struct Editor {
     bio: Draft,
     /// The Display Name Style window, while it's open.
     pub(crate) style: Option<crate::profile::name_style::Window>,
+    /// The choice of collectibles, while it's open, by the kind it offers.
+    wardrobe: Option<backcord_core::chat::CollectibleKind>,
+    /// How many of the shop's the choice shows.
+    shop_shown: usize,
+    /// The choice asks whether to wear what was chosen.
+    confirming: bool,
+    /// The badges' window, while it's open.
+    badges: Option<badges::Draft>,
     /// The core's editor and lists changes its card was made at.
     made: (u64, u64),
 }
@@ -164,6 +197,10 @@ impl Editor {
             tag_query: String::new(),
             bio: Draft::default(),
             style: None,
+            wardrobe: None,
+            shop_shown: wardrobe::SHOP_PAGE,
+            confirming: false,
+            badges: None,
             made: (0, 0),
         }
     }
@@ -195,6 +232,24 @@ fn preview(state: &AppState, editor: &ProfileEditor) -> ProfileView {
         (_, Some(_)) => Some(picked_url(kind, editor.picture_edits)),
         (Some(kept), None) => Some(kept.to_owned()),
         (None, None) => own.cloned(),
+    };
+    // The collectible chosen for the preview, of a kind: none when none
+    // was, else the one chosen, or none to take it off.
+    use backcord_core::chat::{CollectibleKind, Wardrobe};
+    let chosen = |kind: CollectibleKind| -> Option<Option<&chat::Collectible>> {
+        let (chosen_kind, sku) = editor.chosen.as_ref()?;
+        if *chosen_kind != kind {
+            return None;
+        }
+        let Some(sku) = sku else { return Some(None) };
+        let Wardrobe::Loaded { owned, shop } = &editor.wardrobe else {
+            return None;
+        };
+        owned
+            .iter()
+            .chain(shop)
+            .find(|item| &item.sku == sku)
+            .map(Some)
     };
     let kept_accent = editor.profile.as_ref().and_then(|profile| profile.accent);
     let accent = if editor.may_write(ProfileText::Colour) {
@@ -248,10 +303,21 @@ fn preview(state: &AppState, editor: &ProfileEditor) -> ProfileView {
         wishlist: editor.wishlist.clone(),
         tag,
         // What the editor doesn't change comes from the profile it read.
-        decoration: fallback.and_then(|own| own.decoration.clone()),
-        effect: fallback.and_then(|own| own.effect.clone()),
+        decoration: match chosen(CollectibleKind::Decoration) {
+            Some(item) => item.and_then(|item| item.picture.as_deref().map(Arc::from)),
+            None => fallback.and_then(|own| own.decoration.clone()),
+        },
+        effect: match &editor.chosen {
+            Some((CollectibleKind::Effect, sku)) => sku.clone(),
+            _ => fallback.and_then(|own| own.effect.clone()),
+        },
         badges: fallback.map(|own| own.badges.clone()).unwrap_or_default(),
-        frame: fallback.map(|own| own.frame.clone()).unwrap_or_default(),
+        frame: match chosen(CollectibleKind::Frame) {
+            Some(item) => item
+                .map(|item| Arc::from(item.frame.as_slice()))
+                .unwrap_or_default(),
+            None => fallback.map(|own| own.frame.clone()).unwrap_or_default(),
+        },
         connections: fallback
             .map(|own| own.connections.clone())
             .unwrap_or_default(),
@@ -491,6 +557,71 @@ impl Editor {
                 editor.tab = Some(tab);
             }
             Event::Side(side) => editor.side = side,
+            Event::Wardrobe(kind) => {
+                editor.wardrobe = kind;
+                editor.shop_shown = wardrobe::SHOP_PAGE;
+                editor.confirming = false;
+                editor.pop = None;
+                // What was chosen and not worn goes with the choice.
+                cx.dispatch(Action::ChooseCollectible(None));
+                if kind.is_some() {
+                    cx.dispatch(Action::OpenWardrobe);
+                }
+            }
+            Event::ShopMore => editor.shop_shown += wardrobe::SHOP_PAGE,
+            Event::Badges(open) => {
+                editor.pop = None;
+                editor.badges = open.then(badges::Draft::default);
+                if open {
+                    cx.dispatch(Action::OpenBadges);
+                }
+            }
+            Event::BadgeGrab(id, drag) => {
+                if let Some(draft) = editor.badges.as_mut() {
+                    draft.selected = Some(id);
+                    draft.dragging = drag.then_some(id);
+                }
+            }
+            Event::BadgeDrop => {
+                if let Some(draft) = editor.badges.as_mut() {
+                    draft.dragging = None;
+                }
+            }
+            Event::BadgeHide(id) | Event::BadgeOver(id) => {
+                let listed = cx.state().profile_editor.as_ref().map(|core| &core.badges);
+                if let (Some(draft), Some(backcord_core::chat::OwnBadges::Loaded(listed))) =
+                    (editor.badges.as_mut(), listed)
+                {
+                    match event {
+                        Event::BadgeOver(_) => draft.drag_over(listed, id),
+                        _ => draft.hide(listed, id),
+                    }
+                }
+            }
+            Event::BadgeConfirm(open) => {
+                if let Some(draft) = editor.badges.as_mut() {
+                    draft.confirming = open;
+                }
+            }
+            Event::BadgeSave => {
+                let listed = cx.state().profile_editor.as_ref().map(|core| &core.badges);
+                if let (Some(draft), Some(backcord_core::chat::OwnBadges::Loaded(listed))) =
+                    (editor.badges.as_mut(), listed)
+                {
+                    draft.confirming = false;
+                    let (order, hidden) = draft.current(listed);
+                    cx.dispatch(Action::ArrangeBadges { order, hidden });
+                }
+            }
+            Event::Choose(kind, sku) => {
+                editor.confirming = false;
+                cx.dispatch(Action::ChooseCollectible(Some((kind, sku))));
+            }
+            Event::Confirm(open) => editor.confirming = open,
+            Event::Wear(kind, sku) => {
+                editor.confirming = false;
+                cx.dispatch(Action::Wear { kind, sku });
+            }
             Event::Undo => {
                 editor.editing = None;
                 editor.colour_open = false;
@@ -529,6 +660,21 @@ impl Editor {
     pub fn escape(&mut self, cx: &mut Cx<'_>) -> Task<Message> {
         if crate::profile::name_style::escape(self) {
             return Task::none();
+        }
+        if let Some(draft) = self.badges.as_mut() {
+            if draft.confirming {
+                draft.confirming = false;
+            } else {
+                self.badges = None;
+            }
+            return Task::none();
+        }
+        if self.confirming {
+            self.confirming = false;
+            return Task::none();
+        }
+        if self.wardrobe.is_some() {
+            return self.update(Event::Wardrobe(None), cx);
         }
         let editor = self;
         if editor.editing.is_some() || editor.colour_open || editor.pop.is_some() {
@@ -657,6 +803,12 @@ pub(super) fn editor_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
     );
     urls.extend(profile.badges.iter().map(|badge| badge.icon.clone()));
     urls.extend(profile.server_icon.clone());
+    if let Some(kind) = editor.wardrobe {
+        urls.extend(wardrobe::pictures(ctx, kind, editor.shop_shown));
+    }
+    if editor.badges.is_some() {
+        urls.extend(badges::pictures(ctx));
+    }
     urls.extend(
         cosmetics
             .tag(profile.tag.as_ref())
@@ -819,7 +971,74 @@ pub fn profile_editor_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, M
             &editor.shown,
         ));
     }
+    if let Some(draft) = &editor.badges {
+        layers = layers.push(badges::view(ctx, draft));
+    }
+    if let Some(kind) = editor.wardrobe {
+        layers = layers.push(wardrobe::view(
+            ctx,
+            &editor.shown,
+            kind,
+            worn(ctx, kind),
+            editor.shop_shown,
+            editor.confirming,
+        ));
+    }
     Some(opaque(layers))
+}
+
+/// The SKU of the collectible of `kind` the main profile wears, found among
+/// those owned by the pictures it shows; empty for one worn but not found,
+/// none for none.
+fn worn(ctx: crate::ctx::Ctx<'_>, kind: backcord_core::chat::CollectibleKind) -> Option<String> {
+    use backcord_core::chat::{CollectibleKind, Wardrobe};
+    // What Discord has, not the preview, which wears what's chosen.
+    let profile = &ctx
+        .state
+        .profile_editor
+        .as_ref()?
+        .profile
+        .as_ref()?
+        .fallback;
+    let marks: Vec<&str> = match kind {
+        CollectibleKind::Effect => return profile.effect.clone(),
+        CollectibleKind::Decoration => profile.decoration.as_deref().into_iter().collect(),
+        CollectibleKind::Nameplate => ctx
+            .state
+            .account_nameplate
+            .as_ref()
+            .map(|plate| &*plate.picture)
+            .into_iter()
+            .collect(),
+        CollectibleKind::Frame => profile
+            .frame
+            .iter()
+            .map(|layer| layer.src.as_str())
+            .collect(),
+    };
+    if marks.is_empty() {
+        return None;
+    }
+    // A decoration's address names its asset, not its SKU.
+    let asset = |url: &str| {
+        let (_, rest) = url.split_once("avatar-decoration-presets/")?;
+        rest.split(['.', '?']).next().map(str::to_owned)
+    };
+    let owned = match ctx.state.profile_editor.as_ref().map(|core| &core.wardrobe) {
+        Some(Wardrobe::Loaded { owned, .. }) => owned.as_slice(),
+        _ => &[],
+    };
+    let found = owned.iter().filter(|item| item.kind == kind).find(|item| {
+        marks.iter().any(|mark| {
+            mark.contains(item.sku.as_str())
+                || item
+                    .picture
+                    .as_deref()
+                    .and_then(asset)
+                    .is_some_and(|asset| mark.contains(asset.as_str()))
+        })
+    });
+    Some(found.map(|item| item.sku.clone()).unwrap_or_default())
 }
 
 /// The board's note while the profile being edited loads, or after it

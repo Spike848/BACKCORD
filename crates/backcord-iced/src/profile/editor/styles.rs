@@ -7,7 +7,7 @@ use backcord_core::{
     chat::ProfilePicture,
 };
 use iced::{
-    Alignment, Color, Element, Length, Padding, Point, Size,
+    Alignment, Color, Element, Length, Padding, Size,
     widget::{Space, button, column, container, row, stack, text},
 };
 
@@ -21,7 +21,8 @@ use crate::{
     widgets::{Pic, PlateRow},
 };
 
-use super::{Editor, Event, Pop, SHOP, SIDE, TILE, message};
+use super::{Editor, Event, Pop, SIDE, TILE, message};
+use backcord_core::chat::CollectibleKind;
 
 /// What the main profile wears, down the card's left, in the order
 /// Discord's editor has it; what only Discord's shop sets opens it.
@@ -37,7 +38,7 @@ pub(super) fn customize<'a>(
     let avatar_enabled = ready && core.may_picture(ProfilePicture::Avatar);
     let banner_enabled = ready && core.may_picture(ProfilePicture::Banner);
     let look_enabled = core.may_write(ProfileText::ThemeTop);
-    let shop = || Some(Message::Link(SHOP.into(), Point::ORIGIN));
+    let choose = |kind: CollectibleKind| Some(message(Event::Wardrobe(Some(kind))));
     let plus = || Element::from(ctx.look.glyph(Icon::Plus, 26, Color::WHITE));
     let group = |title: &'a str, body: Element<'a, Message>| {
         column![text(title).size(13).font(SEMIBOLD).color(theme.text), body].spacing(8)
@@ -86,7 +87,13 @@ pub(super) fn customize<'a>(
             .align_y(Alignment::Center)
             .into(),
         };
-    let nameplate = cell(ctx, nameplate_face, 42.0, None, shop());
+    let nameplate = cell(
+        ctx,
+        nameplate_face,
+        42.0,
+        None,
+        choose(CollectibleKind::Nameplate),
+    );
     let avatar = cell(
         ctx,
         ctx.avatar(profile.avatar.as_deref(), &profile.name, 72.0, 36.0, 1.0),
@@ -110,7 +117,7 @@ pub(super) fn customize<'a>(
         },
         100.0,
         None,
-        shop(),
+        choose(CollectibleKind::Decoration),
     );
     // The name as large as fits its tile on one line: a long one smaller,
     // rather than wrapping and cut off.
@@ -184,7 +191,7 @@ pub(super) fn customize<'a>(
         },
         100.0,
         None,
-        shop(),
+        choose(CollectibleKind::Effect),
     );
     let frame = cell(
         ctx,
@@ -198,7 +205,27 @@ pub(super) fn customize<'a>(
         },
         100.0,
         None,
-        shop(),
+        choose(CollectibleKind::Frame),
+    );
+    // The badges the profile shows, which open their window.
+    let mut badge_row = row![].spacing(6).align_y(Alignment::Center);
+    for badge in profile.badges.iter().take(10) {
+        if let Some(picture) =
+            crate::profile::profile_picture(ctx, shown, &badge.icon, 20, 20, false)
+        {
+            badge_row = badge_row.push(Pic::square(picture, 20.0));
+        }
+    }
+    let badges = cell(
+        ctx,
+        if profile.badges.is_empty() {
+            plus()
+        } else {
+            container(badge_row).padding([0, 10]).into()
+        },
+        42.0,
+        None,
+        Some(message(Event::Badges(true))),
     );
     let line = theme.line;
     let head = row![
@@ -238,6 +265,7 @@ pub(super) fn customize<'a>(
             backcord_iced_kit::i18n::tr("Profile Effect & Frame"),
             row![effect, frame].spacing(8).into()
         ),
+        group(backcord_iced_kit::i18n::tr("Badges"), badges),
     ]
     .spacing(16)
     .padding(16);

@@ -385,6 +385,21 @@ pub struct Channel {
     /// Age-restricted, as its `nsfw` says.
     #[serde(default)]
     pub nsfw: bool,
+    /// Obfuscated: one this account can't see, which Discord sends with
+    /// [`OBFUSCATED_NAME`] and little else. Its name, when it isn't that,
+    /// is what BACKCORD saw before.
+    #[serde(default)]
+    pub obfuscated: bool,
+}
+
+/// The name Discord gives a channel or category it obfuscates.
+pub const OBFUSCATED_NAME: &str = "___hidden___";
+/// The channel flag an obfuscated channel carries.
+const CHANNEL_OBFUSCATED: u64 = 1 << 17;
+
+/// A name worth keeping: one Discord gave in the clear.
+fn real_name(name: &str) -> bool {
+    !name.is_empty() && name != OBFUSCATED_NAME
 }
 
 /// What a thread has that a channel doesn't; see
@@ -863,9 +878,68 @@ impl Server {
             self.put_thread(channel);
             return;
         }
+        let earlier = self.clone_names(id);
         self.forget(id);
         self.add_channel(channel);
+        if let Some(earlier) = earlier {
+            self.keep_names(&earlier);
+        }
         self.sort_channels();
+    }
+
+    /// The channel or category `id` alone, as a server to keep names from.
+    fn clone_names(&self, id: &str) -> Option<Server> {
+        let mut alone = Server::default();
+        if let Some(channel) = self.channel(id) {
+            alone.text_channels.push(channel.clone());
+        } else {
+            let category = self.categories.get(id)?;
+            alone.categories = Arc::new(HashMap::from([(id.to_owned(), category.clone())]));
+        }
+        Some(alone)
+    }
+
+    /// Gives the channels and categories Discord now obfuscates the names
+    /// and topics `earlier` knew them by, from before this account lost
+    /// sight of them or Discord began obfuscating them.
+    pub fn keep_names(&mut self, earlier: &Server) {
+        let known = |id: &str| {
+            earlier
+                .text_channels
+                .iter()
+                .chain(&earlier.voice_channels)
+                .find(|known| known.id == id && real_name(&known.name))
+        };
+        for channel in self
+            .text_channels
+            .iter_mut()
+            .chain(self.voice_channels.iter_mut())
+            .filter(|channel| channel.obfuscated && !real_name(&channel.name))
+        {
+            if let Some(known) = known(&channel.id) {
+                channel.name.clone_from(&known.name);
+                if channel.topic.is_none() {
+                    channel.topic.clone_from(&known.topic);
+                }
+            }
+        }
+        let hidden: Vec<(String, String)> = self
+            .categories
+            .iter()
+            .filter(|(_, category)| category.name == OBFUSCATED_NAME)
+            .filter_map(|(id, _)| {
+                let known = earlier.categories.get(id)?;
+                real_name(&known.name).then(|| (id.clone(), known.name.clone()))
+            })
+            .collect();
+        if !hidden.is_empty() {
+            let categories = Arc::make_mut(&mut self.categories);
+            for (id, name) in hidden {
+                if let Some(category) = categories.get_mut(&id) {
+                    category.name = name;
+                }
+            }
+        }
     }
 
     /// Adds a channel or category from a channel object, where the lists
@@ -1628,6 +1702,8 @@ fn parse_channel(channel: &Value) -> Option<Channel> {
             .as_u64()
             .and_then(|limit| u32::try_from(limit).ok())
             .unwrap_or_default(),
+        obfuscated: channel["flags"].as_u64().unwrap_or_default() & CHANNEL_OBFUSCATED != 0
+            || channel["name"].as_str() == Some(OBFUSCATED_NAME),
         ..Default::default()
     })
 }

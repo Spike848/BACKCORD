@@ -1,5 +1,5 @@
-//! Discord: the linked account, the settings Discord keeps for it and
-//! the blocked accounts.
+//! Blocked accounts: those the linked Discord account blocked, with their
+//! pictures, and whether their messages show at all.
 
 use iced::{
     Alignment, Element, Length,
@@ -15,13 +15,33 @@ use crate::{
     pictures::Icon,
 };
 
+/// The pictures of the blocked accounts the page shows, while it's open.
+pub fn blocked_pictures(app: &crate::app::App) -> Vec<String> {
+    let Some(settings) = app
+        .win
+        .settings
+        .get()
+        .filter(|settings| settings.section() == crate::settings::Section::Discord)
+    else {
+        return Vec::new();
+    };
+    app.client
+        .state()
+        .discord_blocked
+        .iter()
+        .take(settings.blocked_shown)
+        .filter_map(|person| person.avatar.clone())
+        .filter(|avatar| !avatar.is_empty())
+        .collect()
+}
+
 impl<'a> Page<'a> {
     pub(in crate::settings) fn discord_page(self) -> Element<'a, Message> {
         let settings = self.s;
         let theme = self.cx.look.theme;
         if !self.linked() {
             return form::page([
-                form::title(theme, backcord_iced_kit::i18n::tr("Discord")),
+                form::title(theme, backcord_iced_kit::i18n::tr("Blocked accounts")),
                 form::note(
                     theme,
                     backcord_iced_kit::i18n::tr(
@@ -32,8 +52,10 @@ impl<'a> Page<'a> {
             ]);
         }
         let state = self.cx.state;
-        let prefs = &self.cx.layout.prefs;
-        let mut parts = vec![form::title(theme, backcord_iced_kit::i18n::tr("Discord"))];
+        let mut parts = vec![form::title(
+            theme,
+            backcord_iced_kit::i18n::tr("Blocked accounts"),
+        )];
         if cfg!(feature = "matrix") {
             parts.push(form::beside(
                 form::note(
@@ -56,26 +78,6 @@ impl<'a> Page<'a> {
             ));
         }
         parts.push(self.flip(
-            backcord_iced_kit::i18n::tr("Show channels you can't access"),
-            backcord_iced_kit::i18n::tr("They appear locked. Server admins hid them on purpose."),
-            prefs.show_hidden_channels,
-            Pref::ShowHiddenChannels,
-        ));
-        parts.push(self.flip(
-            backcord_iced_kit::i18n::tr("Mark messages read on Discord"),
-            backcord_iced_kit::i18n::tr(
-                "Channels you read in BACKCORD show as read in the Discord apps too.",
-            ),
-            prefs.sync_discord_reads.unwrap_or(true),
-            Pref::SyncReads,
-        ));
-        parts.push(self.flip(
-            backcord_iced_kit::i18n::tr("Show me as idle when I'm away"),
-            backcord_iced_kit::i18n::tr("After 10 minutes without using BACKCORD, as in Discord. Either way, your phone gets notifications while you're away."),
-            prefs.show_idle.unwrap_or(true),
-            Pref::ShowIdle,
-        ));
-        parts.push(self.flip(
             backcord_iced_kit::i18n::tr("Hide messages from people you blocked"),
             backcord_iced_kit::i18n::tr(
                 "Leaves them out entirely, rather than showing a line you can open.",
@@ -84,7 +86,12 @@ impl<'a> Page<'a> {
             Pref::HideBlocked,
         ));
         let blocked = &state.discord_blocked;
-        if !blocked.is_empty() {
+        if blocked.is_empty() {
+            parts.push(form::note(
+                theme,
+                backcord_iced_kit::i18n::tr("You haven't blocked anyone."),
+            ));
+        } else {
             let raised = theme.raised;
             let count = blocked.len();
             let mut list = column![
@@ -95,16 +102,13 @@ impl<'a> Page<'a> {
                         .boxed(40)
                         .style(move |_| crate::style::rounded(raised, 20)),
                     column![
-                        text(backcord_iced_kit::i18n::tr("Blocked accounts"))
-                            .size(16)
-                            .font(crate::fonts::SEMIBOLD)
-                            .color(theme.text),
                         text(backcord_iced_kit::i18n::t(format!(
                             "{count} {}",
                             if count == 1 { "account" } else { "accounts" }
                         )))
-                        .size(14)
-                        .color(theme.secondary)
+                        .size(16)
+                        .font(crate::fonts::SEMIBOLD)
+                        .color(theme.text)
                     ]
                     .spacing(2)
                 ]

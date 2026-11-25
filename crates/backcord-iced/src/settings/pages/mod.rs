@@ -18,6 +18,7 @@ mod account;
 pub(super) use account::BLOCKED_STEP;
 mod advanced;
 mod discord;
+pub use discord::blocked_pictures;
 mod extras;
 pub use extras::{Extra, emulate_platform};
 mod games;
@@ -64,7 +65,6 @@ pub enum Pref {
     DeveloperMode(bool),
     ShowHiddenChannels(bool),
     SyncReads(bool),
-    ShowIdle(bool),
     HideBlocked(bool),
     CheckUpdates(bool),
     Nightlies(bool),
@@ -295,11 +295,6 @@ impl Settings {
                 prefs.sync_discord_reads = Some(on);
                 cx.keep("sync_discord_reads", on);
                 cx.dispatch(Action::SyncDiscordReads(on));
-            }
-            Pref::ShowIdle(on) => {
-                prefs.show_idle = Some(on);
-                cx.keep("show_idle", on);
-                cx.request(Request::Changed(Shown::Idle));
             }
             Pref::HideBlocked(on) => {
                 cx.layout.hide_blocked = on;

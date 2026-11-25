@@ -9,7 +9,6 @@ use std::{
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
-        mpsc as channel,
     },
     time::Duration,
 };
@@ -23,7 +22,7 @@ use tokio::{
 
 use crate::{
     call_stats::{CallStats, PING_EVERY, Reported},
-    call_video::{self, Camera, Receiving, VideoFrame},
+    call_video::{self, Camera, Receiving, VideoOut},
     dave::Dave,
     opus, rtp,
     voice::{FRAME, Listener, MOVE_GRACE, Surplus},
@@ -127,7 +126,7 @@ pub(crate) fn start(
     identity: Identity,
     listener: Arc<dyn Listener>,
     sending: Arc<Mutex<Option<Sending>>>,
-    video: channel::SyncSender<VideoFrame>,
+    video: VideoOut,
     stats: Arc<CallStats>,
 ) -> Result<(mpsc::UnboundedSender<Order>, oneshot::Receiver<Result<()>>)> {
     let (orders, ordered) = mpsc::unbounded_channel();
@@ -164,7 +163,7 @@ async fn run(
     mut identity: Identity,
     listener: Arc<dyn Listener>,
     sending: Arc<Mutex<Option<Sending>>>,
-    video: channel::SyncSender<VideoFrame>,
+    video: VideoOut,
     stats: Arc<CallStats>,
     mut orders: mpsc::UnboundedReceiver<Order>,
     ready: oneshot::Sender<Result<()>>,
@@ -470,7 +469,7 @@ impl Diagnostics {
 }
 
 impl Media {
-    fn new(video: channel::SyncSender<VideoFrame>, stats: Arc<CallStats>) -> Result<Self> {
+    fn new(video: VideoOut, stats: Arc<CallStats>) -> Result<Self> {
         Ok(Self {
             encoder: opus::Encoder::new(2, opus::Application::Audio, BITRATE)?,
             studio: false,
@@ -1528,8 +1527,8 @@ mod tests {
 
     #[test]
     fn learns_whose_audio_from_speaking_and_video_messages() {
-        let (frames, _) = channel::sync_channel(1);
-        let mut media = Media::new(frames, Arc::default()).unwrap();
+        let (video, _) = call_video::video(1);
+        let mut media = Media::new(video, Arc::default()).unwrap();
         media.learn(5, &json!({"user_id": "7", "ssrc": 100, "speaking": 1}));
         // Already talking when BACKCORD joined: only op 12 names their audio.
         media.learn(

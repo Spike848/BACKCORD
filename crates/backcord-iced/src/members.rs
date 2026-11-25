@@ -497,7 +497,7 @@ pub fn account_plate<'a>(
 /// A nameplate's picture at a row's right end, `height` tall with the
 /// row's corners of `radius`, at `strength`, its moving picture asked for
 /// and played when `play`.
-fn plate_picture<'a>(
+pub(crate) fn plate_picture<'a>(
     ctx: crate::ctx::Ctx<'a>,
     url: &str,
     height: f32,

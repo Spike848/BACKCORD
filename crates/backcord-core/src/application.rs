@@ -2561,6 +2561,25 @@ pub enum Action {
     },
     /// The profile editor's wishlist tab opened.
     OpenWishlist,
+    /// The profile editor's choice of collectibles opened: what this
+    /// account owns and the shop's are asked for once.
+    OpenWardrobe,
+    /// The profile editor's badges opened: they're asked for each time.
+    OpenBadges,
+    /// Show the main profile's badges in `order`, with `hidden` hidden.
+    ArrangeBadges {
+        order: Vec<u32>,
+        hidden: Vec<u32>,
+    },
+    /// Choose a collectible for the editor's preview: its kind and SKU,
+    /// or none to take that kind off; with none at all, forget the choice.
+    ChooseCollectible(Option<(crate::chat::CollectibleKind, Option<String>)>),
+    /// Wear the collectible `sku` of `kind` on the main profile, or with
+    /// none take that kind off.
+    Wear {
+        kind: crate::chat::CollectibleKind,
+        sku: Option<String>,
+    },
     /// Which cosmetics show, from Settings → Appearance → Profiles. What's
     /// shown loses what's turned off at once; what's turned on shows as its
     /// pictures arrive, and a profile's effect once the profile is fetched
@@ -3357,6 +3376,36 @@ impl Application {
                 .and_then(|profile| profile.banner.as_deref())
                 .and_then(chat::moving_banner),
         );
+        // The effect chosen for the editor's preview plays there.
+        shown.extend(
+            state
+                .profile_editor
+                .as_ref()
+                .and_then(|editor| match &editor.chosen {
+                    Some((crate::chat::CollectibleKind::Effect, Some(sku))) => Some(sku),
+                    _ => None,
+                })
+                .and_then(|sku| {
+                    state
+                        .profile_effects
+                        .iter()
+                        .find(|effect| &effect.sku == sku)
+                })
+                .into_iter()
+                .flat_map(|effect| effect.pictures()),
+        );
+        // The editor's choice of collectibles draws its frames whole: those
+        // it asked for stay while it's loaded.
+        if let Some(crate::chat::Wardrobe::Loaded { owned, shop }) =
+            state.profile_editor.as_ref().map(|editor| &editor.wardrobe)
+        {
+            shown.extend(
+                owned
+                    .iter()
+                    .chain(shop)
+                    .flat_map(|item| item.frame.iter().map(|layer| layer.src.as_str())),
+            );
+        }
         // The open server's moving banner tops its channel list, not a card:
         // let go of, it was asked for again at once, and downloaded again,
         // every few seconds.
@@ -4595,6 +4644,11 @@ impl Application {
             Action::OpenProfileTab(tab) => self.open_profile_tab(tab),
             Action::LoadOwnProfile => self.load_own_profile(),
             Action::OpenWishlist => self.open_wishlist(),
+            Action::OpenWardrobe => self.open_wardrobe(),
+            Action::Wear { kind, sku } => self.wear(kind, sku),
+            Action::ChooseCollectible(chosen) => self.choose_collectible(chosen),
+            Action::OpenBadges => self.open_badges(),
+            Action::ArrangeBadges { order, hidden } => self.arrange_badges(order, hidden),
             Action::ChooseServerTag(server) => {
                 self.choose_server_tag(server);
                 vec![]
@@ -4922,6 +4976,10 @@ impl Application {
             Event::ActivityPeople { room, people } => self.show_activity_people(room, people),
             Event::KeptProfile { user, profile } => return self.show_kept_profile(user, profile),
             Event::Wishlist { id, wishlist } => self.wishlist_loaded(&id, wishlist),
+            Event::Wardrobe(wardrobe) => self.wardrobe_loaded(wardrobe),
+            Event::OwnBadges(badges) => self.own_badges_loaded(badges),
+            Event::BadgesArranged(result) => return self.badges_arranged(result),
+            Event::Worn { kind, result } => return self.worn(kind, result),
             Event::StreamPreview { user, url } => match url {
                 Some(url) => {
                     self.state.stream_previews.insert(user, url);

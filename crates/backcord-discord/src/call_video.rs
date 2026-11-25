@@ -4,9 +4,9 @@
 //! resending on NACK, reassembly and keyframe requests, and DAVE.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc as channel,
     },
@@ -88,6 +88,59 @@ pub struct VideoFrame {
     pub keyframe: bool,
     /// How to turn it upright, as the sender last said.
     pub orientation: Orientation,
+}
+
+/// Cameras whose decoder waits for a keyframe, by Discord user id: the
+/// decoding side marks them, and the call asks their senders for one,
+/// since a sender sends one only when asked.
+#[derive(Clone, Default)]
+pub struct KeyframeAsks(Arc<Mutex<HashSet<u64>>>);
+
+impl KeyframeAsks {
+    /// Asks for a keyframe of `user`'s camera.
+    pub fn ask(&self, user: u64) {
+        self.0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(user);
+    }
+
+    /// Whether a keyframe of `user`'s camera was asked for since last time.
+    fn take(&self, user: u64) -> bool {
+        self.0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(&user)
+    }
+}
+
+/// Everyone else's camera frames, for the decoding side, with where it asks
+/// for keyframes.
+pub struct VideoFrames {
+    pub frames: channel::Receiver<VideoFrame>,
+    pub keyframes: KeyframeAsks,
+}
+
+/// The call's end of [`VideoFrames`].
+pub(crate) struct VideoOut {
+    frames: channel::SyncSender<VideoFrame>,
+    keyframes: KeyframeAsks,
+}
+
+/// A way for cameras' frames, `backlog` deep.
+pub(crate) fn video(backlog: usize) -> (VideoOut, VideoFrames) {
+    let (frames, receiver) = channel::sync_channel(backlog);
+    let keyframes = KeyframeAsks::default();
+    (
+        VideoOut {
+            frames,
+            keyframes: keyframes.clone(),
+        },
+        VideoFrames {
+            frames: receiver,
+            keyframes,
+        },
+    )
 }
 
 /// This account's camera, sending.
@@ -256,15 +309,17 @@ pub(crate) struct Receiving {
     /// pixels it shows at.
     wants: HashMap<u64, (u8, u32)>,
     frames: channel::SyncSender<VideoFrame>,
+    keyframes: KeyframeAsks,
     reported: Instant,
 }
 
 impl Receiving {
-    pub fn new(frames: channel::SyncSender<VideoFrame>) -> Self {
+    pub fn new(video: VideoOut) -> Self {
         Self {
             incoming: HashMap::new(),
             wants: HashMap::new(),
-            frames,
+            frames: video.frames,
+            keyframes: video.keyframes,
             reported: Instant::now(),
         }
     }
@@ -446,7 +501,8 @@ impl Receiving {
                 continue;
             };
             let codec = assembler.codec();
-            let mut lost = false;
+            // The decoder lost its place, or started over, and waits for one.
+            let mut lost = self.keyframes.take(incoming.user) && incoming.wanted;
             let (ready, _) = incoming.reorder.ready(now);
             for held in ready {
                 // It rides on a frame's last packet, so it's known by the
@@ -462,7 +518,11 @@ impl Receiving {
                     incoming.counts.keyframes += 1;
                 }
                 let Some(data) = connection.dave.decrypt(incoming.user, frame.data) else {
+                    // What follows needs this frame: it starts again from
+                    // a keyframe.
                     incoming.counts.undecryptable += 1;
+                    assembler.wait_for_keyframe();
+                    lost = true;
                     continue;
                 };
                 if frame.keyframe {
@@ -510,8 +570,8 @@ mod tests {
 
     #[test]
     fn learns_cameras_from_op_12_and_forgets_stopped_ones() {
-        let (frames, _) = channel::sync_channel(1);
-        let mut receiving = Receiving::new(frames);
+        let (video, _) = video(1);
+        let mut receiving = Receiving::new(video);
         assert!(receiving.learn(
             12,
             &json!({"user_id": "7", "audio_ssrc": 100, "video_ssrc": 101,

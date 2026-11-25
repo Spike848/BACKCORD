@@ -28,7 +28,7 @@ mod rows;
 mod top;
 mod voice;
 
-pub use rows::{Room, SideHeader, SideRow, room_icon, side_header, sidebar};
+pub use rows::{Room, SideHeader, SideRow, channel_name, room_icon, side_header, sidebar};
 
 /// The sidebar: its header and rows, its viewport, what's dragged in it,
 /// and the filters typed into it and into Browse Channels.

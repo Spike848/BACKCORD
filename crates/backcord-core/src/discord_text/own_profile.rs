@@ -116,6 +116,132 @@ pub(super) fn command(
                 let _ = events.send(Event::Wishlist { id, wishlist });
             });
         }
+        DiscordCommand::Wardrobe => {
+            let Ok(discord) = discord else {
+                let _ = events.send(Event::Wardrobe(crate::chat::Wardrobe::Failed(
+                    NOT_DISCORD.into(),
+                )));
+                return None;
+            };
+            let discord = discord.clone();
+            tokio::spawn(async move {
+                let wardrobe = match discord.wardrobe().await {
+                    Ok((owned, shop)) => crate::chat::Wardrobe::Loaded {
+                        owned: owned.into_iter().map(collectible).collect(),
+                        shop: shop.into_iter().map(collectible).collect(),
+                    },
+                    Err(error) => {
+                        tracing::warn!(
+                            error = format!("{error:#}"),
+                            "could not fetch this account's collectibles"
+                        );
+                        crate::chat::Wardrobe::Failed(format!(
+                            "Discord didn't send your collectibles: {error}"
+                        ))
+                    }
+                };
+                let _ = events.send(Event::Wardrobe(wardrobe));
+            });
+        }
+        DiscordCommand::OwnBadges => {
+            let Ok(discord) = discord else {
+                let _ = events.send(Event::OwnBadges(crate::chat::OwnBadges::Failed(
+                    NOT_DISCORD.into(),
+                )));
+                return None;
+            };
+            let discord = discord.clone();
+            tokio::spawn(async move {
+                let badges = match discord.own_badges().await {
+                    Ok(badges) => crate::chat::OwnBadges::Loaded(
+                        badges
+                            .into_iter()
+                            .map(|badge| crate::chat::OwnBadge {
+                                id: badge.id,
+                                name: badge.name,
+                                description: badge.description,
+                                info: badge.info,
+                                icon: badge.icon,
+                                owned: badge.owned,
+                                hidden: badge.hidden,
+                                earnable: badge.earnable,
+                            })
+                            .collect(),
+                    ),
+                    Err(error) => {
+                        tracing::warn!(
+                            error = format!("{error:#}"),
+                            "could not fetch this account's badges"
+                        );
+                        crate::chat::OwnBadges::Failed(format!(
+                            "Discord didn't send your badges: {error}"
+                        ))
+                    }
+                };
+                let _ = events.send(Event::OwnBadges(badges));
+            });
+        }
+        DiscordCommand::ArrangeBadges { order, hidden } => {
+            let Ok(discord) = discord else {
+                let _ = events.send(Event::BadgesArranged(Err(NOT_DISCORD.into())));
+                return None;
+            };
+            let discord = discord.clone();
+            tokio::spawn(async move {
+                let result = discord
+                    .arrange_badges(&order, &hidden)
+                    .await
+                    .map_err(|error| {
+                        tracing::warn!(
+                            error = format!("{error:#}"),
+                            "could not arrange this account's badges"
+                        );
+                        format!("Discord didn't save it: {error}")
+                    });
+                let _ = events.send(Event::BadgesArranged(result));
+            });
+        }
+        DiscordCommand::ProfileEffect { sku } => {
+            if let Ok(discord) = discord {
+                let discord = discord.clone();
+                tokio::spawn(async move {
+                    match discord.profile_effect(&sku).await {
+                        Ok(Some(effect)) => {
+                            let _ = events
+                                .send(Event::ProfileEffect(std::sync::Arc::new((&*effect).into())));
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
+                            tracing::warn!(%error, "could not fetch a Discord profile effect");
+                        }
+                    }
+                });
+            }
+        }
+        DiscordCommand::Wear { kind, sku } => {
+            let Ok(discord) = discord else {
+                let _ = events.send(Event::Worn {
+                    kind,
+                    result: Err(NOT_DISCORD.into()),
+                });
+                return None;
+            };
+            let discord = discord.clone();
+            tokio::spawn(async move {
+                let result = discord
+                    .wear(wardrobe_kind(kind), sku.as_deref())
+                    .await
+                    .map_err(|error| {
+                        tracing::warn!(
+                            error = format!("{error:#}"),
+                            ?kind,
+                            "could not wear a collectible"
+                        );
+                        format!("Discord didn't change it: {error}")
+                    });
+                let _ = events.send(Event::Worn { kind, result });
+            });
+        }
         // Read-only: what the board names comes from `GET /games` and the
         // applications' public objects.
         DiscordCommand::ProfileBoard { user, widgets } => {
@@ -551,6 +677,36 @@ fn crop(picture: &DynamicImage, largest: (u32, u32)) -> DynamicImage {
         cropped.resize_exact(shape_width, shape_height, FilterType::Lanczos3)
     } else {
         cropped
+    }
+}
+
+/// A collectible as the profile editor offers it.
+fn collectible(item: backcord_discord::wardrobe::Item) -> crate::chat::Collectible {
+    use crate::chat::CollectibleKind;
+    use backcord_discord::wardrobe::Kind;
+    crate::chat::Collectible {
+        kind: match item.kind {
+            Kind::Decoration => CollectibleKind::Decoration,
+            Kind::Effect => CollectibleKind::Effect,
+            Kind::Nameplate => CollectibleKind::Nameplate,
+            Kind::Frame => CollectibleKind::Frame,
+        },
+        sku: item.sku,
+        product: item.product,
+        name: item.name,
+        picture: item.picture,
+        frame: item.frame.iter().map(Into::into).collect(),
+    }
+}
+
+fn wardrobe_kind(kind: crate::chat::CollectibleKind) -> backcord_discord::wardrobe::Kind {
+    use crate::chat::CollectibleKind;
+    use backcord_discord::wardrobe::Kind;
+    match kind {
+        CollectibleKind::Decoration => Kind::Decoration,
+        CollectibleKind::Effect => Kind::Effect,
+        CollectibleKind::Nameplate => Kind::Nameplate,
+        CollectibleKind::Frame => Kind::Frame,
     }
 }
 

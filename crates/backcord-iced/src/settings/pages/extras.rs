@@ -84,6 +84,7 @@ impl<'a> Page<'a> {
         let platforms = prefs.platform_indicators.unwrap_or(true);
         let anti_disconnect = prefs.anti_disconnect.unwrap_or(false);
         let follow = prefs.follow_voice.unwrap_or(true);
+        let hidden = prefs.show_hidden_channels;
         let cards = vec![
             self.plugin(
                 tr("Emulate Platforms"),
@@ -104,6 +105,13 @@ impl<'a> Page<'a> {
                 tr("Adds Follow to people's menus: you join each voice channel they go to, in servers you share with them, until you turn it off."),
                 follow,
                 Pref::FollowVoice(!follow),
+                None,
+            ),
+            self.plugin(
+                tr("Show Hidden Channels"),
+                tr("Shows the channels you can't access, with a lock: their names, and who's in the voice ones."),
+                hidden,
+                Pref::ShowHiddenChannels(!hidden),
                 None,
             ),
             self.plugin(

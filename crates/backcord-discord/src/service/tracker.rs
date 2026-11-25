@@ -293,8 +293,13 @@ impl Tracker {
     }
 
     /// Keeps what `earlier` knew of servers READY gave as unavailable, as it
-    /// gives only their ids.
+    /// gives only their ids, and the names of channels Discord obfuscates.
     pub(super) fn keep_unavailable(&mut self, earlier: &[MarkedServer]) {
+        for server in self.servers.iter_mut().filter(|server| !server.unavailable) {
+            if let Some(known) = earlier.iter().find(|known| known.id == server.id) {
+                Arc::make_mut(server).keep_names(&known.server);
+            }
+        }
         for server in self.servers.iter_mut().filter(|server| server.unavailable) {
             if let Some(known) = earlier.iter().find(|known| known.id == server.id) {
                 let mut known = Server::clone(&known.server);
@@ -484,6 +489,10 @@ impl Tracker {
                 }
                 for member in data["members"].as_array().into_iter().flatten() {
                     self.learn_member(&server.id, member);
+                }
+                let mut server = server;
+                if let Some(known) = self.servers.iter().find(|known| known.id == server.id) {
+                    server.keep_names(known);
                 }
                 self.servers.retain(|known| known.id != server.id);
                 self.servers.push(Arc::new(server));
@@ -2390,6 +2399,58 @@ mod tests {
             &json!({"id": "10", "name": "Test", "premium_tier": 2, "features": ["ROLE_ICONS"]}),
         );
         assert!(tracker.servers[0].role_icon(&mine).is_some());
+    }
+
+    #[test]
+    fn keeps_the_names_of_channels_discord_obfuscates() {
+        let guild = |name: &str, flags: u64| {
+            json!({"id": "10", "properties": {"name": "Test"}, "channels": [
+                {"id": "100", "name": "staff", "type": 4, "position": 0},
+                {"id": "101", "name": name, "type": 2, "position": 0, "parent_id": "100",
+                 "flags": flags},
+                {"id": "102", "name": "___hidden___", "type": 0, "position": 1, "flags": 131072},
+            ]})
+        };
+        let ready =
+            |guild: Value| json!({"user": {"id": "1", "username": "me"}, "guilds": [guild]});
+        let names = |tracker: &mut Tracker| {
+            let server = &tracker.snapshot().servers[0];
+            (
+                server.channel_name("101").map(str::to_owned),
+                server.channel_name("102").map(str::to_owned),
+                server.categories["100"].name.clone(),
+            )
+        };
+        let mut tracker = Tracker::from_ready(
+            "1".into(),
+            &ready(guild("Staff room", 0)),
+            Default::default(),
+        );
+        let earlier = tracker.snapshot().servers;
+
+        // Now hidden: Discord sends it with its placeholder and flag.
+        let mut hidden = guild("___hidden___", 131_072);
+        hidden["channels"][0]["name"] = json!("___hidden___");
+        let mut tracker =
+            Tracker::from_ready("1".into(), &ready(hidden.clone()), Default::default());
+        tracker.keep_unavailable(&earlier);
+        assert_eq!(
+            names(&mut tracker),
+            (
+                Some("Staff room".into()),
+                Some("___hidden___".into()),
+                "staff".into()
+            ),
+            "names seen before stay; one never seen keeps the placeholder"
+        );
+        assert!(tracker.servers[0].channel("101").unwrap().obfuscated);
+
+        // A GUILD_CREATE and a CHANNEL_UPDATE keep them too.
+        tracker.apply(&Event::GuildCreate, &hidden);
+        let mut update = hidden["channels"][1].clone();
+        update["guild_id"] = json!("10");
+        tracker.apply(&Event::ChannelUpdate, &update);
+        assert_eq!(names(&mut tracker).0, Some("Staff room".into()));
     }
 
     #[test]

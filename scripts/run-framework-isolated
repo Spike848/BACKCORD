@@ -69,11 +69,22 @@ with tempfile.TemporaryDirectory(prefix='backcord-framework-display-') as tempor
     # Remove all inherited access to the desktop, including its private bus.
     for variable in ('DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'HYPRLAND_INSTANCE_SIGNATURE', 'SWAYSOCK'):
         environment.pop(variable, None)
-    compositor = subprocess.Popen([args.weston, '--backend=headless', '--renderer=gl',
-        f'--width={args.width}', f'--height={args.height}', f'--scale={args.scale}', f'--refresh-rate={args.refresh_rate}', '--socket=wayland-backcord-frameworks',
-        *(['--shell=kiosk'] if args.kiosk else []),
-        *weston_config, '--idle-time=0', '--debug', '--modules=' + str(args.seat_plugin.resolve()), '--log=' + str(args.compositor_log)],
-        env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    def start_compositor(renderer):
+        return subprocess.Popen([args.weston, '--backend=headless', '--renderer=' + renderer,
+            f'--width={args.width}', f'--height={args.height}', f'--scale={args.scale}', f'--refresh-rate={args.refresh_rate}', '--socket=wayland-backcord-frameworks',
+            *(['--shell=kiosk'] if args.kiosk else []),
+            *weston_config, '--idle-time=0', '--debug', '--modules=' + str(args.seat_plugin.resolve()), '--log=' + str(args.compositor_log)],
+            env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    renderer = os.environ.get('BACKCORD_WESTON_RENDERER', 'gl')
+    compositor = start_compositor(renderer)
+    # Without EGL, as under WSL, Weston's GL renderer doesn't start: Pixman
+    # draws the display in software instead.
+    probe = time.monotonic() + 5
+    while (not (runtime / 'wayland-backcord-frameworks').exists() and compositor.poll() is None
+           and time.monotonic() < probe):
+        time.sleep(.1)
+    if compositor.poll() is not None and renderer == 'gl':
+        compositor = start_compositor('pixman')
     audio = None
     session = None
     try:

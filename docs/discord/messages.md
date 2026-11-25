@@ -6,8 +6,10 @@ and DM is visible without copying anything into Matrix.
 BACKCORD lists the linked account's Discord servers in the rail with their
 channels. Channels the account's roles and channel overwrites keep it out of
 show greyed out with a lock, as in Discord; channels hidden from it appear the
-same way only with the "Show channels you can't access" setting, which is off
-by default. Server text channels are listed under their Discord categories and
+same way only with Extra Features' Show Hidden Channels, which is off by
+default. Discord obfuscates such channels: it sends them named `___hidden___`
+with little else, so BACKCORD shows the name it saw before, when the account
+could see them, which its cache keeps, and else "Hidden channel". Server text channels are listed under their Discord categories and
 open in BACKCORD's timeline. Clicking a category's heading collapses it, leaving
 the open channel, unread ones and voice channels with people in them, as in
 Discord; BACKCORD remembers which categories are collapsed, per server. History

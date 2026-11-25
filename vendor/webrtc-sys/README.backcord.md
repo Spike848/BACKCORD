@@ -1,7 +1,7 @@
 # BACKCORD patches
 
 This is webrtc-sys 0.3.35 from crates.io under its original Apache-2.0 license.
-Four changes differ from it.
+Five changes differ from it.
 
 ## Windows link fix
 
@@ -43,3 +43,12 @@ src/video_track.cpp and include/livekit/video_track.h.
 
 Otherwise the Rust API, media code, dependency versions and libwebrtc archive
 stay pinned.
+
+## Every window to share on Windows
+
+libwebrtc's window list leaves out windows that take over 50 ms to answer, as
+a busy game's often does, windows another window owns and tool windows, though
+its capturers capture them as well as any. src/desktop_capturer.cpp lists a
+window capturer's windows on Windows itself, with EnumWindows: visible,
+uncloaked, titled windows of other processes, top first, then any libwebrtc
+listed besides. include/livekit/desktop_capturer.h gains `lists_windows`.

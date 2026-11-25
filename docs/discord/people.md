@@ -766,6 +766,36 @@ client (`lw({userValue, guildValue})`); everywhere else their own show. A
 member object that leaves a key out says nothing, and `null` takes the
 server's off. `Names` keeps these beside the user's own, by server and user.
 
+## Wearing collectibles
+
+The profile editor's choice of a decoration, effect, nameplate or frame
+lists what the account owns with `GET /users/@me/collectibles-purchases`:
+products, each with `items` of a `type` (0 decoration, 1 effect, 2
+nameplate, 3 frame) and a `sku_id`, a product that groups variants with
+`variants`. The shop's come from the same catalog as the frames, the
+categories whose `unpublished_at` hasn't passed. Wearing one, or taking it
+off with `null`, is `PATCH /users/@me/profile` with
+`avatar_decoration_sku_id`, `profile_effect_id` (Nitro only),
+`nameplate_sku_id` or `profile_frame_sku_id`, as Discord's client saves
+all four; if that's refused, the same body goes to `PATCH /users/@me`. No
+documentation names these fields: they're what a client plugin that sets
+them sends. One clicked is first only chosen: the editor's preview wears
+it, and Apply asks before it's sent. The
+profile is asked for again after. Buying stays in Discord's shop, at
+`https://discord.com/shop#itemSkuId={product}`: its checkout takes payment
+details BACKCORD doesn't handle.
+
+## Arranging one's badges
+
+The profile editor's Badges window asks for `GET /users/@me/badges`:
+`{badges: [{badge_id, name, description, info_label, simple_icon_raster_url,
+owned, hidden, is_earnable, ...}]}`, every badge Discord has, those owned in
+the order the profile shows them. Saving is `PATCH
+/users/@me/badges/settings` with `{display_order, hidden_badges}`, each a
+list of badge ids, as Discord's client sends it (seen in its traffic); it
+answers with both. Any badge can be hidden, Nitro's too; only Nitro may
+reorder. The badges and the profile are asked for again after.
+
 ## Profile effects
 
 A profile names the effect its person equips, `profile_effect: {id,

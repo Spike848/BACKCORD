@@ -68,7 +68,8 @@ async fn cameras_in_call(
             })
         }
     };
-    let frames = call.video_frames().expect("the call's camera frames");
+    let video = call.video_frames().expect("the call's camera frames");
+    let frames = &video.frames;
     assert!(call.video_frames().is_none(), "one taker");
 
     discord.set_self(guild, channel, false, false, true);
@@ -152,6 +153,21 @@ async fn cameras_in_call(
         assert_eq!((frame.user, frame.codec), (bob, Codec::H264));
         assert!(frame.data == expected[index], "Bob's frame {index} differs");
     }
+    // A decoder that lost its place asks the sender for a keyframe.
+    let requests = || {
+        call_video(server)["watchers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|watcher| watcher["keyframeRequests"].as_u64().unwrap())
+            .sum::<u64>()
+    };
+    let asked = requests();
+    video.keyframes.ask(bob);
+    until("the decoder's keyframe was asked for", || {
+        requests() > asked
+    })
+    .await;
     let watched = call_video(server);
     assert!(
         watched["repairs"]["nacks"].as_u64() >= Some(1)

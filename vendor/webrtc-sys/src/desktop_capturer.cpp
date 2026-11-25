@@ -18,7 +18,116 @@
 
 #include "modules/desktop_capture/desktop_capture_options.h"
 
+#ifdef _WIN64
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <dwmapi.h>
+
+#include <cwchar>
+#include <string>
+#include <vector>
+#endif /* _WIN64 */
+
 using SourceList = webrtc::DesktopCapturer::SourceList;
+
+#ifdef _WIN64
+namespace {
+
+// BACKCORD: libwebrtc leaves out windows slower than 50 ms to answer, as a
+// busy game's often is, windows another window owns and tool windows,
+// though it captures them as well as any. These are the windows a person
+// sees on this desktop, BACKCORD's own aside.
+struct WindowListing {
+  DWORD self;
+  SourceList found;
+};
+
+std::string Utf8(const std::wstring& text) {
+  int size = WideCharToMultiByte(CP_UTF8, 0, text.data(),
+                                 static_cast<int>(text.size()), nullptr, 0,
+                                 nullptr, nullptr);
+  std::string utf8(size > 0 ? size : 0, '\0');
+  if (size > 0) {
+    WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                        utf8.data(), size, nullptr, nullptr);
+  }
+  return utf8;
+}
+
+BOOL CALLBACK ListWindow(HWND hwnd, LPARAM param) {
+  auto* listing = reinterpret_cast<WindowListing*>(param);
+  if (!IsWindowVisible(hwnd)) {
+    return TRUE;
+  }
+  DWORD process = 0;
+  GetWindowThreadProcessId(hwnd, &process);
+  if (process == listing->self) {
+    return TRUE;
+  }
+  // On another virtual desktop, or a store app the system suspended.
+  DWORD cloaked = 0;
+  if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked,
+                                      sizeof(cloaked))) &&
+      cloaked) {
+    return TRUE;
+  }
+  LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+  if ((style & WS_EX_TOOLWINDOW) && !(style & WS_EX_APPWINDOW)) {
+    return TRUE;
+  }
+  // Too small to be anything to share, minimized windows aside.
+  RECT rect{};
+  if (!IsIconic(hwnd) && GetWindowRect(hwnd, &rect) &&
+      (rect.right - rect.left < 64 || rect.bottom - rect.top < 64)) {
+    return TRUE;
+  }
+  wchar_t name[64] = {};
+  GetClassNameW(hwnd, name, 64);
+  for (const wchar_t* shell :
+       {L"Progman", L"WorkerW", L"Button", L"Shell_TrayWnd",
+        L"Shell_SecondaryTrayWnd", L"Windows.UI.Core.CoreWindow"}) {
+    if (wcscmp(name, shell) == 0) {
+      return TRUE;
+    }
+  }
+  // Another process's title is read without asking it, so a window that
+  // doesn't answer doesn't hold the list up.
+  int length = GetWindowTextLengthW(hwnd);
+  if (length <= 0) {
+    return TRUE;
+  }
+  std::wstring title(length + 1, L'\0');
+  title.resize(GetWindowTextW(hwnd, title.data(), length + 1));
+  if (title.empty()) {
+    return TRUE;
+  }
+  webrtc::DesktopCapturer::Source source;
+  source.id = reinterpret_cast<webrtc::DesktopCapturer::SourceId>(hwnd);
+  source.title = Utf8(title);
+  listing->found.push_back(source);
+  return TRUE;
+}
+
+// The windows, top first, with any libwebrtc listed and these didn't after.
+SourceList AllWindows(const SourceList& listed) {
+  WindowListing listing{GetCurrentProcessId(), {}};
+  EnumWindows(ListWindow, reinterpret_cast<LPARAM>(&listing));
+  for (const auto& source : listed) {
+    bool known = false;
+    for (const auto& found : listing.found) {
+      known = known || found.id == source.id;
+    }
+    if (!known) {
+      listing.found.push_back(source);
+    }
+  }
+  return listing.found;
+}
+
+}  // namespace
+#endif /* _WIN64 */
 
 namespace livekit_ffi {
 
@@ -71,7 +180,9 @@ std::unique_ptr<DesktopCapturer> new_desktop_capturer(
   if (!capturer) {
     return nullptr;
   }
-  return std::make_unique<DesktopCapturer>(std::move(capturer));
+  auto made = std::make_unique<DesktopCapturer>(std::move(capturer));
+  made->lists_windows = options.source_type == SourceType::Window;
+  return made;
 }
 
 void DesktopCapturer::start(
@@ -106,6 +217,12 @@ void DesktopCapturer::OnCaptureResult(
 rust::Vec<Source> DesktopCapturer::get_source_list() const {
   SourceList list{};
   bool res = capturer->GetSourceList(&list);
+#ifdef _WIN64
+  if (lists_windows) {
+    list = AllWindows(res ? list : SourceList{});
+    res = true;
+  }
+#endif /* _WIN64 */
   rust::Vec<Source> source_list{};
   if (res) {
     for (auto& source : list) {

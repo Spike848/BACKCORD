@@ -4,6 +4,7 @@
 pub mod activity;
 pub mod activity_feed;
 pub mod api;
+pub mod badges;
 pub mod cache;
 mod call_connection;
 pub mod call_stats;
@@ -60,6 +61,7 @@ pub mod token;
 pub mod unread;
 pub mod voice;
 mod voice_connection;
+pub mod wardrobe;
 mod websocket;
 pub mod widgets;
 pub mod wishlist;

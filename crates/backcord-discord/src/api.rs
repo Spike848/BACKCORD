@@ -820,6 +820,29 @@ impl Api {
             .context("could not read Discord's answer")
     }
 
+    /// This account's badges, every one Discord has, as the profile editor
+    /// fetches them: `{badges: [{badge_id, name, owned, hidden, ...}]}`.
+    pub async fn my_badges(&self) -> Result<Value> {
+        self.json(self.request(Method::GET, "/users/@me/badges"))
+            .await
+    }
+
+    /// Saves which of this account's badges show, and in what order.
+    pub async fn badge_settings(&self, body: &Value) -> Result<Value> {
+        self.json(with_json(
+            self.request(Method::PATCH, "/users/@me/badges/settings"),
+            body,
+        ))
+        .await
+    }
+
+    /// The collectible products this account owns, as the client's shop and
+    /// profile editor fetch them.
+    pub async fn collectibles_purchases(&self) -> Result<Value> {
+        self.json(self.request(Method::GET, "/users/@me/collectibles-purchases"))
+            .await
+    }
+
     pub async fn collectibles_product(&self, sku: &str) -> Result<Value> {
         self.json(self.request(Method::GET, &format!("/collectibles-products/{sku}")))
             .await

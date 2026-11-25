@@ -24,7 +24,7 @@ pub(crate) use pages::copy_sound;
 pub mod updates;
 
 pub use pages::message_size;
-pub use pages::{emulate_platform, network};
+pub use pages::{blocked_pictures, emulate_platform, network};
 pub mod voice;
 
 use crate::widgets::scroll_view;
@@ -101,7 +101,7 @@ impl Section {
             Section::Voice => backcord_iced_kit::i18n::tr("Voice & Video"),
             Section::Messages => backcord_iced_kit::i18n::tr("Messages"),
             Section::Notifications => backcord_iced_kit::i18n::tr("Notifications"),
-            Section::Discord => backcord_iced_kit::i18n::tr("Discord"),
+            Section::Discord => backcord_iced_kit::i18n::tr("Blocked accounts"),
             Section::Advanced => backcord_iced_kit::i18n::tr("Advanced"),
             Section::Security => backcord_iced_kit::i18n::tr("Security"),
             Section::Appearance => backcord_iced_kit::i18n::tr("Appearance"),
@@ -118,7 +118,7 @@ impl Section {
             Section::Voice => Icon::Mic,
             Section::Messages => Icon::MessageCircle,
             Section::Notifications => Icon::Bell,
-            Section::Discord => Icon::Discord,
+            Section::Discord => Icon::Ban,
             Section::Advanced => Icon::Settings,
             Section::Security => Icon::Lock,
             Section::Appearance => Icon::Palette,

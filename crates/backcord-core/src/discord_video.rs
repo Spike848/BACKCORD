@@ -15,7 +15,7 @@ use std::{
 
 use anyhow::Result;
 use backcord_discord::{
-    call_video::{CameraSender, VideoFrame},
+    call_video::{CameraSender, KeyframeAsks, VideoFrame, VideoFrames},
     stream_connection::{Frame, SEND_CODEC},
     voice::Call,
 };
@@ -174,13 +174,13 @@ pub(crate) struct Watching {
 impl Watching {
     /// Decodes the call's camera frames on a thread of their own, until the
     /// call ends.
-    pub fn start(frames: Option<Receiver<VideoFrame>>) -> Self {
+    pub fn start(video: Option<VideoFrames>) -> Self {
         let feeds = Arc::new(Mutex::new(HashMap::new()));
-        if let Some(frames) = frames {
+        if let Some(VideoFrames { frames, keyframes }) = video {
             let decoding = feeds.clone();
             if let Err(error) = std::thread::Builder::new()
                 .name("backcord-discord-video".into())
-                .spawn(move || decode(&frames, &decoding))
+                .spawn(move || decode(&frames, &keyframes, &decoding))
             {
                 tracing::warn!(%error, "could not start decoding cameras");
             }
@@ -277,9 +277,13 @@ fn step(cameras: usize, pixels: u32) -> u8 {
 }
 
 /// Decodes each camera's frames into its feed, at the size it shows. A
-/// camera gets a decoder when its tile is in sight, from a keyframe, and
-/// loses it when the tile goes.
-fn decode(frames: &Receiver<VideoFrame>, feeds: &Mutex<HashMap<u64, Feed>>) {
+/// camera gets a decoder when its tile is in sight, from a keyframe, which
+/// is asked for while it waits, and loses it when the tile goes.
+fn decode(
+    frames: &Receiver<VideoFrame>,
+    keyframes: &KeyframeAsks,
+    feeds: &Mutex<HashMap<u64, Feed>>,
+) {
     // Each camera's decoder, the feed it writes, and the sink writing it.
     type Sink = Box<dyn FnMut(&I420<'_>, Turn) + Send>;
     let mut decoders: HashMap<u64, (Decoder, Feed, Sink)> = HashMap::new();
@@ -326,6 +330,7 @@ fn decode(frames: &Receiver<VideoFrame>, feeds: &Mutex<HashMap<u64, Feed>>) {
                     // A decoder starts from a keyframe.
                     if !frame.keyframe {
                         count[2] += 1;
+                        keyframes.ask(frame.user);
                         continue;
                     }
                     // One thread each: a tile is small, and every thread
@@ -359,6 +364,7 @@ fn decode(frames: &Receiver<VideoFrame>, feeds: &Mutex<HashMap<u64, Feed>>) {
                         count[4] += 1;
                         tracing::debug!(%error, "dropped a camera's decoder");
                         decoders.remove(&frame.user);
+                        keyframes.ask(frame.user);
                     }
                 }
             }

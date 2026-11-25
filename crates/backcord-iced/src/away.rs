@@ -1,8 +1,8 @@
 //! Whether someone is using BACKCORD, judged as Discord's web client judges
 //! it: a key, a click or the wheel in the window counts, a passing pointer
 //! doesn't. Once nobody has for [`QUIET`], Discord hears since when
-//! (`Action::Inactive`, with Settings' Show idle), and goes AFK and then
-//! idle on its own clock; moving pictures hold still until someone is back
+//! (`Action::Inactive`), and goes AFK, so the phone gets notifications,
+//! without showing the account idle; moving pictures hold still until someone is back
 //! ([`pictures::plays`]).
 //!
 //! Input while someone is using it costs no message: the event filter
@@ -92,17 +92,14 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
     }
 }
 
-/// Tells Discord again, as Show idle changed.
-pub fn idle_setting_changed(app: &mut App) {
-    if app.away.inactive {
-        tell_away(app);
-    }
-}
-
 fn tell_away(app: &mut App) {
     let since = app.away.inactive.then(|| LAST_USE.load(Ordering::Relaxed));
-    let show_idle = app.layout.prefs.show_idle.unwrap_or(true);
-    app.client.dispatch(Action::Inactive { since, show_idle });
+    // Away, Discord goes AFK so the phone gets notifications, and this
+    // account's status stays as it was, never idle on its own.
+    app.client.dispatch(Action::Inactive {
+        since,
+        show_idle: false,
+    });
 }
 
 /// The window's input: noted without a message while someone is using

@@ -171,9 +171,11 @@ def stop(process):
 def capture_filters():
     """The ffmpeg filters that stand Weston's GL capture upright: it comes upside
     down with NVIDIA's driver, and upright with Mesa's software llvmpipe, which
-    a machine without a GPU uses. Other drivers keep the flip."""
+    a machine without a GPU uses, and from Pixman, Weston's renderer where EGL
+    isn't there, as under WSL. Other drivers keep the flip."""
     log = state / 'weston.log'
-    software = log.exists() and 'GL renderer: llvmpipe' in log.read_text(errors='replace')
+    text = log.read_text(errors='replace') if log.exists() else ''
+    software = 'GL renderer: llvmpipe' in text or 'Using Pixman renderer' in text
     return [] if software else ['vflip']
 
 

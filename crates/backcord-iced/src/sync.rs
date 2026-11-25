@@ -1035,6 +1035,7 @@ impl App {
             .collect::<Vec<_>>()
             .into_iter()
             .chain(crate::settings::voice::entrance_pictures(self))
+            .chain(crate::settings::blocked_pictures(self))
         {
             want(Some(&url));
         }

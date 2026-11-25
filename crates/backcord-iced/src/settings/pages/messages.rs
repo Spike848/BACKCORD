@@ -129,6 +129,14 @@ impl<'a> Page<'a> {
                 Pref::ReplyPing,
             ),
             self.flip(
+                backcord_iced_kit::i18n::tr("Mark messages read on Discord"),
+                backcord_iced_kit::i18n::tr(
+                    "Channels you read in BACKCORD show as read in the Discord apps too.",
+                ),
+                prefs.sync_discord_reads.unwrap_or(true),
+                Pref::SyncReads,
+            ),
+            self.flip(
                 backcord_iced_kit::i18n::tr("Remove tracking from links you send"),
                 backcord_iced_kit::i18n::tr("Takes out tags like utm_source and fbclid, and share ids from YouTube, Spotify and X. The links still go to the same page."),
                 prefs.strip_tracking.unwrap_or(true),

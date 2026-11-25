@@ -287,7 +287,6 @@ impl App {
             }
             Pref::Roster => self.show_roster(false),
             Pref::Keybinds => task = crate::keybinds::watch_keybinds(self),
-            Pref::Idle => crate::away::idle_setting_changed(self),
             Pref::Theme => {
                 let shown = self
                     .win

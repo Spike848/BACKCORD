@@ -1076,6 +1076,73 @@ pub struct WishlistItem {
     pub picture: Option<String>,
 }
 
+/// What a Discord collectible is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum CollectibleKind {
+    Decoration,
+    Effect,
+    Nameplate,
+    Frame,
+}
+
+/// A Discord collectible the profile editor offers: one this account owns,
+/// which it may wear, or one the shop sells.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Collectible {
+    pub kind: CollectibleKind,
+    /// The SKU it's worn by.
+    pub sku: String,
+    /// The product the shop sells it as.
+    pub product: String,
+    pub name: String,
+    /// The address of its still picture.
+    pub picture: Option<String>,
+    /// A frame's layers, which draw it whole.
+    pub frame: Vec<ProfileFrameLayer>,
+}
+
+/// One of this account's badges, or one it could earn, as the profile
+/// editor arranges them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OwnBadge {
+    pub id: u32,
+    pub name: String,
+    pub description: String,
+    /// What it says of this account, as "10 years, 3 months".
+    pub info: String,
+    /// The address of its picture.
+    pub icon: Option<String>,
+    pub owned: bool,
+    pub hidden: bool,
+    /// Others can still earn it.
+    pub earnable: bool,
+}
+
+/// This account's badges, as far as BACKCORD has asked for them: every one
+/// Discord has, those owned in the order the profile shows them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum OwnBadges {
+    #[default]
+    Unasked,
+    Loading,
+    Loaded(Vec<OwnBadge>),
+    Failed(String),
+}
+
+/// The collectibles this account owns and the shop's, as far as BACKCORD
+/// has asked for them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Wardrobe {
+    #[default]
+    Unasked,
+    Loading,
+    Loaded {
+        owned: Vec<Collectible>,
+        shop: Vec<Collectible>,
+    },
+    Failed(String),
+}
+
 /// A Discord wishlist, as far as BACKCORD has asked for it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Wishlist {
@@ -3512,6 +3579,28 @@ pub enum DiscordCommand {
     Wishlist {
         id: String,
     },
+    /// The collectibles this account owns and the shop's;
+    /// [`Event::Wardrobe`] follows.
+    Wardrobe,
+    /// This account's badges; [`Event::OwnBadges`] follows.
+    OwnBadges,
+    /// Show this account's badges in `order`, with `hidden` hidden;
+    /// [`Event::BadgesArranged`] follows.
+    ArrangeBadges {
+        order: Vec<u32>,
+        hidden: Vec<u32>,
+    },
+    /// A profile effect by its SKU, to preview it; [`Event::ProfileEffect`]
+    /// follows.
+    ProfileEffect {
+        sku: String,
+    },
+    /// Wear the collectible `sku` of `kind`, or with none take that kind
+    /// off; [`Event::Worn`] follows.
+    Wear {
+        kind: CollectibleKind,
+        sku: Option<String>,
+    },
     /// The preview of `user`'s live stream in the call `room`, for their
     /// profile's card; [`Event::StreamPreview`] follows.
     StreamPreview {
@@ -4468,6 +4557,17 @@ pub enum Event {
     Wishlist {
         id: String,
         wishlist: Wishlist,
+    },
+    /// What [`DiscordCommand::Wardrobe`] found.
+    Wardrobe(Wardrobe),
+    /// What [`DiscordCommand::OwnBadges`] found.
+    OwnBadges(OwnBadges),
+    /// How [`DiscordCommand::ArrangeBadges`] went.
+    BadgesArranged(Result<(), String>),
+    /// How [`DiscordCommand::Wear`] went.
+    Worn {
+        kind: CollectibleKind,
+        result: Result<(), String>,
     },
     /// The address of `user`'s live stream's preview, or none yet.
     StreamPreview {

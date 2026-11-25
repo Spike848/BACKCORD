@@ -8,7 +8,6 @@ use std::{
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
-        mpsc as channel,
     },
     time::Duration,
 };
@@ -20,7 +19,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::{
     call_connection::{self, Order, Sending},
     call_stats::CallStats,
-    call_video::{self, CameraSender, VideoFrame},
+    call_video::{self, CameraSender, VideoFrames},
     ready::PRIVATE,
     rtp,
     service::VoiceServer,
@@ -133,7 +132,7 @@ pub struct Call {
     /// The server, or the DM, the connection identifies with.
     server_id: String,
     /// Everyone else's camera frames, until taken.
-    video: Option<channel::Receiver<VideoFrame>>,
+    video: Option<VideoFrames>,
     stats: Arc<CallStats>,
 }
 
@@ -158,7 +157,7 @@ impl Call {
         };
         let sending = Arc::new(Mutex::new(None));
         let identity = identity(server, server_id, channel_id)?;
-        let (frames, video) = channel::sync_channel(VIDEO_BACKLOG);
+        let (frames, video) = call_video::video(VIDEO_BACKLOG);
         let stats = Arc::new(CallStats::default());
         let (orders, connected) =
             call_connection::start(identity, listener, sending.clone(), frames, stats.clone())?;
@@ -227,7 +226,7 @@ impl Call {
     }
 
     /// Everyone else's camera frames, as they come, for one taker.
-    pub fn video_frames(&mut self) -> Option<channel::Receiver<VideoFrame>> {
+    pub fn video_frames(&mut self) -> Option<VideoFrames> {
         self.video.take()
     }
 

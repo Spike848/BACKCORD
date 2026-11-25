@@ -209,7 +209,7 @@ fn frame_of(product: &Value) -> Option<(String, Vec<FrameLayer>)> {
 }
 
 /// A frame item's `layers`, the back ones first.
-fn layers_of(sku: &str, layers: &[Value]) -> Vec<FrameLayer> {
+pub(crate) fn layers_of(sku: &str, layers: &[Value]) -> Vec<FrameLayer> {
     let mut layers: Vec<FrameLayer> = layers
         .iter()
         .filter_map(|layer| {

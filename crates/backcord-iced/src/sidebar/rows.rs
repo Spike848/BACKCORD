@@ -210,6 +210,28 @@ pub fn side_header(app: &Application) -> SideHeader {
     }
 }
 
+/// The name Discord gives a channel or category it obfuscates, one this
+/// account can't see, whose real name BACKCORD never saw.
+const OBFUSCATED: &str = "___hidden___";
+
+/// A channel's name as shown, with a word for one Discord obfuscates.
+pub fn channel_name(name: &str) -> String {
+    if name == OBFUSCATED {
+        backcord_iced_kit::i18n::tr("Hidden channel").to_owned()
+    } else {
+        name.to_owned()
+    }
+}
+
+/// A category's name as shown, with a word for one Discord obfuscates.
+fn category_name(name: &str) -> String {
+    if name == OBFUSCATED {
+        backcord_iced_kit::i18n::tr("Hidden category").to_owned()
+    } else {
+        name.to_owned()
+    }
+}
+
 /// A conversation's icon, as the sidebar shows it: a lock for one this
 /// account may not read, else its kind's, marked private or age-restricted.
 pub fn room_icon(room: &ChatRoom) -> Icon {
@@ -354,7 +376,7 @@ pub fn sidebar(
     // Categories with no channel show as their heading alone, where
     // Discord's order puts them among the others.
     let empty_heading = |category: &ListedCategory| SideRow::Heading {
-        name: category.name.clone(),
+        name: category_name(&category.name),
         fold: category.id.clone(),
         collapsed: is_folded(&category.id),
     };
@@ -375,7 +397,7 @@ pub fn sidebar(
                 let this = (room.category_id.as_deref(), room.category.as_str());
                 (category.replace(this) != Some(this) && !room.category.is_empty()).then(|| {
                     let by = room.category_id.as_deref().unwrap_or(&room.category);
-                    (room.category.clone(), by.to_owned())
+                    (category_name(&room.category), by.to_owned())
                 })
             } else if room.voice && !listed_voice {
                 listed_voice = true;
@@ -463,7 +485,7 @@ pub fn sidebar(
         };
         rows.push(SideRow::Room(Box::new(Room {
             id: room.id.clone(),
-            name: room.name.clone(),
+            name: channel_name(&room.name),
             icon: room_icon(room),
             selected,
             unread,

@@ -206,6 +206,8 @@ pub struct Prefs {
     /// marked on Discord, idle shown while away.
     pub show_hidden_channels: bool,
     pub sync_discord_reads: Option<bool>,
+    /// Kept from when going idle while away was a choice; BACKCORD no
+    /// longer shows this account idle on its own.
     pub show_idle: Option<bool>,
     /// Game Activity's own games: an executable and what to show for it.
     pub game_executables: Vec<(String, String)>,

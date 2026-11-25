@@ -95,13 +95,15 @@ recording. Each change is kept at once in
   from before, and a saved one's Delete asks once more. Then the system
   title bar's switch, where BACKCORD can draw its own, and the profile
   switches, which the core is told of.
-- Discord: linking, as the sign-in screen's panel, while none is linked;
-  then Unlink in a build with Matrix, hidden channels, reads marked on
-  Discord, idle while away, blocked people's messages hidden, and those
-  blocked, five more at a time, each with Unblock. Whether someone is
+- Blocked accounts (`Section::Discord` in the code): linking, as the
+  sign-in screen's panel, while none is linked; then Unlink in a build
+  with Matrix, blocked people's messages hidden, and those blocked, with
+  their pictures, five more at a time, each with Unblock. Reads marked on
+  Discord are among Messages' switches, and Show Hidden Channels among
+  Extra Features. Whether someone is
   using BACKCORD (`away.rs`): a key, a click or the
-  wheel counts; once nobody has for 15 s, Discord hears since when, with
-  idle while away, and goes AFK and idle on its own clock, and moving
+  wheel counts; once nobody has for 15 s, Discord hears since when, and
+  goes AFK, so the phone gets notifications, never showing idle, and moving
   pictures hold still until someone is back. Input while someone is using
   it costs no message, only a time noted; one timer checks it.
 - Game Activity: sharing the game played (Discord keeps it), and the games
