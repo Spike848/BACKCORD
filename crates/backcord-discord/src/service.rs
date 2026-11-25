@@ -3275,6 +3275,61 @@ impl Discord {
         Ok((owned, shop))
     }
 
+    /// A server's gate for this account: its form, when this account still
+    /// has to fill it in (or `form` says so, just after joining), and its
+    /// onboarding questions, if it asks any.
+    pub async fn membership(
+        &self,
+        guild: &str,
+        form: bool,
+    ) -> Result<(
+        Option<crate::membership::Form>,
+        crate::membership::Onboarding,
+    )> {
+        let (member, onboarding) =
+            tokio::join!(self.api.own_member(guild), self.api.onboarding(guild));
+        let pending = match member {
+            Ok(member) => crate::membership::pending(&member),
+            Err(error) => {
+                tracing::warn!(error = format!("{error:#}"), "could not fetch own member");
+                form
+            }
+        };
+        let form = if pending || form {
+            crate::membership::form(&self.api.member_verification(guild).await?)
+        } else {
+            None
+        };
+        let onboarding = match onboarding {
+            Ok(answer) => crate::membership::onboarding(&answer),
+            Err(error) => {
+                tracing::info!(error = format!("{error:#}"), "no onboarding");
+                crate::membership::Onboarding::default()
+            }
+        };
+        Ok((form, onboarding))
+    }
+
+    /// Sends this account's answers to a server's form; whether it lets
+    /// the account in now, rather than waiting for the moderators.
+    pub async fn send_member_form(
+        &self,
+        guild: &str,
+        answers: &[crate::membership::Answer],
+    ) -> Result<bool> {
+        let verification = self.api.member_verification(guild).await?;
+        let body = crate::membership::filled(&verification, answers);
+        let answer = self.api.join_request(guild, &body).await?;
+        Ok(crate::membership::approved(&answer))
+    }
+
+    /// Sends this account's choices to a server's onboarding questions.
+    pub async fn answer_onboarding(&self, guild: &str, chosen: &[String]) -> Result<()> {
+        let onboarding = crate::membership::onboarding(&self.api.onboarding(guild).await?);
+        let body = crate::membership::responses(&onboarding, chosen, now_ms());
+        self.api.onboarding_responses(guild, &body).await
+    }
+
     /// This account's badges, every one Discord has, those owned in the
     /// order the profile shows them.
     pub async fn own_badges(&self) -> Result<Vec<crate::badges::Badge>> {

@@ -201,8 +201,7 @@ In rough order. The browser covers these until then.
 - Sorting and filtering a forum's posts by tag, and the gallery layout of
   forums and media channels.
 - Making and changing server folders.
-- A server's membership form and onboarding questions when joining by
-  invite, and invite cards in messages.
+- Invite cards in messages.
 - A server's privacy settings: direct messages, message requests and
   activity status from its members.
 - Discord's voice settings beyond those above, and push-to-talk's sounds,

@@ -344,6 +344,7 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
         MenuChoice::StopDeleteAll => Action::StopDeleteAll(place),
         MenuChoice::EditServerProfile => Action::EditServerProfile(place),
         MenuChoice::ServerSettings => Action::OpenServerSettings(place),
+        MenuChoice::ChannelsRoles => Action::OpenMembership(place),
         MenuChoice::EditChannel => Action::OpenChannelSettings(place),
         MenuChoice::Invite => Action::OpenInvite(place),
         MenuChoice::PinChannel | MenuChoice::UnpinChannel => Action::PinChannel {
@@ -800,6 +801,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::EditGroup => Icon::Pencil,
         C::Apps => Icon::Slash,
         C::ServerSettings => Icon::Settings,
+        C::ChannelsRoles => Icon::Hash,
         C::Unfriend => Icon::UserMinus,
         C::Ignore | C::Unignore | C::HideMuted | C::RemoveFromChannelList | C::UnfollowCategory => {
             Icon::EyeOff
@@ -917,5 +919,6 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::LeaveThread => backcord_iced_kit::i18n::tr("Leave thread"),
         MenuChoice::EditServerProfile => backcord_iced_kit::i18n::tr("Edit server profile"),
         MenuChoice::ServerSettings => backcord_iced_kit::i18n::tr("Server settings"),
+        MenuChoice::ChannelsRoles => backcord_iced_kit::i18n::tr("Channels & Roles"),
     }
 }

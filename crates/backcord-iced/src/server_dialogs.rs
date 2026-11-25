@@ -13,7 +13,7 @@ use backcord_core::{
     application::{
         Action, AppState, ChannelAsk, INVITE_AGES, INVITE_USES, InviteDialog, InvitePerson,
     },
-    chat::{ChannelKind, ChannelSettings},
+    chat::{ChannelKind, ChannelSettings, MemberAnswer},
 };
 use backcord_iced_kit::{i18n::tr, widgets::scroll_view};
 use iced::{
@@ -30,6 +30,9 @@ use crate::{
     form,
     style::rounded,
 };
+
+mod explore;
+mod membership;
 
 /// The dialogs' widths: the invite's and the channel's, and Join a
 /// Server's.
@@ -68,6 +71,8 @@ pub struct Dialogs {
     channel: Option<ChannelDraft>,
     /// Whether the leave dialog showed at the last sync.
     leave_shown: bool,
+    /// Whether Explore servers showed at the last sync.
+    explore_shown: bool,
 }
 
 struct InviteChoice {
@@ -118,6 +123,28 @@ pub enum Event {
     /// The moved channel takes its category's permissions (true), keeps
     /// its own (false), or stays where it was (none).
     MoveSync(Option<bool>),
+    /// A server's rules and questions: an answer to its form's field, by
+    /// index; sending the form; a question's choice, by the question's
+    /// index; going to a question; sending the choices; the server in the
+    /// browser; closing.
+    /// Explore servers: what's searched, an order, joining or opening a
+    /// server (by its Discord id), its invite from DISBOARD, more servers,
+    /// reading them again, closing.
+    ExploreSearch(String),
+    ExploreSort(backcord_core::application::ExploreSort),
+    ExploreJoin(String),
+    ExploreExpand(String),
+    ExploreBrowser(String),
+    ExploreMore,
+    ExploreAgain,
+    CloseExplore,
+    MemberField(usize, MemberAnswer),
+    SendMemberForm,
+    MemberChoice(usize, String),
+    MemberQuestion(usize),
+    FinishOnboarding,
+    MembershipBrowser,
+    CloseMembership,
 }
 
 fn message(event: Event) -> Message {
@@ -127,7 +154,15 @@ fn message(event: Event) -> Message {
 /// Whether one of these dialogs is open, which takes the keys.
 pub fn is_open(state: &AppState) -> bool {
     state.invite.is_some()
-        || state.join.is_some()
+        || state
+            .join
+            .as_ref()
+            .is_some_and(|join| join.explore.is_none())
+        || state.explore.is_some()
+        || state
+            .membership
+            .as_ref()
+            .is_some_and(|dialog| dialog.shown())
         || state.channel_dialog.is_some()
         || state.leave.is_some()
         || state.delete_all.is_some()
@@ -153,6 +188,27 @@ pub fn pictures(state: &AppState) -> Vec<String> {
             _ => None,
         })
         .and_then(|room| room.avatar.clone());
+    // The icons of the servers Explore servers shows.
+    let explored = state.explore.iter().flat_map(|explore| {
+        explore
+            .shown()
+            .into_iter()
+            .take(explore::SHOWN)
+            .filter_map(|server| server.icon.clone())
+            .collect::<Vec<_>>()
+    });
+    // A question's custom emoji.
+    let emoji = state
+        .membership
+        .iter()
+        .filter_map(|dialog| match dialog.step {
+            backcord_core::application::MembershipStep::Question(at) => {
+                dialog.gate.as_ref()?.questions.get(at)
+            }
+            _ => None,
+        })
+        .flat_map(|question| &question.options)
+        .filter_map(|option| option.emoji_picture.clone());
     state
         .join
         .as_ref()
@@ -161,6 +217,8 @@ pub fn pictures(state: &AppState) -> Vec<String> {
         .into_iter()
         .chain(people)
         .chain(group)
+        .chain(emoji)
+        .chain(explored)
         .collect()
 }
 
@@ -189,8 +247,12 @@ impl Dialogs {
             Some(_) => {}
             None => local.invite = None,
         }
+        if state.explore.is_some() && !local.explore_shown {
+            focus = Some(explore::SEARCH);
+        }
+        local.explore_shown = state.explore.is_some();
         match &state.join {
-            Some(join) if local.join.is_none() => {
+            Some(join) if local.join.is_none() && join.explore.is_none() => {
                 local.join = Some(String::new());
                 focus = Some(if join.from_link { NOBODY } else { JOIN_FIELD });
             }
@@ -288,15 +350,30 @@ impl Dialogs {
                 let Some(join) = cx.state().join.as_ref() else {
                     return Task::none();
                 };
-                if join.form.is_some() {
-                    Action::OpenJoinForm
-                } else if join.preview.is_some() {
+                if join.preview.is_some() {
                     Action::JoinServer
                 } else {
                     return self.update(Event::Find, cx);
                 }
             }
             Event::OpenCaptcha => Action::OpenJoinCaptcha,
+            Event::ExploreSearch(typed) => Action::ExploreSearch(typed),
+            Event::ExploreSort(sort) => Action::ExploreSort(sort),
+            Event::ExploreJoin(guild) => Action::ExploreJoin(guild),
+            Event::ExploreExpand(guild) => Action::ExploreExpand(guild),
+            Event::ExploreBrowser(guild) => Action::ExploreInBrowser(guild),
+            Event::ExploreMore => Action::ExploreMore,
+            Event::ExploreAgain => Action::ExploreAgain,
+            Event::CloseExplore => Action::CloseExplore,
+            Event::MemberField(index, answer) => Action::AnswerMemberField { index, answer },
+            Event::SendMemberForm => Action::SendMemberForm,
+            Event::MemberChoice(question, option) => {
+                Action::ToggleMemberChoice { question, option }
+            }
+            Event::MemberQuestion(question) => Action::MemberQuestion(question),
+            Event::FinishOnboarding => Action::FinishOnboarding,
+            Event::MembershipBrowser => Action::OpenMembershipInBrowser,
+            Event::CloseMembership => Action::CloseMembership,
             Event::CloseJoin => Action::CloseJoin,
             Event::ChannelName(name) => {
                 if let Some(draft) = &mut local.channel {
@@ -379,8 +456,20 @@ impl Dialogs {
             (Event::CloseDeleteAll, Some(Event::DeleteAll))
         } else if state.channel_dialog.is_some() {
             (Event::CloseChannel, Some(Event::SaveChannel))
-        } else if state.join.is_some() {
+        } else if state
+            .membership
+            .as_ref()
+            .is_some_and(|dialog| dialog.shown())
+        {
+            (Event::CloseMembership, None)
+        } else if state
+            .join
+            .as_ref()
+            .is_some_and(|join| join.explore.is_none())
+        {
             (Event::CloseJoin, None)
+        } else if state.explore.is_some() {
+            (Event::CloseExplore, None)
         } else if state.invite.is_some() {
             (Event::CloseInvite, None)
         } else {
@@ -423,8 +512,22 @@ impl<'a> View<'a> {
         if state.channel_dialog.is_some() {
             return self.channel_dialog_view();
         }
-        if state.join.is_some() {
+        if state
+            .membership
+            .as_ref()
+            .is_some_and(|dialog| dialog.shown())
+        {
+            return self.membership_view();
+        }
+        if state
+            .join
+            .as_ref()
+            .is_some_and(|join| join.explore.is_none())
+        {
             return self.join_server_view();
+        }
+        if state.explore.is_some() {
+            return self.explore_view();
         }
         self.invite_view()
     }
@@ -722,11 +825,7 @@ impl<'a> View<'a> {
                 ),
             );
         }
-        let status = if join.form.is_some() {
-            backcord_iced_kit::i18n::tr(
-                "You joined. This server asks new members to fill in a form before they can talk, which BACKCORD can't show yet. Finish it in Discord's web app.",
-            )
-        } else if join.captcha.is_some() {
+        let status = if join.captcha.is_some() {
             backcord_iced_kit::i18n::tr(
                 "Discord asks for a captcha first. Solve it in your browser.",
             )
@@ -748,9 +847,7 @@ impl<'a> View<'a> {
                 theme.danger,
             ));
         }
-        let confirm = if join.form.is_some() {
-            backcord_iced_kit::i18n::tr("Open in browser")
-        } else if join.member {
+        let confirm = if join.member {
             backcord_iced_kit::i18n::tr("Open Server")
         } else if preview.is_some() {
             backcord_iced_kit::i18n::tr("Join Server")
@@ -762,7 +859,7 @@ impl<'a> View<'a> {
         let mut row_ = vec![
             action(
                 theme,
-                if join.form.is_some() || confirm.is_empty() {
+                if confirm.is_empty() {
                     backcord_iced_kit::i18n::tr("Close")
                 } else {
                     backcord_iced_kit::i18n::tr("Cancel")

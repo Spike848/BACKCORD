@@ -165,6 +165,35 @@ fn decorations_and_nameplates_stay_while_their_people_show() {
 }
 
 #[test]
+fn the_invite_dialogs_people_keep_their_avatars_as_others_come() {
+    let mut app = connected();
+    app.state.invite = Some(InviteDialog {
+        people: vec![InvitePerson {
+            id: "3".into(),
+            name: "Cara".into(),
+            avatar: Some("cara.png".into()),
+            friend: true,
+            ..InvitePerson::default()
+        }],
+        ..InviteDialog::default()
+    });
+    for url in std::iter::once("cara.png".to_owned())
+        .chain((0..=KEPT_PICTURES).map(|index| format!("{index}.png")))
+    {
+        app.requested_pictures.insert(url.clone());
+        app.apply(Event::Picture {
+            url,
+            picture: Arc::new(Picture::default()),
+        });
+    }
+    assert!(
+        app.state.pictures.contains_key("cara.png"),
+        "or it blinks, let go and asked for again"
+    );
+    assert!(!app.state.pictures.contains_key("0.png"));
+}
+
+#[test]
 fn hidden_nameplates_are_not_kept_with_the_pictures_on_screen() {
     let mut app = connected();
     app.state.members = Some(Ok(Arc::new(vec![ChatMember {

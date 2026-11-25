@@ -151,6 +151,9 @@ pub enum MenuChoice {
     /// Open a Discord server's settings, to the pages this account may
     /// change.
     ServerSettings,
+    /// Open a Discord Community server's rules and questions for its
+    /// members, to answer them again.
+    ChannelsRoles,
 }
 
 /// How long [`MenuChoice::Mute`] mutes for, as Discord's client offers.

@@ -614,6 +614,8 @@ fn char_fonts(_chars: &[char]) -> Vec<(String, u32)> {
         ("ntailu.ttf", 0),
         ("segoeuil.ttf", 0),
         ("l_10646.ttf", 0),
+        // Windows 11's collection of rarer scripts, such as Elbasan.
+        ("SansSerifCollection.ttf", 0),
     ];
     let Ok(windows) = std::env::var("WINDIR") else {
         return Vec::new();

@@ -34,22 +34,21 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.4.2
+## Novità della 1.5.0
 
-- **Decorazioni, effetti, targhette e cornici dentro BACKCORD**: nell'editor
-  del profilo scegli tra quelli che possiedi, li vedi in anteprima sul tuo
-  profilo e li applichi dopo una conferma. Quelli del negozio si vedono in
-  anteprima e si comprano con "Compra su Discord".
-- **Badge**: nascondi i badge che non vuoi mostrare e, con Nitro,
-  riordinali trascinandoli. Vedi subito cosa vedranno gli altri.
-- **Canali nascosti**: "Mostra canali nascosti" è ora tra le funzioni
-  aggiuntive, e i canali che Discord nasconde hanno il loro nome quando
-  BACKCORD l'ha già visto, altrimenti "Canale nascosto".
-- **Account bloccati**: la sezione "Discord" delle impostazioni ora si
-  chiama così e mostra la foto di chi hai bloccato.
-- **Condivisione dello schermo**: la scelta della finestra ora vede anche le
-  finestre che prima mancavano.
-- **Videocamere**: una cam che restava nera ora si riprende da sola.
+- **Esplora server**: il nuovo pulsante col mappamondo apre un elenco di
+  server italiani presi da DISBOARD, con ricerca, ordinamento per membri
+  online o per nome e descrizioni espandibili. "Unisciti" entra senza
+  uscire da BACKCORD quando il server ha un invito pubblico; altrimenti
+  "Ottieni invito" apre la pagina di DISBOARD. L'elenco resta salvato per
+  mezz'ora, così si carica subito e DISBOARD non chiede di rallentare.
+- **Regole e domande dei server**: entrando in un server ne vedi le regole
+  da accettare (o il modulo da compilare) e le domande di benvenuto, dentro
+  BACKCORD. "Canali e ruoli" nel menu dei server Community le riapre.
+- **Barra dei server**: "Aggiungi server" ed "Esplora server" ora stanno in
+  cima, subito sotto i messaggi diretti.
+- **Invita persone**: le foto delle persone non lampeggiano più.
+- **Emoji**: compaiono anche alcuni simboli che mancavano.
 
 ## Cosa fa
 

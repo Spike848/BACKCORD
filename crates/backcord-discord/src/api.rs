@@ -827,6 +827,38 @@ impl Api {
             .await
     }
 
+    /// A server's form for new members, if it has one.
+    pub async fn member_verification(&self, guild: &str) -> Result<Value> {
+        let path = format!("/guilds/{guild}/member-verification?with_guild=false");
+        self.json(self.request(Method::GET, &path)).await
+    }
+
+    /// Sends this account's filled-in form to a server.
+    pub async fn join_request(&self, guild: &str, body: &Value) -> Result<Value> {
+        let path = format!("/guilds/{guild}/requests/@me");
+        self.json(with_json(self.request(Method::PUT, &path), body))
+            .await
+    }
+
+    /// A server's onboarding questions, with this account's answers.
+    pub async fn onboarding(&self, guild: &str) -> Result<Value> {
+        let path = format!("/guilds/{guild}/onboarding");
+        self.json(self.request(Method::GET, &path)).await
+    }
+
+    /// Sends this account's answers to a server's onboarding questions.
+    pub async fn onboarding_responses(&self, guild: &str, body: &Value) -> Result<()> {
+        let path = format!("/guilds/{guild}/onboarding-responses");
+        self.empty(with_json(self.request(Method::POST, &path), body))
+            .await
+    }
+
+    /// This account's member object in a server.
+    pub async fn own_member(&self, guild: &str) -> Result<Value> {
+        let path = format!("/users/@me/guilds/{guild}/member");
+        self.json(self.request(Method::GET, &path)).await
+    }
+
     /// Saves which of this account's badges show, and in what order.
     pub async fn badge_settings(&self, body: &Value) -> Result<Value> {
         self.json(with_json(

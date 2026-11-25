@@ -93,6 +93,12 @@ pub fn command(
     let Some(command) = own_profile::command(command, discord, events) else {
         return;
     };
+    let Some(command) = super::explore::command(command, events) else {
+        return;
+    };
+    let Some(command) = super::membership::command(command, discord, events) else {
+        return;
+    };
     let Some(command) = gifs::command(command, discord, events) else {
         return;
     };

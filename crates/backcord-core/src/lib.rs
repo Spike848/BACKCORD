@@ -134,6 +134,7 @@ pub fn keep_discord_files(root: &std::path::Path) {
     }
     backcord_discord::cookies::keep_in(root.join("discord-cookies.json"));
     backcord_discord::cache::keep_in(root.join("discord-account.json"));
+    backcord_discord::explore::keep_in(root.join("disboard-servers.json"));
 }
 
 /// Check linked native services without a session, network request or audio device.

@@ -30,6 +30,7 @@ mod delete_all;
 mod discord_account;
 mod dm_folders;
 mod ephemeral;
+mod explore;
 mod forum;
 mod gifs;
 mod gift;
@@ -38,6 +39,7 @@ mod interactions;
 mod join;
 mod link_prompts;
 mod members;
+mod membership;
 mod messages;
 mod mfa;
 mod new_post;
@@ -70,6 +72,7 @@ pub use commands::{AppCommands, CommandTarget, SlashCommand};
 pub use cosmetics::Cosmetics;
 pub use delete_all::{DeleteAllDialog, DeletingAll};
 pub use dm_folders::{DmFolder, DmFolderChange};
+pub use explore::{Explore, ExploreJoin, ExploreSort};
 pub use forum::{ForumInfo, ForumPost, ForumPosts, ForumView};
 pub use gifs::{AskedPicture, GifPicker, GifPicture, GifView};
 pub use gift::GiftDialog;
@@ -79,6 +82,7 @@ pub use link_prompts::{EventPrompt, GiftPrompt, OAuthPrompt, permission_names};
 pub use members::{BAN_HISTORY, LONGEST_TIMEOUT, RoleChoice, TIMEOUT_TIMES, timeout_length};
 #[cfg(all(feature = "discord", any(test, feature = "test-fixtures")))]
 pub use members::{member_server, with_clubs};
+pub use membership::{MembershipDialog, MembershipStep};
 pub use mfa::MfaPrompt;
 pub use new_post::{NewPost, POST_TAGS, POST_TITLE_LIMIT};
 pub use oauth::OAuthDialog;
@@ -547,6 +551,11 @@ pub struct AppState {
     pub invite: Option<InviteDialog>,
     /// Join a Server, while it's open.
     pub join: Option<JoinDialog>,
+    /// Explore servers, while it's open.
+    pub explore: Option<Explore>,
+    /// A Discord server's rules and questions for its members, while
+    /// their dialog is open.
+    pub membership: Option<MembershipDialog>,
     /// The application a clicked authorization link opened, while its
     /// dialog is open.
     pub oauth: Option<OAuthDialog>,
@@ -2224,8 +2233,41 @@ pub enum Action {
     OpenInviteLink(String),
     JoinServer,
     OpenJoinCaptcha,
-    OpenJoinForm,
     CloseJoin,
+    /// Open Explore servers; read more of its servers, or again after an
+    /// error; search them; sort them (the same order again turns it
+    /// around); join one, or open it, by its Discord id; get one's invite
+    /// from DISBOARD in the browser; close it.
+    OpenExplore,
+    ExploreMore,
+    ExploreAgain,
+    ExploreSearch(String),
+    ExploreSort(ExploreSort),
+    /// Show a listed server's whole description, or its start again.
+    ExploreExpand(String),
+    ExploreJoin(String),
+    ExploreInBrowser(String),
+    CloseExplore,
+    /// Open Channels & Roles of a Discord server, by its id: its rules
+    /// and questions for its members.
+    OpenMembership(String),
+    /// Answer a field of a server's form, by its index.
+    AnswerMemberField {
+        index: usize,
+        answer: crate::chat::MemberAnswer,
+    },
+    SendMemberForm,
+    /// Pick a choice of a question, by the question's index, or take it
+    /// back.
+    ToggleMemberChoice {
+        question: usize,
+        option: String,
+    },
+    /// Go to a question, by its index.
+    MemberQuestion(usize),
+    FinishOnboarding,
+    OpenMembershipInBrowser,
+    CloseMembership,
     /// Open a clicked authorization link, by its query; pick the
     /// server it installs to, by its Discord id; authorize it; or
     /// close its dialog.
@@ -2967,6 +3009,37 @@ fn pictures_on_screen<'a>(
                 .iter()
                 .filter(|room| room.incoming)
                 .filter_map(|room| room.avatar.as_deref()),
+        )
+        // The server dialogs': the people Invite lists, the server Join a
+        // Server would join, Explore servers' icons and a joining server's
+        // question emoji. Without them the pictures they show would go as
+        // others came, and be asked for again: they'd blink.
+        .chain(state.invite.iter().flat_map(|invite| {
+            invite
+                .people
+                .iter()
+                .filter_map(|person| person.avatar.as_deref())
+        }))
+        .chain(
+            state
+                .join
+                .iter()
+                .filter_map(|join| join.preview.as_ref()?.icon.as_deref()),
+        )
+        .chain(state.explore.iter().flat_map(|explore| {
+            explore
+                .servers
+                .iter()
+                .filter_map(|server| server.icon.as_deref())
+        }))
+        .chain(
+            state
+                .membership
+                .iter()
+                .filter_map(|dialog| dialog.gate.as_ref())
+                .flat_map(|gate| &gate.questions)
+                .flat_map(|question| &question.options)
+                .filter_map(|option| option.emoji_picture.as_deref()),
         )
         .chain(state.server_settings.iter().flat_map(|settings| {
             let (first, second) = match &settings.page {
@@ -4243,9 +4316,51 @@ impl Application {
             Action::OpenInviteLink(code) => self.open_invite_link(code),
             Action::JoinServer => self.join_server(),
             Action::OpenJoinCaptcha => self.open_join_captcha(),
-            Action::OpenJoinForm => self.open_join_form(),
             Action::CloseJoin => {
                 self.state.join = None;
+                vec![]
+            }
+            Action::OpenExplore => self.open_explore(),
+            Action::ExploreMore => self.explore_more(),
+            Action::ExploreAgain => self.explore_again(),
+            Action::ExploreSearch(typed) => {
+                if let Some(explore) = self.state.explore.as_mut() {
+                    explore.search = typed;
+                }
+                vec![]
+            }
+            Action::ExploreSort(sort) => {
+                self.explore_sort(sort);
+                vec![]
+            }
+            Action::ExploreExpand(guild) => {
+                self.explore_expand(guild);
+                vec![]
+            }
+            Action::ExploreJoin(guild) => self.explore_join(guild),
+            Action::ExploreInBrowser(guild) => self.explore_in_browser(&guild),
+            Action::CloseExplore => {
+                self.state.explore = None;
+                vec![]
+            }
+            Action::OpenMembership(server) => self.open_membership(server),
+            Action::AnswerMemberField { index, answer } => {
+                self.answer_member_field(index, answer);
+                vec![]
+            }
+            Action::SendMemberForm => self.send_member_form(),
+            Action::ToggleMemberChoice { question, option } => {
+                self.toggle_member_choice(question, option);
+                vec![]
+            }
+            Action::MemberQuestion(question) => {
+                self.go_to_member_question(question);
+                vec![]
+            }
+            Action::FinishOnboarding => self.finish_onboarding(),
+            Action::OpenMembershipInBrowser => self.open_membership_in_browser(),
+            Action::CloseMembership => {
+                self.state.membership = None;
                 vec![]
             }
             Action::OpenEventLink { guild, event } => self.open_event_link(guild, event),
@@ -4979,6 +5094,17 @@ impl Application {
             Event::Wardrobe(wardrobe) => self.wardrobe_loaded(wardrobe),
             Event::OwnBadges(badges) => self.own_badges_loaded(badges),
             Event::BadgesArranged(result) => return self.badges_arranged(result),
+            Event::ExplorePage {
+                source,
+                result,
+                saved,
+            } => return self.explore_page(source, result, saved),
+            Event::ExploreInvite { guild, result } => return self.explore_invite(guild, result),
+            Event::Membership { server, result } => self.membership_loaded(server, result),
+            Event::MemberFormSent { server, result } => self.member_form_sent(server, result),
+            Event::OnboardingAnswered { server, result } => {
+                self.onboarding_answered(server, result);
+            }
             Event::Worn { kind, result } => return self.worn(kind, result),
             Event::StreamPreview { user, url } => match url {
                 Some(url) => {

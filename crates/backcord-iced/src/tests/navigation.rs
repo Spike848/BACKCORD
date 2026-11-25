@@ -47,11 +47,16 @@ fn an_unread_dm_shows_on_the_rail_above_the_servers_and_opens() {
     let servers = app.client.state().servers.len();
     assert_eq!(
         app.rail.items.len(),
-        servers + 2,
-        "the line, the servers and the tile that adds one"
+        servers + 3,
+        "the line, the servers, the tile that adds one and Explore servers"
     );
     assert_eq!(
-        app.rail.items[0].kind,
+        (&app.rail.items[0].kind, &app.rail.items[1].kind),
+        (&Kind::Add, &Kind::Explore),
+        "Add a server and Explore servers come first"
+    );
+    assert_eq!(
+        app.rail.items[2].kind,
         Kind::Divider,
         "the line leads the servers"
     );
@@ -64,7 +69,8 @@ fn an_unread_dm_shows_on_the_rail_above_the_servers_and_opens() {
         ),
         ("Riley", "2")
     );
-    assert_eq!(app.rail.items[1].kind, Kind::Divider);
+    assert_eq!(app.rail.items[1].kind, Kind::Add, "under the unread DMs");
+    assert_eq!(app.rail.items[3].kind, Kind::Divider);
     assert_eq!(app.rail.home.badge, "", "BACKCORD's logo carries no count");
     let _ = app.update(Message::Rail(Event::Dm("riley".into())));
     let state = app.client.state();
@@ -133,31 +139,36 @@ fn a_folder_on_the_rail_holds_its_servers_until_opened_and_stays_so() {
             .collect()
     };
     let closed = kinds(&app);
-    assert_eq!(closed.len(), 3, "the line, the folder and the add tile");
     assert_eq!(
-        app.rail.items[1].name, "Friends, Co-op crew",
+        closed.len(),
+        4,
+        "the line, the folder, the add tile and Explore servers"
+    );
+    assert_eq!(
+        app.rail.items[3].name, "Friends, Co-op crew",
         "named by its servers"
     );
     assert!(
-        app.rail.items[1].selected,
+        app.rail.items[3].selected,
         "closed, it shows a server of its is open"
     );
     let _ = app.update(Message::Rail(Event::Folder("discord-folder:7".into())));
     assert_eq!(
         kinds(&app),
         [
+            ("+".into(), false),
+            ("explore".into(), false),
             ("divider".into(), false),
             ("discord-folder:7".into(), false),
             ("friends".into(), true),
             ("coop".into(), true),
-            ("+".into(), false),
         ]
     );
     // Opened, it stays open the next time.
     let again = start(&folder, true);
     assert!(again.layout.open_folders.contains("discord-folder:7"));
     let _ = app.update(Message::Rail(Event::Folder("discord-folder:7".into())));
-    assert_eq!(kinds(&app).len(), 3);
+    assert_eq!(kinds(&app).len(), 4);
 }
 
 #[test]
@@ -745,7 +756,7 @@ fn a_closed_folder_shows_a_speaker_only_for_this_accounts_call() {
         }
     });
     let folder = |app: &App| {
-        let item = &app.rail.items[1];
+        let item = &app.rail.items[3];
         assert_eq!(item.id, "discord-folder:7");
         (item.media, item.call)
     };

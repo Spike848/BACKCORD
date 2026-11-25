@@ -191,9 +191,9 @@ fn an_invite_link_opens_the_server_or_the_dialog() {
     assert!(!join.joining);
     assert!(join.error.unwrap().ends_with("full."));
 
-    // A server with a form to fill in sends it to Discord's web app.
+    // A server with a form to fill in asks for it, and shows it.
     app.dispatch(Action::JoinServer);
-    app.apply(Event::ServerJoined {
+    let effects = app.apply(Event::ServerJoined {
         code: "new".into(),
         result: Ok(chat::JoinedServer {
             server: "discord:30".into(),
@@ -201,13 +201,91 @@ fn an_invite_link_opens_the_server_or_the_dialog() {
             form: true,
         }),
     });
-    assert!(app.dispatch(Action::JoinServer).is_empty());
-    let effects = app.dispatch(Action::OpenJoinForm);
-    assert!(matches!(
-        effects.as_slice(),
-        [Effect::OpenPage(page)] if page == "https://discord.com/channels/30/31"
-    ));
     assert!(app.state.join.is_none());
+    assert!(effects.iter().any(|effect| matches!(
+        effect,
+        Effect::Backend(Command::Discord(DiscordCommand::Membership { server, form: true }))
+            if server == "discord:30"
+    )));
+    assert!(app.state.membership.as_ref().unwrap().shown());
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn a_servers_rules_then_questions() {
+    use chat::{MemberAnswer, MemberField, MemberFieldKind, MemberOption, MemberQuestion};
+    let mut app = discord_server();
+    app.dispatch(Action::OpenMembership("discord:30".into()));
+    let option = |id: &str| MemberOption {
+        id: id.into(),
+        title: id.into(),
+        description: None,
+        emoji: None,
+        emoji_picture: None,
+    };
+    app.apply(Event::Membership {
+        server: "discord:30".into(),
+        result: Ok(chat::Membership {
+            description: None,
+            form: vec![MemberField {
+                kind: MemberFieldKind::Rules,
+                label: "Rules".into(),
+                description: None,
+                placeholder: None,
+                rules: vec!["Be kind".into()],
+                choices: vec![],
+                required: true,
+            }],
+            questions: vec![MemberQuestion {
+                id: "1".into(),
+                title: "Games?".into(),
+                single: true,
+                required: true,
+                options: vec![option("a"), option("b")],
+            }],
+            chosen: vec![],
+        }),
+    });
+    let dialog = app.state.membership.clone().unwrap();
+    assert_eq!(dialog.step, MembershipStep::Form);
+    // Not before the rules are agreed to.
+    assert!(app.dispatch(Action::SendMemberForm).is_empty());
+    app.dispatch(Action::AnswerMemberField {
+        index: 0,
+        answer: MemberAnswer::Agreed,
+    });
+    assert!(matches!(
+        app.dispatch(Action::SendMemberForm).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::SendMemberForm { answers, .. }))]
+            if answers == &[MemberAnswer::Agreed]
+    ));
+    app.apply(Event::MemberFormSent {
+        server: "discord:30".into(),
+        result: Ok(true),
+    });
+    assert_eq!(
+        app.state.membership.as_ref().unwrap().step,
+        MembershipStep::Question(0)
+    );
+    assert!(app.dispatch(Action::FinishOnboarding).is_empty());
+    for option in ["a", "b"] {
+        app.dispatch(Action::ToggleMemberChoice {
+            question: 0,
+            option: option.into(),
+        });
+    }
+    // One question of a single choice keeps the last.
+    assert_eq!(app.state.membership.as_ref().unwrap().chosen, ["b"]);
+    assert!(matches!(
+        app.dispatch(Action::FinishOnboarding).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::AnswerOnboarding { chosen, .. }))]
+            if chosen == &["b"]
+    ));
+    app.apply(Event::OnboardingAnswered {
+        server: "discord:30".into(),
+        result: Ok(()),
+    });
+    assert!(app.state.membership.is_none());
 }
 
 #[test]
@@ -700,4 +778,123 @@ fn an_authorization_never_opens_an_address_that_isnt_a_web_page() {
         assert!(shown.done, "{next}");
         assert_eq!(shown.next.as_deref(), Some(next), "shown to copy");
     }
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn explore_servers_finds_sorts_and_joins_by_the_public_invite() {
+    use super::super::{ExploreJoin, ExploreSort};
+    let mut app = discord_server();
+    let effects = app.dispatch(Action::OpenExplore);
+    assert_eq!(effects.len(), 2, "its first two pages");
+    let server = |guild: &str, name: &str, online: u64, tag: &str| chat::ExploreServer {
+        guild: guild.into(),
+        name: name.into(),
+        icon: None,
+        description: "Una community".into(),
+        tags: vec![tag.into()],
+        online: Some(online),
+    };
+    app.apply(Event::ExplorePage {
+        source: 0,
+        result: Ok(vec![
+            server("30", "Zeta", 5, "chill"),
+            server("10", "Alfa", 50, "gaming"),
+        ]),
+        saved: false,
+    });
+    app.apply(Event::ExplorePage {
+        source: 1,
+        result: Ok(vec![
+            server("30", "Zeta", 5, "chill"),
+            server("40", "Beta", 20, "anime"),
+        ]),
+        saved: true,
+    });
+    let explore = app.state.explore.clone().unwrap();
+    assert!(!explore.loading);
+    assert!(explore.saved, "a page kept from before says so");
+    assert_eq!(explore.servers.len(), 3, "each server once");
+    let names = |app: &Application| -> Vec<String> {
+        let explore = app.state.explore.as_ref().unwrap();
+        explore
+            .shown()
+            .iter()
+            .map(|server| server.name.clone())
+            .collect()
+    };
+    assert_eq!(
+        names(&app),
+        ["Alfa", "Beta", "Zeta"],
+        "the most online first"
+    );
+    app.dispatch(Action::ExploreSort(ExploreSort::Online));
+    assert_eq!(names(&app), ["Zeta", "Beta", "Alfa"]);
+    app.dispatch(Action::ExploreSort(ExploreSort::Name));
+    assert_eq!(names(&app), ["Alfa", "Beta", "Zeta"]);
+    app.dispatch(Action::ExploreSearch("ANIME".into()));
+    assert_eq!(names(&app), ["Beta"], "by tag");
+    app.dispatch(Action::ExploreSearch(String::new()));
+    app.dispatch(Action::ExploreExpand("40".into()));
+    assert!(app.state.explore.as_ref().unwrap().expanded.contains("40"));
+
+    // A server this account is in opens.
+    assert!(app.explored_member("10").is_some());
+    app.dispatch(Action::ExploreJoin("10".into()));
+    assert!(app.state.explore.is_none());
+
+    app.dispatch(Action::OpenExplore);
+    app.apply(Event::ExplorePage {
+        source: 0,
+        result: Ok(vec![server("40", "Beta", 20, "anime")]),
+        saved: false,
+    });
+    // Without a public invite, DISBOARD's check in the browser.
+    app.dispatch(Action::ExploreJoin("40".into()));
+    app.apply(Event::ExploreInvite {
+        guild: "40".into(),
+        result: Ok(None),
+    });
+    assert_eq!(
+        app.state.explore.as_ref().unwrap().joining["40"],
+        ExploreJoin::NoInvite
+    );
+    assert!(matches!(
+        app.dispatch(Action::ExploreInBrowser("40".into())).as_slice(),
+        [Effect::OpenPage(page)] if page == "https://disboard.org/it/server/join/40"
+    ));
+
+    // With one, it's looked up and joined unseen, then opened.
+    app.state.explore.as_mut().unwrap().joining.clear();
+    assert!(matches!(
+        app.dispatch(Action::ExploreJoin("40".into())).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::ExploreInvite { guild }))] if guild == "40"
+    ));
+    let effects = app.apply(Event::ExploreInvite {
+        guild: "40".into(),
+        result: Ok(Some("beta".into())),
+    });
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::ResolveInvite { code, .. }))] if code == "beta"
+    ));
+    let effects = app.apply(Event::InviteResolved {
+        code: "beta".into(),
+        result: Ok(invite_to("beta", "40", "41")),
+    });
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::Backend(Command::Discord(
+            DiscordCommand::JoinServer { .. }
+        ))]
+    ));
+    app.apply(Event::ServerJoined {
+        code: "beta".into(),
+        result: Err("Couldn't join the server: This server is full.".into()),
+    });
+    assert!(app.state.join.is_none());
+    assert!(matches!(
+        &app.state.explore.as_ref().unwrap().joining["40"],
+        ExploreJoin::Failed(error) if error.ends_with("full.")
+    ));
 }

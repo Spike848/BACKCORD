@@ -21,10 +21,11 @@ pub struct JoinDialog {
     pub joining: bool,
     /// The page with the captcha Discord asked for before joining.
     pub captcha: Option<String>,
-    /// The server, joined, asks new members to fill in its form first,
-    /// which BACKCORD leaves to Discord's web app at this address.
-    pub form: Option<String>,
     pub error: Option<String>,
+    /// Explore servers started it, for the server by this Discord id: the
+    /// dialog doesn't show, joins once the invite is found, and tells the
+    /// list how it went.
+    pub explore: Option<String>,
 }
 
 impl Application {
@@ -93,10 +94,14 @@ impl Application {
             return vec![];
         };
         join.resolving = false;
+        let explore = join.explore.clone();
         let preview = match result {
             Ok(preview) => preview,
             Err(error) => {
-                join.error = Some(error);
+                match explore {
+                    Some(guild) => self.explore_join_failed(&guild, error),
+                    None => join.error = Some(error),
+                }
                 return vec![];
             }
         };
@@ -108,21 +113,22 @@ impl Application {
         // A clicked link to a server this account is in goes there, as in
         // Discord.
         if join.member && join.from_link {
+            if explore.is_some() {
+                self.state.explore = None;
+            }
             return self.open_joined(&preview.server, preview.room);
         }
         join.preview = Some(preview);
+        if explore.is_some() {
+            return self.join_server();
+        }
         vec![]
     }
 
     /// Joins by the invite the dialog shows, or opens its server for a
     /// member.
     pub(super) fn join_server(&mut self) -> Vec<Effect> {
-        let Some(join) = self
-            .state
-            .join
-            .as_mut()
-            .filter(|join| !join.joining && join.form.is_none())
-        else {
+        let Some(join) = self.state.join.as_mut().filter(|join| !join.joining) else {
             return vec![];
         };
         let Some(preview) = join.preview.clone() else {
@@ -154,6 +160,9 @@ impl Application {
             return vec![];
         };
         join.captcha = Some(page.clone());
+        if let Some(guild) = join.explore.clone() {
+            self.explore_captcha(&guild);
+        }
         vec![Effect::OpenPage(page)]
     }
 
@@ -185,34 +194,26 @@ impl Application {
         };
         join.joining = false;
         join.captcha = None;
+        let explore = join.explore.clone();
         let joined = match result {
             Ok(joined) => joined,
             Err(error) => {
-                join.error = Some(error);
+                match explore {
+                    Some(guild) => self.explore_join_failed(&guild, error),
+                    None => join.error = Some(error),
+                }
                 return vec![];
             }
         };
-        if joined.form {
-            // The server lists once Discord sends it, and the dialog stays
-            // to send the form to the web app.
-            join.form = Some(match discord::parse_room(&joined.room) {
-                Some((guild, channel)) => {
-                    format!("https://discord.com/channels/{guild}/{channel}")
-                }
-                None => "https://discord.com/app".into(),
-            });
-            self.pending_open = Some(joined.room);
-            return vec![];
+        // Explore servers closes on the server it joined.
+        if explore.is_some() {
+            self.state.explore = None;
         }
-        self.open_joined(&joined.server, joined.room)
-    }
-
-    /// Opens the server's form in Discord's web app, and closes the dialog.
-    pub(super) fn open_join_form(&mut self) -> Vec<Effect> {
-        match self.state.join.take().and_then(|join| join.form) {
-            Some(page) => vec![Effect::OpenPage(page)],
-            None => vec![],
-        }
+        // Its rules and questions show over it once Discord sends them,
+        // when it asks any.
+        let mut effects = self.open_joined(&joined.server, joined.room);
+        effects.extend(self.ask_membership(joined.server, false, joined.form));
+        effects
     }
 
     /// Closes the dialog and opens the invite's channel, now or once it

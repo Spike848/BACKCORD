@@ -1129,6 +1129,89 @@ pub enum OwnBadges {
     Failed(String),
 }
 
+/// The kind of a field of a Discord server's form for new members.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MemberFieldKind {
+    /// The server's rules, to agree to.
+    Rules,
+    /// A short answer, up to 150 characters.
+    Short,
+    /// A paragraph, up to 1000 characters.
+    Paragraph,
+    /// One of its choices.
+    Choice,
+    /// One BACKCORD doesn't know.
+    Unknown,
+}
+
+/// A field of a Discord server's form for new members.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MemberField {
+    pub kind: MemberFieldKind,
+    pub label: String,
+    pub description: Option<String>,
+    pub placeholder: Option<String>,
+    pub rules: Vec<String>,
+    pub choices: Vec<String>,
+    pub required: bool,
+}
+
+/// What this account answers to a field of a server's form.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum MemberAnswer {
+    #[default]
+    Nothing,
+    Agreed,
+    Text(String),
+    Choice(usize),
+}
+
+/// A choice of a Discord server's onboarding question.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MemberOption {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    /// A Unicode emoji, or a custom one's picture.
+    pub emoji: Option<String>,
+    pub emoji_picture: Option<String>,
+}
+
+/// One of a Discord server's onboarding questions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MemberQuestion {
+    pub id: String,
+    pub title: String,
+    /// Only one choice may be picked.
+    pub single: bool,
+    pub required: bool,
+    pub options: Vec<MemberOption>,
+}
+
+/// What a Discord server asks of this account as a member: its form, while
+/// the account still has to fill it in, and its onboarding questions.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Membership {
+    pub description: Option<String>,
+    pub form: Vec<MemberField>,
+    pub questions: Vec<MemberQuestion>,
+    /// The choices this account picked before.
+    pub chosen: Vec<String>,
+}
+
+/// A Discord server DISBOARD lists, for Explore servers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExploreServer {
+    /// Its Discord id.
+    pub guild: String,
+    pub name: String,
+    pub icon: Option<String>,
+    pub description: String,
+    pub tags: Vec<String>,
+    /// How many of its members are online, as DISBOARD last counted.
+    pub online: Option<u64>,
+}
+
 /// The collectibles this account owns and the shop's, as far as BACKCORD
 /// has asked for them.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -3590,6 +3673,35 @@ pub enum DiscordCommand {
         order: Vec<u32>,
         hidden: Vec<u32>,
     },
+    /// What a server asks of this account as a member; `form` says it has
+    /// a form to fill in, as joining learned. [`Event::Membership`]
+    /// follows.
+    Membership {
+        server: String,
+        form: bool,
+    },
+    /// One of DISBOARD's pages of Italian servers, by its index;
+    /// [`Event::ExplorePage`] follows.
+    ExplorePage {
+        source: usize,
+    },
+    /// The public invite of a server Explore servers lists, by its Discord
+    /// id; [`Event::ExploreInvite`] follows.
+    ExploreInvite {
+        guild: String,
+    },
+    /// Send this account's answers to a server's form;
+    /// [`Event::MemberFormSent`] follows.
+    SendMemberForm {
+        server: String,
+        answers: Vec<MemberAnswer>,
+    },
+    /// Send this account's choices to a server's onboarding questions;
+    /// [`Event::OnboardingAnswered`] follows.
+    AnswerOnboarding {
+        server: String,
+        chosen: Vec<String>,
+    },
     /// A profile effect by its SKU, to preview it; [`Event::ProfileEffect`]
     /// follows.
     ProfileEffect {
@@ -4564,6 +4676,36 @@ pub enum Event {
     OwnBadges(OwnBadges),
     /// How [`DiscordCommand::ArrangeBadges`] went.
     BadgesArranged(Result<(), String>),
+    /// What [`DiscordCommand::ExplorePage`] found.
+    /// `saved`: DISBOARD didn't answer, and these are the servers kept
+    /// from before.
+    ExplorePage {
+        source: usize,
+        result: Result<Vec<ExploreServer>, String>,
+        saved: bool,
+    },
+    /// What [`DiscordCommand::ExploreInvite`] found: an invite's code, or
+    /// none when the server offers no public one.
+    ExploreInvite {
+        guild: String,
+        result: Result<Option<String>, String>,
+    },
+    /// What [`DiscordCommand::Membership`] found.
+    Membership {
+        server: String,
+        result: Result<Membership, String>,
+    },
+    /// How [`DiscordCommand::SendMemberForm`] went: whether the account is
+    /// in now, rather than waiting for the server's moderators.
+    MemberFormSent {
+        server: String,
+        result: Result<bool, String>,
+    },
+    /// How [`DiscordCommand::AnswerOnboarding`] went.
+    OnboardingAnswered {
+        server: String,
+        result: Result<(), String>,
+    },
     /// How [`DiscordCommand::Wear`] went.
     Worn {
         kind: CollectibleKind,

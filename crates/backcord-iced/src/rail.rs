@@ -115,6 +115,7 @@ pub const GAP: f32 = 8.0;
 const RADIUS: f32 = 12.0;
 /// The add-a-server tile's id, and the disc and plus drawn on it.
 const ADD: &str = "+";
+const EXPLORE: &str = "explore";
 const ADD_DISC: f32 = 18.0;
 const ADD_PLUS: u32 = 14;
 const FOLDER_RADIUS: f32 = 16.0;
@@ -147,6 +148,7 @@ pub enum Event {
     /// An unread DM on the rail opens.
     Dm(String),
     Join,
+    Explore,
     /// A right click on a server, a folder or an unread DM: its menu, where
     /// the pointer was pressed.
     Menu(String, iced::Point),
@@ -185,7 +187,7 @@ fn drop_target(items: &[RailItem], moved: &str, y: f32) -> Drop {
         let height = item.height(index);
         let movable = matches!(
             item.kind,
-            Kind::Server | Kind::Folder { .. } | Kind::Nested { .. } | Kind::Add
+            Kind::Server | Kind::Folder { .. } | Kind::Nested { .. }
         );
         let joins = !folder
             && item.id != moved
@@ -204,7 +206,7 @@ fn drop_target(items: &[RailItem], moved: &str, y: f32) -> Drop {
         }
         if movable && y < top + height / 2.0 {
             return Drop {
-                before: (item.kind != Kind::Add).then(|| item.id.clone()),
+                before: Some(item.id.clone()),
                 into: None,
                 line: top - GAP / 2.0,
                 tile: (0.0, 0.0),
@@ -249,8 +251,10 @@ pub enum Kind {
         tint: u32,
         last: bool,
     },
-    /// Discord's "Add a server" tile, after the last server.
+    /// Discord's "Add a server" tile, under the DMs, above the servers.
     Add,
+    /// Explore servers, under Add a server.
+    Explore,
 }
 
 /// One row of the rail.
@@ -334,7 +338,7 @@ impl RailItem {
             Kind::Folder { open: true, .. } => FOLDER + 4.0,
             Kind::Folder { open: false, .. } => FOLDER + GAP,
             Kind::Nested { last, .. } => TILE + if *last { 4.0 } else { 0.0 } + GAP,
-            Kind::Server | Kind::Dm | Kind::Add => TILE + GAP,
+            Kind::Server | Kind::Dm | Kind::Add | Kind::Explore => TILE + GAP,
         }
     }
 }
@@ -463,6 +467,35 @@ pub fn rail(state: &AppState, open_folders: &BTreeSet<String>) -> Vec<RailItem> 
             unavailable: false,
         })
         .collect();
+    // Add a server and Explore servers, under the DMs and above the servers.
+    if state.discord_online || state.preview {
+        items.push(RailItem {
+            id: ADD.into(),
+            name: backcord_iced_kit::i18n::tr("Add a server").into(),
+            icon: None,
+            kind: Kind::Add,
+            selected: false,
+            unread: false,
+            badge: String::new(),
+            call: false,
+            media: None,
+            busy: Busy::default(),
+            unavailable: false,
+        });
+        items.push(RailItem {
+            id: EXPLORE.into(),
+            name: backcord_iced_kit::i18n::tr("Explore servers").into(),
+            icon: None,
+            kind: Kind::Explore,
+            selected: state.explore.is_some(),
+            unread: false,
+            badge: String::new(),
+            call: false,
+            media: None,
+            busy: Busy::default(),
+            unavailable: false,
+        });
+    }
     items.push(RailItem {
         id: "divider".into(),
         name: String::new(),
@@ -619,21 +652,6 @@ pub fn rail(state: &AppState, open_folders: &BTreeSet<String>) -> Vec<RailItem> 
             }
         }
     }
-    if state.discord_online || state.preview {
-        items.push(RailItem {
-            id: ADD.into(),
-            name: backcord_iced_kit::i18n::tr("Add a server").into(),
-            icon: None,
-            kind: Kind::Add,
-            selected: false,
-            unread: false,
-            badge: String::new(),
-            call: false,
-            media: None,
-            busy: Busy::default(),
-            unavailable: false,
-        });
-    }
     items
 }
 
@@ -739,6 +757,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         }
         Event::Dm(id) => app.client.dispatch(Action::Open(id)),
         Event::Join => app.client.dispatch(Action::OpenJoinServer),
+        Event::Explore => app.client.dispatch(Action::OpenExplore),
         Event::Menu(id, at) => {
             return crate::place_menus::open_place_menu(app, &id, at, false);
         }
@@ -986,6 +1005,21 @@ impl<'a> View<'a> {
         .into()
     }
 
+    /// Explore servers' tile: as Add a server's, with a compass's globe.
+    fn explore_face(self, lit: bool) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let ground = if lit {
+            theme.raised
+        } else {
+            crate::theme::mix(theme.raised, theme.rail, 0.83)
+        };
+        let ink = if lit { theme.accent } else { theme.text };
+        container(self.cx.look.glyph(Icon::Globe, 22, ink))
+            .center(TILE)
+            .style(move |_| rounded(ground, RADIUS))
+            .into()
+    }
+
     /// A server's or a DM's face: its picture, else its initials on the
     /// raised ground (the accent while lit); faded while out of reach.
     fn server_face(self, item: &RailItem, lit: bool) -> Element<'a, Message> {
@@ -1108,6 +1142,11 @@ impl<'a> View<'a> {
                 Message::Rail(Event::Dm(item.id.clone())),
             ),
             Kind::Add => (self.add_face(pointed), TILE, Message::Rail(Event::Join)),
+            Kind::Explore => (
+                self.explore_face(pointed || item.selected),
+                TILE,
+                Message::Rail(Event::Explore),
+            ),
             _ => (
                 self.server_face(item, lit),
                 TILE,
@@ -1125,7 +1164,7 @@ impl<'a> View<'a> {
                 .map(|media| (media, item.call)),
             pointed,
             open_folder,
-            menu: item.kind != Kind::Add,
+            menu: !matches!(item.kind, Kind::Add | Kind::Explore),
         };
         // A server out of reach in a Discord outage says so, besides
         // fading.

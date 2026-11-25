@@ -17,7 +17,7 @@ pub struct ListedCategory {
 }
 
 /// The server menu's choices its header's dropdown lists, in its order.
-const HEADER: [MenuChoice; 10] = [
+const HEADER: [MenuChoice; 11] = [
     MenuChoice::Invite,
     MenuChoice::ServerSettings,
     MenuChoice::CreateChannel,
@@ -26,6 +26,7 @@ const HEADER: [MenuChoice; 10] = [
     MenuChoice::EditServerProfile,
     MenuChoice::ShowAllChannels,
     MenuChoice::HideMuted,
+    MenuChoice::ChannelsRoles,
     MenuChoice::LeaveServer,
     MenuChoice::CopyId,
 ];
@@ -228,6 +229,15 @@ impl Application {
                 choices.push(MenuChoice::ShowAllChannels);
             }
             choices.push(MenuChoice::HideMuted);
+        }
+        if self.state.discord_online
+            && self
+                .state
+                .servers
+                .iter()
+                .any(|server| server.id == id && server.community)
+        {
+            choices.push(MenuChoice::ChannelsRoles);
         }
         if self.state.discord_online && !self.settings_sections(id).is_empty() {
             choices.push(MenuChoice::ServerSettings);

@@ -225,13 +225,75 @@ opens it. Discord's refusals come back in the dialog's words: an invalid or
 expired invite (10006, 50020), a ban (40007), too many servers (30001), a
 full server (30019) and paused invites (40069).
 
-When the answer has `show_verification_form`, the server asks new members
-to fill in its form, such as accepting its rules, before they may talk.
-BACKCORD doesn't show forms or onboarding questions yet, so the dialog says
-so and opens the channel in Discord's web app, where the form waits. A voice
+Once joined, BACKCORD asks what the server asks of its new members and, when
+it asks anything, shows it over the channel; see "Joining a server's rules
+and questions" below. A voice
 channel's invite joins the server and opens the channel without joining the
 call. Discord's client also sends `invite_instance_id` from a message's
 invite card, which BACKCORD doesn't show yet, so it leaves that out.
+
+## Joining a server's rules and questions
+
+A server can ask new members to fill in a form before they may talk, such
+as agreeing to its rules (member verification), and can ask onboarding
+questions whose answers give roles and channels
+(`backcord-discord/src/membership.rs`, `application/membership.rs`,
+`server_dialogs/membership.rs`).
+
+- `GET /users/@me/guilds/{guild}/member` says whether this account is
+  still `pending`; joining's `show_verification_form` says so too.
+- `GET /guilds/{guild}/member-verification?with_guild=false` has the form:
+  its `form_fields` (`TERMS` with the rules in `values`, `TEXT_INPUT`,
+  `PARAGRAPH`, `MULTIPLE_CHOICE` with `choices`) and `version`.
+- `PUT /guilds/{guild}/requests/@me` sends it: the fields as Discord sent
+  them, each with its `response` (`true` for the rules, the text, or the
+  choice's index), and the `version`. A form of rules alone is approved at
+  once; otherwise `application_status` is `SUBMITTED` and the dialog says
+  the moderators will decide.
+- `GET /guilds/{guild}/onboarding` has the questions (`prompts`, each with
+  `options`, `single_select`, `required`, `in_onboarding`), whether it's
+  `enabled`, and this account's earlier `responses`.
+- `POST /guilds/{guild}/onboarding-responses` sends the choices
+  (`onboarding_responses`) with every question and choice as seen now
+  (`onboarding_prompts_seen`, `onboarding_responses_seen`, Unix ms).
+
+The dialog shows the form first, then the questions one at a time, those
+asked on joining first; a required one waits for a choice, and a
+single-choice one keeps one. Channels & Roles in a Community server's menu
+opens it again to change the answers. BACKCORD doesn't yet follow the
+channels the answers and default channels name in the channel list, nor
+ask for the connections some servers want.
+
+## Exploring Italian servers
+
+The globe under Add a server on the rail opens Explore servers
+(`backcord-discord/src/explore.rs`, `application/explore.rs`,
+`server_dialogs/explore.rs`). It reads DISBOARD's pages as a browser does,
+with a client of its own that never carries Discord's login: the Italian
+servers with the most members (`/it/servers?fl=it&sort=-member_count`),
+the latest bumped (`/it/servers?fl=it`), then those tagged italia,
+italiano, ita, italian and italy, two at first and one more for each Show more. Each card
+gives the server's Discord id, name, icon, tags, description and how many
+are online. A page read is kept in `disboard-servers.json` in the data
+folder and used for 30 minutes, and while DISBOARD asks to slow down (429,
+or Cloudflare's "error code: 1015") the list shows the pages kept from
+before and says so. DISBOARD's cards don't say how many members a server
+has, only its own page does; reading one page a server made DISBOARD ask
+to slow down, so the list sorts by how many are online (highest first; the
+same button again turns it around) or by name. A long description shows
+its start, with an arrow to show it all. The search finds a server by its
+name, tags or description as it's typed.
+
+DISBOARD hands out a server's invite only after a Cloudflare Turnstile
+check, which BACKCORD leaves to a person in the browser. Join asks Discord
+for the server's widget instead (`GET /guilds/{guild}/widget.json`, without
+login), whose `instant_invite` is a public invite when the server turned
+its widget on. With one, Join a Server's steps run unseen: the invite is
+looked up and joined at once, a captcha goes to the browser as there, and
+the server opens and Explore servers closes; the server's rules and
+questions follow. Without one, the button becomes Verify on DISBOARD,
+which opens DISBOARD's join page, whose invite Add a server takes. A server
+this account is in shows Open.
 
 ## Event links
 
