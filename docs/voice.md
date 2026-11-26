@@ -14,10 +14,11 @@ and undeafening leaves the mute as it was before, as Discord's client does:
 the microphone comes back unless you had muted it yourself. Unmuting when
 deafened undeafens too. A call joined deafened, by the account card's
 toggle out of a call, undeafens to the microphone its other toggle asks for.
-The voice view shows the participants and their mute, deafen and speaking state; a
-deafened person shows crossed-out
-microphone and headphones in the channel list, and only the red crossed-out
-headphones on their tile in the call. MatrixRTC doesn't share deafening, so in
+The voice view shows the participants and their mute, deafen and speaking state:
+the channel list and their tile in the call both show the crossed-out
+microphone when Discord's voice state says muted, and the crossed-out
+headphones when it says deafened, so only muted, only deafened and both tell
+apart. Deafening in BACKCORD or Discord's client also mutes, so it shows both. MatrixRTC doesn't share deafening, so in
 BACKCORD calls only your own shows. Clicking a voice channel joins it and leaves
 what's on screen as it was, as Discord's client does: the call shows in the
 dock, and clicking the channel again, or the channel's line in the dock, opens

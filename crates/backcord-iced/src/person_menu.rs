@@ -188,6 +188,7 @@ fn voice_ticks(
         MenuChoice::FollowVoice => Some(followed),
         MenuChoice::LocalMute => Some(backcord_core::volume::muted(&user)),
         MenuChoice::SoundboardMute => Some(backcord_core::volume::soundboard_muted(&user)),
+        MenuChoice::BypassEffects => Some(backcord_core::volume::effects_bypassed(&user)),
         MenuChoice::SelfMute => Some(muted),
         MenuChoice::SelfDeafen => Some(deafened),
         MenuChoice::ServerMute => Some(server_muted),
@@ -742,6 +743,7 @@ fn voice_row(choice: MenuChoice) -> bool {
         choice,
         MenuChoice::LocalMute
             | MenuChoice::SoundboardMute
+            | MenuChoice::BypassEffects
             | MenuChoice::SelfMute
             | MenuChoice::SelfDeafen
             | MenuChoice::ServerMute

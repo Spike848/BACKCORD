@@ -437,10 +437,7 @@ impl Tracker {
             }
             Event::VoiceStateUpdate => {
                 match data["guild_id"].as_str() {
-                    Some(guild) => {
-                        self.learn_member(guild, &data["member"]);
-                        self.voice_state(guild, data);
-                    }
+                    Some(guild) => self.voice_state(guild, data),
                     // In a DM or group DM call.
                     None => self.voice_state(PRIVATE, data),
                 }
@@ -1207,10 +1204,37 @@ impl Tracker {
         self.session.is_some() && entry.session.is_some() && entry.session != self.session
     }
 
+    /// The server of this account's call, on this client, and those in its
+    /// channel whose member BACKCORD doesn't know there, which would tell
+    /// whether they're bots ([`crate::message::known_bot`]).
+    pub(super) fn unknown_in_call(&self) -> Option<(String, Vec<String>)> {
+        let (guild, channel) = self.voice.iter().find_map(|((guild, user), entry)| {
+            (*user == self.me && guild != PRIVATE && !self.elsewhere(entry))
+                .then(|| (guild.clone(), entry.channel.clone()))
+        })?;
+        let names = self.read_names();
+        let unknown: Vec<String> = self
+            .voice
+            .iter()
+            .filter(|((server, user), entry)| {
+                *server == guild
+                    && entry.channel == channel
+                    && *user != self.me
+                    && !names.knows_member(server, user)
+            })
+            .map(|((_, user), _)| user.clone())
+            .collect();
+        (!unknown.is_empty()).then_some((guild, unknown))
+    }
+
     fn voice_state(&mut self, guild: &str, state: &Value) {
         let Some(user) = state["user_id"].as_str() else {
             return;
         };
+        // Guilds' voice states carry the member, which tells a bot.
+        if guild != PRIVATE && state["member"].is_object() {
+            self.learn_member(guild, &state["member"]);
+        }
         let key = (guild.to_owned(), user.to_owned());
         match state["channel_id"].as_str() {
             Some(channel) => {
@@ -2590,6 +2614,41 @@ mod tests {
         );
         assert_eq!(elsewhere(&mut tracker)[0], ("1".into(), false));
         assert!(tracker.in_voice_here("10"));
+    }
+
+    #[test]
+    fn names_those_in_this_accounts_call_not_known_and_learns_bots_from_voice_states() {
+        let ready = json!({"user": {"id": "1", "username": "me"}});
+        let mut tracker = Tracker::from_ready("1".into(), &ready, Default::default());
+        for (user, channel) in [("2", "11"), ("3", "12")] {
+            tracker.apply(
+                &Event::VoiceStateUpdate,
+                &json!({"guild_id": "10", "user_id": user, "channel_id": channel}),
+            );
+        }
+        assert_eq!(tracker.unknown_in_call(), None, "not in a call");
+        tracker.apply(
+            &Event::VoiceStateUpdate,
+            &json!({"guild_id": "10", "user_id": "1", "channel_id": "11"}),
+        );
+        assert_eq!(
+            tracker.unknown_in_call(),
+            Some(("10".into(), vec!["2".into()])),
+            "only those in its channel"
+        );
+        // A bot's voice state carries its member, which says so.
+        tracker.apply(
+            &Event::VoiceStateUpdate,
+            &json!({"guild_id": "10", "user_id": "4040404040", "channel_id": "11",
+                "member": {"user": {"id": "4040404040", "username": "radio", "bot": true},
+                    "roles": []}}),
+        );
+        assert!(crate::message::known_bot(4_040_404_040));
+        assert!(!crate::message::known_bot(2));
+        assert_eq!(
+            tracker.unknown_in_call(),
+            Some(("10".into(), vec!["2".into()]))
+        );
     }
 
     #[test]

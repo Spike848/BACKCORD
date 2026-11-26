@@ -11,7 +11,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{
         LazyLock, RwLock,
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
 };
 
@@ -235,6 +235,70 @@ pub fn set_voice_limit(db: f32) {
 pub fn voice_limit() -> Option<f32> {
     let db = f32::from_bits(VOICE_LIMIT.load(Ordering::Relaxed));
     (db < 0.0).then(|| 10f32.powf(db / 20.0))
+}
+
+/// Whether people's voices in calls go through the voice compressor; off
+/// unless turned on. See [`crate::voice_compressor`].
+static VOICE_COMPRESSOR: AtomicBool = AtomicBool::new(false);
+/// Whether people's voices go through the high-pass; off unless turned on.
+/// See [`crate::voice_filters`].
+static VOICE_HIGH_PASS: AtomicBool = AtomicBool::new(false);
+/// The level under which the gate silences people's voices, in dBFS, as
+/// f32 bits; 0 is off.
+static VOICE_GATE: AtomicU32 = AtomicU32::new(0f32.to_bits());
+/// The gate's lowest and highest levels, in dBFS.
+pub const VOICE_GATE_LOWEST: f32 = -70.0;
+pub const VOICE_GATE_HIGHEST: f32 = -20.0;
+/// Those whose voices skip the high-pass, the gate and the compressor,
+/// not the limiter.
+static EFFECTS_BYPASSED: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(RwLock::default);
+
+pub fn set_voice_high_pass(on: bool) {
+    VOICE_HIGH_PASS.store(on, Ordering::Relaxed);
+}
+
+pub fn voice_high_pass() -> bool {
+    VOICE_HIGH_PASS.load(Ordering::Relaxed)
+}
+
+/// Gates people's voices under `db` dBFS, from [`VOICE_GATE_LOWEST`] to
+/// [`VOICE_GATE_HIGHEST`]; 0 or above turns the gate off.
+pub fn set_voice_gate(db: f32) {
+    let db = if db >= 0.0 {
+        0.0
+    } else {
+        db.clamp(VOICE_GATE_LOWEST, VOICE_GATE_HIGHEST)
+    };
+    VOICE_GATE.store(db.to_bits(), Ordering::Relaxed);
+}
+
+/// The gate's level in dBFS, or none while it's off.
+pub fn voice_gate() -> Option<f32> {
+    let db = f32::from_bits(VOICE_GATE.load(Ordering::Relaxed));
+    (db < 0.0).then_some(db)
+}
+
+/// Lets `person`'s voice skip the high-pass, the gate and the compressor,
+/// or go through them again; the limiter holds it either way.
+pub fn bypass_effects(person: &str, bypassed: bool) {
+    let mut set = EFFECTS_BYPASSED.write().unwrap();
+    if bypassed {
+        set.insert(person.to_owned());
+    } else {
+        set.remove(person);
+    }
+}
+
+pub fn effects_bypassed(person: &str) -> bool {
+    EFFECTS_BYPASSED.read().unwrap().contains(person)
+}
+
+pub fn set_voice_compressor(on: bool) {
+    VOICE_COMPRESSOR.store(on, Ordering::Relaxed);
+}
+
+pub fn voice_compressor() -> bool {
+    VOICE_COMPRESSOR.load(Ordering::Relaxed)
 }
 
 /// Changes whenever a volume or a mute does.

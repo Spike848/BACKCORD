@@ -93,6 +93,11 @@ pub enum Event {
     /// The voice limiter's slider: 0 for -40 dB up to 40 for off, and
     /// whether it's let go of.
     VoiceLimit(u32, bool),
+    VoiceCompressor(bool),
+    VoiceHighPass(bool),
+    /// The gate's slider: 0 for off, then -70 dB up to -20, and whether
+    /// it's let go of.
+    VoiceGate(u32, bool),
     TalkDelay(u32, bool),
     SoundboardVolume(u32, bool),
     EntranceServer(usize),
@@ -246,12 +251,8 @@ impl Settings {
                 return;
             }
             Event::Volume(input, value, done) => {
-                let most = if input {
-                    backcord_core::volume::MOST
-                } else {
-                    200
-                };
-                let value = value.min(most) as u16;
+                // Both go to 400%, the speakers' as the microphone's.
+                let value = value.min(backcord_core::volume::MOST) as u16;
                 let (kept, key) = if input {
                     (&mut voice.microphone_volume, "microphone_volume")
                 } else {
@@ -272,6 +273,24 @@ impl Settings {
                     crate::layout::store(&root, "voice_limit", voice.voice_limit);
                 }
                 return;
+            }
+            Event::VoiceHighPass(on) => {
+                voice.voice_high_pass = on;
+                backcord_core::volume::set_voice_high_pass(on);
+                crate::layout::store(&root, "voice_high_pass", on);
+            }
+            Event::VoiceGate(value, done) => {
+                voice.voice_gate = gate_db(value);
+                backcord_core::volume::set_voice_gate(f32::from(voice.voice_gate.unwrap_or(0)));
+                if done {
+                    crate::layout::store(&root, "voice_gate", voice.voice_gate);
+                }
+                return;
+            }
+            Event::VoiceCompressor(on) => {
+                voice.voice_compressor = on;
+                backcord_core::volume::set_voice_compressor(on);
+                crate::layout::store(&root, "voice_compressor", on);
             }
             Event::UnmuteOnJoin(on) => {
                 cx.layout.unmute_on_join = Some(on);
@@ -412,6 +431,13 @@ impl<'a> Page<'a> {
         } else {
             backcord_iced_kit::i18n::tr("Off").to_owned()
         };
+        let compressor = voice.voice_compressor;
+        let high_pass = voice.voice_high_pass;
+        let gate_value = gate_value(voice.voice_gate);
+        let gate_shown = match voice.voice_gate {
+            Some(db) => format!("{db} dB"),
+            None => backcord_iced_kit::i18n::tr("Off").to_owned(),
+        };
         let mut parts = vec![
             form::title(theme, backcord_iced_kit::i18n::tr("Voice & video")),
             form::halves(
@@ -434,10 +460,11 @@ impl<'a> Page<'a> {
                     slider(
                         backcord_iced_kit::i18n::tr("Speaker volume"),
                         speaker_volume,
-                        200,
+                        backcord_core::volume::MOST,
                         |value| voice_message(Event::Volume(false, value, false)),
                     )
                     .on_release(voice_message(Event::Volume(false, speaker_volume, true)))
+                    .typed(|value| voice_message(Event::Volume(false, value, true)))
                     .view(theme),
                     slider(
                         backcord_iced_kit::i18n::tr("Voice limiter"),
@@ -454,6 +481,47 @@ impl<'a> Page<'a> {
                         theme,
                         backcord_iced_kit::i18n::tr(
                             "Holds each person's voice under this level, so nobody plays louder however loud they send. Streams, the soundboard and other sounds aren't limited.",
+                        ),
+                    ),
+                    switch(
+                        backcord_iced_kit::i18n::tr("High-pass filter (100 Hz)"),
+                        high_pass,
+                        Some(voice_message(Event::VoiceHighPass(!high_pass))),
+                    )
+                    .description(backcord_iced_kit::i18n::tr(
+                        "Takes rumble, hum and breath under 100 Hz out of the others' voices.",
+                    ))
+                    .view(self.cx.look),
+                    slider(
+                        backcord_iced_kit::i18n::tr("Voice gate"),
+                        gate_value,
+                        GATE_STEPS,
+                        |value| voice_message(Event::VoiceGate(value, false)),
+                    )
+                    .step(1)
+                    .mark(false)
+                    .shown(gate_shown)
+                    .on_release(voice_message(Event::VoiceGate(gate_value, true)))
+                    .view(theme),
+                    form::note(
+                        theme,
+                        backcord_iced_kit::i18n::tr(
+                            "Silences each person's voice while it stays under this level, so the noise in their pauses doesn't play.",
+                        ),
+                    ),
+                    switch(
+                        backcord_iced_kit::i18n::tr("Voice compressor"),
+                        compressor,
+                        Some(voice_message(Event::VoiceCompressor(!compressor))),
+                    )
+                    .description(backcord_iced_kit::i18n::tr(
+                        "Evens out each person's voice: above -30 dB it turns loud parts down 4:1, quickly, so loud and quiet people sound closer.",
+                    ))
+                    .view(self.cx.look),
+                    form::note(
+                        theme,
+                        backcord_iced_kit::i18n::tr(
+                            "Bots aren't touched by any of these. Right-click someone in a call to bypass all but the limiter for them.",
                         ),
                     ),
                 ]),
@@ -1224,6 +1292,22 @@ pub fn entrance_pictures(app: &App) -> Vec<String> {
         .flat_map(|group| &group.sounds)
         .filter_map(|sound| sound.picture.clone())
         .collect()
+}
+
+/// The gate's slider's steps: off, then one per dB from -70 dB to -20.
+const GATE_STEPS: u32 = 51;
+
+/// The gate's level a slider's value stands for: none for off.
+fn gate_db(value: u32) -> Option<i8> {
+    let lowest = backcord_core::volume::VOICE_GATE_LOWEST as i32;
+    (value > 0).then(|| (lowest + value.min(GATE_STEPS) as i32 - 1) as i8)
+}
+
+fn gate_value(db: Option<i8>) -> u32 {
+    let lowest = backcord_core::volume::VOICE_GATE_LOWEST as i32;
+    db.map_or(0, |db| {
+        (i32::from(db) - lowest + 1).clamp(1, GATE_STEPS as i32) as u32
+    })
 }
 
 /// The voice limiter's slider's steps: one per dB from -40 dB up to off.

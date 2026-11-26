@@ -4039,3 +4039,11 @@ Holds each person's voice under this level, so nobody plays louder however loud 
 Record a voice message	Registra un messaggio vocale
 Send voice message	Invia messaggio vocale
 BACKCORD couldn't record from the microphone.	BACKCORD non è riuscito a registrare dal microfono.
+Voice compressor	Compressore voci
+Evens out each person's voice: above -30 dB it turns loud parts down 4:1, quickly, so loud and quiet people sound closer.	Uniforma la voce di ogni persona: sopra i -30 dB abbassa le parti forti con rapporto 4:1, in modo rapido, così chi parla forte e chi parla piano si sentono più simili.
+High-pass filter (100 Hz)	Filtro passa-alto (100 Hz)
+Takes rumble, hum and breath under 100 Hz out of the others' voices.	Toglie rimbombi, ronzii e soffi sotto i 100 Hz dalle voci degli altri.
+Voice gate	Gate voci
+Silences each person's voice while it stays under this level, so the noise in their pauses doesn't play.	Silenzia la voce di ogni persona finché resta sotto questo livello, così il rumore nelle pause non si sente.
+Bots aren't touched by any of these. Right-click someone in a call to bypass all but the limiter for them.	Nessuno di questi effetti si applica ai bot. Col tasto destro su qualcuno in chiamata puoi escluderlo da tutti tranne il limitatore.
+Bypass Effects	Escludi effetti

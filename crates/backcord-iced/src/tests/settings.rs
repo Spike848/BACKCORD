@@ -980,3 +980,59 @@ fn the_voice_limiter_starts_off_and_keeps_its_level() {
     assert_eq!(stored(), None, "all the way up is off");
     assert_eq!(backcord_core::volume::voice_limit(), None);
 }
+
+/// The voice compressor under the limiter: off as it starts, kept once
+/// set.
+#[test]
+fn the_voice_compressor_starts_off_and_is_kept() {
+    let (mut app, folder) = preview();
+    let _volumes = crate::layout::tests::hold_volumes();
+    open(&mut app, Section::Voice);
+    assert!(shows(&app, "Voice compressor"));
+    assert!(!app.layout.voice.voice_compressor, "off unless set");
+    let voice = |event| Message::Settings(Event::Voice(event));
+    let _ = app.update(voice(VoiceEvent::VoiceCompressor(true)));
+    assert!(backcord_core::volume::voice_compressor());
+    assert!(
+        crate::layout::Layout::read(folder.path())
+            .voice
+            .voice_compressor
+    );
+    let _ = app.update(voice(VoiceEvent::VoiceCompressor(false)));
+    assert!(!backcord_core::volume::voice_compressor());
+    assert!(
+        !crate::layout::Layout::read(folder.path())
+            .voice
+            .voice_compressor
+    );
+}
+
+/// The high-pass and the gate on others' voices: off as they start, the
+/// gate in dB as it's dragged, both kept.
+#[test]
+fn the_high_pass_and_the_voice_gate_start_off_and_are_kept() {
+    let (mut app, folder) = preview();
+    let _volumes = crate::layout::tests::hold_volumes();
+    open(&mut app, Section::Voice);
+    assert!(shows(&app, "High-pass filter (100 Hz)"));
+    assert!(shows(&app, "Voice gate"));
+    assert!(!app.layout.voice.voice_high_pass, "off unless set");
+    assert_eq!(app.layout.voice.voice_gate, None, "off unless set");
+    let voice = |event| Message::Settings(Event::Voice(event));
+    let _ = app.update(voice(VoiceEvent::VoiceHighPass(true)));
+    assert!(backcord_core::volume::voice_high_pass());
+    let _ = app.update(voice(VoiceEvent::VoiceGate(21, false)));
+    assert!(shows(&app, "-50 dB"), "the slider follows the drag");
+    assert_eq!(backcord_core::volume::voice_gate(), Some(-50.0));
+    let _ = app.update(voice(VoiceEvent::VoiceGate(21, true)));
+    let stored = crate::layout::Layout::read(folder.path()).voice;
+    assert!(stored.voice_high_pass);
+    assert_eq!(stored.voice_gate, Some(-50));
+    let _ = app.update(voice(VoiceEvent::VoiceGate(0, true)));
+    let _ = app.update(voice(VoiceEvent::VoiceHighPass(false)));
+    assert_eq!(backcord_core::volume::voice_gate(), None);
+    assert!(!backcord_core::volume::voice_high_pass());
+    let stored = crate::layout::Layout::read(folder.path()).voice;
+    assert!(!stored.voice_high_pass);
+    assert_eq!(stored.voice_gate, None);
+}

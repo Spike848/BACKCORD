@@ -178,7 +178,9 @@ impl<'a> super::View<'a> {
                 });
                 face = face.push(controls::live_pill(theme, watch));
             }
-            if person.muted || person.deafened {
+            // Each mark as Discord's voice state says, so muted, deafened
+            // and both tell apart.
+            if person.muted {
                 let ink = if person.server_muted {
                     theme.danger
                 } else {

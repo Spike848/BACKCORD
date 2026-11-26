@@ -34,28 +34,27 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.4
+## Novità della 1.5.5
 
-- **Messaggi vocali**: nuovo pulsante microfono nella chat, nelle DM e nei
-  server dove puoi inviarli. Registri con timer e livello del microfono, lo
-  ascolti prima di inviarlo, poi lo invii o lo elimini; parte come i vocali
-  delle app di Discord, anche in risposta a un messaggio.
-- **Limitatore voci**: in Voce e video, sotto il volume degli altoparlanti, una
-  barra da -40 a 0 dB che tiene la voce di ogni persona sotto il livello scelto,
-  così chi urla o "mette il loud" non si sente più forte. Solo le voci: stream,
-  soundboard e altri suoni restano come sono. Spento di default.
-- **Auto-smuta**: se un server ti silenzia o ti toglie l'audio e hai il permesso
-  di farlo, lo annulla subito. Nuova funzione aggiuntiva, spenta di default.
-- **Anti-cambio nickname**: se qualcun altro ti cambia il nickname in un server
-  dove puoi cambiarlo tu, lo rimette subito com'era. Spenta di default.
-- **Anti chiamata di gruppo**: le chiamate nei gruppi DM non ti squillano più;
-  quando ne parte una, esci dalla chiamata e dal gruppo senza avvisi. Spenta di
+- **Limitatore voci senza distorsione**: ora abbassa il volume della voce con
+  una rampa morbida, 5 ms in anticipo sui picchi, invece di tagliare l'onda;
+  chi urla non si sente più forte e la voce resta pulita.
+- **Compressore voci**: in Voce e video, uniforma la voce di ogni persona
+  (soglia -30 dB, rapporto 4:1, attacco e rilascio veloci), così chi parla
+  forte e chi parla piano si sentono più simili. Spento di default.
+- **Filtro passa-alto (100 Hz)**: toglie rimbombi, ronzii e soffi dalle voci
+  degli altri. Spento di default.
+- **Gate voci**: silenzia la voce di ogni persona finché resta sotto la soglia
+  scelta (da -70 a -20 dB), così il rumore nelle pause non si sente. Spento di
   default.
-- **Auto-eliminazione**: i tuoi messaggi vengono cancellati dopo il tempo che
-  scegli (da 30 secondi a 7 giorni), anche quelli scaduti mentre BACKCORD era
-  chiuso. Spenta di default.
-- **Correzioni**: i giochi personalizzati indicati con un percorso che passa da
-  un collegamento o una giunzione vengono riconosciuti.
+- **Escludi effetti**: tasto destro su qualcuno in un canale vocale, la sua
+  voce salta passa-alto, gate e compressore; il limitatore resta.
+- **I bot non vengono toccati**: limitatore, compressore, passa-alto e gate non
+  si applicano ai bot (quelli col tag APP), riconosciuti anche appena entrano
+  in chiamata.
+- **Volume degli altoparlanti fino al 400%**, anche scrivendo il valore.
+- **Correzioni**: microfono e cuffie mutati si distinguono sia nella lista del
+  canale vocale sia nella chiamata (solo microfono, solo cuffie o entrambi).
 
 ## Cosa fa
 
@@ -63,7 +62,7 @@ cifrata.
   con la scheda degli inviti sotto i messaggi (Entra in un clic) e l'anteprima
   dei messaggi linkati
 - Chiamate vocali e video, condivisione schermo e visione delle dirette altrui,
-  con un limitatore in dB per le voci troppo forti
+  con limitatore, compressore, passa-alto e gate sulle voci degli altri
 - Messaggi vocali: registri, riascolti e invii dalla chat
 - Stati dei canali vocali, profili, ruoli, decorazioni e targhette
 - **Esporta chat**: tasto destro su un canale, una DM o un gruppo → **Esporta chat…**,

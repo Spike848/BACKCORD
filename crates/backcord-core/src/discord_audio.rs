@@ -42,6 +42,8 @@ pub struct Hearing {
     /// Who played a soundboard sound, until it ends: they show speaking.
     sounding: Mutex<HashMap<u64, Instant>>,
     sounds: Mutex<Vec<Playing>>,
+    /// Each voice's compressor and limiter, while on.
+    effects: Mutex<VoiceEffects>,
     ended: UnboundedSender<String>,
 }
 
@@ -64,6 +66,7 @@ impl Hearing {
             heard: Mutex::default(),
             sounding: Mutex::default(),
             sounds: Mutex::default(),
+            effects: Mutex::default(),
             ended,
         }
     }
@@ -145,15 +148,21 @@ impl Listener for Hearing {
             |user: u64| crate::volume::heard(crate::volume::Kind::Voice, &user.to_string());
         let mut frame = spare_frame();
         let mut sounds = self.sounds.lock().unwrap();
+        let mut effects = self.effects.lock().unwrap();
+        let chosen = Chosen::now();
+        if !chosen.any() {
+            effects.clear();
+        }
         mix(
             voices,
             volume,
-            crate::volume::voice_limit(),
+            chosen.any().then_some((chosen, &mut *effects)),
             &mut sounds,
             crate::volume::speakers(),
             &mut frame,
         );
         drop(sounds);
+        drop(effects);
         // A full queue means the speakers are behind; dropping a frame keeps
         // the delay from growing.
         match output.try_send(frame) {
@@ -174,6 +183,111 @@ impl Listener for Hearing {
     /// the speakers run dry.
     fn on_call_thread(&self) {
         crate::audio_io::raise_thread_priority("call");
+    }
+}
+
+/// What people's voices go through before the mix, as chosen in Voice &
+/// video, in this order: the high-pass, the gate at its level in dBFS, the
+/// compressor and the limiter's ceiling, a gain of full scale. Bots go
+/// through none of them, and those whose effects are bypassed only through
+/// the limiter.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Chosen {
+    high_pass: bool,
+    gate: Option<f32>,
+    compress: bool,
+    limit: Option<f32>,
+}
+
+impl Chosen {
+    fn now() -> Self {
+        Self {
+            high_pass: crate::volume::voice_high_pass(),
+            gate: crate::volume::voice_gate(),
+            compress: crate::volume::voice_compressor(),
+            limit: crate::volume::voice_limit(),
+        }
+    }
+
+    fn any(&self) -> bool {
+        self.filters() || self.limit.is_some()
+    }
+
+    /// Any of those a bypass skips.
+    fn filters(&self) -> bool {
+        self.high_pass || self.gate.is_some() || self.compress
+    }
+}
+
+/// A voice not heard for this many 20 ms frames, a second, is forgotten.
+const FORGET_AFTER: u32 = 50;
+
+/// Each voice's state for [`Chosen`]'s effects, by Discord user.
+#[derive(Default)]
+struct VoiceEffects {
+    voices: HashMap<u64, Effects>,
+    /// A voice's frame as the filters change it.
+    frame: Vec<i16>,
+}
+
+/// One voice's filters, compressor and limiter.
+#[derive(Default)]
+struct Effects {
+    high_pass: crate::voice_filters::HighPass,
+    gate: crate::voice_filters::Gate,
+    compressor: crate::voice_compressor::Compressor,
+    limiter: crate::voice_limiter::Limiter,
+    /// 20 ms frames since the voice was last heard.
+    idle: u32,
+}
+
+impl VoiceEffects {
+    /// Adds `user`'s `samples`, 20 ms of interleaved stereo, at `gain` into
+    /// `sum`, through the effects chosen.
+    fn add(&mut self, user: u64, samples: &[i16], gain: f32, chosen: &Chosen, sum: &mut [f32]) {
+        let effects = self.voices.entry(user).or_default();
+        effects.idle = 0;
+        let filtered = chosen.filters() && !crate::volume::effects_bypassed(&user.to_string());
+        let samples = if filtered {
+            self.frame.clear();
+            self.frame.extend_from_slice(samples);
+            if chosen.high_pass {
+                effects.high_pass.process(&mut self.frame);
+            }
+            if let Some(threshold) = chosen.gate {
+                effects.gate.process(&mut self.frame, threshold);
+            }
+            if chosen.compress {
+                effects.compressor.process(&mut self.frame);
+            }
+            &self.frame
+        } else {
+            samples
+        };
+        match chosen.limit {
+            Some(ceiling) => {
+                let ceiling = crate::voice_limiter::ceiling(ceiling);
+                effects.limiter.add(samples, gain, ceiling, sum);
+            }
+            None => {
+                for (total, sample) in sum.iter_mut().zip(samples) {
+                    *total += f32::from(*sample) * gain;
+                }
+            }
+        }
+    }
+
+    /// Ends a 20 ms frame: voices not heard for a second are forgotten.
+    fn end_frame(&mut self) {
+        self.voices.retain(|_, effects| {
+            effects.idle += 1;
+            effects.idle <= FORGET_AFTER
+        });
+    }
+
+    /// Forgets everyone, as the effects are all turned off.
+    fn clear(&mut self) {
+        self.voices.clear();
     }
 }
 
@@ -201,13 +315,14 @@ fn recycle(frame: Vec<i16>) {
 
 /// Sums everyone's 20 ms of interleaved stereo into `out`, each at the volume
 /// chosen for them, each held under the voice limiter's ceiling, a gain of
-/// full scale, while it's on, and the next 20 ms of each sound
+/// full scale, by their own limiter while it's on, through the compressor
+/// while it's on ([`VoiceEffects`]), and the next 20 ms of each sound
 /// at its own volume times the `speakers'`, clipping at full scale. Sounds
 /// that ended go.
 fn mix(
     voices: &[(u64, &[i16])],
     volume: impl Fn(u64) -> f32,
-    limit: Option<f32>,
+    mut effects: Option<(Chosen, &mut VoiceEffects)>,
     sounds: &mut Vec<Playing>,
     speakers: f32,
     out: &mut [i16],
@@ -218,14 +333,18 @@ fn mix(
         if gain == 0.0 {
             continue;
         }
-        if let Some(ceiling) = limit {
-            let ceiling = crate::voice_limiter::ceiling(ceiling);
-            crate::voice_limiter::Limiter.add(samples, gain, ceiling, &mut sum);
+        if let Some((chosen, effects)) = &mut effects
+            && !backcord_discord::message::known_bot(*user)
+        {
+            effects.add(*user, samples, gain, chosen, &mut sum);
             continue;
         }
         for (total, sample) in sum.iter_mut().zip(samples.iter()) {
             *total += f32::from(*sample) * gain;
         }
+    }
+    if let Some((_, effects)) = effects {
+        effects.end_frame();
     }
     for sound in sounds.iter_mut() {
         let gain = sound.volume * speakers;
@@ -1263,26 +1382,105 @@ mod tests {
         let ceiling = 10f32.powf(-12.0 / 20.0);
         let most = crate::voice_limiter::ceiling(ceiling);
         let mut out = vec![0i16; FRAME_SAMPLES];
-        mix(
-            &[(1, &loud)],
-            |_| 1.0,
-            Some(ceiling),
-            &mut Vec::new(),
-            1.0,
-            &mut out,
-        );
-        assert!(
-            out.iter()
-                .all(|sample| f32::from(*sample).abs() <= most + 1.0)
-        );
+        let mut effects = VoiceEffects::default();
+        let chosen = Chosen {
+            limit: Some(ceiling),
+            ..Chosen::default()
+        };
+        for _ in 0..3 {
+            mix(
+                &[(1, &loud)],
+                |_| 1.0,
+                Some((chosen, &mut effects)),
+                &mut Vec::new(),
+                1.0,
+                &mut out,
+            );
+            assert!(
+                out.iter()
+                    .all(|sample| f32::from(*sample).abs() <= most + 1.0)
+            );
+        }
+        assert!(out.iter().all(|sample| f32::from(*sample) > most - 2.0));
         // A soundboard sound isn't limited.
         let mut sounds = vec![Playing {
             samples: vec![30_000; FRAME_SAMPLES],
             at: 0,
             volume: 1.0,
         }];
-        mix(&[], |_| 1.0, Some(ceiling), &mut sounds, 1.0, &mut out);
+        mix(
+            &[],
+            |_| 1.0,
+            Some((chosen, &mut effects)),
+            &mut sounds,
+            1.0,
+            &mut out,
+        );
         assert!(out.iter().all(|sample| *sample == 30_000));
+    }
+
+    #[test]
+    fn bots_go_through_none_of_the_effects() {
+        let mut names = backcord_discord::message::Names::default();
+        names.learn_user(&serde_json::json!({"id": "4242424242", "bot": true}));
+        let loud = vec![30_000i16; FRAME_SAMPLES];
+        let chosen = Chosen {
+            high_pass: true,
+            gate: Some(-30.0),
+            compress: true,
+            limit: Some(10f32.powf(-20.0 / 20.0)),
+        };
+        let mut effects = VoiceEffects::default();
+        let mut out = vec![0i16; FRAME_SAMPLES];
+        mix(
+            &[(4_242_424_242, &loud)],
+            |_| 1.0,
+            Some((chosen, &mut effects)),
+            &mut Vec::new(),
+            1.0,
+            &mut out,
+        );
+        assert!(out.iter().all(|sample| *sample == 30_000));
+        assert!(effects.voices.is_empty());
+    }
+
+    #[test]
+    fn a_bypass_skips_the_filters_and_the_compressor_but_not_the_limiter() {
+        let quiet = vec![300i16; FRAME_SAMPLES];
+        let chosen = Chosen {
+            gate: Some(-20.0),
+            compress: true,
+            ..Chosen::default()
+        };
+        let mut effects = VoiceEffects::default();
+        let mut out = vec![0i16; FRAME_SAMPLES];
+        let mut run = |out: &mut Vec<i16>, chosen: Chosen| {
+            mix(
+                &[(5_150_515_051, &quiet)],
+                |_| 1.0,
+                Some((chosen, &mut effects)),
+                &mut Vec::new(),
+                1.0,
+                out,
+            );
+        };
+        run(&mut out, chosen);
+        assert!(
+            out[FRAME_SAMPLES / 2..].iter().all(|sample| *sample == 0),
+            "gated"
+        );
+        crate::volume::bypass_effects("5150515051", true);
+        run(&mut out, chosen);
+        assert!(out.iter().all(|sample| *sample == 300), "as it comes");
+        let loud = Chosen {
+            limit: Some(10f32.powf(-60.0 / 20.0)),
+            ..chosen
+        };
+        for _ in 0..3 {
+            run(&mut out, loud);
+        }
+        assert!(out.iter().all(|sample| *sample <= 34), "still limited");
+        crate::volume::bypass_effects("5150515051", false);
     }
 
     #[test]

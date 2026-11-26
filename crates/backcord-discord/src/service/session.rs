@@ -280,6 +280,7 @@ async fn connected_session(
         streams: StreamOpenings::new(),
         searches: MemberSearches::default(),
         previews: mpsc::unbounded_channel(),
+        asked_in_call: std::collections::HashSet::new(),
     };
     if let Err(error) = session.connect().await {
         return Ended::Failed(error);
@@ -327,6 +328,9 @@ struct Session<'a> {
     away_changes: Pin<Box<Sleep>>,
     /// Discord's answers when asked for message requests' latest messages.
     previews: (mpsc::UnboundedSender<Value>, mpsc::UnboundedReceiver<Value>),
+    /// Those in this account's call whose server profile it asked for, by
+    /// server and user, to tell bots: each asked once a session.
+    asked_in_call: std::collections::HashSet<(String, String)>,
 }
 
 impl Session<'_> {
@@ -787,6 +791,20 @@ impl Session<'_> {
                 .lists
                 .ask_busy(&self.tracker, &mut self.gateway, guild)
                 .await?;
+        }
+        // Those in this account's call not known in its server: their
+        // member tells whether they're bots, which the call's voice
+        // effects leave alone.
+        if *event == Event::VoiceStateUpdate
+            && let Some((guild, users)) = self.tracker.unknown_in_call()
+        {
+            let users: Vec<String> = users
+                .into_iter()
+                .filter(|user| self.asked_in_call.insert((guild.clone(), user.clone())))
+                .collect();
+            for users in users.chunks(100) {
+                self.gateway.request_members(&guild, users, None).await?;
+            }
         }
         // A call starting in a server not asked yet: its statuses ahead.
         if *event == Event::VoiceStateUpdate

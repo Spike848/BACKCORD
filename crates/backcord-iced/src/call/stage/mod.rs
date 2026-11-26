@@ -787,7 +787,9 @@ fn stage_tile(
                 (content.into(), theme.raised)
             };
             let mut marks = Vec::new();
-            if person.muted && !person.deafened {
+            // Each mark as Discord's voice state says, so muted, deafened
+            // and both tell apart, as the voice channel's list does.
+            if person.muted {
                 marks.push((Icon::MicOff, theme.danger));
             }
             if person.deafened {

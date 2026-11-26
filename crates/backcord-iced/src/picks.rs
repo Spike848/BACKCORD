@@ -70,6 +70,9 @@ fn open_menu(app: &mut App, at: Point) -> Task<Message> {
             MenuChoice::SoundboardMute => Some(all(&|_, user| {
                 backcord_core::volume::soundboard_muted(user)
             })),
+            MenuChoice::BypassEffects => Some(all(&|_, user| {
+                backcord_core::volume::effects_bypassed(user)
+            })),
             MenuChoice::ServerMute => Some(all(&|place, user| {
                 core.voice_person(place, user)
                     .is_some_and(|person| person.server_muted)
@@ -128,6 +131,7 @@ pub fn choose(app: &mut App, choice: MenuChoice, ticked: Option<bool>) -> Task<M
         choice,
         MenuChoice::LocalMute
             | MenuChoice::SoundboardMute
+            | MenuChoice::BypassEffects
             | MenuChoice::ServerMute
             | MenuChoice::ServerDeafen
     );
@@ -136,6 +140,7 @@ pub fn choose(app: &mut App, choice: MenuChoice, ticked: Option<bool>) -> Task<M
         tasks.push(match choice {
             MenuChoice::LocalMute
             | MenuChoice::SoundboardMute
+            | MenuChoice::BypassEffects
             | MenuChoice::ServerMute
             | MenuChoice::ServerDeafen
             | MenuChoice::Disconnect => crate::call::popups::person::choose_voice(

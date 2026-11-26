@@ -103,8 +103,10 @@ pub mod video;
 #[cfg(feature = "discord")]
 pub mod video_player;
 pub mod voice;
+pub mod voice_compressor;
 #[cfg(feature = "matrix")]
 pub mod voice_demo;
+pub mod voice_filters;
 pub mod voice_limiter;
 #[cfg(feature = "discord")]
 mod voice_message;

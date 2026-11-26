@@ -6,7 +6,7 @@ use std::{
     collections::{HashMap, HashSet},
     num::NonZeroU64,
     sync::{
-        Arc, Mutex,
+        Arc, LazyLock, Mutex, RwLock,
         atomic::{AtomicU64, Ordering::Relaxed},
     },
 };
@@ -1433,6 +1433,15 @@ impl serde::Serialize for SavingNames<'_> {
 /// eight bytes, where its text takes 24 and an allocation of its own.
 type Id = u64;
 
+/// Every bot or app learned in this run, by id, never forgotten: for calls'
+/// audio, which looks each voice up as it mixes, away from the names.
+static KNOWN_BOTS: LazyLock<RwLock<HashSet<Id>>> = LazyLock::new(RwLock::default);
+
+/// Whether a Discord user is a bot or an app, as far as this run learned.
+pub fn known_bot(user: u64) -> bool {
+    KNOWN_BOTS.read().unwrap().contains(&user)
+}
+
 fn id(text: &str) -> Option<Id> {
     text.parse().ok()
 }
@@ -1567,7 +1576,11 @@ impl Names {
                 .filter_map(|(guild, user, roles)| Some((member_key(&guild, &user)?, roles.into())))
                 .collect(),
             usernames: by_user(saved.usernames),
-            bots: saved.bots.iter().filter_map(|user| id(user)).collect(),
+            bots: {
+                let bots: HashSet<Id> = saved.bots.iter().filter_map(|user| id(user)).collect();
+                KNOWN_BOTS.write().unwrap().extend(bots.iter().copied());
+                bots
+            },
             tags: saved
                 .tags
                 .into_iter()
@@ -1723,9 +1736,11 @@ impl Names {
         match user["bot"].as_bool() {
             Some(true) => {
                 self.bots.insert(id);
+                KNOWN_BOTS.write().unwrap().insert(id);
             }
             Some(false) => {
                 self.bots.remove(&id);
+                KNOWN_BOTS.write().unwrap().remove(&id);
             }
             None => {}
         }
@@ -1929,7 +1944,8 @@ impl Names {
         }
     }
 
-    /// Whether a user is a bot or an app, as far as it's known.
+    /// Whether a user is a bot or an app, as far as it's known; see also
+    /// [`known_bot`].
     pub fn is_bot(&self, user: &str) -> bool {
         id(user).is_some_and(|user| self.bots.contains(&user))
     }

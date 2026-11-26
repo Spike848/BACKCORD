@@ -14,7 +14,7 @@ pub struct Picked {
 /// What a menu of several people offers, of what each one's own offers:
 /// what acts on each the same, and none of what's about one person (their
 /// profile, a message or a call, a note, a nickname, their roles, an ID).
-const TOGETHER: [MenuChoice; 17] = [
+const TOGETHER: [MenuChoice; 18] = [
     MenuChoice::Mention,
     MenuChoice::AddFriend,
     MenuChoice::Unfriend,
@@ -24,6 +24,7 @@ const TOGETHER: [MenuChoice; 17] = [
     MenuChoice::Unblock,
     MenuChoice::LocalMute,
     MenuChoice::SoundboardMute,
+    MenuChoice::BypassEffects,
     MenuChoice::MoveTo,
     MenuChoice::ServerMute,
     MenuChoice::ServerDeafen,

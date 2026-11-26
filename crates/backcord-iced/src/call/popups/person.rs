@@ -131,6 +131,7 @@ pub(in crate::call) fn open_voice_menu(
                 MenuChoice::SoundboardMute => {
                     Some(backcord_core::volume::soundboard_muted(&person))
                 }
+                MenuChoice::BypassEffects => Some(backcord_core::volume::effects_bypassed(&person)),
                 MenuChoice::SelfMute => Some(voice.muted),
                 MenuChoice::SelfDeafen => Some(voice.deafened),
                 MenuChoice::ServerMute => Some(server_muted),
@@ -209,6 +210,17 @@ pub fn choose_voice(
                 people.remove(&user);
             }
             crate::layout::store(&root, "soundboard_muted_people", &*people);
+            None
+        }
+        (MenuChoice::BypassEffects, Some(bypassed)) => {
+            backcord_core::volume::bypass_effects(&user, bypassed);
+            let people = &mut app.layout.voice.effects_bypassed_people;
+            if bypassed {
+                people.insert(user.clone());
+            } else {
+                people.remove(&user);
+            }
+            crate::layout::store(&root, "effects_bypassed_people", &*people);
             None
         }
         (MenuChoice::SelfMute, Some(muted)) => Some(Action::Voice(Command::Mute(muted))),

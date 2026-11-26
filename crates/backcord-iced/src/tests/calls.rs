@@ -145,13 +145,16 @@ fn call_volumes_play_while_dragged_and_are_remembered() {
     let _ = crate::call::update(&mut app, Event::DeviceVolume(false, 50, true));
     assert_eq!(stored().microphone_volume, Some(200));
     assert_eq!(stored().speaker_volume, Some(50));
-    // The microphone goes past Discord's 200% to 400%, typed or dragged,
-    // and no further; the speakers stay at 200% at most.
+    // Both go past Discord's 200% to 400%, typed or dragged, and no
+    // further.
     let _ = crate::call::update(&mut app, Event::DeviceVolume(true, 999, true));
     assert_eq!(stored().microphone_volume, Some(400));
     assert!((backcord_core::volume::microphone() - 3.991).abs() < 1e-3);
     let _ = crate::call::update(&mut app, Event::DeviceVolume(false, 300, true));
-    assert_eq!(stored().speaker_volume, Some(200));
+    assert_eq!(stored().speaker_volume, Some(300));
+    let _ = crate::call::update(&mut app, Event::DeviceVolume(false, 999, true));
+    assert_eq!(stored().speaker_volume, Some(400));
+    assert!((backcord_core::volume::speakers() - 3.991).abs() < 1e-3);
     let _ = crate::call::update(&mut app, Event::DeviceVolume(true, 200, true));
     let _ = crate::call::update(&mut app, Event::DeviceVolume(false, 50, true));
     // A new window plays at the volumes kept, and the defaults at none.

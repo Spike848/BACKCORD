@@ -327,14 +327,47 @@ Voice & video's Voice limiter, under the speakers' volume
 (`voice_limit` in `layout.json`, off unless set), holds each person's
 voice under a ceiling from -40 dBFS up, so someone shouting or playing loud
 into their microphone plays no louder than it. Its slider goes in 1 dB
-steps; all the way up is off. Each voice goes through a hard limiter
-(`voice_limiter.rs`), in `mix` after their own volume and the speakers',
-with no attack or release: a stereo frame over the ceiling is turned down
-to it at once, both channels by the same share, and the next under it
-plays as it comes. Each voice is limited on its own, so the others play as
+steps; all the way up is off. Each voice goes through its own look-ahead
+limiter (`voice_limiter.rs`), in `mix` after their own volume and the
+speakers'. It turns the voice's gain, not each sample: the voice plays 5 ms
+late, the gain ramps down smoothly as a loud peak enters those 5 ms, so it
+is at the ceiling when the peak plays, and comes back up over 150 ms once
+the voice is quieter. Both channels go down by the same share. A hard
+limiter, turning each sample over the ceiling down on its own, flattened
+the wave's tops and made loud voices distort; this one keeps the wave's
+shape. Each voice is limited on its own, so the others play as
 they come. Only voices go through it: streams' sound, the soundboard and
 BACKCORD's own sounds don't, nor a Matrix call's voices in a build with
-Matrix.
+Matrix, nor bots' voices.
+
+Under it, "High-pass filter (100 Hz)" (`voice_high_pass`, off unless turned
+on) takes rumble, hum and breath out of each person's voice
+(`voice_filters.rs`): a 12 dB per octave Butterworth high-pass, 3 dB down at
+100 Hz, a second-order IIR filter, so it adds no latency. The Voice gate
+(`voice_gate`, in dBFS from -70 to -20, off unless set) silences a voice
+while it stays under its level, so the noise in someone's pauses doesn't
+play: its level is the voice's peak, falling over 20 ms; it opens in 1 ms
+once the voice reaches the level, stays open 150 ms after it goes 4 dB under
+it, then closes over 80 ms, so the ends of words aren't cut. It follows the
+voice as it comes, with no look-ahead.
+
+Under it, the Voice compressor (`voice_compressor`, off unless turned on)
+evens out each person's voice (`voice_compressor.rs`): above -30 dBFS it
+turns the level down by 4:1, with a 6 dB soft knee. Like the limiter it
+turns the gain, never each sample: the level is a 5 ms running mean of the
+voice's power, and the gain follows it down in 5 ms and back up in 60 ms.
+7.5 dB of makeup gain after it leaves speech at -20 dBFS where it was, so
+quieter voices come up and louder ones go down.
+
+Each voice goes through the high-pass, the gate, the compressor, then the
+limiter, all in `VoiceEffects` in `discord_audio.rs`, and a voice not heard
+for a second is forgotten. Someone's menu in a voice channel has "Bypass
+Effects" beside Mute Soundboard (`effects_bypassed_people`): their voice then
+skips all but the limiter, at once, with no latency. Bots go through none: a music bot plays as it comes. A bot is
+one whose user object says `bot`, as Discord's APP tag does
+(`message::known_bot`): guilds' voice states carry the member, and for those
+in this account's call whose server profile isn't known yet, the session asks
+the gateway for it (`Tracker::unknown_in_call`), each once.
 
 Before it selects the protocol, a connection, a call's or a stream's, learns
 its public address and port with UDP address discovery: a 74-byte ask, which

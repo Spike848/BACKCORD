@@ -109,6 +109,9 @@ pub enum MenuChoice {
     /// Mute the soundboard sounds someone plays, for this account alone,
     /// as a box to tick.
     SoundboardMute,
+    /// Let someone's voice skip the high-pass, the gate and the compressor,
+    /// for this account alone, as a box to tick; the limiter holds it.
+    BypassEffects,
     /// This account's own mute and deafen in the call it's in here.
     SelfMute,
     SelfDeafen,

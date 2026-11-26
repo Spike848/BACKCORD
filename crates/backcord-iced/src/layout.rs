@@ -394,6 +394,15 @@ pub struct Voice {
     pub speaker_volume: Option<u16>,
     /// The voice limiter's ceiling, in dBFS, from -40; off unless set below 0.
     pub voice_limit: Option<i8>,
+    /// People's voices go through the voice compressor; off unless set.
+    pub voice_compressor: bool,
+    /// People's voices go through the 100 Hz high-pass; off unless set.
+    pub voice_high_pass: bool,
+    /// The level under which the gate silences people's voices, in dBFS,
+    /// from -70 to -20; off unless set.
+    pub voice_gate: Option<i8>,
+    /// Those whose voices skip the high-pass, the gate and the compressor.
+    pub effects_bypassed_people: BTreeSet<String>,
     /// People's own volumes and their streams', by Discord or Matrix id.
     pub volumes: std::collections::BTreeMap<String, f32>,
     pub stream_volumes: std::collections::BTreeMap<String, f32>,
@@ -474,6 +483,9 @@ impl Voice {
         for person in &self.soundboard_muted_people {
             volume::mute_soundboard(person, true);
         }
+        for person in &self.effects_bypassed_people {
+            volume::bypass_effects(person, true);
+        }
         for person in &self.stream_muted_people {
             volume::mute_stream(person, true);
         }
@@ -494,6 +506,9 @@ impl Voice {
         backcord_core::volume::set_microphone(gain(self.microphone_volume));
         backcord_core::volume::set_speakers(gain(self.speaker_volume));
         backcord_core::volume::set_voice_limit(f32::from(self.voice_limit.unwrap_or(0)));
+        backcord_core::volume::set_voice_compressor(self.voice_compressor);
+        backcord_core::volume::set_voice_high_pass(self.voice_high_pass);
+        backcord_core::volume::set_voice_gate(f32::from(self.voice_gate.unwrap_or(0)));
     }
 
     /// How loud one of BACKCORD's sounds plays, as a gain.

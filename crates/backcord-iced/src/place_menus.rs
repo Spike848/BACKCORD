@@ -804,6 +804,7 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         MenuChoice::Apps => 10,
         MenuChoice::LocalMute
         | MenuChoice::SoundboardMute
+        | MenuChoice::BypassEffects
         | MenuChoice::SelfMute
         | MenuChoice::SelfDeafen => 8,
         MenuChoice::ServerMute
@@ -884,6 +885,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::RemoveFromGroup => Icon::UserX,
         C::LocalMute | C::SelfMute | C::ServerMute => Icon::MicOff,
         C::SoundboardMute => Icon::Soundboard,
+        C::BypassEffects => Icon::Volume,
         C::SelfDeafen | C::ServerDeafen => Icon::HeadphoneOff,
         C::MoveTo => Icon::Forward,
         C::Disconnect => Icon::PhoneOff,
@@ -954,6 +956,7 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::MakeGroupOwner => backcord_iced_kit::i18n::tr("Make Group Owner"),
         MenuChoice::LocalMute | MenuChoice::SelfMute => backcord_iced_kit::i18n::tr("Mute"),
         MenuChoice::SoundboardMute => backcord_iced_kit::i18n::tr("Mute Soundboard"),
+        MenuChoice::BypassEffects => backcord_iced_kit::i18n::tr("Bypass Effects"),
         MenuChoice::SelfDeafen => backcord_iced_kit::i18n::tr("Deafen"),
         MenuChoice::MoveTo => backcord_iced_kit::i18n::tr("Move to"),
         MenuChoice::ServerMute => backcord_iced_kit::i18n::tr("Server mute"),

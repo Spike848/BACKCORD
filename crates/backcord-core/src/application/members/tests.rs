@@ -582,6 +582,7 @@ fn in_a_voice_channel_the_menu_adds_what_the_call_offers_in_discords_order() {
             AddNickname,
             LocalMute,
             SoundboardMute,
+            BypassEffects,
             ServerNickname,
             Unfriend,
             Ignore,
