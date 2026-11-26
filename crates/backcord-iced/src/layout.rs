@@ -194,6 +194,9 @@ pub struct Prefs {
     pub name_styles: Option<bool>,
     pub server_tags: Option<bool>,
     pub profile_frames: Option<bool>,
+    /// Appearance's neon glow around speaking rings and tiles, 0 to 100;
+    /// [`backcord_iced_kit::style::DEFAULT_GLOW`] unless set.
+    pub neon_glow: Option<u8>,
     /// Desktop notifications, shown unless turned off.
     pub notifications: Option<bool>,
     /// Advanced: rendering with the GPU from the next start (on unless

@@ -25,6 +25,8 @@ pub mod updates;
 
 #[cfg(test)]
 pub use pages::Extra;
+#[cfg(test)]
+pub(crate) use pages::Pref;
 pub use pages::message_size;
 pub use pages::{
     auto_delete, blocked_pictures, emulate_platform, fake_nitro, network, relationship_notifier,

@@ -68,6 +68,81 @@ fn shift_and_a_click_on_the_menus_delete_deletes_without_asking() {
     assert!(!shows(&app, text), "the message went");
 }
 
+/// Ctrl and a click picks messages; a right click on one of them opens the
+/// menu of them all, whose Delete asks once and deletes each.
+#[test]
+fn messages_picked_with_ctrl_are_deleted_together() {
+    let (mut app, _folder) = preview();
+    // A moderator's: another's message deletable too.
+    change(&mut app, |state| {
+        let messages = Arc::make_mut(&mut state.messages);
+        for message in messages
+            .iter_mut()
+            .filter(|message| !message.deleted)
+            .take(3)
+        {
+            Arc::make_mut(message).can_delete = true;
+        }
+    });
+    let ours: Vec<Arc<str>> = app
+        .timeline
+        .messages
+        .iter()
+        .filter(|message| message.can_delete && !message.deleted)
+        .map(|message| Arc::from(message.item.as_str()))
+        .take(2)
+        .collect();
+    assert_eq!(ours.len(), 2, "two of this account's messages show");
+    let pick = |item: &Arc<str>| Message::Timeline(crate::timeline::Event::PickRow(item.clone()));
+    let _ = app.update(pick(&ours[0]));
+    let _ = app.update(pick(&ours[1]));
+    assert_eq!(app.timeline.picked.len(), 2);
+    let _ = app.update(Message::Timeline(crate::timeline::Event::RowMenu(
+        ours[0].clone(),
+        iced::Point::new(200.0, 200.0),
+    )));
+    assert!(shows(&app, "2 messages picked"));
+    interact(&mut app, |ui| {
+        ui.click("Delete 2 messages").expect("Delete 2 messages");
+    });
+    assert!(app.timeline.picked.is_empty(), "the picking ended");
+    assert_eq!(app.client.state().confirm_delete_more.len(), 1);
+    assert!(shows(
+        &app,
+        "Are you sure you want to delete these 2 messages?"
+    ));
+    interact(&mut app, |ui| {
+        ui.click("Delete").expect("the dialog's Delete");
+    });
+    assert!(app.client.state().confirm_delete.is_none());
+    for item in &ours {
+        assert!(
+            app.client
+                .state()
+                .message(item)
+                .is_none_or(|message| message.deleted),
+            "{item} went"
+        );
+    }
+}
+
+/// A click without Ctrl, or Escape, lets go of the messages picked.
+#[test]
+fn a_plain_click_or_escape_lets_go_of_messages_picked() {
+    let (mut app, _folder) = preview();
+    let item: Arc<str> = app.timeline.messages[0].item.as_str().into();
+    let _ = app.update(Message::Timeline(crate::timeline::Event::PickRow(
+        item.clone(),
+    )));
+    assert_eq!(app.timeline.picked.len(), 1);
+    let _ = app.update(Message::Timeline(crate::timeline::Event::PickRow(item)));
+    assert!(app.timeline.picked.is_empty(), "picked again, let go of");
+    let item: Arc<str> = app.timeline.messages[1].item.as_str().into();
+    let _ = app.update(Message::Timeline(crate::timeline::Event::PickRow(item)));
+    let _ = app.update(Message::Timeline(crate::timeline::Event::ClearPicks));
+    assert!(app.timeline.picked.is_empty());
+}
+
 #[test]
 fn switching_channels_shows_each_ones_messages_header_and_topic() {
     let (mut app, _folder) = preview();

@@ -246,6 +246,12 @@ impl App {
         // times on the clock Messages chose; the games named by hand.
         layout.voice.apply();
         layout.prefs.apply_clock();
+        backcord_iced_kit::style::set_glow(
+            layout
+                .prefs
+                .neon_glow
+                .unwrap_or(backcord_iced_kit::style::DEFAULT_GLOW),
+        );
         backcord_core::discord::set_custom_games(&layout.prefs.game_executables);
         client.share_typing = layout.prefs.share_typing.unwrap_or(false);
         backcord_core::extras::set_message_logger(layout.prefs.message_logger.unwrap_or(true));

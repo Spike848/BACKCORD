@@ -109,6 +109,39 @@ pub fn corners([top_left, top_right, bottom_right, bottom_left]: [f32; 4]) -> bo
     }
 }
 
+/// How strong the soft neon glow around speaking rings and tiles is, 0
+/// for none to 100, as Appearance's "Neon ring intensity" sets it.
+static GLOW: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(DEFAULT_GLOW);
+/// The glow until Appearance changes it.
+pub const DEFAULT_GLOW: u8 = 50;
+
+pub fn set_glow(percent: u8) {
+    GLOW.store(percent.min(100), std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn glow() -> u8 {
+    GLOW.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// A soft neon glow of `color` around a speaking ring or tile `size` px
+/// across: a shadow with no offset, wider and brighter as the intensity
+/// goes up, none at 0. It shows outside its shape; what's drawn over the
+/// shape hides the rest.
+pub fn glow_shadow(color: Color, size: f32) -> iced::Shadow {
+    let intensity = f32::from(glow()) / 100.0;
+    if intensity <= 0.0 {
+        return iced::Shadow::default();
+    }
+    iced::Shadow {
+        color: Color {
+            a: color.a * (0.25 + 0.65 * intensity),
+            ..color
+        },
+        offset: iced::Vector::ZERO,
+        blur_radius: (size * 0.3).clamp(5.0, 18.0) * (0.4 + 1.1 * intensity),
+    }
+}
+
 /// A card's shadow, over the window or a dimmed one: the sign-in card, a
 /// dialog.
 pub fn card_shadow() -> iced::Shadow {

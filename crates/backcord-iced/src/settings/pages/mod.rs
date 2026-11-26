@@ -70,6 +70,8 @@ pub enum Pref {
     Nightlies(bool),
     StartOnSignIn(bool),
     SystemTitleBar(bool),
+    /// The neon glow's slider, 0 to 100, and whether it's let go of.
+    NeonGlow(u32, bool),
     HideOthersTyping(bool),
     NoPushToTalk(bool),
     MessageLogger(bool),
@@ -352,6 +354,14 @@ impl Settings {
                 cx.layout.system_title_bar = Some(on);
                 cx.keep("system_title_bar", on);
                 cx.request(Request::TitleBar(on));
+            }
+            Pref::NeonGlow(value, done) => {
+                let percent = value.min(100) as u8;
+                prefs.neon_glow = Some(percent);
+                backcord_iced_kit::style::set_glow(percent);
+                if done {
+                    cx.keep("neon_glow", percent);
+                }
             }
             Pref::HideOthersTyping(on) => {
                 prefs.hide_others_typing = Some(on);

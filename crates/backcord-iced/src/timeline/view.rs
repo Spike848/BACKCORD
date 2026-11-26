@@ -168,7 +168,13 @@ pub fn timeline_row<'a>(ctx: crate::ctx::Ctx<'a>, index: usize) -> Element<'a, M
             Some(backcord_core::application::Compose::Reply { item, .. })
                 if item.as_str() == message.item.as_str()
         );
-    let ground = if edited {
+    let picked = crate::timeline::picks::picked(ctx.lanes.timeline, &message.item);
+    let ground = if picked {
+        Some(Color {
+            a: 0.18,
+            ..theme.accent
+        })
+    } else if edited {
         // Discord's edit tint (#29292d on its dark theme).
         Some(crate::theme::mix(theme.active, theme.chat, 0.84))
     } else if jumped {
@@ -222,7 +228,7 @@ pub fn timeline_row<'a>(ctx: crate::ctx::Ctx<'a>, index: usize) -> Element<'a, M
     } else if look.highlighted {
         content = content.push(edged(MENTION_GOLD, MENTION_EDGE));
     }
-    if ctx.lanes.keyed == Some(message.item.as_str()) {
+    if picked || ctx.lanes.keyed == Some(message.item.as_str()) {
         content = content.push(edged(theme.accent, KEYED_EDGE));
     }
     // The hover bar floats over the row's top edge, so it never moves
@@ -236,6 +242,14 @@ pub fn timeline_row<'a>(ctx: crate::ctx::Ctx<'a>, index: usize) -> Element<'a, M
     // A right click opens the message's menu where the pointer is: the
     // press is in the list's space, which the lane's corner, as the press
     // itself notes it, makes the window's.
+    // Ctrl and a click picks it with others; a click without lets go of
+    // those picked.
+    let content = crate::widgets::CtrlPress::new(
+        content,
+        ctx.modifiers.control(),
+        Message::Timeline(Event::PickRow(look.item.clone())),
+        (!ctx.lanes.timeline.picked.is_empty()).then_some(Message::Timeline(Event::ClearPicks)),
+    );
     let item = look.item.clone();
     let content = RightPress::new(content, move |at| {
         let (lane, _) = ctx.lane_place(index);

@@ -82,6 +82,9 @@ pub struct Header {
     pub add_people: Option<bool>,
     pub members_available: bool,
     pub members: String,
+    /// How many members, where known: the plain count shows it alone, so
+    /// it fits beside the search in a narrow header.
+    pub member_count: Option<u64>,
     pub profile_available: bool,
     pub search: Option<String>,
 }
@@ -166,6 +169,7 @@ pub fn header(state: &AppState, was: &Header, link: u32) -> Header {
             1 => backcord_iced_kit::i18n::tr("1 member").to_owned(),
             count => backcord_iced_kit::i18n::t(format!("{count} members")),
         },
+        member_count: (!room.forum && room.members > 0).then_some(room.members),
         profile_available: state.one_to_one().is_some(),
         search: state.conversation_that(|can| can.search).map(|_| {
             let place = state.search_place();
@@ -536,16 +540,28 @@ fn header_buttons<'a>(ctx: crate::ctx::Ctx<'a>) -> Vec<Element<'a, Message>> {
         ));
     }
     if !header.members_available && !header.profile_available && !header.members.is_empty() {
+        // The count alone on one line, "6 members" in its tooltip: the
+        // words wrapped under the number and ran into the search.
+        let shown = header
+            .member_count
+            .map_or_else(|| header.members.clone(), |count| count.to_string());
+        let face = row![
+            ctx.look.glyph(Icon::Users, 18, theme.muted),
+            text(shown)
+                .size(14)
+                .font(MEDIUM)
+                .color(theme.muted)
+                .wrapping(text::Wrapping::None)
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center);
         buttons.push(
-            row![
-                ctx.look.glyph(Icon::Users, 18, theme.muted),
-                text(header.members.as_str())
-                    .size(14)
-                    .font(MEDIUM)
-                    .color(theme.muted)
-            ]
-            .spacing(6)
-            .align_y(Alignment::Center)
+            tooltip(
+                face,
+                controls::tip(theme, header.members.as_str()),
+                tooltip::Position::Bottom,
+            )
+            .gap(6)
             .into(),
         );
     }
@@ -591,6 +607,7 @@ fn members_toggle<'a>(
             .size(14)
             .font(MEDIUM)
             .color(ink)
+            .wrapping(text::Wrapping::None)
     ]
     .spacing(6)
     .align_y(Alignment::Center);

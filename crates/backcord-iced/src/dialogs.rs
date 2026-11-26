@@ -69,19 +69,27 @@ pub fn confirm_key(app: &mut App, named: Option<key::Named>) -> Task<Message> {
 pub fn delete_view(focus: bool, cx: Ctx<'_>) -> Option<Element<'_, Message>> {
     let state = cx.state;
     let item = state.confirm_delete.as_ref()?;
-    let message = state.message(item);
+    // Several picked together: how many, and none shown.
+    let many = state.confirm_delete_more.len() + 1;
+    let message = state.message(item).filter(|_| many == 1);
     let theme = cx.look.theme;
     let line = theme.line;
+    let (title, question) = if many == 1 {
+        (
+            backcord_iced_kit::i18n::tr("Delete Message").to_owned(),
+            backcord_iced_kit::i18n::tr("Are you sure you want to delete this message?").to_owned(),
+        )
+    } else {
+        (
+            backcord_iced_kit::i18n::tr("Delete Messages").to_owned(),
+            backcord_iced_kit::i18n::t(format!(
+                "Are you sure you want to delete these {many} messages?"
+            )),
+        )
+    };
     let mut body = column![
-        text(backcord_iced_kit::i18n::tr("Delete Message"))
-            .size(20)
-            .font(BOLD)
-            .color(theme.text),
-        text(backcord_iced_kit::i18n::tr(
-            "Are you sure you want to delete this message?"
-        ))
-        .size(15)
-        .color(theme.secondary),
+        text(title).size(20).font(BOLD).color(theme.text),
+        text(question).size(15).color(theme.secondary),
     ]
     .spacing(12)
     .padding(16);

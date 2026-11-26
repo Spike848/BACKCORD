@@ -191,6 +191,56 @@ impl<M: Clone> Hooks<M> for RightPress<'_, M> {
     }
 }
 
+/// Its child, and a message a left press with Ctrl held on it sends in
+/// place of what the press would do in the child: a message picked among
+/// several. `held` is whether Ctrl was held as the view was built; `clear`,
+/// sent by a press without it, which the child still has, lets go of
+/// those picked.
+pub struct CtrlPress<M> {
+    pick: M,
+    held: bool,
+    clear: Option<M>,
+}
+
+impl<'a, M: Clone + 'a> CtrlPress<M> {
+    pub fn new(
+        child: impl Into<Element<'a, M>>,
+        held: bool,
+        pick: M,
+        clear: Option<M>,
+    ) -> Wrap<'a, Self, M> {
+        Wrap::new(child, Self { pick, held, clear })
+    }
+}
+
+impl<M: Clone> Hooks<M> for CtrlPress<M> {
+    type State = Stateless;
+
+    fn update(
+        &mut self,
+        _: &mut Stateless,
+        event: &iced::Event,
+        at: At,
+        shell: &mut Shell<'_, M>,
+        child: &mut Inner<'_, '_, M>,
+    ) {
+        if let iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event
+            && let Some(position) = at.cursor.position_over(at.bounds)
+            && at.viewport.contains(position)
+        {
+            if self.held {
+                shell.publish(self.pick.clone());
+                shell.capture_event();
+                return;
+            }
+            if let Some(clear) = &self.clear {
+                shell.publish(clear.clone());
+            }
+        }
+        child.update(shell);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // What shows under the pointer
 

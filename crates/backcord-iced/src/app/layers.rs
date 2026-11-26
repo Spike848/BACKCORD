@@ -554,7 +554,11 @@ impl App {
         let first = self.layers().find(|layer| layer.closes_on_escape());
         match first {
             Some(layer) => self.shut(layer),
-            None => Task::none(),
+            None => {
+                // Then the messages picked with Ctrl.
+                self.timeline.picked.clear();
+                Task::none()
+            }
         }
     }
 

@@ -837,6 +837,9 @@ pub struct AppState {
     pub sending: Option<String>,
     /// The selected room's message the user is asked to confirm deleting.
     pub confirm_delete: Option<String>,
+    /// More messages deleted with it, picked together: the question asks
+    /// about them all.
+    pub confirm_delete_more: Vec<String>,
     /// The message whose poll the user is asked to confirm closing now.
     pub confirm_end_poll: Option<String>,
     /// The poll being made, while its dialog is open.
@@ -1872,6 +1875,9 @@ pub enum Action {
         key: String,
     },
     RequestDelete(String),
+    /// Several messages, picked together: one question deletes those this
+    /// account may delete.
+    RequestDeleteMany(Vec<String>),
     /// Delete a message without asking first, as Shift and a click on its
     /// Delete do in Discord's client.
     DeleteNow(String),
@@ -4165,6 +4171,7 @@ impl Application {
             }
             Action::React { item, key } => self.react(item, key),
             Action::RequestDelete(item) => self.request_delete(item),
+            Action::RequestDeleteMany(items) => self.request_delete_many(items),
             Action::DeleteNow(item) => self.delete_now(item),
             Action::Vote { item, answers } => self.vote(item, answers),
             Action::OpenPollDraft => self.open_poll_draft(),
@@ -4205,6 +4212,7 @@ impl Application {
             }
             Action::CancelDelete => {
                 self.state.confirm_delete = None;
+                self.state.confirm_delete_more.clear();
                 vec![]
             }
             Action::ConfirmDelete => self.confirm_delete(),

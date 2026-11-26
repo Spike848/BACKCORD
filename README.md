@@ -34,27 +34,17 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.5
+## Novità della 1.5.6
 
-- **Limitatore voci senza distorsione**: ora abbassa il volume della voce con
-  una rampa morbida, 5 ms in anticipo sui picchi, invece di tagliare l'onda;
-  chi urla non si sente più forte e la voce resta pulita.
-- **Compressore voci**: in Voce e video, uniforma la voce di ogni persona
-  (soglia -30 dB, rapporto 4:1, attacco e rilascio veloci), così chi parla
-  forte e chi parla piano si sentono più simili. Spento di default.
-- **Filtro passa-alto (100 Hz)**: toglie rimbombi, ronzii e soffi dalle voci
-  degli altri. Spento di default.
-- **Gate voci**: silenzia la voce di ogni persona finché resta sotto la soglia
-  scelta (da -70 a -20 dB), così il rumore nelle pause non si sente. Spento di
-  default.
-- **Escludi effetti**: tasto destro su qualcuno in un canale vocale, la sua
-  voce salta passa-alto, gate e compressore; il limitatore resta.
-- **I bot non vengono toccati**: limitatore, compressore, passa-alto e gate non
-  si applicano ai bot (quelli col tag APP), riconosciuti anche appena entrano
-  in chiamata.
-- **Volume degli altoparlanti fino al 400%**, anche scrivendo il valore.
-- **Correzioni**: microfono e cuffie mutati si distinguono sia nella lista del
-  canale vocale sia nella chiamata (solo microfono, solo cuffie o entrambi).
+- **Selezione multipla dei messaggi**: Ctrl+clic su più messaggi per
+  selezionarli, poi tasto destro su uno di loro per copiarne il testo o i link
+  tutti insieme, oppure eliminarli con una sola conferma (con Shift senza
+  chiedere). Clic normale o Esc annullano la selezione.
+- **Bagliore neon**: un leggero bagliore intorno ai cerchi di chi parla
+  (soundboard compresa) e ai riquadri di chi parla in chiamata. L'intensità si
+  regola in Aspetto con "Intensità cerchi neon" (0 lo spegne).
+- **Correzioni**: nell'intestazione della chat il numero dei membri non va più
+  a capo sopra la casella di ricerca.
 
 ## Cosa fa
 

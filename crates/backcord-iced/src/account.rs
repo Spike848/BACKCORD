@@ -493,6 +493,7 @@ fn ring_and_dot<'a>(
     if account.speaking {
         let ring = theme.live;
         let side = AVATAR + 6.0;
+        let glow = backcord_iced_kit::style::glow_shadow(ring, side);
         layers = layers.push(
             pin(container(Space::new())
                 .width(side)
@@ -503,6 +504,7 @@ fn ring_and_dot<'a>(
                         width: 2.0,
                         radius: (side / 2.0).into(),
                     },
+                    shadow: glow,
                     ..Default::default()
                 }))
             .x(-3.0)

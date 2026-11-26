@@ -502,6 +502,38 @@ fn keybinds_are_added_chosen_recorded_and_removed() {
     assert!(app.keybinds.watched.is_empty());
 }
 
+/// Appearance's neon glow: at its default as it starts, as dragged at once,
+/// and kept once let go.
+#[test]
+fn the_neon_glow_follows_its_slider_and_is_kept() {
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Appearance);
+    assert!(shows(&app, "Neon ring intensity"));
+    assert_eq!(app.layout.prefs.neon_glow, None);
+    let glow =
+        |value, done| Message::Settings(Event::Pref(crate::settings::Pref::NeonGlow(value, done)));
+    let _ = app.update(glow(80, false));
+    assert_eq!(
+        backcord_iced_kit::style::glow(),
+        80,
+        "glows as it's dragged"
+    );
+    assert_eq!(app.layout.prefs.neon_glow, Some(80));
+    let _ = app.update(glow(80, true));
+    assert_eq!(stored(&folder)["neon_glow"], 80);
+    let _ = app.update(glow(0, true));
+    assert_eq!(backcord_iced_kit::style::glow(), 0);
+    assert_eq!(
+        backcord_iced_kit::style::glow_shadow(iced::Color::WHITE, 100.0),
+        iced::Shadow::default(),
+        "none at 0"
+    );
+    let _ = app.update(glow(
+        u32::from(backcord_iced_kit::style::DEFAULT_GLOW),
+        true,
+    ));
+}
+
 #[test]
 fn closing_settings_lets_go_of_an_edited_theme() {
     let (mut app, _folder) = preview();

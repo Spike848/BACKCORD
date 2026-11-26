@@ -29,6 +29,7 @@ use rows::top_space;
 
 pub mod clocks;
 pub mod keys;
+pub mod picks;
 mod rows;
 pub mod scroll;
 pub mod selection;
@@ -172,6 +173,9 @@ pub struct Timeline {
         crate::timeline::selection::Sel,
     )>,
     pub selecting: bool,
+    /// The messages picked with Ctrl and a click, by item, which one menu
+    /// acts on together (`picks.rs`).
+    pub picked: Vec<Arc<str>>,
     /// The times the rows show, and their timers.
     pub clocks: Clocks,
     /// The Discord messages the rows link to, laid out for their cards.
@@ -234,6 +238,7 @@ impl Timeline {
             left_at: None,
             selection: None,
             selecting: false,
+            picked: Vec::new(),
             clocks: Clocks::default(),
             linked: Default::default(),
         }
@@ -365,6 +370,11 @@ pub enum Event {
     UseCommand(String),
     /// The button on a message's card for the invite with this code.
     JoinInvite(String),
+    /// Ctrl and a click on a message, by its item: picked with the others,
+    /// or let go of.
+    PickRow(Arc<str>),
+    /// A click on a message without Ctrl, while some are picked.
+    ClearPicks,
 }
 
 /// What each of the timeline's events does.
@@ -427,7 +437,18 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             app.timeline.pressed_link = Some((link, app.pressed.get()));
             Task::none()
         }
+        Event::PickRow(item) => {
+            picks::toggle(app, item);
+            Task::none()
+        }
+        Event::ClearPicks => {
+            app.timeline.picked.clear();
+            Task::none()
+        }
         Event::RowMenu(item, at) => {
+            if let Some(task) = picks::open_if_picked(app, &item, at) {
+                return task;
+            }
             // The link this very press was on, if any.
             let pressed = app.pressed.get();
             let link = app

@@ -159,6 +159,11 @@ impl<'a, M: Clone + 'a> From<Tile<'a, M>> for Element<'a, M> {
         let Size { width, height } = tile.size;
         let radius = tile.radius;
         let ground = tile.ground;
+        // Speaking, the tile glows in its ring's colour around its edge.
+        let glow = tile
+            .ring
+            .map(|ring| crate::style::glow_shadow(ring, width.min(height)))
+            .unwrap_or_default();
         let mut over = stack![].width(width).height(height);
         if let Some(ring) = tile.ring {
             over = over.push(container(Space::new()).width(width).height(height).style(
@@ -206,6 +211,7 @@ impl<'a, M: Clone + 'a> From<Tile<'a, M>> for Element<'a, M> {
             .style(move |_| container::Style {
                 background: ground.map(Into::into),
                 border: Border::default().rounded(radius),
+                shadow: glow,
                 ..Default::default()
             });
         let mut area = mouse_area(face);

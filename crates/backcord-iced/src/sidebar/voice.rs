@@ -102,7 +102,17 @@ impl<'a> super::View<'a> {
         // size, so nothing grows when it comes and goes.
         let avatar: Element<'a, Message> = if speaking {
             let ring = theme.live;
+            // The neon glow under the avatar, showing around it.
+            let glow = backcord_iced_kit::style::glow_shadow(ring, 22.0);
             iced::widget::stack![
+                container(iced::widget::Space::new())
+                    .width(22)
+                    .height(22)
+                    .style(move |_| iced::widget::container::Style {
+                        border: iced::Border::default().rounded(11.0),
+                        shadow: glow,
+                        ..Default::default()
+                    }),
                 avatar,
                 container(iced::widget::Space::new())
                     .width(22)

@@ -188,6 +188,8 @@ pub enum MenuAct {
     /// voice channel to move them all to, in its `key`.
     Picked(backcord_core::application::MenuChoice),
     MovePicked,
+    /// A row of the menu of messages picked together (`timeline::picks`).
+    PickedMessages(crate::timeline::picks::MessagePick),
     /// A row of the menu of DMs picked together (`sidebar::folders`).
     DmPicked(backcord_core::application::MenuChoice),
     /// A change to the place's notifications: a mute for a time, a level,
@@ -746,6 +748,7 @@ fn carry_out(app: &mut App, row: &MenuRow, ticked: Option<bool>, stays: bool) ->
         },
         MenuAct::Picked(choice) => Task::batch([focus, crate::picks::choose(app, choice, ticked)]),
         MenuAct::MovePicked => Task::batch([focus, crate::picks::move_picked(app, &row.key)]),
+        MenuAct::PickedMessages(pick) => crate::timeline::picks::choose(app, pick),
         MenuAct::DmPicked(choice) => {
             Task::batch([focus, crate::sidebar::folders::choose_picked(app, choice)])
         }
@@ -976,6 +979,7 @@ pub fn act(
         | MenuAct::MoveTo
         | MenuAct::Picked(_)
         | MenuAct::MovePicked
+        | MenuAct::PickedMessages(_)
         | MenuAct::DmPicked(_)
         | MenuAct::CopyImage
         | MenuAct::SaveMedia

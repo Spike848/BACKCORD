@@ -206,6 +206,15 @@ errors make it taller than the minimum window. SSO and OAuth are still pending.
   on after being let go elsewhere. It leaves a bar alone while its picker or
   menu is open. A pointer that stays put is told what's under it as the
   buttons change, so its tooltip and highlight match what a click does.
+- Ctrl and a click on a message picks it, as people are picked in a voice
+  channel's list (`timeline/picks.rs`): its row tinted in the accent with the
+  accent's edge, a second Ctrl and click letting it go. A right click on one
+  of two or more picked opens one menu for them all: how many, Copy text
+  (each as "author: text", a line each), Copy Message Links, Delete N
+  messages (only those this account may delete, after one question, "Delete
+  Messages"; under Shift at once) and Deselect all. A click without Ctrl on a
+  message, Escape, a right click on a message not picked or any of the
+  menu's rows lets go of them; another channel's no longer count.
 - A GIF picker next to the emoji button, on Discord: a search over Klipy,
   trending terms and favourites, as in Discord's client. A click sends a GIF,
   Shift and a click puts it in the message, and a star keeps it among the
@@ -517,7 +526,11 @@ LXQt, LXDE,
 Budgie, Pantheon, Deepin, COSMIC, Unity and Enlightenment get BACKCORD's bar,
 and a tiling compositor such as Hyprland, sway or niri, or any desktop not
 listed, keeps whatever the desktop draws, which may be nothing. "Use the
-system title bar" in Appearance overrides it either way
+system title bar" in Appearance (under its "Neon ring intensity", the soft
+glow in the ring's colour, 0 to 100% and 50% unless set (`neon_glow`),
+around the speaking rings of the voice channel list and the account card and
+around the call's speaking tiles, a shadow with no offset under them)
+overrides it either way
 (`system_title_bar` in `layout.json`) and applies at once. Each window is
 made with the desktop's frame or without it, so the window is made again
 when the setting changes, with Settings still open on Appearance: where the

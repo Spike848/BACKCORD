@@ -70,7 +70,24 @@ impl Application {
             .is_some_and(|message| message.can_delete)
         {
             self.state.confirm_delete = Some(item);
+            self.state.confirm_delete_more.clear();
         }
+        vec![]
+    }
+
+    /// Asks once before deleting several messages: those of `items` this
+    /// account may delete.
+    pub(super) fn request_delete_many(&mut self, items: Vec<String>) -> Vec<Effect> {
+        let mut deletable = items.into_iter().filter(|item| {
+            self.state
+                .message(item)
+                .is_some_and(|message| message.can_delete && !message.deleted)
+        });
+        let Some(first) = deletable.next() else {
+            return vec![];
+        };
+        self.state.confirm_delete_more = deletable.collect();
+        self.state.confirm_delete = Some(first);
         vec![]
     }
 
@@ -252,10 +269,15 @@ impl Application {
     }
 
     pub(super) fn confirm_delete(&mut self) -> Vec<Effect> {
+        let more = std::mem::take(&mut self.state.confirm_delete_more);
         let Some(item) = self.state.confirm_delete.take() else {
             return vec![];
         };
-        self.delete_message(item)
+        let mut effects = self.delete_message(item);
+        for item in more {
+            effects.extend(self.delete_message(item));
+        }
+        effects
     }
 
     fn delete_message(&mut self, item: String) -> Vec<Effect> {

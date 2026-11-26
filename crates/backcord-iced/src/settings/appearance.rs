@@ -614,6 +614,7 @@ impl<'a> Page<'a> {
                 ),
                 tiles,
             ]),
+            self.neon_glow_slider(),
             self.title_bar_switch(),
             column![
                 form::heading(theme, backcord_iced_kit::i18n::tr("PROFILES")),
@@ -1010,6 +1011,43 @@ fn preview<'a>(palette: &palette::Theme, width: f32) -> Element<'a, Message> {
 }
 
 impl<'a> Page<'a> {
+    /// Appearance's "Neon ring intensity": how strong the soft glow around
+    /// the speaking rings and the call's speaking tiles is, 0 for none.
+    pub(super) fn neon_glow_slider(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let value = u32::from(
+            self.cx
+                .layout
+                .prefs
+                .neon_glow
+                .unwrap_or(backcord_iced_kit::style::DEFAULT_GLOW),
+        );
+        let pref = |value, done| {
+            Message::Settings(SettingsEvent::Pref(super::pages::Pref::NeonGlow(
+                value, done,
+            )))
+        };
+        column![
+            crate::controls::slider(
+                backcord_iced_kit::i18n::tr("Neon ring intensity"),
+                value,
+                100,
+                move |value| pref(value, false),
+            )
+            .on_release(pref(value, true))
+            .typed(move |value| pref(value, true))
+            .view(theme),
+            form::note(
+                theme,
+                backcord_iced_kit::i18n::tr(
+                    "A soft neon glow around the rings of those speaking, soundboard sounds included, and around their tiles in a call.",
+                ),
+            ),
+        ]
+        .spacing(8)
+        .into()
+    }
+
     /// Appearance's "Use the system title bar", where BACKCORD can draw its
     /// own: the desktop's way until it's chosen.
     pub(super) fn title_bar_switch(self) -> Element<'a, Message> {
