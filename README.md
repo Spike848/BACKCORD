@@ -36,12 +36,6 @@ cifrata.
 
 ## Novità della 1.5.3
 
-> **Da scaricare a mano**: la 1.5.3 è firmata con una chiave nuova, quindi il
-> tasto Aggiorna delle versioni precedenti la rifiuta ("The release's
-> signature doesn't check out"). Scarica `BACKCORD-windows-x64.zip` da questa
-> pagina e sostituisci il vecchio `BACKCORD.exe`: le impostazioni restano. Dalla
-> 1.5.3 in poi gli aggiornamenti tornano automatici.
-
 - **Dividi messaggi lunghi**: un messaggio oltre il limite di Discord (2.000
   caratteri, 4.000 con Nitro) parte in più messaggi, divisi a fine riga e tra
   le parole, senza spezzare blocchi di codice, menzioni e link. Nuova funzione
