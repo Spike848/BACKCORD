@@ -80,6 +80,7 @@ pub enum Pref {
     EmulationDepth(usize),
     AntiDisconnect(bool),
     FollowVoice(bool),
+    AutoUnmute(bool),
     MessageLinkPreviews(bool),
     RelationshipNotifier(bool),
     /// One of Relationship Notifier's removals, by its place in its dialog.
@@ -426,6 +427,11 @@ impl Settings {
                 prefs.anti_disconnect = Some(on);
                 cx.dispatch(backcord_core::application::Action::AntiDisconnect(on));
                 cx.keep("anti_disconnect", on);
+            }
+            Pref::AutoUnmute(on) => {
+                prefs.auto_unmute = Some(on);
+                cx.dispatch(backcord_core::application::Action::AutoUnmute(on));
+                cx.keep("auto_unmute", on);
             }
             Pref::MessageLinkPreviews(on) => {
                 prefs.message_link_previews = Some(on);

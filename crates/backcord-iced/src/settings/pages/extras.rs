@@ -199,6 +199,7 @@ impl<'a> Page<'a> {
         let platforms = prefs.platform_indicators.unwrap_or(true);
         let anti_disconnect = prefs.anti_disconnect.unwrap_or(false);
         let follow = prefs.follow_voice.unwrap_or(true);
+        let auto_unmute = prefs.auto_unmute.unwrap_or(false);
         let message_links = prefs.message_link_previews.unwrap_or(true);
         let hidden = prefs.show_hidden_channels;
         let relationships = prefs.relationship_notifier.unwrap_or(true);
@@ -224,6 +225,13 @@ impl<'a> Page<'a> {
                 tr("Adds Follow to people's menus: you join each voice channel they go to, in servers you share with them, until you turn it off."),
                 follow,
                 Pref::FollowVoice(!follow),
+                None,
+            ),
+            self.plugin(
+                tr("Auto Unmute"),
+                tr("When a server mutes or deafens you in a voice channel where you may mute and deafen members, undoes it at once."),
+                auto_unmute,
+                Pref::AutoUnmute(!auto_unmute),
                 None,
             ),
             self.plugin(

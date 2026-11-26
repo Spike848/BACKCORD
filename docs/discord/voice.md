@@ -705,6 +705,15 @@ channel still listed that this account may join and isn't full; not after
 the fifth time in a minute. Leaving by hand, or joining on another client,
 ends without an error and stays left.
 
+With Auto Unmute on (`Action::AutoUnmute`), this account server muted or
+deafened in a Discord server's voice channel, on this client or another,
+undoes it at once with the same request as a member's menu
+(`Application::unmute_myself`, after each list and voice change), where it
+may mute or deafen members there; its permissions decide, as they do for the
+menu. It acts once on each change Discord shows, and not after the fifth
+time in a minute, so a bot that keeps muting the account doesn't start a
+fight.
+
 Follow (`Action::FollowVoice`) follows one Discord user: each time the
 lists show them in another server voice channel this account may join,
 which is in a server it shares with them, it leaves its call and joins

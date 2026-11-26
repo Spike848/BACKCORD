@@ -1,6 +1,7 @@
 //! Joining and switching calls, and answering them, and the sounds they make.
 
 use super::*;
+use crate::chat::MemberChange;
 use crate::sounds::Sound;
 
 /// The sound a change in the call makes: this account joining or leaving it,
@@ -213,6 +214,71 @@ impl Application {
         tracing::info!("Anti-Disconnect: joining the voice channel again");
         self.state.voice.error = None;
         self.voice_command(voice::Command::Join(room))
+    }
+
+    /// Auto Unmute: undoes a server mute or deafen of this account in the
+    /// Discord server voice channel the lists show it in, where it may mute
+    /// or deafen members, once each time it changes; not after the fifth
+    /// time in a minute, so a bot that keeps muting it doesn't start a fight.
+    pub(super) fn unmute_myself(&mut self) -> Vec<Effect> {
+        const TIMES: usize = 5;
+        const MINUTE: u64 = 60_000;
+        if !self.state.auto_unmute {
+            return vec![];
+        }
+        let Some(me) = self.state.discord_user.as_deref() else {
+            return vec![];
+        };
+        let seen = self
+            .state
+            .rooms
+            .iter()
+            .filter(|room| room.voice && !room.direct && room.network == Network::Discord)
+            .find_map(|room| {
+                let person = room
+                    .people
+                    .iter()
+                    .find(|person| super::rooms::network_id(&person.id) == me)?;
+                Some((
+                    room.id.clone(),
+                    person.id.clone(),
+                    person.server_muted,
+                    person.server_deafened,
+                ))
+            });
+        let Some((room, user, muted, deafened)) = seen else {
+            self.unmute_seen = None;
+            return vec![];
+        };
+        let now_seen = (room.clone(), muted, deafened);
+        if self.unmute_seen.as_ref() == Some(&now_seen) {
+            return vec![];
+        }
+        self.unmute_seen = Some(now_seen);
+        if !muted && !deafened {
+            return vec![];
+        }
+        let now = crate::clock::now_ms();
+        self.unmutes.retain(|at| now.saturating_sub(*at) < MINUTE);
+        if self.unmutes.len() >= TIMES {
+            return vec![];
+        }
+        let mut effects = vec![];
+        if muted {
+            effects.extend(self.change_member(
+                room.clone(),
+                user.clone(),
+                MemberChange::ServerMute(false),
+            ));
+        }
+        if deafened {
+            effects.extend(self.change_member(room, user, MemberChange::ServerDeafen(false)));
+        }
+        if !effects.is_empty() {
+            self.unmutes.push(now);
+            tracing::info!("Auto Unmute: undoing a server mute or deafen");
+        }
+        effects
     }
 
     /// Follows `user` into voice, or stops with none; joins where they are

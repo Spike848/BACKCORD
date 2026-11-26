@@ -4023,3 +4023,5 @@ Whole chat	Tutta la chat
 You can close this window: the export goes on.	Puoi chiudere questa finestra: l'esportazione continua.
 dd/mm/yyyy	gg/mm/aaaa
 {} messages downloaded…	{} messaggi scaricati…
+Auto Unmute	Auto-smuta
+When a server mutes or deafens you in a voice channel where you may mute and deafen members, undoes it at once.	Quando un server ti silenzia o ti toglie l'audio in un canale vocale dove puoi silenziare e togliere l'audio ai membri, lo annulla subito.

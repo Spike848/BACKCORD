@@ -724,3 +724,85 @@ fn server_mute_deafen_move_and_disconnect_change_straight_from_the_menu() {
         "Cara isn't in voice"
     );
 }
+
+/// Sets this account's server mute and deafen in the Lounge, as the lists
+/// would show them.
+fn mute_alice(app: &mut Application, muted: bool, deafened: bool) {
+    let lounge = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == "discord:10:12")
+        .unwrap();
+    let alice = lounge
+        .people
+        .iter_mut()
+        .find(|person| crate::application::rooms::network_id(&person.id) == "1")
+        .unwrap();
+    alice.server_muted = muted;
+    alice.server_deafened = deafened;
+}
+
+/// What Auto Unmute undid of this account's, in the server.
+fn undone(effects: &[Effect]) -> Vec<MemberChange> {
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::Backend(Command::Discord(DiscordCommand::Member {
+                server,
+                user,
+                change,
+            })) if server == SERVER && crate::application::rooms::network_id(user) == "1" => {
+                Some(change.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn auto_unmute_undoes_a_server_mute_of_this_account_once_each_time() {
+    let mut app = staff();
+    mute_alice(&mut app, true, false);
+    assert!(undone(&app.unmute_myself()).is_empty(), "off");
+    assert_eq!(
+        undone(&app.dispatch(Action::AutoUnmute(true))),
+        [MemberChange::ServerMute(false)]
+    );
+    assert!(
+        undone(&app.unmute_myself()).is_empty(),
+        "once, until Discord shows it changed"
+    );
+    mute_alice(&mut app, false, false);
+    assert!(undone(&app.unmute_myself()).is_empty());
+    mute_alice(&mut app, true, true);
+    assert_eq!(
+        undone(&app.unmute_myself()),
+        [
+            MemberChange::ServerMute(false),
+            MemberChange::ServerDeafen(false)
+        ]
+    );
+}
+
+#[test]
+fn auto_unmute_needs_the_permission_to_mute_members() {
+    let mut app = server(&[]);
+    mute_alice(&mut app, true, true);
+    assert!(undone(&app.dispatch(Action::AutoUnmute(true))).is_empty());
+}
+
+#[test]
+fn auto_unmute_gives_up_after_five_times_in_a_minute() {
+    let mut app = staff();
+    app.dispatch(Action::AutoUnmute(true));
+    let mut undid = 0;
+    for _ in 0..8 {
+        mute_alice(&mut app, false, false);
+        app.unmute_myself();
+        mute_alice(&mut app, true, false);
+        undid += undone(&app.unmute_myself()).len();
+    }
+    assert_eq!(undid, 5);
+}
