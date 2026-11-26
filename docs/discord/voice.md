@@ -327,13 +327,12 @@ Voice & video's Voice limiter, under the speakers' volume
 (`voice_limit` in `layout.json`, off unless set), holds each person's
 voice under a ceiling from -40 dBFS up, so someone shouting or playing loud
 into their microphone plays no louder than it. Its slider goes in 1 dB
-steps; all the way up is off. Each voice has its own peak limiter
-(`voice_limiter.rs`), in `mix` after their own volume and the speakers':
-its level follows the voice's peaks, rising over 1 ms and falling over
-200 ms, and the voice is turned down by as much as that level is over the
-ceiling; a sample still over it in that first millisecond is cut at it.
-Others play as they come, and a voice that drops out of the mix starts
-afresh. Only voices go through it: streams' sound, the soundboard and
+steps; all the way up is off. Each voice goes through a hard limiter
+(`voice_limiter.rs`), in `mix` after their own volume and the speakers',
+with no attack or release: a stereo frame over the ceiling is turned down
+to it at once, both channels by the same share, and the next under it
+plays as it comes. Each voice is limited on its own, so the others play as
+they come. Only voices go through it: streams' sound, the soundboard and
 BACKCORD's own sounds don't, nor a Matrix call's voices in a build with
 Matrix.
 

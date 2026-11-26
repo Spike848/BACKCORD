@@ -42,8 +42,6 @@ pub struct Hearing {
     /// Who played a soundboard sound, until it ends: they show speaking.
     sounding: Mutex<HashMap<u64, Instant>>,
     sounds: Mutex<Vec<Playing>>,
-    /// Each voice's limiter, while they're heard; see [`crate::voice_limiter`].
-    limiters: Mutex<HashMap<u64, crate::voice_limiter::Limiter>>,
     ended: UnboundedSender<String>,
 }
 
@@ -66,7 +64,6 @@ impl Hearing {
             heard: Mutex::default(),
             sounding: Mutex::default(),
             sounds: Mutex::default(),
-            limiters: Mutex::default(),
             ended,
         }
     }
@@ -148,19 +145,15 @@ impl Listener for Hearing {
             |user: u64| crate::volume::heard(crate::volume::Kind::Voice, &user.to_string());
         let mut frame = spare_frame();
         let mut sounds = self.sounds.lock().unwrap();
-        let mut limiters = self.limiters.lock().unwrap();
-        // A voice that stopped starts afresh when it comes back.
-        limiters.retain(|user, _| voices.iter().any(|(heard, _)| heard == user));
-        let limit = crate::volume::voice_limit().map(|limit| (limit, &mut *limiters));
         mix(
             voices,
             volume,
-            limit,
+            crate::volume::voice_limit(),
             &mut sounds,
             crate::volume::speakers(),
             &mut frame,
         );
-        drop((sounds, limiters));
+        drop(sounds);
         // A full queue means the speakers are behind; dropping a frame keeps
         // the delay from growing.
         match output.try_send(frame) {
@@ -207,31 +200,27 @@ fn recycle(frame: Vec<i16>) {
 }
 
 /// Sums everyone's 20 ms of interleaved stereo into `out`, each at the volume
-/// chosen for them, held under the voice limiter's ceiling, a gain of full
-/// scale, by their own limiter while it's on, and the next 20 ms of each sound
+/// chosen for them, each held under the voice limiter's ceiling, a gain of
+/// full scale, while it's on, and the next 20 ms of each sound
 /// at its own volume times the `speakers'`, clipping at full scale. Sounds
 /// that ended go.
 fn mix(
     voices: &[(u64, &[i16])],
     volume: impl Fn(u64) -> f32,
-    limit: Option<(f32, &mut HashMap<u64, crate::voice_limiter::Limiter>)>,
+    limit: Option<f32>,
     sounds: &mut Vec<Playing>,
     speakers: f32,
     out: &mut [i16],
 ) {
     let mut sum = [0f32; FRAME_SAMPLES];
-    let mut limit = limit;
     for (user, samples) in voices {
         let gain = volume(*user);
         if gain == 0.0 {
             continue;
         }
-        if let Some((ceiling, limiters)) = limit.as_mut() {
-            let ceiling = crate::voice_limiter::ceiling(*ceiling);
-            limiters
-                .entry(*user)
-                .or_default()
-                .add(samples, gain, ceiling, &mut sum);
+        if let Some(ceiling) = limit {
+            let ceiling = crate::voice_limiter::ceiling(ceiling);
+            crate::voice_limiter::Limiter.add(samples, gain, ceiling, &mut sum);
             continue;
         }
         for (total, sample) in sum.iter_mut().zip(samples.iter()) {
@@ -1273,12 +1262,11 @@ mod tests {
         let loud = vec![30_000i16; FRAME_SAMPLES];
         let ceiling = 10f32.powf(-12.0 / 20.0);
         let most = crate::voice_limiter::ceiling(ceiling);
-        let mut limiters = HashMap::new();
         let mut out = vec![0i16; FRAME_SAMPLES];
         mix(
             &[(1, &loud)],
             |_| 1.0,
-            Some((ceiling, &mut limiters)),
+            Some(ceiling),
             &mut Vec::new(),
             1.0,
             &mut out,
@@ -1287,21 +1275,13 @@ mod tests {
             out.iter()
                 .all(|sample| f32::from(*sample).abs() <= most + 1.0)
         );
-        assert!(limiters.contains_key(&1), "a limiter of its own");
         // A soundboard sound isn't limited.
         let mut sounds = vec![Playing {
             samples: vec![30_000; FRAME_SAMPLES],
             at: 0,
             volume: 1.0,
         }];
-        mix(
-            &[],
-            |_| 1.0,
-            Some((ceiling, &mut limiters)),
-            &mut sounds,
-            1.0,
-            &mut out,
-        );
+        mix(&[], |_| 1.0, Some(ceiling), &mut sounds, 1.0, &mut out);
         assert!(out.iter().all(|sample| *sample == 30_000));
     }
 
