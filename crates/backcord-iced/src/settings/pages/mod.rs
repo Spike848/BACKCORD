@@ -20,7 +20,7 @@ mod advanced;
 mod discord;
 pub use discord::blocked_pictures;
 mod extras;
-pub use extras::{Extra, emulate_platform, fake_nitro, relationship_notifier};
+pub use extras::{Extra, auto_delete, emulate_platform, fake_nitro, relationship_notifier};
 mod games;
 mod messages;
 mod notifications;
@@ -83,6 +83,10 @@ pub enum Pref {
     AutoUnmute(bool),
     KeepNickname(bool),
     AntiGroupCall(bool),
+    AutoDelete(bool),
+    /// How long after sending Auto Delete deletes, by its place in its
+    /// dialog's times.
+    AutoDeleteAfter(usize),
     MessageLinkPreviews(bool),
     RelationshipNotifier(bool),
     /// One of Relationship Notifier's removals, by its place in its dialog.
@@ -444,6 +448,16 @@ impl Settings {
                 prefs.anti_group_call = Some(on);
                 cx.dispatch(backcord_core::application::Action::AntiGroupCall(on));
                 cx.keep("anti_group_call", on);
+            }
+            Pref::AutoDelete(on) => {
+                prefs.auto_delete = Some(on);
+                crate::settings::auto_delete(prefs);
+                cx.keep("auto_delete", on);
+            }
+            Pref::AutoDeleteAfter(index) => {
+                prefs.auto_delete_after = Some(index);
+                crate::settings::auto_delete(prefs);
+                cx.keep("auto_delete_after", index);
             }
             Pref::MessageLinkPreviews(on) => {
                 prefs.message_link_previews = Some(on);

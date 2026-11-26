@@ -32,6 +32,7 @@ use crate::{
     stream::StreamServer,
 };
 
+mod auto_delete;
 mod keep_nick;
 mod live;
 mod marks;
@@ -44,6 +45,8 @@ mod stream_openings;
 mod tracker;
 mod voice_join;
 
+pub(crate) use auto_delete::Waiting as AutoDeleteWaiting;
+pub use auto_delete::set_auto_delete;
 pub use keep_nick::set_keep_nickname;
 
 use member_lists::MemberLists;

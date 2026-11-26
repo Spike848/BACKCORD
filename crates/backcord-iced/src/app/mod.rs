@@ -254,6 +254,7 @@ impl App {
         crate::settings::relationship_notifier(&layout.prefs);
         crate::settings::fake_nitro(&layout.prefs);
         backcord_core::extras::set_keep_nickname(layout.prefs.keep_nickname.unwrap_or(false));
+        crate::settings::auto_delete(&layout.prefs);
         // The proxy and encrypted DNS Security set, before anything connects.
         let (proxy, dns) = crate::settings::network(&layout.prefs);
         backcord_core::discord::set_network(proxy, dns);

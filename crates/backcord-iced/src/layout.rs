@@ -243,6 +243,10 @@ pub struct Prefs {
     pub keep_nickname: Option<bool>,
     /// Anti Group Call (off unless turned on).
     pub anti_group_call: Option<bool>,
+    /// Auto Delete (off unless turned on), and how long after sending, by
+    /// its place in the dialog's times (5 minutes unless chosen).
+    pub auto_delete: Option<bool>,
+    pub auto_delete_after: Option<usize>,
     /// Message Link Previews: a card of each Discord message a message
     /// links to under it (on unless turned off).
     pub message_link_previews: Option<bool>,

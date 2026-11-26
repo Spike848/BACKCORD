@@ -66,6 +66,8 @@ pub(super) async fn run(
 ) {
     let snapshots = shared.snapshots.clone();
     let mut reconnects = Reconnects::default();
+    // Auto Delete's deleter, for as long as the service runs.
+    let _deleter = AbortOnDrop(tokio::spawn(super::auto_delete::run(shared.api.clone())));
     // With the build number kept from the last start, the web client's page
     // loads beside connecting, rather than before it.
     if let Ok(Some(kept)) = tokio::task::spawn_blocking(crate::cache::build_number).await {
@@ -151,6 +153,15 @@ pub(super) async fn run(
                 },
             }
         }
+    }
+}
+
+/// Stops a task when it goes out of scope.
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
     }
 }
 
@@ -794,6 +805,9 @@ impl Session<'_> {
         }
         if let Some(before) = nick_before {
             self.keep_nickname(data, before);
+        }
+        if *event == Event::MessageCreate {
+            super::auto_delete::note(data, &self.tracker.me);
         }
         if *event == Event::UserUpdate {
             self.shared.lists.user_changed(&self.tracker, data);

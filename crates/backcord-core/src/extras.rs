@@ -36,6 +36,14 @@ thread_local! {
     static TEST_FAKE_NITRO: std::cell::Cell<FakeNitro> = const { std::cell::Cell::new(FakeNitro::OFF) };
 }
 
+/// Auto Delete: this account's Discord messages, sent while it's on, are
+/// deleted `after_ms` after they're sent; 0 turns it off and forgets those
+/// waiting. See `backcord_discord::service::set_auto_delete`.
+#[cfg(feature = "discord")]
+pub fn set_auto_delete(after_ms: u64) {
+    backcord_discord::service::set_auto_delete(after_ms);
+}
+
 /// Anti Group Call: a Discord group DM's call doesn't ring this account
 /// (see [`crate::application::Action::AntiGroupCall`], which sets this).
 static ANTI_GROUP_CALL: AtomicBool = AtomicBool::new(false);

@@ -21,6 +21,9 @@
 //! - `discord-build-number`: the web client's build number as its page last
 //!   gave it, so a start connects with it at once; see
 //!   [`crate::api::Api::learn_build_number`].
+//! - `discord-auto-delete.json`: the messages Auto Delete has yet to
+//!   delete, by channel and message id, with when each goes; see
+//!   `service/auto_delete.rs`.
 //! - `discord-favorite-gifs.json`: the favourite GIFs, as Discord's settings
 //!   last gave them, so the picker shows them before Discord answers.
 //! - `discord-gifs/`: a thumbnail of each favourite GIF, by its picture's
@@ -265,6 +268,33 @@ fn pictures() -> Option<PathBuf> {
 
 fn previews() -> Option<PathBuf> {
     Some(file()?.with_file_name("discord-previews"))
+}
+
+fn auto_delete_file() -> Option<PathBuf> {
+    Some(file()?.with_file_name("discord-auto-delete.json"))
+}
+
+/// The messages Auto Delete has yet to delete, for this login. It reads the
+/// disk, so the async side calls it off its threads.
+pub(crate) fn auto_deletes() -> Vec<crate::service::AutoDeleteWaiting> {
+    auto_delete_file()
+        .and_then(|file| read_sealed(&file, "the messages to delete"))
+        .unwrap_or_default()
+}
+
+/// Keeps the messages Auto Delete has yet to delete, as [`auto_deletes`]
+/// reads them; none deletes the file.
+pub(crate) fn keep_auto_deletes(waiting: &[crate::service::AutoDeleteWaiting]) {
+    let Some(file) = auto_delete_file() else {
+        return;
+    };
+    if waiting.is_empty() {
+        let _ = std::fs::remove_file(&file);
+        return;
+    }
+    if let Err(error) = write_sealed(&file, &waiting) {
+        tracing::warn!(%error, "could not keep the messages to delete");
+    }
 }
 
 fn favorite_gifs_file() -> Option<PathBuf> {
@@ -767,7 +797,7 @@ pub(crate) fn relogin(token: &str) {
         .filter_map(|directory| std::fs::read_dir(directory).ok())
         .flatten()
         .filter_map(|entry| Some(entry.ok()?.path()));
-    for file in [file(), favorite_gifs_file()]
+    for file in [file(), favorite_gifs_file(), auto_delete_file()]
         .into_iter()
         .flatten()
         .chain(kept)
@@ -1156,6 +1186,7 @@ pub fn forget() {
     for file in [
         file(),
         favorite_gifs_file(),
+        auto_delete_file(),
         gif_home_answer_file(),
         sticker_packs_file(),
         profile_frames_file(),

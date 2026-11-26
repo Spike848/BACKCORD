@@ -1294,6 +1294,22 @@ The service's `Discord::delete_own_messages` does the work;
 `discord_text/delete_all.rs` runs it and keeps each run's stop, and the
 core's `application/delete_all.rs` the dialog and the counts.
 
+## Auto Delete
+
+Auto Delete, an Extra Feature, off by default, deletes this account's
+messages once they're as old as its dialog chooses: 30 seconds to 7 days,
+5 minutes unless chosen. Each MESSAGE_CREATE of this account's, sent here or
+on another client while it's on, waits in a queue
+(`service/auto_delete.rs`): plain messages and replies, not ephemeral ones,
+nor the notices of calls and pins. One task for as long as the service runs
+deletes them as they fall due, one at a time, with the same request as a
+message's Delete; one Discord no longer has is as good as deleted. A delete
+that fails is tried again a minute later, and given up after the third
+time. The queue goes to disk as it changes, `discord-auto-delete.json`,
+encrypted for the login as the account is, so the messages due while
+BACKCORD was closed go as it next starts. Turning Auto Delete off forgets
+the queue: the messages still waiting stay.
+
 ## Export Chat
 
 A server channel's menu (a text channel, a voice channel's chat, a thread),

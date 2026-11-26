@@ -1170,3 +1170,46 @@ async fn exports_a_channels_history_a_page_at_a_time() {
             .is_none()
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn auto_delete_deletes_this_accounts_messages_in_time() {
+    /// Auto Delete, off again however the test ends.
+    struct On;
+    impl Drop for On {
+        fn drop(&mut self) {
+            backcord_discord::service::set_auto_delete(0);
+        }
+    }
+    let Fixture {
+        _fake,
+        discord,
+        guild,
+        general,
+        ..
+    } = Fixture::start("auto_delete_deletes_this_accounts_messages_in_time").await;
+    let mut live = discord.live();
+    let _on = On;
+    backcord_discord::service::set_auto_delete(1_000);
+    let nonce = backcord_discord::message::nonce();
+    let started = std::time::Instant::now();
+    let sent = discord
+        .send(
+            &guild,
+            &general,
+            "gone in a second",
+            sending(&nonce, None),
+            vec![],
+        )
+        .await
+        .unwrap();
+    live_where(&mut live, |event| match event {
+        Live::Deleted { id, .. } if id == sent.id => Some(()),
+        _ => None,
+    })
+    .await;
+    assert!(
+        started.elapsed() >= Duration::from_millis(900),
+        "not before its time"
+    );
+}

@@ -26,7 +26,9 @@ pub mod updates;
 #[cfg(test)]
 pub use pages::Extra;
 pub use pages::message_size;
-pub use pages::{blocked_pictures, emulate_platform, fake_nitro, network, relationship_notifier};
+pub use pages::{
+    auto_delete, blocked_pictures, emulate_platform, fake_nitro, network, relationship_notifier,
+};
 pub mod voice;
 
 use crate::widgets::scroll_view;

@@ -935,3 +935,25 @@ fn badge_spoofer_starts_off_and_dresses_only_ones_own_profile() {
     change(&mut app, |_| {});
     assert!(badges(&app).is_empty());
 }
+
+/// Auto Delete's card in Extra Features, off as it starts, and its dialog's
+/// times, kept across a restart.
+#[test]
+fn auto_delete_starts_off_and_keeps_its_time() {
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Extras);
+    assert!(shows(&app, "Auto Delete"));
+    assert_eq!(app.layout.prefs.auto_delete, None, "off unless turned on");
+    let _ = app.update(Message::Settings(Event::Extra(Some(
+        crate::settings::Extra::AutoDelete,
+    ))));
+    for name in ["DELETE AFTER", "30 seconds", "5 minutes", "7 days"] {
+        assert!(shows(&app, name), "{name}");
+    }
+    interact(&mut app, |ui| {
+        ui.click("1 hour").expect("the time");
+    });
+    assert_eq!(app.layout.prefs.auto_delete_after, Some(4));
+    let again = start(&folder, true);
+    assert_eq!(again.layout.prefs.auto_delete_after, Some(4));
+}

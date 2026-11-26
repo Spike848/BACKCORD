@@ -31,6 +31,7 @@ pub enum Extra {
     RelationshipNotifier,
     FakeNitro,
     BadgeSpoofer,
+    AutoDelete,
 }
 
 /// The dialog's width.
@@ -52,6 +53,39 @@ const PLATFORM_NAMES: [&str; 10] = [
     "Web",
 ];
 const DEPTHS: [&str; 3] = ["Low level", "Medium level", "High level"];
+
+/// How long after sending Auto Delete deletes: each choice's label and
+/// milliseconds, in the two rows its dialog shows them in.
+const AUTO_DELETE_AFTER: [(&str, u64); 8] = [
+    ("30 seconds", 30_000),
+    ("1 minute", 60_000),
+    ("5 minutes", 300_000),
+    ("15 minutes", 900_000),
+    ("1 hour", 3_600_000),
+    ("6 hours", 21_600_000),
+    ("1 day", 86_400_000),
+    ("7 days", 604_800_000),
+];
+/// Five minutes, unless chosen.
+const AUTO_DELETE_DEFAULT: usize = 2;
+
+/// The place in [`AUTO_DELETE_AFTER`] chosen.
+fn auto_delete_after(prefs: &crate::layout::Prefs) -> usize {
+    prefs
+        .auto_delete_after
+        .filter(|index| *index < AUTO_DELETE_AFTER.len())
+        .unwrap_or(AUTO_DELETE_DEFAULT)
+}
+
+/// Hands Discord's side Auto Delete and its time: off unless turned on.
+pub fn auto_delete(prefs: &crate::layout::Prefs) {
+    let after = if prefs.auto_delete.unwrap_or(false) {
+        AUTO_DELETE_AFTER[auto_delete_after(prefs)].1
+    } else {
+        0
+    };
+    backcord_core::extras::set_auto_delete(after);
+}
 
 /// Fake Nitro's emoji sizes, as `backcord_core::fake_nitro::SIZES` has them.
 const FAKE_NITRO_SIZES: [&str; 6] = ["32", "48", "64", "96", "128", "160"];
@@ -202,6 +236,7 @@ impl<'a> Page<'a> {
         let auto_unmute = prefs.auto_unmute.unwrap_or(false);
         let keep_nickname = prefs.keep_nickname.unwrap_or(false);
         let anti_group_call = prefs.anti_group_call.unwrap_or(false);
+        let auto_delete = prefs.auto_delete.unwrap_or(false);
         let message_links = prefs.message_link_previews.unwrap_or(true);
         let hidden = prefs.show_hidden_channels;
         let relationships = prefs.relationship_notifier.unwrap_or(true);
@@ -249,6 +284,13 @@ impl<'a> Page<'a> {
                 anti_group_call,
                 Pref::AntiGroupCall(!anti_group_call),
                 None,
+            ),
+            self.plugin(
+                tr("Auto Delete"),
+                tr("Deletes the messages you send, anywhere, once they're as old as you choose. Those due while BACKCORD is closed go when it next connects."),
+                auto_delete,
+                Pref::AutoDelete(!auto_delete),
+                Some(Extra::AutoDelete),
             ),
             self.plugin(
                 tr("Show Hidden Channels"),
@@ -533,6 +575,37 @@ impl<'a> Page<'a> {
                         switch(tr("Auto Stream Proof"), auto, Some(pref(Pref::StreamProofAuto(!auto))))
                             .description(tr("Turns it on when you start streaming, and off when you stop."))
                             .view(look),
+                    ],
+                )
+            }
+            Extra::AutoDelete => {
+                let chosen = auto_delete_after(prefs);
+                let row = |from: usize| {
+                    let labels: [&str; 4] =
+                        std::array::from_fn(|at| tr(AUTO_DELETE_AFTER[from + at].0));
+                    let current = chosen
+                        .checked_sub(from)
+                        .filter(|at| *at < 4)
+                        .unwrap_or(usize::MAX);
+                    choices_within(theme, &labels, current, 480.0, move |at| {
+                        pref(Pref::AutoDeleteAfter(from + at))
+                    })
+                };
+                (
+                    tr("Auto Delete"),
+                    tr(
+                        "Deletes the messages you send, anywhere, once they're as old as you choose. Those due while BACKCORD is closed go when it next connects.",
+                    ),
+                    vec![
+                        form::heading(theme, tr("DELETE AFTER")),
+                        form::note(
+                            theme,
+                            tr(
+                                "How long after you send a message it's deleted. Turning Auto Delete off forgets the messages still waiting: they stay.",
+                            ),
+                        ),
+                        row(0),
+                        row(4),
                     ],
                 )
             }
