@@ -1,5 +1,6 @@
 //! Relationship Notifier: what others did to this account's friendships,
-//! group DMs and servers. The app compares each snapshot's friends, friend
+//! group DMs and servers: what they took away, and the friend requests
+//! they sent or accepted. The app compares each snapshot's friends, friend
 //! requests, group DMs and servers with those it knew, and what went that
 //! this account didn't take away itself it tells of and lists in the
 //! inbox's Friend Alerts. Each account's last known lists and its alerts
@@ -18,7 +19,7 @@ pub const FILE: &str = "relationship-alerts.json";
 /// The most alerts kept for an account; the oldest go first.
 pub const KEPT: usize = 200;
 
-/// What went.
+/// What went, or, for a friend request sent or accepted, what came.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Removal {
     /// A friend removed this account, or blocked it.
@@ -31,6 +32,10 @@ pub enum Removal {
     Group,
     /// This account was kicked or banned from a server, or it was deleted.
     Server,
+    /// Someone sent this account a friend request.
+    RequestReceived,
+    /// Someone accepted the friend request this account sent.
+    RequestAccepted,
 }
 
 /// One alert, as Friend Alerts lists it.
@@ -62,6 +67,8 @@ impl RelationshipAlert {
             (Removal::Group, true) => "You're no longer in this group.",
             (Removal::Server, false) => "You were removed from this server, or it was deleted.",
             (Removal::Server, true) => "You're no longer in this server.",
+            (Removal::RequestReceived, _) => "Sent you a friend request.",
+            (Removal::RequestAccepted, _) => "Accepted your friend request.",
         }
     }
 
@@ -74,8 +81,9 @@ impl RelationshipAlert {
 /// Which removals are told of, as Settings' Extra Features say.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Kinds {
+    /// Friends lost, and friend requests accepted.
     pub friends: bool,
-    /// Friend requests declined or withdrawn.
+    /// Friend requests received, declined or withdrawn.
     pub requests: bool,
     pub groups: bool,
     pub servers: bool,
@@ -102,8 +110,10 @@ impl Kinds {
     /// Whether `alert` is told of.
     pub fn tell(self, alert: &RelationshipAlert) -> bool {
         let kind = match alert.removal {
-            Removal::Unfriended => self.friends,
-            Removal::RequestDeclined | Removal::RequestWithdrawn => self.requests,
+            Removal::Unfriended | Removal::RequestAccepted => self.friends,
+            Removal::RequestDeclined | Removal::RequestWithdrawn | Removal::RequestReceived => {
+                self.requests
+            }
             Removal::Group => self.groups,
             Removal::Server => self.servers,
         };
@@ -245,8 +255,9 @@ impl Known {
 }
 
 /// What went between `was` and `now` that this account didn't take away:
-/// ids in `mine` it did, and each is let go of as it's seen gone. Noticed
-/// at `at`, in Unix milliseconds; `offline` as BACKCORD starts.
+/// ids in `mine` it did, and each is let go of as it's seen gone. Then the
+/// friend requests others sent it, and those of its own they accepted.
+/// Noticed at `at`, in Unix milliseconds; `offline` as BACKCORD starts.
 pub fn removals(
     was: &Known,
     now: &Known,
@@ -286,6 +297,40 @@ pub fn removals(
                 offline,
             });
         }
+    }
+    // A request that came, from someone who wasn't a friend already.
+    for (id, who) in &now.received {
+        if was.received.contains_key(id) || was.friends.contains_key(id) {
+            continue;
+        }
+        alerts.push(RelationshipAlert {
+            removal: Removal::RequestReceived,
+            id: id.clone(),
+            name: who.name.clone(),
+            avatar: who.avatar.clone(),
+            at,
+            offline,
+        });
+    }
+    // A request this account sent that became a friendship: one it
+    // received and accepted itself isn't told of.
+    for (id, who) in &now.friends {
+        if was.friends.contains_key(id) {
+            continue;
+        }
+        let Some(sent) = was.sent.get(id) else {
+            continue;
+        };
+        // The friend list may not name them yet; the request did.
+        let who = if who.name.is_empty() { sent } else { who };
+        alerts.push(RelationshipAlert {
+            removal: Removal::RequestAccepted,
+            id: id.clone(),
+            name: who.name.clone(),
+            avatar: who.avatar.clone(),
+            at,
+            offline,
+        });
     }
     alerts
 }
@@ -388,13 +433,44 @@ mod tests {
         );
         assert!(mine.is_empty(), "each of its own is let go of once seen");
         assert!(alerts.iter().all(|alert| alert.at == 7 && !alert.offline));
-        // A request that became a friendship went nowhere.
+        // A request that became a friendship went nowhere: it was
+        // accepted.
         let was = Known {
             sent: [("5".into(), who("Sent"))].into(),
             ..Known::default()
         };
         let now = known(&["5"], &[]);
-        assert!(removals(&was, &now, &mut mine, 7, false).is_empty());
+        let alerts = removals(&was, &now, &mut mine, 7, false);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].removal, Removal::RequestAccepted);
+        assert_eq!(alerts[0].id, "5");
+    }
+
+    #[test]
+    fn requests_that_come_and_are_accepted_are_told() {
+        let was = Known {
+            sent: [("5".into(), who("Sent"))].into(),
+            received: [("6".into(), who("Old"))].into(),
+            ..known(&["2"], &[])
+        };
+        // 7 sent a request; 6's was already there; 5 accepted this
+        // account's; 6 too is a friend now, but this account accepted it.
+        let now = Known {
+            received: [("7".into(), who("New"))].into(),
+            ..known(&["2", "5", "6"], &[])
+        };
+        let mut mine = HashSet::new();
+        let told: Vec<(Removal, String)> = removals(&was, &now, &mut mine, 1, false)
+            .into_iter()
+            .map(|alert| (alert.removal, alert.id))
+            .collect();
+        assert_eq!(
+            told,
+            [
+                (Removal::RequestReceived, "7".to_owned()),
+                (Removal::RequestAccepted, "5".to_owned()),
+            ]
+        );
     }
 
     #[test]

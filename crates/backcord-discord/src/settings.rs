@@ -348,6 +348,32 @@ pub fn join_in_list(
     (list != entries).then_some(list)
 }
 
+/// The server list with the folder `folder` named `name` and coloured
+/// `color` (none for Discord's default), as Discord's Folder Settings
+/// writes them. `None` when there's no such folder, or nothing changes.
+pub fn set_folder_in_list(
+    entries: &[Folder],
+    folder: &str,
+    name: Option<&str>,
+    color: Option<u32>,
+) -> Option<Vec<Folder>> {
+    let at = entries
+        .iter()
+        .position(|entry| !entry.id.is_empty() && entry.id == folder)?;
+    let name = name
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned);
+    let entry = &entries[at];
+    if entry.name == name && entry.color == color {
+        return None;
+    }
+    let mut list = entries.to_vec();
+    list[at].name = name;
+    list[at].color = color.map(|color| color & 0xff_ffff);
+    Some(list)
+}
+
 /// Whether an entry is the folder or server `id`, or holds that server.
 fn holds(entry: &Folder, id: &str) -> bool {
     (!entry.id.is_empty() && entry.id == id) || entry.servers.iter().any(|server| server == id)
@@ -824,6 +850,31 @@ mod tests {
         let read = server_list(&write_server_list(&list)).unwrap();
         assert_eq!(read.order, order);
         assert_eq!(read.folders.len(), 1);
+    }
+
+    #[test]
+    fn a_folder_is_renamed_and_coloured() {
+        let folder = |id: &str, name: Option<&str>, color| Folder {
+            id: id.into(),
+            name: name.map(Into::into),
+            color,
+            servers: vec!["10".into()],
+        };
+        let list = [folder("", None, None), folder("7", Some("Games"), None)];
+        let coloured = set_folder_in_list(&list, "7", Some("Games"), Some(0x1abc9c)).unwrap();
+        assert_eq!(coloured[1], folder("7", Some("Games"), Some(0x1abc9c)));
+        assert_eq!(coloured[0], list[0], "the others stay");
+        // A blank name is none; the colour back to Discord's default.
+        let reset = set_folder_in_list(&coloured, "7", Some("  "), None).unwrap();
+        assert_eq!(reset[1], folder("7", None, None));
+        // Nothing changed, a server, or no such folder: nothing to write.
+        assert_eq!(set_folder_in_list(&list, "7", Some("Games"), None), None);
+        assert_eq!(set_folder_in_list(&list, "10", None, Some(1)), None);
+        assert_eq!(set_folder_in_list(&list, "9", None, Some(1)), None);
+        // Written and read back, the colour and name are kept.
+        let read = server_list(&write_server_list(&coloured)).unwrap();
+        assert_eq!(read.folders[0].color, Some(0x1abc9c));
+        assert_eq!(read.folders[0].name.as_deref(), Some("Games"));
     }
 
     #[test]

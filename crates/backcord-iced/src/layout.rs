@@ -221,6 +221,9 @@ pub struct Prefs {
     pub hide_others_typing: Option<bool>,
     pub no_push_to_talk: Option<bool>,
     pub message_logger: Option<bool>,
+    /// Split Long Messages: a message over Discord's limit goes in parts
+    /// (on unless turned off).
+    pub split_long_messages: Option<bool>,
     /// Message Logger keeps one's own messages too.
     pub message_logger_own: Option<bool>,
     /// Emulate Platforms: where people are online shows beside their names

@@ -289,6 +289,14 @@ pub fn choose_person(
         MenuChoice::TransferOwnership => {
             Some(Action::Ownership(OwnershipInput::Transfer(user.clone())))
         }
+        // In the open group DM, whose member list the menu is in.
+        MenuChoice::RemoveFromGroup | MenuChoice::MakeGroupOwner => {
+            state.selected.clone().map(|room| Action::AskGroupMember {
+                room,
+                user: user.clone(),
+                remove: choice == MenuChoice::RemoveFromGroup,
+            })
+        }
         MenuChoice::RemoveTimeout => place.map(|place| Action::ChangeMember {
             place,
             user: user.clone(),
@@ -759,6 +767,7 @@ pub(crate) fn danger(choice: MenuChoice) -> bool {
             | MenuChoice::LeaveGroup
             | MenuChoice::DeleteAll
             | MenuChoice::TransferOwnership
+            | MenuChoice::RemoveFromGroup
     )
 }
 
@@ -791,6 +800,8 @@ pub(crate) fn acts(choice: MenuChoice) -> bool {
             | MenuChoice::Ban
             | MenuChoice::RemoveTimeout
             | MenuChoice::TransferOwnership
+            | MenuChoice::RemoveFromGroup
+            | MenuChoice::MakeGroupOwner
             | MenuChoice::Mention
             | MenuChoice::Permissions
             | MenuChoice::CopyLink
@@ -904,6 +915,8 @@ pub(crate) fn discord_rank(choice: MenuChoice) -> u8 {
         MenuChoice::AddNote => 5,
         MenuChoice::AddNickname | MenuChoice::EditNickname => 6,
         MenuChoice::EditServerProfile => 7,
+        MenuChoice::RemoveFromGroup => 8,
+        MenuChoice::MakeGroupOwner => 9,
         MenuChoice::Apps => 10,
         MenuChoice::InviteToServer | MenuChoice::AddToGroup => 11,
         MenuChoice::AddFriend

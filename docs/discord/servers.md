@@ -148,6 +148,15 @@ while it runs. A member who leaves is forgotten. A nickname,
 timeout, kick or ban that fails says why in its dialog; a role says so in a
 notice.
 
+The member list on screen counts its channel's readers and those of them
+online, which the window shows over its rows: GUILD_MEMBER_LIST_UPDATE's
+`member_count` and `online_count`, taken from every update that carries
+them, or without an `online_count` the sizes of its `groups` other than
+`offline` added up (`MemberList::online`). They reach the core as
+`Snapshot::listed`, a `Listed` with the channel, and the room as
+`ChatRoom::members` and `ChatRoom::online`; a change in either publishes the
+rooms again.
+
 Discord's menu also has Invite to listen (Spotify), Apps and Open in
 moderator view, which BACKCORD leaves out for now.
 

@@ -22,7 +22,9 @@ use crate::{
 use super::EMBED_WIDTH;
 
 /// The card's height, whatever it shows, so a row keeps its height as the
-/// invite is looked up.
+/// invite is looked up: what the timeline estimates. The card itself takes
+/// its content's height, at least this, so nothing in it is drawn over or
+/// past its edge.
 pub const INVITE_CARD: f32 = 16.0 + 16.0 + 12.0 + ICON + 16.0;
 /// The server's icon, and its corners.
 const ICON: f32 = 50.0;
@@ -72,7 +74,12 @@ pub(super) fn invite_card<'a>(
                 .is_some_and(|join| join.joining && join.code.as_deref() == Some(code));
             let dot =
                 |ink| container(Space::new().width(8).height(8)).style(move |_| rounded(ink, 4.0));
-            let count = |words: String| text(words).size(14).color(theme.muted);
+            let count = |words: String| {
+                text(words)
+                    .size(14)
+                    .color(theme.muted)
+                    .wrapping(text::Wrapping::None)
+            };
             let counts: Element<'a, Message> = match (preview.online, preview.members) {
                 (Some(online), Some(members)) => row![
                     dot(theme.live),
@@ -110,11 +117,15 @@ pub(super) fn invite_card<'a>(
                     ICON_RADIUS,
                     1.0,
                 ),
-                column![name(preview.name.clone(), theme.text), counts]
-                    .spacing(2)
-                    .width(Length::Fill)
-                    .clip(true)
-                    .into(),
+                // A name with a line break would be taller than the icon.
+                column![
+                    name(preview.name.replace(['\n', '\r'], " "), theme.text),
+                    counts
+                ]
+                .spacing(2)
+                .width(Length::Fill)
+                .clip(true)
+                .into(),
                 Some(action(theme, label, kind, press).into()),
             )
         }
@@ -140,10 +151,12 @@ pub(super) fn invite_card<'a>(
                     tr("Ask for a new invite!")
                 })
                 .size(14)
-                .color(theme.muted),
+                .color(theme.muted)
+                .wrapping(text::Wrapping::None),
             ]
             .spacing(2)
             .width(Length::Fill)
+            .clip(true)
             .into(),
             None,
         ),
@@ -158,19 +171,30 @@ pub(super) fn invite_card<'a>(
             None,
         ),
     };
-    let mut line = row![picture, words].spacing(16).align_y(Alignment::Center);
+    let mut line = row![picture, words]
+        .spacing(16)
+        .align_y(Alignment::Center)
+        .height(Length::Shrink);
     if let Some(button) = button {
         line = line.push(button);
     }
     let ground = theme.sidebar;
     container(
-        container(column![heading(&head), line].spacing(12))
-            .padding(16)
-            .width(Length::Fill)
-            .height(INVITE_CARD)
-            .max_width(EMBED_WIDTH)
-            .clip(true)
-            .style(move |_| rounded(ground, 8.0)),
+        container(row![
+            // Holds the card at least INVITE_CARD tall, as estimated.
+            Space::new().width(0).height(INVITE_CARD - 32.0),
+            column![
+                container(heading(&head)).width(Length::Fill).clip(true),
+                line
+            ]
+            .spacing(12)
+            .width(Length::Fill),
+        ])
+        .padding(16)
+        .width(Length::Fill)
+        .max_width(EMBED_WIDTH)
+        .clip(true)
+        .style(move |_| rounded(ground, 8.0)),
     )
     .padding(Padding::ZERO.top(4).bottom(3))
     .into()

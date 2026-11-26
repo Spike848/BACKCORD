@@ -444,6 +444,26 @@ async fn makes_group_dms_and_answers_requests() {
     let bob_id = discord.find_people("bob")[0].id.clone();
     discord.add_to_group(&group, &[bob_id]).await.unwrap();
     snapshot_where(&discord, |snapshot| people_in(snapshot) == Some(4)).await;
+    // Alice made it, so she may take someone out of it and give it away.
+    let owner = |snapshot: &Snapshot| {
+        snapshot
+            .conversations
+            .iter()
+            .find(|conversation| conversation.id == group)
+            .and_then(|conversation| conversation.owner.clone())
+    };
+    assert_eq!(owner(&discord.snapshots().borrow()), snapshot.user_id);
+    discord.remove_from_group(&group, &dave).await.unwrap();
+    snapshot_where(&discord, |snapshot| people_in(snapshot) == Some(3)).await;
+    discord.make_group_owner(&group, &carol_id).await.unwrap();
+    snapshot_where(&discord, |snapshot| {
+        owner(snapshot).as_ref() == Some(&carol_id)
+    })
+    .await;
+    assert!(
+        discord.remove_from_group(&group, &carol_id).await.is_err(),
+        "only its owner removes people"
+    );
     // Leaving it without telling the others, as its dialog's box does.
     discord.leave_group(&group, true).await.unwrap();
     snapshot_where(&discord, |snapshot| people_in(snapshot).is_none()).await;

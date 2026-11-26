@@ -114,6 +114,10 @@ impl<'a> super::View<'a> {
                     .size(CHAT_BUTTON, 16),
             );
         }
+        // Someone else typing in the DM or group.
+        if crate::typing::typing_in(&self.cx, &room.id) {
+            face = face.push(crate::typing::list_dots(theme.secondary, self.cx.plays));
+        }
         if room.call {
             face = face.push(self.cx.look.glyph(Icon::Phone, 16, theme.live));
         }

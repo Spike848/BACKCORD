@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU16, Ordering};
 use crate::relationship_alerts::Kinds;
 
 static MESSAGE_LOGGER: AtomicBool = AtomicBool::new(false);
+/// Split Long Messages: a message over Discord's limit goes as several.
+static SPLIT_LONG: AtomicBool = AtomicBool::new(false);
 /// Message Logger keeps this account's own messages too.
 static LOG_OWN: AtomicBool = AtomicBool::new(false);
 /// This account's Discord user id, as the channels last said.
@@ -25,11 +27,32 @@ static FAKE_NITRO_RECEIVED: AtomicBool = AtomicBool::new(true);
 thread_local! {
     /// A test's own Message Logger, so it doesn't change the others'.
     static TEST_LOGGER: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+    /// A test's own Split Long Messages: off unless the test turns it on.
+    static TEST_SPLIT_LONG: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// A test's own Relationship Notifier: off unless the test turns it on,
     /// so the lists the other tests change tell of nothing.
     static TEST_RELATIONSHIPS: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
     /// A test's own Fake Nitro: off unless the test turns it on.
     static TEST_FAKE_NITRO: std::cell::Cell<FakeNitro> = const { std::cell::Cell::new(FakeNitro::OFF) };
+}
+
+/// Split Long Messages: a message over Discord's limit is sent as several
+/// ([`crate::split`]) instead of refused.
+pub fn set_split_long(on: bool) {
+    SPLIT_LONG.store(on, Ordering::Relaxed);
+}
+
+pub fn split_long() -> bool {
+    #[cfg(test)]
+    return TEST_SPLIT_LONG.with(std::cell::Cell::get);
+    #[cfg(not(test))]
+    SPLIT_LONG.load(Ordering::Relaxed)
+}
+
+/// Turns this test's Split Long Messages on or off.
+#[cfg(test)]
+pub fn test_split_long(on: bool) {
+    TEST_SPLIT_LONG.with(|split| split.set(on));
 }
 
 /// Message Logger: deleted messages stay in a loaded channel, marked, and

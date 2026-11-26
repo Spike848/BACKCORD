@@ -13,8 +13,13 @@ member list, the DMs, and the lists still to come build on it.
   or while their card is open. Over the list, a server's Activity panel
   shows the first three cards of Discord's activity feed (what each person
   plays, listens to or watches, and since when); its eye hides the cards,
-  kept in `layout.json`, and its arrow opens the whole feed. Under it a
-  note says the list is loading, why it failed, or that no one else has
+  kept in `layout.json`, and its arrow opens the whole feed. Under it,
+  pinned while the rows scroll, a line counts the list: "Members — N ·
+  Online — M" (`AppState::member_counts`): a server channel's as Discord
+  counts its readers, a DM's or a group's those listed, online being those
+  whose presence isn't offline; without a presence it says only "Members —
+  N". The rows' offsets (a card opening beside one, a right click's menu)
+  start below it. Under that a note says the list is loading, why it failed, or that no one else has
   joined. Hidden (its toggle off, a thread or search in its place), the
   list keeps no lines, cards or pictures and builds none as the roster
   changes; shown again, it's built as the roster is then.

@@ -16,6 +16,13 @@ one as Appearance does.
 
 ## Custom themes
 
+In the theme editor a left click on a colour's swatch opens a palette
+under it: a saturation and brightness square over a hue strip, and the
+colour's code, as the profile editor's colours have it. The pad keeps the
+colour's alpha; typing a code moves the pad there, and Enter or a click
+outside closes it.
+
+
 New theme opens an editor on a copy of the theme shown; START FROM swaps it
 for a copy of any other. The editor lists every colour by its name
 (`Theme::NAMES`, with `-` for `_`), with a swatch and its hex, which takes

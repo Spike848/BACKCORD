@@ -25,8 +25,9 @@ fn a_folder_marks_its_servers_read() {
         rooms: rooms.clone(),
         servers: servers.clone(),
     }));
-    assert!(
-        app.state.menu_choices("discord-folder:7").is_empty(),
+    assert_eq!(
+        app.state.menu_choices("discord-folder:7"),
+        [MenuChoice::FolderColour],
         "nothing unread"
     );
 
@@ -36,7 +37,7 @@ fn a_folder_marks_its_servers_read() {
     app.apply(Event::Rooms(RoomIndex { rooms, servers }));
     assert_eq!(
         app.state.menu_choices("discord-folder:7"),
-        [MenuChoice::MarkRead]
+        [MenuChoice::MarkRead, MenuChoice::FolderColour]
     );
     let marked: Vec<String> = app
         .dispatch(Action::MarkRead("discord-folder:7".into()))

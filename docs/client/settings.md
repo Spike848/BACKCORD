@@ -166,7 +166,10 @@ Local Blur and Auto Stream Proof on:
   message stays in a loaded channel, red, with "(deleted)", and an edited
   one shows what it said before each edit above its text.
 - Silent Typing: this account's typing is Messages' `share_typing`; Hide
-  others typing (`hide_others_typing`) drops the typing line.
+  others typing (`hide_others_typing`) drops the typing line and the
+  channel list's typing dots.
+- Split Long Messages (`split_long_messages`, on unless turned off): see
+  [long messages](writing.md#long-messages).
 - No Push To Talk (`no_push_to_talk`): on, a channel that denies Use Voice
   Activity is spoken in as any other; off, push to talk is required there,
   as Discord's client requires it (`push_to_talk::set_required`).

@@ -45,6 +45,22 @@ pub struct LeaveDialog {
     pub error: Option<String>,
 }
 
+/// Asks before a Discord group DM's owner takes another of its people out
+/// of it or makes them its owner, as Discord's client does.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GroupMemberDialog {
+    /// The group's room id, and the person's user id.
+    pub room: String,
+    pub user: String,
+    /// Their name, and the group's.
+    pub name: String,
+    pub group: String,
+    /// Remove From Group; else Make Group Owner.
+    pub remove: bool,
+    pub sending: bool,
+    pub error: Option<String>,
+}
+
 /// The slowmodes Discord's channel settings offer, in seconds: off, then
 /// 5 seconds to 6 hours.
 pub const SLOWMODES: [u32; 14] = [
@@ -985,6 +1001,172 @@ impl Application {
             })
             .unwrap_or(choices.len());
         choices.insert(at, MenuChoice::AddToGroup);
+    }
+
+    /// What a Discord group DM's owner may do with another of its people, by
+    /// the group's room id, as Discord's client offers it: Remove From Group
+    /// and Make Group Owner, while Discord takes it. Nothing for anyone
+    /// else's group, for this account itself, for someone not in it, or in
+    /// any other room.
+    pub fn group_owner_choices(&self, room: &str, user: &str) -> Vec<MenuChoice> {
+        #[cfg(feature = "discord")]
+        {
+            let Some(snapshot) = self.discord.as_ref() else {
+                return vec![];
+            };
+            let Some((discord::DM_GUILD, channel)) = discord::parse_room(room) else {
+                return vec![];
+            };
+            let Some(me) = snapshot.user_id.as_deref() else {
+                return vec![];
+            };
+            let owned = snapshot.conversations.iter().any(|dm| {
+                dm.id == channel
+                    && dm.group
+                    && !dm.request
+                    && dm.owner.as_deref() == Some(me)
+                    && dm.recipients.iter().any(|known| known == user)
+            });
+            if !owned || user == me || self.state.preview || !self.state.discord_online {
+                return vec![];
+            }
+            vec![MenuChoice::RemoveFromGroup, MenuChoice::MakeGroupOwner]
+        }
+        #[cfg(not(feature = "discord"))]
+        {
+            let _ = (room, user);
+            vec![]
+        }
+    }
+
+    /// Puts what a group DM's owner may do with someone in their menu
+    /// there, before Invite to server and how this account stands with
+    /// them.
+    pub(super) fn offer_group_owner(&self, room: &str, user: &str, choices: &mut Vec<MenuChoice>) {
+        let offered = self.group_owner_choices(room, user);
+        if offered.is_empty() {
+            return;
+        }
+        let at = choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    MenuChoice::InviteToServer
+                        | MenuChoice::AddToGroup
+                        | MenuChoice::AddFriend
+                        | MenuChoice::AcceptFriend
+                        | MenuChoice::CancelFriendRequest
+                        | MenuChoice::Unfriend
+                        | MenuChoice::Ignore
+                        | MenuChoice::Unignore
+                        | MenuChoice::Block
+                        | MenuChoice::Unblock
+                        | MenuChoice::CopyId
+                )
+            })
+            .unwrap_or(choices.len());
+        choices.splice(at..at, offered);
+    }
+
+    /// Asks before Remove From Group (`remove`) or Make Group Owner, from
+    /// someone's menu in a group DM or its call, as Discord's client does.
+    pub(super) fn ask_group_member(
+        &mut self,
+        room: String,
+        user: String,
+        remove: bool,
+    ) -> Vec<Effect> {
+        let choice = if remove {
+            MenuChoice::RemoveFromGroup
+        } else {
+            MenuChoice::MakeGroupOwner
+        };
+        if !self.group_owner_choices(&room, &user).contains(&choice) {
+            return vec![];
+        }
+        let group = self
+            .state
+            .rooms
+            .iter()
+            .find(|known| known.id == room)
+            .map(|known| known.name.clone())
+            .unwrap_or_default();
+        let name = self
+            .state
+            .person(&user)
+            .map(|person| person.name)
+            .or_else(|| {
+                self.state
+                    .voice
+                    .participants
+                    .iter()
+                    .find(|person| person.person == user)
+                    .map(|person| person.user.clone())
+            })
+            .unwrap_or_else(|| user.clone());
+        self.state.group_member = Some(GroupMemberDialog {
+            room,
+            user,
+            name,
+            group,
+            remove,
+            sending: false,
+            error: None,
+        });
+        vec![]
+    }
+
+    /// Carries out what the group member dialog asked about, while this
+    /// account still owns the group and they're still in it.
+    pub(super) fn answer_group_member(&mut self) -> Vec<Effect> {
+        let Some(dialog) = self
+            .state
+            .group_member
+            .as_ref()
+            .filter(|dialog| !dialog.sending)
+        else {
+            return vec![];
+        };
+        let (room, user, remove) = (dialog.room.clone(), dialog.user.clone(), dialog.remove);
+        if self.group_owner_choices(&room, &user).is_empty() {
+            self.state.group_member = None;
+            return vec![];
+        }
+        if let Some(dialog) = self.state.group_member.as_mut() {
+            dialog.sending = true;
+            dialog.error = None;
+        }
+        let command = if remove {
+            DiscordCommand::RemoveFromGroup { room, user }
+        } else {
+            DiscordCommand::MakeGroupOwner { room, user }
+        };
+        vec![Effect::Backend(Command::Discord(command))]
+    }
+
+    /// Discord answered the group member dialog: it closes, or says why not.
+    pub(super) fn group_member_changed(
+        &mut self,
+        room: String,
+        user: String,
+        result: Result<(), String>,
+    ) {
+        let Some(dialog) = self
+            .state
+            .group_member
+            .as_mut()
+            .filter(|dialog| dialog.sending && dialog.room == room && dialog.user == user)
+        else {
+            return;
+        };
+        match result {
+            Ok(()) => self.state.group_member = None,
+            Err(error) => {
+                dialog.sending = false;
+                dialog.error = Some(error);
+            }
+        }
     }
 
     /// Adds a friend to a group DM its submenu offers, ringing them when

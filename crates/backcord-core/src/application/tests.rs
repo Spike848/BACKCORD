@@ -275,6 +275,42 @@ fn change_marks(
     app.apply(discord_event(snapshot));
 }
 
+#[test]
+fn the_member_list_counts_its_members_and_those_online() {
+    let mut app = connected();
+    app.state.selected = Some("dm".into());
+    assert_eq!(app.state.member_counts(), None, "while loading");
+    let with = |id: &str, presence| ChatMember {
+        presence,
+        ..member(id, id)
+    };
+    app.state.members = Some(Ok(Arc::new(vec![
+        with("ann", Some(crate::chat::Presence::Idle)),
+        with("bob", Some(crate::chat::Presence::Offline)),
+        with("cat", Some(crate::chat::Presence::Online)),
+    ])));
+    assert_eq!(
+        app.state.member_counts(),
+        Some((3, Some(2))),
+        "a DM counts those listed not offline"
+    );
+    app.state.members = Some(Ok(Arc::new(vec![with("ann", None)])));
+    assert_eq!(
+        app.state.member_counts(),
+        Some((1, None)),
+        "no presence, no online count"
+    );
+    // A Discord channel counts as Discord does, beyond the rows listed.
+    app.state.rooms.push(Arc::new(ChatRoom {
+        network: Network::Discord,
+        members: 5000,
+        online: Some(1234),
+        ..preview_room("discord:10:11", "general", false, 0)
+    }));
+    app.state.selected = Some("discord:10:11".into());
+    assert_eq!(app.state.member_counts(), Some((5000, Some(1234))));
+}
+
 #[cfg(feature = "discord")]
 mod arrange;
 #[cfg(feature = "discord")]

@@ -14,11 +14,13 @@ ADD TO SERVER	AGGIUNGI AL SERVER
 ADMINS	AMMINISTRATORI
 ADVANCED PERMISSIONS	PERMESSI AVANZATI
 ANSWERS	RISPOSTE
+Accepted your friend request.	Ha accettato la tua richiesta di amicizia.
 Active Developer	Sviluppatore attivo
 BADGES	BADGE
 Badge Spoofer	Badge spoofer
 Bronze	Bronzo
 Bug Hunter	Cacciatore di bug
+Click a swatch to pick its colour, or type it as #rgb, #rrggbb or #rrggbbaa. The window shows a change as you make it.	Clicca un campione per scegliere il colore dalla tavolozza, o scrivilo come #rgb, #rrggbb o #rrggbbaa. La finestra mostra la modifica mentre la fai.
 Completed a Quest	Ha completato una missione
 Diamond	Diamante
 Discord Bug Hunter	Cacciatore di bug di Discord
@@ -49,12 +51,15 @@ Partnered Server Owner	Proprietario di server partner
 Platinum	Platino
 Ruby	Rubino
 SERVER BOOSTER	POTENZIAMENTO SERVER
+Sends a message longer than Discord allows (2,000 characters, 4,000 with Nitro) as several, cut at line ends and spaces, keeping code blocks whole.	Invia un messaggio più lungo di quanto Discord consente (2.000 caratteri, 4.000 con Nitro) in più messaggi, divisi a fine riga e tra le parole, senza spezzare i blocchi di codice.
 Sends each link under the emoji's or sticker's name, as [name](link), rather than bare.	Invia ogni link sotto il nome dell'emoji o dello sticker, come [nome](link), invece che nudo.
+Sent you a friend request.	Ti ha inviato una richiesta di amicizia.
 Server Booster: {}	Booster del server: {}
 Show my real badges too	Mostra anche i miei badge reali
 Show received emoji links as emoji	Mostra i link di emoji ricevuti come emoji
 Shows the Discord badges you choose on your own profile, as if you had them. Only you see them, in BACKCORD on this computer: nothing is sent to Discord.	Mostra sul tuo profilo i badge di Discord che scegli, come se li avessi. Li vedi solo tu, in BACKCORD su questo computer: a Discord non viene inviato nulla.
 Silver	Argento
+Split Long Messages	Dividi messaggi lunghi
 The badges your profile really has stay beside those chosen. A chosen house, Nitro or boost badge takes the place of your own.	I badge che il tuo profilo ha davvero restano accanto a quelli scelti. Una casata, un Nitro o un potenziamento scelti prendono il posto dei tuoi.
 The size, in pixels, of the emoji pictures you send as links.	La dimensione, in pixel, delle immagini delle emoji che invii come link.
 Updates	Aggiornamento
@@ -113,6 +118,8 @@ Apps	App
 Are you sure you want to delete 	Vuoi davvero eliminare 
 Are you sure you want to delete this message?	Vuoi davvero eliminare questo messaggio?
 Are you sure you want to go?	Vuoi davvero andare via?
+Are you sure you want to make {name} the owner of {group}? You will no longer be able to remove people from it or give it away.	Vuoi davvero rendere {name} proprietario di {group}? Non potrai più rimuovere persone dal gruppo né cederlo.
+Are you sure you want to remove {name} from {group}?	Vuoi davvero rimuovere {name} da {group}?
 As BACKCORD starts, what changed while it was closed.	All'avvio di BACKCORD, ciò che è cambiato mentre era chiuso.
 Attach files	Allega file
 Audit Log	Registro eventi
@@ -277,7 +284,6 @@ EXPIRE AFTER	SCADE DOPO
 EXPRESSION	ESPRESSIONE
 Each Discord server's notification settings and your Matrix notification rules decide	Le impostazioni di notifica di ogni server Discord e le tue regole di notifica Matrix decidono
 Each Discord server's notification settings decide	Le impostazioni di notifica di ogni server Discord decidono
-Each as #rgb, #rrggbb or #rrggbbaa. The window shows a change as you type it.	Ciascuno come #rgb, #rrggbb o #rrggbbaa. La finestra mostra la modifica mentre scrivi.
 Edit	Modifica
 Edit Profile	Modifica profilo
 Edit category	Modifica categoria
@@ -459,6 +465,7 @@ MICROPHONE	MICROFONO
 MODERATORS	MODERATORI
 Main Profile	Profilo principale
 Mainframe	Mainframe
+Make Group Owner	Rendi proprietario del gruppo
 Make unique profiles for each server	Crea profili diversi per ogni server
 Making a link...	Creazione del link...
 Mark Unread	Segna come non letto
@@ -665,6 +672,7 @@ Relationship Notifier	Avviso amicizie
 Remove	Rimuovi
 Remove Background	Rimuovi sfondo
 Remove Friend	Rimuovi amico
+Remove From Group	Rimuovi dal gruppo
 Remove Icon	Rimuovi icona
 Remove Keybind	Rimuovi scorciatoia
 Remove Reaction	Rimuovi reazione
@@ -975,9 +983,9 @@ We searched far and wide. Unfortunately, no results were found.	Abbiamo cercato 
 Website	Sito web
 What question do you want to ask?	Che domanda vuoi fare?
 What's happening?	Cosa sta succedendo?
+When a friend removes you or blocks you, and when someone accepts your friend request.	Quando un amico ti rimuove dagli amici o ti blocca, e quando qualcuno accetta la tua richiesta di amicizia.
 When a friend removes you, a friend request ends, or you're removed from a group DM or a server, it shows up here.	Quando un amico ti rimuove, una richiesta di amicizia finisce o vieni rimosso da un gruppo o da un server, compare qui.
-When a friend removes you, or blocks you.	Quando un amico ti rimuove dagli amici o ti blocca.
-When someone declines the friend request you sent, or withdraws the one they sent you.	Quando qualcuno rifiuta la richiesta di amicizia che gli hai inviato, o ritira quella che ti aveva inviato.
+When someone sends you a friend request, declines the one you sent, or withdraws theirs.	Quando qualcuno ti invia una richiesta di amicizia, rifiuta quella che gli hai inviato o ritira la sua.
 When the message was sent	Quando è stato inviato il messaggio
 When you're kicked or banned from a server, or it's deleted.	Quando vieni espulso o bannato da un server, o il server viene eliminato.
 When you're removed from a group DM.	Quando vieni rimosso da un gruppo.
@@ -1880,6 +1888,7 @@ Discord's login service closed the connection. Try again.	Il servizio di accesso
 A custom emoji in a status needs Discord Nitro.	Un'emoji personalizzata nello stato richiede Discord Nitro.
 None of your servers has that emoji.	Nessuno dei tuoi server ha quell'emoji.
 Discord isn't linked on this device.	Discord non è collegato su questo dispositivo.
+this group	questo gruppo
 this member	questo membro
 General Channel Permissions	Permessi generali del canale
 Membership Permissions	Permessi di iscrizione
@@ -3607,6 +3616,7 @@ Discord's gateway sent a compressed stream that stopped	il gateway di Discord ha
 Discord didn't list the commands. Try again in a moment.	Discord non ha elencato i comandi. Riprova tra poco.
 Discord is still listing the commands. Try again soon.	Discord sta ancora elencando i comandi. Riprova a breve.
 Members — {}	Membri — {}
+Members — {} · Online — {}	Membri — {} · Online — {}
 Discord user	Utente Discord
 Unnamed group	Gruppo senza nome
 Another voice join replaced this one.	Un altro ingresso in vocale ha sostituito questo.
@@ -3902,6 +3912,7 @@ Remove from folder	Togli dalla cartella
 Rename folder	Rinomina cartella
 Delete folder	Elimina cartella
 Folder name	Nome della cartella
+Folder colour	Colore cartella
 {} conversations picked	{} conversazioni selezionate
 You haven't blocked anyone.	Non hai bloccato nessuno.
 Show Hidden Channels	Mostra canali nascosti

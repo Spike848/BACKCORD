@@ -463,3 +463,55 @@ fn uploads_name_their_destination_as_discord_does() {
     room(&mut app).parent = Some("general".into());
     assert_eq!(app.state.upload_destination(), "\"Sam\"", "a thread");
 }
+
+#[cfg(feature = "discord")]
+#[test]
+fn a_long_message_goes_in_parts_in_order_with_split_long_messages() {
+    let mut app = discord_server();
+    let room = "discord:10:11".to_owned();
+    app.dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.dispatch(Action::SelectRoom(room.clone()));
+    app.state.room_ready = true;
+    let long = "word ".repeat(1000);
+    app.state.drafts.insert(room.clone(), long.clone());
+    // Off, it isn't sent, and says why.
+    crate::extras::test_split_long(false);
+    let effects = app.dispatch(Action::Send);
+    assert!(
+        !effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::Backend(Command::Send { .. })))
+    );
+    assert!(app.state.can_send_in(&room), "can send in #general");
+    let notice = app.state.notice.clone().unwrap_or_default();
+    assert!(notice.contains("2000"), "{notice}");
+    // On, it goes as parts of at most 2,000 characters, in order.
+    crate::extras::test_split_long(true);
+    let sends: Vec<String> = app
+        .dispatch(Action::Send)
+        .into_iter()
+        .filter_map(|effect| match effect {
+            Effect::Backend(Command::Send { body, .. }) => Some(body),
+            _ => None,
+        })
+        .collect();
+    crate::extras::test_split_long(false);
+    assert_eq!(sends.len(), 3);
+    assert!(sends.iter().all(|part| part.chars().count() <= 2000));
+    assert_eq!(sends.join(" ").split_whitespace().count(), 1000);
+    // The draft stays until the last part is sent.
+    for _ in 0..2 {
+        app.apply(Event::SendResult {
+            room: room.clone(),
+            body: String::new(),
+            result: Ok(()),
+        });
+        assert_eq!(app.state.drafts.get(&room), Some(&long));
+    }
+    app.apply(Event::SendResult {
+        room: room.clone(),
+        body: String::new(),
+        result: Ok(()),
+    });
+    assert!(!app.state.drafts.contains_key(&room));
+}

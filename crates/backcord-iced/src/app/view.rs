@@ -292,6 +292,9 @@ impl App {
         if let Some(dialog) = crate::chat_export::view(self.ctx()) {
             layers = layers.push(self.popup(L(Layer::ChatExport), dialog));
         }
+        if let Some(dialog) = crate::folder_colour::view(self.folder_colour.as_ref(), self.ctx()) {
+            layers = layers.push(self.popup(L(Layer::FolderColour), dialog));
+        }
         if let Some(modal) = crate::dialogs::delete_view(self.confirm_focus, self.ctx()) {
             layers = layers.push(modal);
         }

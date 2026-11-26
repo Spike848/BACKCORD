@@ -649,6 +649,122 @@ fn leaving_a_group_dm_asks_first_and_may_tell_no_one() {
 
 #[test]
 #[cfg(feature = "discord")]
+fn a_group_owner_removes_others_or_makes_them_owner_asking_first() {
+    use MenuChoice::{MakeGroupOwner, RemoveFromGroup};
+    let crew = |owner: &str| backcord_discord::service::Conversation {
+        id: "32".into(),
+        name: "Crew".into(),
+        group: true,
+        people: 3,
+        recipients: vec!["2".into(), "3".into()],
+        owner: Some(owner.into()),
+        ..Default::default()
+    };
+    let group = "discord:@me:32".to_owned();
+    let mut app = discord_dms(vec![crew("1")]);
+    app.dispatch(Action::SelectRoom(group.clone()));
+    // On another of its people, in the member list's menu and the call's.
+    let menu = app.person_choices("3");
+    let at = |choice| menu.iter().position(|known| *known == choice);
+    assert!(
+        at(RemoveFromGroup).unwrap() + 1 == at(MakeGroupOwner).unwrap(),
+        "{menu:?}"
+    );
+    assert_eq!(
+        app.voice_person_choices(&group, "3"),
+        [RemoveFromGroup, MakeGroupOwner]
+    );
+    // Never on this account, nor on someone not in the group.
+    for user in ["1", "4"] {
+        let menu = app.person_choices(user);
+        assert!(
+            !menu.contains(&RemoveFromGroup) && !menu.contains(&MakeGroupOwner),
+            "{user}"
+        );
+        assert!(app.voice_person_choices(&group, user).is_empty(), "{user}");
+    }
+    // Nor in a group someone else made.
+    assert!(app.voice_person_choices("discord:@me:31", "3").is_empty());
+
+    // Removing asks first, then waits for Discord's answer.
+    assert!(
+        app.dispatch(Action::AskGroupMember {
+            room: group.clone(),
+            user: "3".into(),
+            remove: true,
+        })
+        .is_empty()
+    );
+    let dialog = app.state.group_member.clone().unwrap();
+    assert!(dialog.remove && !dialog.sending);
+    assert_eq!(
+        (
+            dialog.room.as_str(),
+            dialog.user.as_str(),
+            dialog.group.as_str()
+        ),
+        (group.as_str(), "3", "Crew")
+    );
+    assert!(matches!(
+        app.dispatch(Action::AnswerGroupMember).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::RemoveFromGroup { room, user }))]
+            if *room == group && user == "3"
+    ));
+    assert!(app.dispatch(Action::AnswerGroupMember).is_empty(), "once");
+    app.apply(Event::GroupMemberChanged {
+        room: group.clone(),
+        user: "3".into(),
+        result: Err("Couldn't remove them from the group: no".into()),
+    });
+    let dialog = app.state.group_member.clone().unwrap();
+    assert!(!dialog.sending);
+    assert_eq!(
+        dialog.error.as_deref(),
+        Some("Couldn't remove them from the group: no")
+    );
+    app.dispatch(Action::CloseGroupMember);
+    assert!(app.state.group_member.is_none());
+
+    // Making them owner asks too.
+    app.dispatch(Action::AskGroupMember {
+        room: group.clone(),
+        user: "2".into(),
+        remove: false,
+    });
+    assert!(!app.state.group_member.as_ref().unwrap().remove);
+    assert!(matches!(
+        app.dispatch(Action::AnswerGroupMember).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::MakeGroupOwner { room, user }))]
+            if *room == group && user == "2"
+    ));
+    app.apply(Event::GroupMemberChanged {
+        room: group.clone(),
+        user: "2".into(),
+        result: Ok(()),
+    });
+    assert!(app.state.group_member.is_none());
+
+    // Someone who doesn't own the group is offered neither, nor asked.
+    let mut app = discord_dms(vec![crew("2")]);
+    app.dispatch(Action::SelectRoom(group.clone()));
+    let menu = app.person_choices("3");
+    assert!(!menu.contains(&RemoveFromGroup) && !menu.contains(&MakeGroupOwner));
+    assert!(app.voice_person_choices(&group, "3").is_empty());
+    app.dispatch(Action::AskGroupMember {
+        room: group.clone(),
+        user: "3".into(),
+        remove: true,
+    });
+    assert!(app.state.group_member.is_none());
+
+    // Discord takes them only while connected.
+    let mut app = discord_dms(vec![crew("1")]);
+    app.state.discord_online = false;
+    assert!(app.voice_person_choices(&group, "3").is_empty());
+}
+
+#[test]
+#[cfg(feature = "discord")]
 fn edit_group_renames_a_group_and_gives_it_the_icon_chosen() {
     use crate::application::ChannelAsk;
     let mut app = discord_dms(vec![]);

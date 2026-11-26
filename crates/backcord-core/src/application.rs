@@ -97,8 +97,8 @@ pub use permissions_viewer::{
 };
 pub use place_search::Place;
 pub use places::{
-    ChannelAsk, ChannelDialog, GroupChoice, INVITE_AGES, INVITE_USES, InviteDialog, InvitePerson,
-    LeaveDialog, ListedCategory, SLOWMODES,
+    ChannelAsk, ChannelDialog, GroupChoice, GroupMemberDialog, INVITE_AGES, INVITE_USES,
+    InviteDialog, InvitePerson, LeaveDialog, ListedCategory, SLOWMODES,
 };
 pub use polls::{
     ANSWER_LIMIT, DraftAnswer, POLL_ANSWERS, POLL_HOURS, PollDraft, PollEdit, QUESTION_LIMIT,
@@ -598,6 +598,9 @@ pub struct AppState {
     pub channel_dialog: Option<ChannelDialog>,
     /// Asks before leaving a Discord server or group DM, while it's open.
     pub leave: Option<LeaveDialog>,
+    /// Asks before a Discord group DM's owner removes someone from it or
+    /// makes them its owner, while it's open.
+    pub group_member: Option<GroupMemberDialog>,
     /// Asks before Cancella tutto in a Discord DM or server, while it's open.
     pub delete_all: Option<DeleteAllDialog>,
     /// Cancella tutto going on, in each DM or server.
@@ -925,6 +928,28 @@ impl AppState {
             .find(|room| Some(&room.id) == self.selected.as_ref())
     }
 
+    /// How many members the selected room's member list counts, and how
+    /// many of them are online when that's known: a Discord channel's as
+    /// Discord counts them, else those in the list, online being those
+    /// whose presence isn't offline.
+    pub fn member_counts(&self) -> Option<(u64, Option<u64>)> {
+        let room = self.selected_room()?;
+        if room.network == Network::Discord && !room.direct {
+            return (room.members > 0).then_some((room.members, room.online));
+        }
+        let members = self.members.as_ref()?.as_ref().ok()?;
+        let known = members.iter().any(|member| member.presence.is_some());
+        let online = members
+            .iter()
+            .filter(|member| {
+                member
+                    .presence
+                    .is_some_and(|presence| presence != crate::chat::Presence::Offline)
+            })
+            .count() as u64;
+        Some((members.len() as u64, known.then_some(online)))
+    }
+
     /// Whether BACKCORD can show the place one of Discord's links names, as
     /// the action it maps to would; the browser opens the rest, such as a
     /// server the account isn't in, or any link while Discord is offline.
@@ -1085,6 +1110,7 @@ impl AppState {
             || self.gift.is_some()
             || self.channel_dialog.is_some()
             || self.leave.is_some()
+            || self.group_member.is_some()
             || self.delete_all.is_some()
             || self.chat_export.is_some()
             || self.move_sync.is_some()
@@ -2370,6 +2396,16 @@ pub enum Action {
     ToggleSilentLeave,
     Leave,
     CloseLeave,
+    /// As a Discord group DM's owner, ask before taking someone out of it
+    /// (`remove`) or making them its owner, by its room id and their user
+    /// id; do what was asked; or don't.
+    AskGroupMember {
+        room: String,
+        user: String,
+        remove: bool,
+    },
+    AnswerGroupMember,
+    CloseGroupMember,
     /// Cancella tutto in a Discord DM, by its room id, or server, by its
     /// server id: ask first; delete where it asked; close the dialog; or
     /// stop the one going on.
@@ -2649,6 +2685,13 @@ pub enum Action {
         /// Dropped onto this server or folder instead: into a folder.
         into: Option<String>,
     },
+    /// A rail folder, by its id, named and coloured from its menu's Folder
+    /// colour: no name, or no colour for Discord's default.
+    SetServerFolder {
+        folder: String,
+        name: Option<String>,
+        color: Option<u32>,
+    },
     /// The window gained or lost focus.
     WindowFocused(bool),
     /// Hides or shows the cards in the member list's Activity panel.
@@ -2888,6 +2931,10 @@ pub struct Application {
     /// The composer text of the message being sent, which `Event::SendResult` clears
     /// once sent; the backend has it with its mentions in the network's form.
     sent_draft: Option<String>,
+    /// How many parts of it are still to be answered for: more than one
+    /// when Split Long Messages sent it in parts, and the composer clears
+    /// as the last is sent.
+    sent_parts: usize,
     /// The files sent with it, which leave the composer once sent.
     sent_files: Vec<PathBuf>,
     /// The message [`Action::Jump`] or [`Action::JumpToUnread`] brings into
@@ -4508,6 +4555,14 @@ impl Application {
                 vec![]
             }
             Action::Leave => self.leave(),
+            Action::AskGroupMember { room, user, remove } => {
+                self.ask_group_member(room, user, remove)
+            }
+            Action::AnswerGroupMember => self.answer_group_member(),
+            Action::CloseGroupMember => {
+                self.state.group_member = None;
+                vec![]
+            }
             Action::AskDeleteAll(place) => self.ask_delete_all(place),
             Action::DeleteAll => self.delete_all(),
             Action::CloseDeleteAll => {
@@ -4934,6 +4989,25 @@ impl Application {
                         moved: discord_id(moved),
                         before: before.map(discord_id),
                         into: into.map(discord_id),
+                    },
+                ))]
+            }
+            Action::SetServerFolder {
+                folder,
+                name,
+                color,
+            } => {
+                if self.state.preview || self.state.discord_user.is_none() {
+                    return vec![];
+                }
+                let Some(id) = folder.strip_prefix(crate::discord::FOLDER_PREFIX) else {
+                    return vec![];
+                };
+                vec![Effect::Backend(Command::Discord(
+                    DiscordCommand::SetFolder {
+                        folder: id.to_owned(),
+                        name,
+                        color,
                     },
                 ))]
             }
@@ -5369,6 +5443,9 @@ impl Application {
             Event::OverwritesChanged { room, result } => self.overwrites_changed(room, result),
             Event::OverwriteNames { room, members } => self.overwrite_names(room, members),
             Event::Left { place, result } => self.left(place, result),
+            Event::GroupMemberChanged { room, user, result } => {
+                self.group_member_changed(room, user, result);
+            }
             Event::DeletedAll {
                 place,
                 deleted,
@@ -5657,7 +5734,12 @@ impl Application {
                     return self.history_loaded(direction, history);
                 }
             }
+            // A part of a long message sent, with more to come.
+            Event::SendResult { result: Ok(()), .. } if self.sent_parts > 1 => {
+                self.sent_parts -= 1;
+            }
             Event::SendResult { room, body, result } => {
+                self.sent_parts = 0;
                 if self.state.sending.as_ref() == Some(&room) {
                     self.state.sending = None;
                 }

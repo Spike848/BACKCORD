@@ -38,6 +38,8 @@ pub enum Layer {
     ServerDialog,
     /// Export Chat's dialog.
     ChatExport,
+    /// A rail folder's name and colour.
+    FolderColour,
     /// A search's Filters dialog.
     SearchFilters,
     StatusEditor,
@@ -81,7 +83,7 @@ pub enum Layer {
 }
 
 /// Every layer, in the order they take keys and Escape.
-const LAYERS: [Layer; 46] = [
+const LAYERS: [Layer; 47] = [
     Layer::Inbox,
     Layer::Mfa,
     Layer::ConfirmDelete,
@@ -95,6 +97,7 @@ const LAYERS: [Layer; 46] = [
     Layer::LinkDialog,
     Layer::ServerDialog,
     Layer::ChatExport,
+    Layer::FolderColour,
     Layer::SearchFilters,
     Layer::StatusEditor,
     Layer::AccountPopover,
@@ -185,6 +188,7 @@ impl Layer {
                 | Layer::LinkDialog
                 | Layer::ServerDialog
                 | Layer::ChatExport
+                | Layer::FolderColour
                 | Layer::SearchFilters
                 | Layer::StatusEditor
                 | Layer::HeaderPopover
@@ -260,6 +264,7 @@ impl Layer {
                 | Layer::Switcher
                 | Layer::ServerDialog
                 | Layer::ChatExport
+                | Layer::FolderColour
                 | Layer::LinkDialog
                 | Layer::SearchFilters
                 | Layer::HeaderPopover
@@ -289,6 +294,7 @@ impl App {
             Layer::SearchFilters => crate::search_filters::is_open(self),
             Layer::ServerDialog => crate::server_dialogs::is_open(state),
             Layer::ChatExport => state.chat_export.is_some(),
+            Layer::FolderColour => self.folder_colour.is_some(),
             Layer::StatusEditor => state.status_editor.is_some(),
             Layer::AccountPopover => self.status.popover.is_some(),
             Layer::HeaderPopover => crate::header_popovers::popover_open(self),
@@ -561,6 +567,10 @@ impl App {
             }
             Layer::IconViewer => {
                 self.icon = None;
+                Task::none()
+            }
+            Layer::FolderColour => {
+                self.folder_colour = None;
                 Task::none()
             }
             Layer::Mfa => {

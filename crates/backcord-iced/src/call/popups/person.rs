@@ -216,6 +216,14 @@ pub fn choose_voice(
         (MenuChoice::ServerMute, Some(mute)) => Some(member(MemberChange::ServerMute(mute))),
         (MenuChoice::ServerDeafen, Some(deaf)) => Some(member(MemberChange::ServerDeafen(deaf))),
         (MenuChoice::Disconnect, _) => Some(member(MemberChange::Move(None))),
+        // In the group DM whose call it is, which may not be the one open.
+        (MenuChoice::RemoveFromGroup | MenuChoice::MakeGroupOwner, _) => {
+            Some(Action::AskGroupMember {
+                room: room.clone(),
+                user: user.clone(),
+                remove: choice == MenuChoice::RemoveFromGroup,
+            })
+        }
         _ => {
             return crate::person_menu::choose_person(
                 app,

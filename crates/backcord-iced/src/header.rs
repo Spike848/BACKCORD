@@ -75,6 +75,9 @@ pub struct Header {
     pub can_notify: bool,
     pub muted: bool,
     pub can_pin: bool,
+    /// Export chat: the open channel's, DM's or group's id, when it can
+    /// be exported.
+    pub export: Option<String>,
     /// Add people: to a DM (true) or a group.
     pub add_people: Option<bool>,
     pub members_available: bool,
@@ -153,6 +156,7 @@ pub fn header(state: &AppState, was: &Header, link: u32) -> Header {
         can_pin: state
             .conversation_that(|can| can.pins)
             .is_some_and(|room| !room.forum),
+        export: state.may_export_chat(&room.id).then(|| room.id.clone()),
         add_people: (state.discord_online && state.dm_that(|can| can.group_dms).is_some())
             .then_some(room.person.is_some()),
         members_available: state.lists_members(),
@@ -458,6 +462,14 @@ fn header_buttons<'a>(ctx: crate::ctx::Ctx<'a>) -> Vec<Element<'a, Message>> {
             Icon::Pin,
             backcord_iced_kit::i18n::tr("Pinned messages"),
             Message::Popover(crate::header_popovers::Event::Pins),
+            false,
+        );
+    }
+    if let Some(room) = &header.export {
+        push(
+            Icon::Download,
+            backcord_iced_kit::i18n::tr("Export chat"),
+            Message::ChatExport(crate::chat_export::Event::Open(room.clone())),
             false,
         );
     }

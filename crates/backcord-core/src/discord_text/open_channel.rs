@@ -180,6 +180,11 @@ pub struct OpenChannel {
     /// emoji: another click on one waits for it, as Discord's client does,
     /// so a burst of clicks can't race.
     reacting: Arc<Mutex<HashSet<(String, String)>>>,
+    /// Sends go to Discord one after another, in the order they were
+    /// made, so a long message's parts arrive in order: each takes the
+    /// next ticket and waits for its turn.
+    turn: Arc<tokio::sync::watch::Sender<u64>>,
+    tickets: u64,
     /// A page of earlier history is on its way.
     pub(super) loading_earlier: bool,
     /// A page after the window is on its way.
@@ -275,6 +280,8 @@ impl OpenChannel {
             sent: HashSet::new(),
             deleted: HashSet::new(),
             reacting: Arc::default(),
+            turn: Arc::new(tokio::sync::watch::Sender::new(0)),
+            tickets: 0,
             loading_earlier: false,
             loading_later: false,
             focusing: false,
@@ -732,8 +739,10 @@ impl OpenChannel {
         options: SendOptions,
         files: Vec<OutgoingFile>,
     ) -> Result<(), &'static str> {
-        if (body.trim().is_empty() && files.is_empty()) || body.chars().count() > MAX_CHARS {
-            return Err("Discord messages must contain text and be at most 2,000 characters.");
+        if (body.trim().is_empty() && files.is_empty())
+            || body.chars().count() > super::MAX_CHARS_NITRO
+        {
+            return Err("Discord messages must contain text and be at most 4,000 characters.");
         }
         if files.len() > backcord_discord::api::MAX_FILES {
             return Err("A Discord message carries up to 10 files.");
@@ -812,7 +821,12 @@ impl OpenChannel {
             .iter()
             .map(|file| (file.path.clone(), file.name.clone(), file.spoiler))
             .collect();
+        let ticket = self.tickets;
+        self.tickets += 1;
+        let turn = self.turn.clone();
         tokio::spawn(async move {
+            // Its turn: every send made before it has been answered.
+            let _ = turn.subscribe().wait_for(|now| *now >= ticket).await;
             let result = async {
                 let mut read = Vec::with_capacity(files.len());
                 for (path, name, spoiler) in files {
@@ -833,6 +847,7 @@ impl OpenChannel {
                     .map_err(|error| error.to_string())
             }
             .await;
+            turn.send_modify(|now| *now = (*now).max(ticket + 1));
             let _ = done.send(Done::Sent {
                 room,
                 nonce,

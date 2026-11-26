@@ -130,6 +130,7 @@ impl Application {
         self.offer_invite(user, &mut choices);
         self.offer_group(user, &mut choices);
         if let Some(room) = self.state.selected.as_deref() {
+            self.offer_group_owner(room, user, &mut choices);
             self.offer_apps(room, user, &mut choices);
         }
         choices
@@ -137,9 +138,9 @@ impl Application {
 
     /// Someone's menu in a voice channel, from a right click on them in its
     /// call or under it in the channel list: their menu as a member of its
-    /// server, with what the call offers, as Discord's has it. Nothing in a
-    /// DM's or a Matrix room's call, where the right click sets only their
-    /// volume.
+    /// server, with what the call offers, as Discord's has it. In a group
+    /// DM's call, what its owner may do with them; nothing in a DM's or a
+    /// Matrix room's call, where the right click sets only their volume.
     pub fn voice_person_choices(&self, room: &str, user: &str) -> Vec<MenuChoice> {
         #[cfg(feature = "discord")]
         if self.is_member_place(room, user) {
@@ -148,8 +149,7 @@ impl Application {
             self.offer_group(user, &mut choices);
             return choices;
         }
-        let _ = (room, user);
-        vec![]
+        self.group_owner_choices(room, user)
     }
 
     /// Where someone's menu is a Discord server member's: the server whose

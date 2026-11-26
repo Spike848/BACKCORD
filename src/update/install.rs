@@ -114,6 +114,27 @@ pub fn target_for(
     appimage: Option<&Path>,
     flavour: &str,
 ) -> Result<Target, String> {
+    // On Windows, an installed copy without the installer's uninstaller
+    // beside it (unpacked into Program Files by hand), or a release that
+    // publishes no installer, updates as a portable copy does, from the
+    // ZIP: the program is swapped in place, as long as its folder can be
+    // written to.
+    let source = if source == Source::Installer && cfg!(all(windows, target_arch = "x86_64")) {
+        let uninstaller = program
+            .parent()
+            .is_some_and(|folder| folder.join("unins000.exe").is_file());
+        let installer = release
+            .assets
+            .iter()
+            .any(|asset| of_flavour(&asset.name, "-windows-x64-setup.exe", flavour));
+        if uninstaller && installer {
+            Source::Installer
+        } else {
+            Source::Other
+        }
+    } else {
+        source
+    };
     let suffix = match source {
         Source::AppImage if cfg!(target_arch = "x86_64") => "-x86_64.AppImage",
         Source::Installer if cfg!(target_arch = "x86_64") => "-windows-x64-setup.exe",
@@ -632,8 +653,12 @@ fn version_at(text: &str, at: usize) -> Option<usize> {
 /// `named`, once BACKCORD has quit: the running file is renamed aside, which
 /// Windows allows, and put back if the new one can't take its place.
 pub fn swap_in(new: &Path, program: &Path, named: &Path) -> Result<(), String> {
-    let old = program.with_file_name(OLD_PROGRAM);
-    let _ = std::fs::remove_file(&old);
+    let mut old = program.with_file_name(OLD_PROGRAM);
+    // An old program that can't be removed (a second BACKCORD still runs
+    // from it) is left, and this one moves aside under a name of its own.
+    if std::fs::remove_file(&old).is_err() && old.exists() {
+        old = program.with_file_name(format!(".backcord-old-{}.exe", std::process::id()));
+    }
     std::fs::rename(program, &old)
         .map_err(|error| format!("could not move the old program: {error}"))?;
     if let Err(error) = std::fs::rename(new, named) {
@@ -665,21 +690,41 @@ pub fn name_for_version() {
 /// Removes the program a portable update put aside, once the old BACKCORD
 /// that ran from it has ended: tried for a few seconds, in the background.
 pub fn remove_old_program() {
-    let Some(old) = std::env::current_exe()
+    let Some(folder) = std::env::current_exe()
         .ok()
-        .map(|program| program.with_file_name(OLD_PROGRAM))
-        .filter(|old| old.exists())
+        .and_then(|program| program.parent().map(Path::to_path_buf))
     else {
         return;
     };
+    // `.backcord-old.exe`, and those named for the process that moved
+    // aside when it couldn't be removed.
+    let olds: Vec<PathBuf> = std::fs::read_dir(&folder)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| {
+                    name == OLD_PROGRAM
+                        || (name.starts_with(".backcord-old-") && name.ends_with(".exe"))
+                })
+        })
+        .collect();
+    if olds.is_empty() {
+        return;
+    }
     let _ = std::thread::Builder::new()
         .name("backcord-old-program".into())
         .spawn(move || {
-            for _ in 0..40 {
-                match std::fs::remove_file(&old) {
-                    Ok(()) => return,
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
-                    Err(_) => std::thread::sleep(std::time::Duration::from_millis(500)),
+            for old in olds {
+                for _ in 0..40 {
+                    match std::fs::remove_file(&old) {
+                        Ok(()) => break,
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+                        Err(_) => std::thread::sleep(std::time::Duration::from_millis(500)),
+                    }
                 }
             }
         });
@@ -900,11 +945,17 @@ mod tests {
                 .unwrap_err()
                 .contains("path")
         );
-        // An installed program needs the installer's uninstaller beside it.
-        assert!(
-            reason(Source::Installer).contains("can't update itself"),
-            "no uninstaller"
-        );
+        // An installed program needs the installer's uninstaller beside it;
+        // on Windows, without one it updates from the ZIP.
+        if cfg!(windows) {
+            let target = target_for(&release, Source::Installer, &program, None, "").unwrap();
+            assert_eq!(target.asset().name, "BACKCORD-0.4.1-windows-x64.zip");
+        } else {
+            assert!(
+                reason(Source::Installer).contains("can't update itself"),
+                "no uninstaller"
+            );
+        }
         std::fs::write(folder.path().join("unins000.exe"), b"").unwrap();
         let target = target_for(&release, Source::Installer, &program, None, "").unwrap();
         assert_eq!(target.asset().name, "BACKCORD-0.4.1-windows-x64-setup.exe");
@@ -990,11 +1041,17 @@ mod tests {
         release
             .assets
             .retain(|asset| !asset.name.ends_with("-setup.exe"));
-        assert!(
-            target_for(&release, Source::Installer, &program, None, "")
-                .unwrap_err()
-                .contains("no Windows installer")
-        );
+        if cfg!(windows) {
+            // Without an installer, the ZIP updates it.
+            let target = target_for(&release, Source::Installer, &program, None, "").unwrap();
+            assert!(target.asset().name.ends_with("-windows-x64.zip"));
+        } else {
+            assert!(
+                target_for(&release, Source::Installer, &program, None, "")
+                    .unwrap_err()
+                    .contains("no Windows installer")
+            );
+        }
         release
             .assets
             .retain(|asset| asset.name != "SHA256SUMS.txt.minisig");

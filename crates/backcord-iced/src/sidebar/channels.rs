@@ -637,6 +637,10 @@ impl<'a> super::View<'a> {
         }
         let name = elide(room.name.as_str()).size(15).font(MEDIUM).color(ink);
         face = face.push(column![name].width(Length::Fill));
+        // Someone else typing in it, as dots before its counts.
+        if !room.voice && crate::typing::typing_in(&self.cx, &room.id) {
+            face = face.push(crate::typing::list_dots(theme.secondary, self.cx.plays));
+        }
         // How many are in a voice channel of how many it takes.
         if room.voice_limit > 0 || !room.people.is_empty() {
             let limit = if room.voice_limit > 0 {

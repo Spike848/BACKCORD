@@ -80,6 +80,18 @@ impl Shell {
         drop(self.pasted.lock().map(|mut folder| folder.take()));
     }
 
+    /// Lets go of the folder, before a restart or an update starts the next
+    /// BACKCORD: holding it, the next would hand itself to this one, which
+    /// is ending.
+    pub fn release_instance(&self) {
+        drop(std::mem::take(
+            &mut *self
+                .instance
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        ));
+    }
+
     /// The update downloaded and checked, for `main` to finish.
     pub fn take_prepared(&self) -> Option<Prepared> {
         self.lock_updates().prepared.take()
@@ -591,12 +603,21 @@ impl backcord_iced::Updates for Shell {
         updating.installing = None;
         updating.install = None;
         drop(updating);
-        // The download's file closes as its task stops, a moment from now.
+        // The download's file closes as its task stops, a moment from now;
+        // unless Update was pressed again since, whose download it is now.
+        let updates = self.updates.clone();
         let _ = std::thread::Builder::new()
             .name("backcord-update-cancel".into())
             .spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(500));
-                let _ = std::fs::remove_file(&part);
+                let again = updates
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .installing
+                    .is_some();
+                if !again {
+                    let _ = std::fs::remove_file(&part);
+                }
             });
         self.tell(Heard::Updates);
     }

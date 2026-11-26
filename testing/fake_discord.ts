@@ -108,7 +108,9 @@
 // POST /_control/call makes Bob call her; see "DM calls" below.
 // Bob and Carol are her friends; POST /users/@me/channels opens a DM, as with
 // Carol, whom she has none with yet, or with several people makes a group DM,
-// and PUT /channels/{id}/recipients/{user} adds someone to a group.
+// and PUT /channels/{id}/recipients/{user} adds someone to a group. Alice
+// owns the groups she makes: DELETE on the same path removes someone, and
+// PATCH /channels/{id} with {"owner": id} gives the group to them.
 // GET /channels/{id}/messages/pins lists a channel's pins: Bob's welcome in
 // #general, his question in his DM and Carol's in the group. PUT and DELETE
 // /channels/{id}/messages/pins/{message} pin a message and unpin it, which
@@ -1405,8 +1407,10 @@ const messages = new Map<string, Message[]>([
   [SPAM_FRANK, []],
 ]);
 
-// DMs and group DMs by channel id, with everyone in them besides Alice.
-type Private = { type: 1 | 3; recipients: User[]; name?: string; request?: boolean; spam?: boolean };
+// DMs and group DMs by channel id, with everyone in them besides Alice. A
+// group's owner is its first recipient unless `owner` names someone, as
+// Alice is of those she makes.
+type Private = { type: 1 | 3; recipients: User[]; name?: string; owner?: string; request?: boolean; spam?: boolean };
 const privates = new Map<string, Private>();
 const byId = new Map<string, Message>();
 let lastId = 0n;
@@ -1638,7 +1642,7 @@ function wirePrivate(id: string, channel: Private, users: "ids" | "objects") {
     type: channel.type,
     last_message_id: messages.get(id)!.at(-1)?.id ?? null,
     flags: 0,
-    ...(channel.type === 3 ? { name: channel.name ?? null, icon: null, owner_id: channel.recipients[0]!.id } : {}),
+    ...(channel.type === 3 ? { name: channel.name ?? null, icon: null, owner_id: channel.owner ?? channel.recipients[0]!.id } : {}),
     ...(channel.request
       ? { is_message_request: true, is_message_request_timestamp: iso(timeOf(messages.get(id)![0]!.id)), is_spam: !!channel.spam }
       : {}),
@@ -6461,7 +6465,7 @@ async function api(req: Request, path: string, origin: string): Promise<Response
       const people = (body.recipients as unknown[]).map((id) => userById.get(String(id)));
       if (people.some((user) => !user) || people.length > 9) return json({ message: "Invalid Recipient(s)", code: 50033 }, 400);
       const id = snowflake(Date.now(), 78);
-      const channel: Private = { type: 3, recipients: people as User[] };
+      const channel: Private = { type: 3, recipients: people as User[], owner: ALICE };
       privates.set(id, channel);
       messages.set(id, []);
       dispatch("CHANNEL_CREATE", wirePrivate(id, channel, "objects"));
@@ -6826,6 +6830,36 @@ async function api(req: Request, path: string, origin: string): Promise<Response
       dispatch("CHANNEL_RECIPIENT_ADD", { channel_id: m[1]!, user: wireUser(user) });
     }
     return new Response(null, { status: 204 });
+  }
+
+  // Its owner removing someone from a group DM.
+  if (method === "DELETE" && (m = path.match(/^\/channels\/(\d+)\/recipients\/(\d+)$/))) {
+    const channel = privates.get(m[1]!);
+    const user = channel?.recipients.find((known) => known.id === m![2]);
+    if (channel?.type !== 3) return notFound("Unknown Channel", 10003);
+    if (channel.owner !== ALICE) return json({ message: "Missing Permissions", code: 50013 }, 403);
+    if (!user) return notFound("Unknown User", 10013);
+    channel.recipients = channel.recipients.filter((known) => known !== user);
+    dispatch("CHANNEL_RECIPIENT_REMOVE", { channel_id: m[1]!, user: wireUser(user) });
+    return new Response(null, { status: 204 });
+  }
+
+  // Its owner giving a group DM to another of its people, or renaming it.
+  if (method === "PATCH" && (m = path.match(/^\/channels\/(\d+)$/)) && privates.get(m[1]!)?.type === 3) {
+    const id = m[1]!;
+    const channel = privates.get(id)!;
+    const body: any = await req.json().catch(() => ({}));
+    if ("owner" in body) {
+      if (channel.owner !== ALICE) return json({ message: "Missing Permissions", code: 50013 }, 403);
+      if (!channel.recipients.some((known) => known.id === String(body.owner))) {
+        return json({ message: "Invalid Form Body", code: 50035 }, 400);
+      }
+      channel.owner = String(body.owner);
+    }
+    if ("name" in body) channel.name = body.name ?? undefined;
+    const wire = wirePrivate(id, channel, "objects");
+    dispatch("CHANNEL_UPDATE", wire);
+    return json(wire);
   }
 
   if ((m = path.match(/^\/channels\/(\d+)\/messages\/pins\/(\d+)$/)) && (method === "PUT" || method === "DELETE")) {

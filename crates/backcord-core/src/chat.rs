@@ -71,6 +71,9 @@ pub struct ChatRoom {
     pub voice: bool,
     pub encrypted: bool,
     pub members: u64,
+    /// How many of its members are online, when its network counts them:
+    /// a Discord channel whose member list is on screen.
+    pub online: Option<u64>,
     pub unread: u64,
     pub mentions: u64,
     /// Muted in the network's notification settings: a Discord DM.
@@ -3555,6 +3558,20 @@ pub enum DiscordCommand {
         room: String,
         silent: bool,
     },
+    /// As a group DM's owner, take someone out of it, by its room id and
+    /// their user id; [`Event::GroupMemberChanged`] follows, and its
+    /// CHANNEL_RECIPIENT_REMOVE takes them off its member list.
+    RemoveFromGroup {
+        room: String,
+        user: String,
+    },
+    /// As a group DM's owner, give it to another of its people;
+    /// [`Event::GroupMemberChanged`] follows, and its CHANNEL_UPDATE crowns
+    /// them.
+    MakeGroupOwner {
+        room: String,
+        user: String,
+    },
     /// Cancella tutto: delete every message this account sent in a Discord
     /// DM, by its room id, or server, by its server id, one at a time;
     /// [`Event::DeletedAll`] follows with each one, and when it ends.
@@ -3611,6 +3628,13 @@ pub enum DiscordCommand {
         before: Option<String>,
         /// Dropped onto this server or folder instead: into a folder.
         into: Option<String>,
+    },
+    /// Name and colour a folder (Discord's id) of the account's server
+    /// list: no name, or no colour for Discord's default.
+    SetFolder {
+        folder: String,
+        name: Option<String>,
+        color: Option<u32>,
     },
     /// Set how loud the soundboard plays, as Discord keeps it, from 0 to
     /// 100; [`Event::SoundboardVolumeSet`] follows.
@@ -5087,6 +5111,14 @@ pub enum Event {
     /// server or room id, or why not.
     Left {
         place: String,
+        result: Result<(), String>,
+    },
+    /// Whether Discord took a [`DiscordCommand::RemoveFromGroup`] or
+    /// [`DiscordCommand::MakeGroupOwner`], by the group's room id and the
+    /// user's id, or why not.
+    GroupMemberChanged {
+        room: String,
+        user: String,
         result: Result<(), String>,
     },
     /// How Cancella tutto goes in a DM or server: how many of this

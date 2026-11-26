@@ -887,6 +887,47 @@ fn a_group_dm_lists_its_members() {
 }
 
 #[test]
+fn the_member_list_counts_its_members_and_those_online_over_the_rows() {
+    let (mut app, _folder) = preview();
+    change(&mut app, |state| {
+        let template = (*state.rooms[0]).clone();
+        state.rooms.push(Arc::new(ChatRoom {
+            id: "discord:dm:20".into(),
+            name: "Riley, Sam".into(),
+            direct: true,
+            members: 3,
+            person: None,
+            category: String::new(),
+            ..template
+        }));
+        state.navigation = Navigation::DirectMessages;
+        state.selected = Some("discord:dm:20".into());
+        if let Some(Ok(members)) = state.members.as_mut() {
+            let members = Arc::make_mut(members);
+            let first = members[0].clone();
+            *members = [
+                ("1", Presence::Online),
+                ("2", Presence::Idle),
+                ("3", Presence::Offline),
+            ]
+            .into_iter()
+            .map(|(id, presence)| backcord_core::chat::ChatMember {
+                id: id.into(),
+                name: format!("Person {id}"),
+                presence: Some(presence),
+                ..first.clone()
+            })
+            .collect();
+        }
+    });
+    assert_eq!(app.client.state().member_counts(), Some((3, Some(2))));
+    assert!(
+        shows(&app, "Members \u{2014} 3 \u{b7} Online \u{2014} 2"),
+        "the counts sit over the rows"
+    );
+}
+
+#[test]
 fn active_now_is_made_only_while_the_friends_screen_has_room_for_it() {
     let (mut app, _folder) = preview();
     let playing = backcord_core::chat::Activity {

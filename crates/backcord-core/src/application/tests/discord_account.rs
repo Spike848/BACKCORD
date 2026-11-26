@@ -486,3 +486,35 @@ fn a_server_dragged_on_the_rail_moves_by_discords_own_ids() {
             if moved == "20" && before.as_deref() == Some("9")
     ));
 }
+
+#[test]
+#[cfg(feature = "discord")]
+fn a_folder_is_coloured_by_discords_own_id() {
+    use backcord_discord::service::{Snapshot, Status};
+    let mut app = Application::default();
+    let colour = |app: &mut Application, folder: &str| {
+        app.dispatch(Action::SetServerFolder {
+            folder: folder.into(),
+            name: Some("Games".into()),
+            color: Some(0x1abc9c),
+        })
+    };
+    assert!(
+        colour(&mut app, "discord-folder:9").is_empty(),
+        "signed out"
+    );
+    app.apply(discord_event(Snapshot {
+        status: Status::Online,
+        user_id: Some("1".into()),
+        ..Default::default()
+    }));
+    assert!(matches!(
+        colour(&mut app, "discord-folder:9").as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::SetFolder { folder, name, color: Some(0x1abc9c) }))]
+            if folder == "9" && name.as_deref() == Some("Games")
+    ));
+    assert!(
+        colour(&mut app, "discord:20").is_empty(),
+        "a server isn't a folder"
+    );
+}
