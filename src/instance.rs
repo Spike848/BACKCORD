@@ -54,6 +54,11 @@ pub fn claim(root: &Path, alone: bool, background: bool, link: Option<String>) -
     )
 }
 
+/// Set on the BACKCORD a restart or an update starts: the one before is
+/// ending, so this start waits for its hold on the folder instead of
+/// handing itself to it.
+pub const RESTARTED: &str = "BACKCORD_RESTARTED";
+
 fn claim_with(root: &Path, alone: bool, background: bool, launch: Launch) -> Start {
     let lock = std::fs::create_dir_all(root).and_then(|()| {
         File::options()
@@ -69,7 +74,18 @@ fn claim_with(root: &Path, alone: bool, background: bool, launch: Launch) -> Sta
             return Start::Run(Instance::default());
         }
     };
-    match lock.try_lock() {
+    let mut held = lock.try_lock();
+    if std::env::var_os(RESTARTED).is_some() {
+        // Up to 10 seconds for the BACKCORD before to let go.
+        for _ in 0..100 {
+            if !matches!(held, Err(std::fs::TryLockError::WouldBlock)) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            held = lock.try_lock();
+        }
+    }
+    match held {
         Ok(()) => {
             let listener = Listener::bind(root);
             Start::Run(Instance {

@@ -99,6 +99,10 @@ pub enum MenuChoice {
     Ban,
     /// Give the server to them, from Members in its settings.
     TransferOwnership,
+    /// As a Discord group DM's owner, take another of its people out of
+    /// it, or give it to them, asking first.
+    RemoveFromGroup,
+    MakeGroupOwner,
     // A member's in a voice channel, as its menu there offers them.
     /// Mute someone for this account alone, as a box to tick.
     LocalMute,
@@ -167,6 +171,9 @@ pub enum MenuChoice {
     /// Open a Discord Community server's rules and questions for its
     /// members, to answer them again.
     ChannelsRoles,
+    /// Name and colour a Discord server folder of the rail, in a dialog
+    /// of Discord's preset colours and a colour pad.
+    FolderColour,
 }
 
 /// How long [`MenuChoice::Mute`] mutes for, as Discord's client offers.
@@ -429,13 +436,18 @@ impl AppState {
     }
 
     /// What a rail folder's menu offers: marking its servers read, as
-    /// Discord's does.
+    /// Discord's does, while there's something to read, and its name and
+    /// colour.
     fn folder_choices(&self, id: &str) -> Vec<MenuChoice> {
-        if !self.preview && self.unread_in_folder(id).next().is_some() {
-            vec![MenuChoice::MarkRead]
-        } else {
-            vec![]
+        if self.preview {
+            return vec![];
         }
+        let mut choices = Vec::new();
+        if self.unread_in_folder(id).next().is_some() {
+            choices.push(MenuChoice::MarkRead);
+        }
+        choices.push(MenuChoice::FolderColour);
+        choices
     }
 
     /// The channels of a folder's servers with messages to read.
@@ -1092,8 +1104,8 @@ impl Application {
             self.show_sent_commands();
         }
         self.state.selection_version = self.state.selection_version.wrapping_add(1);
-        // Typing is followed only in the open conversation, so what's known of others is stale.
-        self.state.typing.clear();
+        // Typing is kept for every conversation, for the channel list's
+        // dots: each room's ends on its own as its typers' time runs out.
         self.state.mention_query = None;
         self.state.mention_groups.clear();
         self.state.found_members.clear();

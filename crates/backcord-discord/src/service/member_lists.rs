@@ -14,7 +14,7 @@ use tokio::{
     time::{Duration, Instant, Sleep},
 };
 
-use super::{Live, Snapshot, tracker::Tracker};
+use super::{Listed, Live, Snapshot, tracker::Tracker};
 use crate::{
     cache,
     event::Event,
@@ -97,11 +97,9 @@ impl MemberLists {
     }
 
     /// The channel whose member list is on screen, and how many people can
-    /// read it, as [`Snapshot::listed`].
-    pub(super) fn listed(&self) -> Option<(String, u64)> {
-        self.shown
-            .as_ref()
-            .and_then(|list| Some((list.channel().to_owned(), list.count()?)))
+    /// read it and are online, as [`Snapshot::listed`].
+    pub(super) fn listed(&self) -> Option<Listed> {
+        self.shown.as_ref().and_then(listed)
     }
 
     /// Picks up the list on screen in a new session, which has no
@@ -326,7 +324,7 @@ impl MemberLists {
     }
 
     /// Takes in a member list update, for the list on screen or one kept;
-    /// returns whether the count on screen changed.
+    /// returns whether the counts on screen changed.
     pub(super) fn update(&mut self, tracker: &Tracker, data: &Value) -> bool {
         let mut names = self
             .names
@@ -334,9 +332,9 @@ impl MemberLists {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let (mut changed, mut counted) = (false, false);
         if let Some(list) = self.shown.as_mut() {
-            let count = list.count();
+            let counts = (list.count(), list.online());
             changed = list.apply(data, &mut names);
-            counted = list.count() != count;
+            counted = (list.count(), list.online()) != counts;
         }
         // Or a list kept from before, which Discord still sends.
         if !changed {
@@ -489,9 +487,10 @@ impl MemberLists {
             channel: channel.to_owned(),
             members,
         });
-        if let Some(count) = list.count() {
+        if let Some(mut shown) = listed(list) {
+            channel.clone_into(&mut shown.channel);
             snapshots.send_modify(|snapshot| {
-                Arc::make_mut(snapshot).listed = Some((channel.to_owned(), count));
+                Arc::make_mut(snapshot).listed = Some(shown);
             });
         }
     }
@@ -529,6 +528,15 @@ impl MemberLists {
     }
 }
 
+/// A member list's channel and counts, once Discord has counted its readers.
+fn listed(list: &MemberList) -> Option<Listed> {
+    Some(Listed {
+        channel: list.channel().to_owned(),
+        count: list.count()?,
+        online: list.online(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -562,6 +570,30 @@ mod tests {
         let taken = lists.take("10", "11", "everyone");
         assert!(taken.synced());
         assert_eq!(taken.count(), Some(1));
+    }
+
+    #[tokio::test]
+    async fn the_counts_on_screen_follow_discords() {
+        let (live, _) = broadcast::channel(8);
+        let names = Arc::<RwLock<Names>>::default();
+        let tracker = Tracker::from_ready("1".into(), &json!({}), names.clone());
+        let mut lists = MemberLists::new(Vec::new(), live, names, Presence::Online);
+        lists.shown = Some(MemberList::new("10".into(), "11".into(), "everyone".into()));
+        assert_eq!(lists.listed(), None, "not counted before the sync");
+        let mut sync = sync("everyone");
+        sync["online_count"] = json!(1);
+        assert!(lists.update(&tracker, &sync));
+        let counted = Listed {
+            channel: "11".into(),
+            count: 1,
+            online: Some(1),
+        };
+        assert_eq!(lists.listed(), Some(counted));
+        // Bob goes offline: the online count changes, the members' doesn't.
+        let gone = json!({"guild_id": "10", "id": "everyone", "online_count": 0, "ops": []});
+        assert!(lists.update(&tracker, &gone), "the online count changed");
+        assert_eq!(lists.listed().and_then(|listed| listed.online), Some(0));
+        assert!(!lists.update(&tracker, &gone), "nothing new to count");
     }
 
     #[tokio::test]

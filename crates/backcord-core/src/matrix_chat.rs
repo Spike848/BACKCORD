@@ -1191,6 +1191,7 @@ async fn room_index(client: &Client) -> RoomIndex {
             voice: room.is_call(),
             encrypted: room.encryption_state().is_encrypted(),
             members: room.joined_members_count(),
+            online: None,
             // Counted on this device from read receipts. For a room that isn't open,
             // sync often delivers only the newest event, so this shows that something
             // is unread rather than how much; encrypted mentions are found the same way.

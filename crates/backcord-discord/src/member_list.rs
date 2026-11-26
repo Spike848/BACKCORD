@@ -135,6 +135,9 @@ pub struct MemberList {
     counts: HashMap<String, u64>,
     /// How many people can read the channel.
     count: Option<u64>,
+    /// How many of them are online, as Discord last counted.
+    #[serde(default)]
+    online: Option<u64>,
     /// The listed members' roles and presence, by user id.
     people: HashMap<String, Person>,
 }
@@ -149,6 +152,7 @@ impl MemberList {
             rows: Vec::new(),
             counts: HashMap::new(),
             count: None,
+            online: None,
             people: HashMap::new(),
         }
     }
@@ -173,6 +177,20 @@ impl MemberList {
     /// How many people can read the channel, once Discord has said.
     pub fn count(&self) -> Option<u64> {
         self.count
+    }
+
+    /// How many of them are online: Discord's `online_count`, else the
+    /// sizes of its groups but Offline added up, once it has sent them.
+    pub fn online(&self) -> Option<u64> {
+        self.online.or_else(|| {
+            (!self.counts.is_empty()).then(|| {
+                self.counts
+                    .iter()
+                    .filter(|(id, _)| id.as_str() != "offline")
+                    .map(|(_, count)| count)
+                    .sum()
+            })
+        })
     }
 
     /// Whether it lists `user`.
@@ -200,6 +218,9 @@ impl MemberList {
         }
         if let Some(count) = data["member_count"].as_u64() {
             self.count = Some(count);
+        }
+        if let Some(online) = data["online_count"].as_u64() {
+            self.online = Some(online);
         }
         if let Some(groups) = data["groups"].as_array() {
             self.counts = groups
@@ -548,6 +569,11 @@ mod tests {
             &mut names,
         ));
         assert_eq!(list.count(), Some(3));
+        assert_eq!(
+            list.online(),
+            Some(2),
+            "without online_count, the groups but Offline add up"
+        );
         let members = list.members(Some(&server), &names);
         let shown: Vec<_> = members
             .iter()
@@ -611,8 +637,36 @@ mod tests {
             &json!({"guild_id": "10", "id": "everyone", "ops": [{"op": "INVALIDATE", "range": [0, 99]}]}),
             &mut names,
         ));
+        assert_eq!(list.online(), Some(3), "Mods and Online, Cat among them");
         let kept = list.members(Some(&server), &names);
         assert_eq!(kept.len(), 3);
         assert_eq!(kept[1].group, "Online — 2", "the groups' sizes stay");
+    }
+
+    #[test]
+    fn counts_who_is_online_as_discord_says() {
+        let mut names = Names::default();
+        let mut list = MemberList::new("10".into(), "11".into(), "everyone".into());
+        assert_eq!((list.count(), list.online()), (None, None));
+        assert!(list.apply(
+            &json!({
+                "guild_id": "10", "id": "everyone", "member_count": 5000, "online_count": 1234,
+                "groups": [{"id": "online", "count": 1200}],
+                "ops": [{"op": "SYNC", "range": [0, 99], "items": [
+                    {"group": {"id": "online", "count": 1200}}, member("1", "ann"),
+                ]}],
+            }),
+            &mut names,
+        ));
+        assert_eq!(
+            (list.count(), list.online()),
+            (Some(5000), Some(1234)),
+            "Discord's count wins over the groups'"
+        );
+        assert!(list.apply(
+            &json!({"guild_id": "10", "id": "everyone", "online_count": 1235, "ops": []}),
+            &mut names,
+        ));
+        assert_eq!(list.online(), Some(1235), "an update counts again");
     }
 }

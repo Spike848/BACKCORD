@@ -524,9 +524,9 @@ pub struct Snapshot {
     #[serde(skip)]
     pub voice_status: Arc<HashMap<String, Arc<str>>>,
     /// The channel whose member list is on screen, and how many people can
-    /// read it.
+    /// read it and are online.
     #[serde(skip)]
-    pub listed: Option<(String, u64)>,
+    pub listed: Option<Listed>,
     /// The server channel or thread on screen, and a thread beside it, by
     /// id: a thread this account isn't in lists while it shows.
     #[serde(skip)]
@@ -534,6 +534,18 @@ pub struct Snapshot {
     /// Who is who, as the service knows them; see [`SharedNames`].
     #[serde(skip)]
     pub names: SharedNames,
+}
+
+/// The channel whose member list is on screen, with its counts, as
+/// [`Snapshot::listed`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Listed {
+    pub channel: String,
+    /// How many people can read it.
+    pub count: u64,
+    /// How many of them are online, once Discord has said; see
+    /// [`MemberList::online`](crate::member_list::MemberList::online).
+    pub online: Option<u64>,
 }
 
 /// The service's [`Names`], shared with each snapshot rather than copied
@@ -3070,6 +3082,34 @@ impl Discord {
         std::future::ready(Ok(()))
     }
 
+    /// Names and colours a folder of the server list, by its id, as
+    /// Discord's Folder Settings does: no name, or no colour for Discord's
+    /// default. Shown at once, then kept in the account's settings,
+    /// everywhere it's signed in, with the moves.
+    pub fn set_folder(
+        &self,
+        folder: &str,
+        name: Option<&str>,
+        color: Option<u32>,
+    ) -> impl Future<Output = Result<()>> + Send + 'static {
+        let changed = {
+            let snapshot = self.snapshots.borrow();
+            let entries = settings::server_entries(
+                snapshot
+                    .servers
+                    .iter()
+                    .map(|server| server.server.id.as_str()),
+                &snapshot.folders,
+            );
+            settings::set_folder_in_list(&entries, folder, name, color)
+        };
+        if let Some(list) = changed {
+            let _ = self.requests.send(Request::ServerList(list.clone()));
+            self.server_lists.send_replace(Some(list));
+        }
+        std::future::ready(Ok(()))
+    }
+
     /// Changes the settings' `status` with `change`, then has the session
     /// show `then` of them. As Discord's client does, the change starts from
     /// the settings Discord last sent, not from a request for them, and
@@ -4348,6 +4388,20 @@ impl Discord {
     /// Snapshots drop it once its CHANNEL_DELETE comes.
     pub async fn leave_group(&self, channel: &str, silent: bool) -> Result<()> {
         self.api.leave_group(channel, silent).await
+    }
+
+    /// Removes someone from a group DM this account owns; see
+    /// [`Api::remove_recipient`]. Snapshots drop them once its
+    /// CHANNEL_RECIPIENT_REMOVE comes.
+    pub async fn remove_from_group(&self, channel: &str, user: &str) -> Result<()> {
+        self.api.remove_recipient(channel, user).await
+    }
+
+    /// Makes someone else the owner of a group DM this account owns; see
+    /// [`Api::set_group_owner`]. Snapshots crown them once its
+    /// CHANNEL_UPDATE comes.
+    pub async fn make_group_owner(&self, channel: &str, user: &str) -> Result<()> {
+        self.api.set_group_owner(channel, user).await
     }
 
     /// Declines a call ringing this account; the call goes on without it.

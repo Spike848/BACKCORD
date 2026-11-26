@@ -378,10 +378,25 @@ impl Application {
             self.state.compose.remove(&id);
             return vec![];
         }
+        // Discord takes 2,000 characters, 4,000 with Nitro: a longer
+        // message goes in parts with Split Long Messages, else not at all.
+        let parts = match self.message_limit(&id) {
+            Some(limit) if body.chars().count() > limit => {
+                if !crate::extras::split_long() {
+                    self.state.notice = Some(format!(
+                        "Discord messages are at most {limit} characters. Turn on Split Long Messages to send it in parts."
+                    ));
+                    return vec![];
+                }
+                crate::split::split_message(&body, limit)
+            }
+            _ => vec![body],
+        };
         self.state.sending = Some(id.clone());
         self.state.notice = None;
         self.state.mention_query = None;
         self.sent_draft = Some(draft);
+        self.sent_parts = parts.len();
         let files: Vec<chat::OutgoingFile> = self
             .state
             .staged
@@ -400,20 +415,50 @@ impl Application {
         } else {
             vec![]
         };
-        effects.push(Effect::Backend(Command::Send {
-            room: id,
-            body,
-            options: chat::SendOptions {
-                quiet_reply: matches!(compose, Some(Compose::Reply { ping: false, .. })),
-                silent,
-            },
-            reply: match compose {
-                Some(Compose::Reply { item, .. }) => Some(item),
-                _ => None,
-            },
-            files,
-        }));
+        // The reply goes with the first part, the files with the last.
+        let quiet_reply = matches!(compose, Some(Compose::Reply { ping: false, .. }));
+        let mut reply = match compose {
+            Some(Compose::Reply { item, .. }) => Some(item),
+            _ => None,
+        };
+        let mut files = Some(files);
+        let last = parts.len().saturating_sub(1);
+        for (at, body) in parts.into_iter().enumerate() {
+            effects.push(Effect::Backend(Command::Send {
+                room: id.clone(),
+                body,
+                options: chat::SendOptions {
+                    quiet_reply,
+                    silent,
+                },
+                reply: reply.take(),
+                files: if at == last {
+                    files.take().unwrap_or_default()
+                } else {
+                    Vec::new()
+                },
+            }));
+        }
         effects
+    }
+
+    /// How many characters a message in `room` may have: Discord's 2,000,
+    /// or 4,000 with Nitro (not Nitro Basic); none for Matrix, whose limit
+    /// is in bytes.
+    fn message_limit(&self, room: &str) -> Option<usize> {
+        if Network::of(room) != Network::Discord {
+            return None;
+        }
+        #[cfg(feature = "discord")]
+        if let Some(snapshot) = &self.discord
+            && snapshot
+                .account
+                .as_ref()
+                .is_some_and(|account| account.premium_type == 2)
+        {
+            return Some(crate::discord_text::MAX_CHARS_NITRO);
+        }
+        Some(crate::discord_text::MAX_CHARS)
     }
 
     /// Adds files to the selected room's next message, saying why any can't go.

@@ -535,6 +535,22 @@ pub(super) fn command(
         }
         return None;
     }
+    if let Command::Discord(DiscordCommand::SetFolder {
+        folder,
+        name,
+        color,
+    }) = command
+    {
+        if let Ok(discord) = discord {
+            let change = discord.set_folder(&folder, name.as_deref(), color);
+            tokio::spawn(async move {
+                if let Err(error) = change.await {
+                    tracing::warn!(error = format!("{error:#}"), "could not change a folder");
+                }
+            });
+        }
+        return None;
+    }
     if let Command::Discord(DiscordCommand::SetStatus(status)) = command {
         match discord {
             Ok(discord) => {
@@ -1425,6 +1441,13 @@ pub(super) fn command(
         return None;
     }
     if let Command::Discord(
+        command @ (DiscordCommand::RemoveFromGroup { .. } | DiscordCommand::MakeGroupOwner { .. }),
+    ) = command
+    {
+        change_group_member(command, discord, events);
+        return None;
+    }
+    if let Command::Discord(
         command @ (DiscordCommand::CreateChannel { .. }
         | DiscordCommand::ChannelSettings { .. }
         | DiscordCommand::EditChannel { .. }
@@ -1514,6 +1537,57 @@ fn leave(
             format!("Couldn't leave the {what}: {error}")
         });
         let _ = events.send(Event::Left { place, result });
+    });
+}
+
+/// As a group DM's owner, removes someone from it or gives it to them,
+/// answering with [`Event::GroupMemberChanged`].
+fn change_group_member(
+    command: DiscordCommand,
+    discord: Result<&Discord, &str>,
+    events: &UnboundedSender<Event>,
+) {
+    let (room, user, remove) = match command {
+        DiscordCommand::RemoveFromGroup { room, user } => (room, user, true),
+        DiscordCommand::MakeGroupOwner { room, user } => (room, user, false),
+        _ => return,
+    };
+    let channel = discord::parse_room(&room)
+        .filter(|(guild, _)| *guild == discord::DM_GUILD)
+        .map(|(_, channel)| channel.to_owned());
+    let (discord, channel) = match (discord, channel) {
+        (Ok(discord), Some(channel)) => (discord.clone(), channel),
+        (discord, _) => {
+            let _ = events.send(Event::GroupMemberChanged {
+                room,
+                user,
+                result: Err(discord.err().unwrap_or(NOT_DISCORD).into()),
+            });
+            return;
+        }
+    };
+    let events = events.clone();
+    tokio::spawn(async move {
+        let (result, what) = if remove {
+            (
+                discord.remove_from_group(&channel, &user).await,
+                "remove them from the group",
+            )
+        } else {
+            (
+                discord.make_group_owner(&channel, &user).await,
+                "make them the group's owner",
+            )
+        };
+        let result = result.map_err(|error| {
+            tracing::warn!(
+                error = format!("{error:#}"),
+                what,
+                "could not change the group"
+            );
+            format!("Couldn't {what}: {error}")
+        });
+        let _ = events.send(Event::GroupMemberChanged { room, user, result });
     });
 }
 

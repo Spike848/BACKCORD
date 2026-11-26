@@ -31,8 +31,13 @@ A folder opens and closes on a click, its servers on a strip of its
 colour; closed it shows its first four servers' icons, and the speaker
 only for the call this account is in, as Discord's does.
 A right click on a server, a folder or an unread DM opens its menu, the
-one its row in the sidebar opens; a folder's marks its servers read, and
-it has none while they are.
+one its row in the sidebar opens; a folder's marks its servers read while
+they aren't, and always offers Folder colour (`folder_colour.rs`, its own
+layer): a dialog with the folder's name, Discord's preset colours as
+swatches, the kit's colour pad with the colour's code under it
+(`form::colour_card`), a tile of how the folder will look, Reset (Discord's
+default colour), Cancel and Save, greyed until something changed. Enter in
+either field saves; Escape or a click outside closes it.
 
 The sidebar's right edge and the member list's left are each a kit
 `Splitter` laid over the panel's edge (`app/view.rs`, `members.rs`): a drag
@@ -210,3 +215,12 @@ View, Open or Join, which does what a click on the channel in the list
 does (Join joins a voice channel's call), and a box ticked while the
 channel list follows it; a
 click on the row ticks it or clears it, unless its category follows it.
+
+## Typing in the list
+
+A channel's row, and a DM's or a group's, shows small moving dots while
+someone else types in it, from the same `AppState::typing` the typing line
+above the composer reads: the core keeps every conversation's typers, each
+for 10 seconds unless they type again, and no longer forgets the others on
+switching channels. Typing comes for DMs and for the servers opened this
+session. Silent Typing's Hide others typing hides the dots too.

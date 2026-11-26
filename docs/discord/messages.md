@@ -205,8 +205,14 @@ BACKCORD is back, rather than showing an error.
   open folders on this device, in `layout.json`, as Discord's client keeps
   them per device. Settings entries with an id are folders, read with their
   name and colour (`GuildFolder` fields 2 to 4, each in a wrapper); one
-  without is a server on its own. Folders can't be made or changed in BACKCORD
-  yet.
+  without is a server on its own. A folder's menu offers Folder colour
+  (`folder_colour.rs`): its name, Discord's twenty preset colours, a colour
+  pad with the colour's code, and Reset for Discord's default (`#5865f2`,
+  written as no colour). Save sends `DiscordCommand::SetFolder` by
+  Discord's folder id; the service (`set_folder`) changes that entry's name
+  and `color` in the list as moves do: shown at once (`Request::ServerList`),
+  then written in one `PATCH /users/@me/settings-proto/1` of the whole
+  `guild_folders`, 800 ms after the last change, as moving a server is.
 - A server out of reach in a Discord outage (`GUILD_DELETE` with
   `unavailable`, or READY listing it so) stays in the rail, faded, as last
   known, until its `GUILD_CREATE` brings it back. Only a `GUILD_DELETE`

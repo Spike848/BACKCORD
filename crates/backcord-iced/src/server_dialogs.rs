@@ -3,7 +3,8 @@
 //! or deleting a channel or category, which asks before leaving a server or
 //! group too, and whether a channel dragged into a category takes its
 //! permissions. What each shows and does is the core's (`state.invite`,
-//! `state.join`, `state.channel_dialog`, `state.leave`, `state.move_sync`);
+//! `state.join`, `state.channel_dialog`, `state.leave`, `state.group_member`,
+//! `state.move_sync`);
 //! the dialogs keep only what's being chosen or typed in them
 //! ([`Dialogs`]), from when the core opens one to when it closes it. Each
 //! is drawn in `dialog::dialog`'s frame; Escape or a click outside closes
@@ -117,6 +118,10 @@ pub enum Event {
     Leave,
     ToggleSilent,
     CloseLeave,
+    /// A group DM owner's Remove From Group or Make Group Owner: do it, or
+    /// close the dialog.
+    GroupMember,
+    CloseGroupMember,
     /// Cancella tutto's dialog: delete, or close it.
     DeleteAll,
     CloseDeleteAll,
@@ -165,6 +170,7 @@ pub fn is_open(state: &AppState) -> bool {
             .is_some_and(|dialog| dialog.shown())
         || state.channel_dialog.is_some()
         || state.leave.is_some()
+        || state.group_member.is_some()
         || state.delete_all.is_some()
         || state.move_sync.is_some()
 }
@@ -275,7 +281,8 @@ impl Dialogs {
             Some(_) => {}
             None => local.channel = None,
         }
-        let asking = state.leave.is_some() || state.delete_all.is_some();
+        let asking =
+            state.leave.is_some() || state.group_member.is_some() || state.delete_all.is_some();
         if asking && !local.leave_shown {
             focus = Some(NOBODY);
         }
@@ -433,6 +440,8 @@ impl Dialogs {
             Event::Leave => Action::Leave,
             Event::ToggleSilent => Action::ToggleSilentLeave,
             Event::CloseLeave => Action::CloseLeave,
+            Event::GroupMember => Action::AnswerGroupMember,
+            Event::CloseGroupMember => Action::CloseGroupMember,
             Event::DeleteAll => Action::DeleteAll,
             Event::CloseDeleteAll => Action::CloseDeleteAll,
             Event::MoveSync(sync) => Action::AnswerMoveSync(sync),
@@ -452,6 +461,8 @@ impl Dialogs {
             (Event::MoveSync(None), Some(Event::MoveSync(Some(true))))
         } else if state.leave.is_some() {
             (Event::CloseLeave, Some(Event::Leave))
+        } else if state.group_member.is_some() {
+            (Event::CloseGroupMember, Some(Event::GroupMember))
         } else if state.delete_all.is_some() {
             (Event::CloseDeleteAll, Some(Event::DeleteAll))
         } else if state.channel_dialog.is_some() {
@@ -475,7 +486,11 @@ impl Dialogs {
         } else {
             return Task::none();
         };
-        let busy = state.leave.as_ref().is_some_and(|leave| leave.leaving);
+        let busy = state.leave.as_ref().is_some_and(|leave| leave.leaving)
+            || state
+                .group_member
+                .as_ref()
+                .is_some_and(|asked| asked.sending);
         match (named, enter) {
             (Some(key::Named::Escape), _) => self.update(close, cx),
             (Some(key::Named::Enter), Some(enter)) if !busy => self.update(enter, cx),
@@ -505,6 +520,9 @@ impl<'a> View<'a> {
         }
         if state.leave.is_some() {
             return self.leave_view();
+        }
+        if state.group_member.is_some() {
+            return self.group_member_view();
         }
         if state.delete_all.is_some() {
             return self.delete_all_view();
@@ -1139,6 +1157,70 @@ impl<'a> View<'a> {
 }
 
 impl<'a> View<'a> {
+    /// Asks before a group DM's owner removes someone from it, in red, or
+    /// makes them its owner.
+    fn group_member_view(self) -> Option<Element<'a, Message>> {
+        let asked = self.cx.state.group_member.as_ref()?;
+        let theme = self.cx.look.theme;
+        let tr = backcord_iced_kit::i18n::tr;
+        let (title, note, kind) = if asked.remove {
+            (
+                tr("Remove From Group"),
+                tr("Are you sure you want to remove {name} from {group}?"),
+                Kind::Danger,
+            )
+        } else {
+            (
+                tr("Make Group Owner"),
+                tr(
+                    "Are you sure you want to make {name} the owner of {group}? You will no longer be able to remove people from it or give it away.",
+                ),
+                Kind::Primary,
+            )
+        };
+        let group = if asked.group.is_empty() {
+            tr("this group")
+        } else {
+            asked.group.as_str()
+        };
+        let note = note
+            .replace("{name}", &asked.name)
+            .replace("{group}", group);
+        let mut body = vec![
+            self.cx
+                .look
+                .dialog_head(title, message(Event::CloseGroupMember)),
+            form::note(theme, note),
+        ];
+        if let Some(error) = &asked.error {
+            body.push(form::note_in(
+                backcord_iced_kit::i18n::t(error),
+                theme.danger,
+            ));
+        }
+        body.push(buttons([
+            action(
+                theme,
+                tr("Cancel"),
+                Kind::Ghost,
+                Some(message(Event::CloseGroupMember)),
+            )
+            .into(),
+            action(
+                theme,
+                title,
+                kind,
+                (!asked.sending).then(|| message(Event::GroupMember)),
+            )
+            .into(),
+        ]));
+        Some(
+            self.cx
+                .look
+                .framed(body, WIDE, message(Event::CloseGroupMember)),
+        )
+    }
+
     /// Asks before Cancella tutto in a DM or server, in red.
     fn delete_all_view(self) -> Option<Element<'a, Message>> {
         let asked = self.cx.state.delete_all.as_ref()?;

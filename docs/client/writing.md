@@ -164,6 +164,19 @@ messages are read, the message at the view's top stays where it is as
 rows change height, new messages come, or the oldest go; sending goes
 back to the newest message.
 
+### Long messages
+
+Discord takes 2,000 characters in a message, 4,000 with Nitro (not Nitro
+Basic). With Extra Features' Split Long Messages, on by default, a longer
+message is sent as several (`backcord-core/src/split.rs`): each part cut at
+a blank line, a line's end or a space in the second half of what fits, and
+inside a word only when nothing else does; a mention, emoji or channel
+(`<...>`) and a link are never cut, and a code block cut in two is closed
+and opened again with its language. The reply goes with the first part, the
+files with the last, and the composer clears once the last is sent. A
+channel's sends go to Discord one after another, in order. With the feature
+off, a longer message isn't sent, and the notice says why.
+
 ## Apps' forms and commands
 
 An app's form (`bot_modal.rs`) shows over

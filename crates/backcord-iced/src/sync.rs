@@ -414,8 +414,10 @@ impl App {
     fn follow_backend(&mut self) -> Task<Message> {
         let mut tasks = Vec::new();
         if let Some(events) = self.client.take_events() {
+            self.backend_generation += 1;
+            let generation = self.backend_generation;
             let (task, handle) = Task::run(crate::app::batches(events), Message::Events)
-                .chain(Task::done(Message::Stopped))
+                .chain(Task::done(Message::Stopped(generation)))
                 .abortable();
             self.backend_events = Some(handle.abort_on_drop());
             tasks.push(task);

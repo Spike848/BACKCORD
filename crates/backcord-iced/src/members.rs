@@ -139,6 +139,8 @@ pub const PITCH: f32 = 44.0;
 pub const TOP: f32 = 8.0;
 /// A line's height.
 const ROW: f32 = 42.0;
+/// The counts' line pinned over the rows, "Members — N · Online — M".
+const SUMMARY: f32 = 32.0;
 /// Discord's boosting pink, the same in every theme.
 const BOOST: u32 = 0xff73fa;
 /// The Activity panel: its header, a card and the room each card keeps
@@ -200,6 +202,26 @@ pub struct ActivityCard {
 pub fn activity_height(app: &App) -> f32 {
     app.roster
         .activity_height(app.client.state(), crate::header::members_shown(app))
+}
+
+/// What the counts' line over the rows says, when there's a count: how
+/// many members the list has, and how many of them are online.
+pub fn summary(state: &AppState) -> Option<String> {
+    let (members, online) = state.member_counts()?;
+    Some(backcord_iced_kit::i18n::t(match online {
+        Some(online) => format!("Members \u{2014} {members} \u{b7} Online \u{2014} {online}"),
+        None => format!("Members \u{2014} {members}"),
+    }))
+}
+
+/// The counts' line's height, which the rows start below; none without a
+/// count.
+pub fn summary_height(state: &AppState) -> f32 {
+    if state.member_counts().is_some() {
+        SUMMARY
+    } else {
+        0.0
+    }
 }
 
 /// What's done in the member list and its Activity panel.
@@ -318,7 +340,12 @@ pub fn open_member(app: &mut App, id: &str) -> Task<Message> {
     else {
         return Task::none();
     };
-    let top = header::HEIGHT + 1.0 + activity_height(app) + TOP + index as f32 * PITCH
+    let top = header::HEIGHT
+        + 1.0
+        + activity_height(app)
+        + summary_height(app.client.state())
+        + TOP
+        + index as f32 * PITCH
         - app.roster.scroll.offset;
     let left = app.window.width - width(&app.layout);
     let at = Point::new(left - 8.0 - profile::WIDTH, top - 16.0);
@@ -594,6 +621,7 @@ impl<'a> View<'a> {
         });
         let list: Element<'a, Message> = column![]
             .push(self.activity_panel())
+            .push(self.summary_row())
             .push(note)
             .push(list)
             .into();
@@ -612,6 +640,30 @@ impl<'a> View<'a> {
             Message::Members(Event::ResetWidth),
         );
         iced::widget::stack![list, splitter].into()
+    }
+
+    /// The counts' line over the rows, pinned as they scroll, in a
+    /// heading's look.
+    fn summary_row(self) -> Option<Element<'a, Message>> {
+        let summary = summary(self.cx.state)?;
+        Some(
+            container(
+                text(summary)
+                    .size(14)
+                    .font(MEDIUM)
+                    .color(hex(HEADING))
+                    .width(Length::Fill),
+            )
+            .padding(Padding {
+                top: 12.0,
+                right: 8.0,
+                bottom: 0.0,
+                left: 16.0,
+            })
+            .height(SUMMARY)
+            .align_y(Alignment::Center)
+            .into(),
+        )
     }
 
     /// A group's heading: 14 px medium in the channel grey, 20 px above,
@@ -797,7 +849,10 @@ impl<'a> View<'a> {
         Vector::new(
             self.cx.look.window.width - width(self.cx.layout) + 1.0,
             // Drawn only while the list shows.
-            header::HEIGHT + 1.0 + self.s.activity_height(self.cx.state, true),
+            header::HEIGHT
+                + 1.0
+                + self.s.activity_height(self.cx.state, true)
+                + summary_height(self.cx.state),
         )
     }
 

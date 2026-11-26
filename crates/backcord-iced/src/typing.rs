@@ -34,17 +34,22 @@ const DOTS: f32 = 32.0;
 /// How often the dots move: a gentle wave needs no more.
 const FRAME: Duration = Duration::from_millis(50);
 
-/// Three dots in a row, rising in turn while `plays`.
+/// Three dots in a row, rising in turn while `plays`, at `scale` of the
+/// typing line's.
 struct Dots {
     ink: Color,
     plays: bool,
+    scale: f32,
 }
 
 struct Started(Instant);
 
 impl Widget<Message, Theme, Renderer> for Dots {
     fn size(&self) -> Size<Length> {
-        Size::new(Length::Fixed(DOTS), Length::Fixed(LINE))
+        Size::new(
+            Length::Fixed(DOTS * self.scale),
+            Length::Fixed(LINE * self.scale),
+        )
     }
 
     fn tag(&self) -> tree::Tag {
@@ -56,7 +61,7 @@ impl Widget<Message, Theme, Renderer> for Dots {
     }
 
     fn layout(&mut self, _: &mut Tree, _: &Renderer, _: &layout::Limits) -> layout::Node {
-        layout::Node::new(Size::new(DOTS, LINE))
+        layout::Node::new(Size::new(DOTS * self.scale, LINE * self.scale))
     }
 
     fn update(
@@ -91,6 +96,7 @@ impl Widget<Message, Theme, Renderer> for Dots {
         let Started(start) = tree.state.downcast_ref::<Started>();
         let ms = start.elapsed().as_millis() as f32;
         let bounds = layout.bounds();
+        let scale = self.scale;
         for dot in 0..3 {
             let wave = if self.plays {
                 (ms * 0.3 - dot as f32 * 70.0).to_radians().sin()
@@ -99,15 +105,15 @@ impl Widget<Message, Theme, Renderer> for Dots {
             };
             let at = Rectangle::new(
                 iced::Point::new(
-                    bounds.x + 4.0 + dot as f32 * 9.0,
-                    bounds.y + (LINE - 6.0) / 2.0 - 1.5 * wave,
+                    bounds.x + (4.0 + dot as f32 * 9.0) * scale,
+                    bounds.y + ((LINE - 6.0) / 2.0 - 1.5 * wave) * scale,
                 ),
-                Size::new(6.0, 6.0),
+                Size::new(6.0 * scale, 6.0 * scale),
             );
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: at,
-                    border: crate::style::round(3),
+                    border: iced::Border::default().rounded(3.0 * scale),
                     ..Default::default()
                 },
                 Color {
@@ -197,6 +203,28 @@ impl Hooks<Message> for Breathe {
     }
 }
 
+/// Whether someone else types in `room`, as the channel list shows with
+/// [`list_dots`]: not while Silent Typing hides others' typing.
+pub fn typing_in(ctx: &crate::ctx::Ctx<'_>, room: &str) -> bool {
+    !ctx.layout.prefs.hide_others_typing.unwrap_or(false)
+        && ctx
+            .state
+            .typing
+            .get(room)
+            .is_some_and(|names| !names.is_empty())
+}
+
+/// The small dots a channel's or a DM's row shows while someone else
+/// types in it.
+pub fn list_dots<'a>(ink: Color, plays: bool) -> Element<'a, Message> {
+    Dots {
+        ink,
+        plays,
+        scale: 0.7,
+    }
+    .into()
+}
+
 /// The typing line, or none while nobody else types.
 pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
     if ctx.layout.prefs.hide_others_typing.unwrap_or(false) {
@@ -230,6 +258,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
     let dots = container(Dots {
         ink: theme.muted,
         plays: ctx.plays,
+        scale: 1.0,
     })
     .style(move |_| crate::style::fill(chat));
     // The dots centred under the avatars' 72 px gutter, the words where

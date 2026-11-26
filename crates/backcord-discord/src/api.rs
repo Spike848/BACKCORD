@@ -1225,6 +1225,20 @@ impl Api {
             .await
     }
 
+    /// Takes `user` out of a group DM, as only its owner may; Discord
+    /// answers with CHANNEL_RECIPIENT_REMOVE.
+    pub async fn remove_recipient(&self, channel: &str, user: &str) -> Result<()> {
+        let path = format!("/channels/{channel}/recipients/{user}");
+        self.empty(self.request(Method::DELETE, &path)).await
+    }
+
+    /// Gives a group DM to `user`, one of its recipients, as only its owner
+    /// may: `PATCH /channels/{id}` with `{"owner": user}`. Discord answers
+    /// with CHANNEL_UPDATE, whose `owner_id` is theirs.
+    pub async fn set_group_owner(&self, channel: &str, user: &str) -> Result<()> {
+        self.edit_channel(channel, &json!({ "owner": user })).await
+    }
+
     /// Pins a message to its channel's pinned messages, or unpins it.
     pub async fn pin(&self, channel: &str, message: &str, pinned: bool) -> Result<()> {
         let path = format!("/channels/{channel}/messages/pins/{message}");

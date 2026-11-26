@@ -747,7 +747,13 @@ pub fn colour_card<'a, M: Clone + 'a>(
 
 /// A colour in an editor: a swatch, its name (with "Not a colour" under it
 /// while its text isn't one), and its hex in a field tinted red while it's
-/// wrong.
+/// wrong. A left click on the swatch sends `pick`'s first message; its
+/// card ([`colour_card`]), while it's `Some`, opens under the swatch, and
+/// a click outside it sends the second.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "a row's parts, each its own; a struct would only rename them"
+)]
 pub fn colour_row<'a, M: Clone + 'a>(
     theme: &Theme,
     name: &'a str,
@@ -755,16 +761,35 @@ pub fn colour_row<'a, M: Clone + 'a>(
     hex: &'a str,
     wrong: bool,
     on_input: impl Fn(String) -> M + 'a,
+    pick: M,
+    card: Option<Element<'a, M>>,
+    close: M,
 ) -> Element<'a, M> {
     let edge = theme.line;
-    let swatch = container(Space::new())
+    let open = card.is_some();
+    let swatch = iced::widget::button(Space::new())
         .width(28)
         .height(28)
-        .style(move |_| container::Style {
+        .padding(0)
+        .on_press(pick)
+        .style(move |_, status| iced::widget::button::Style {
             background: Some(colour.into()),
-            border: crate::style::edge(edge, 6.0),
+            border: crate::style::edge(
+                if open || matches!(status, iced::widget::button::Status::Hovered) {
+                    Color::WHITE
+                } else {
+                    edge
+                },
+                6.0,
+            ),
             ..Default::default()
         });
+    let swatch: Element<'a, M> =
+        crate::popover::Popover::new(swatch, card, crate::popover::Side::Below)
+            .width(crate::popover::Width::Own(COLOUR_CARD))
+            .gap(6.0)
+            .outside(close)
+            .into();
     let mut words = column![
         text(name)
             .size(14)

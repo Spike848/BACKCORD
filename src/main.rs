@@ -331,6 +331,7 @@ fn relaunch_program(
 ) -> Result<()> {
     let mut command = std::process::Command::new(program);
     command.args(arguments);
+    command.env(instance::RESTARTED, "1");
     match gpu_failure {
         Some(reason) => command
             .args(["--renderer", "software"])
@@ -416,6 +417,8 @@ fn launch(
         },
     );
     shell.closed();
+    // Whatever starts next mustn't hand itself to this ending BACKCORD.
+    shell.release_instance();
     match ran? {
         backcord_iced::Exit::Closed => Ok(()),
         backcord_iced::Exit::Update => match shell.take_prepared() {

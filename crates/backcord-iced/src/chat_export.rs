@@ -46,6 +46,8 @@ pub enum Event {
     Picked(Option<PathBuf>),
     Stop,
     Close,
+    /// The header's button: opens the dialog for this room.
+    Open(String),
 }
 
 fn message(event: Event) -> Message {
@@ -71,6 +73,7 @@ pub fn update(event: Event, cx: &mut Cx<'_>) -> Task<Message> {
         Event::Picked(None) => return Task::none(),
         Event::Picked(Some(path)) => Action::StartExportChat(path),
         Event::Stop => Action::StopExportChat,
+        Event::Open(room) => Action::AskExportChat(room),
         Event::Close => {
             cx.dispatch(Action::CloseExportChat);
             cx.request(Request::Focus(Focus::Default));

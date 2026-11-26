@@ -76,10 +76,13 @@ pub fn emulate_platform(prefs: &crate::layout::Prefs) {
 /// `Pref::RelationshipKind` numbers them: each switch's name and what it
 /// tells of.
 const RELATIONSHIP_KINDS: [(&str, &str); 5] = [
-    ("Friends", "When a friend removes you, or blocks you."),
+    (
+        "Friends",
+        "When a friend removes you or blocks you, and when someone accepts your friend request.",
+    ),
     (
         "Friend requests",
-        "When someone declines the friend request you sent, or withdraws the one they sent you.",
+        "When someone sends you a friend request, declines the one you sent, or withdraws theirs.",
     ),
     ("Group DMs", "When you're removed from a group DM."),
     (
@@ -190,6 +193,7 @@ impl<'a> Page<'a> {
         let icons = prefs.view_icons.unwrap_or(true);
         let proof = prefs.stream_proof.unwrap_or(true);
         let logger = prefs.message_logger.unwrap_or(true);
+        let split_long = prefs.split_long_messages.unwrap_or(true);
         let silent = !prefs.share_typing.unwrap_or(false);
         let no_ptt = prefs.no_push_to_talk.unwrap_or(true);
         let platforms = prefs.platform_indicators.unwrap_or(true);
@@ -256,6 +260,13 @@ impl<'a> Page<'a> {
                 logger,
                 Pref::MessageLogger(!logger),
                 Some(Extra::MessageLogger),
+            ),
+            self.plugin(
+                tr("Split Long Messages"),
+                tr("Sends a message longer than Discord allows (2,000 characters, 4,000 with Nitro) as several, cut at line ends and spaces, keeping code blocks whole."),
+                split_long,
+                Pref::SplitLongMessages(!split_long),
+                None,
             ),
             self.plugin(
                 tr("Silent Typing"),

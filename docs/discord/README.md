@@ -200,7 +200,8 @@ In rough order. The browser covers these until then.
 
 - Sorting and filtering a forum's posts by tag, and the gallery layout of
   forums and media channels.
-- Making and changing server folders.
+- Making server folders other than by dropping one server on another,
+  and taking a folder apart from its menu.
 - A server's privacy settings: direct messages, message requests and
   activity status from its members.
 - Discord's voice settings beyond those above, and push-to-talk's sounds,

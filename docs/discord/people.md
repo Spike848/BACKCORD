@@ -138,8 +138,11 @@ the person clicks. Requests Discord took for spam are listed too, marked
 
 ### Relationship alerts
 
-Extra Features' Relationship Notifier, on by default, tells of what others
-took away from this account, as Vencord's RelationshipNotifier does: a
+Extra Features' Relationship Notifier, on by default, tells of a friend
+request someone sent this account (one in the snapshot's requests that
+wasn't there before, from someone who wasn't a friend) and of one it sent
+that was accepted (a sent request whose person is now a friend), and of
+what others took away from this account, as Vencord's RelationshipNotifier does: a
 friend who removed it (or blocked it, which Discord sends as the same
 RELATIONSHIP_REMOVE), a friend request it sent that was declined or one it
 got that was withdrawn, a group DM it was removed from (CHANNEL_DELETE) and
@@ -210,6 +213,14 @@ Right-clicking a DM offers, besides Profile and copying, these:
   /channels/{id}` with `silent` true or false, which Discord's client always
   sends; Discord posts no "left the group" message with true. CHANNEL_DELETE
   takes the group out of the list.
+- Remove From Group and Make Group Owner are offered only to a group DM's
+  owner, on another of its people: in their menu in the group's member list
+  and its messages, and in their menu in the group's call, under their volume
+  sliders. Each asks first. Remove From Group, in red, is `DELETE
+  /channels/{id}/recipients/{user}`, and CHANNEL_RECIPIENT_REMOVE takes them
+  off the member list; Make Group Owner is `PATCH /channels/{id}` with
+  `{"owner": user}`, and CHANNEL_UPDATE moves the crown to them, after which
+  this account is offered neither.
 
 - [Invite to server](servers.md#invite-to-server) sends them an invite to one of this
   account's servers, chosen in its submenu.

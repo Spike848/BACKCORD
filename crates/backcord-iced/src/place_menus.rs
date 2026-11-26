@@ -384,6 +384,9 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
         MenuChoice::ExportChat => Action::AskExportChat(place),
         MenuChoice::EditServerProfile => Action::EditServerProfile(place),
         MenuChoice::ServerSettings => Action::OpenServerSettings(place),
+        MenuChoice::FolderColour => {
+            return app.folder_colour_event(crate::folder_colour::Event::Open(place));
+        }
         MenuChoice::ChannelsRoles => Action::OpenMembership(place),
         MenuChoice::EditChannel => Action::OpenChannelSettings(place),
         MenuChoice::Invite => Action::OpenInvite(place),
@@ -811,6 +814,7 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         | MenuChoice::Kick
         | MenuChoice::Ban => 5,
         MenuChoice::TransferOwnership => 9,
+        MenuChoice::RemoveFromGroup | MenuChoice::MakeGroupOwner => 11,
         MenuChoice::ServerSettings
         | MenuChoice::EditServerProfile
         | MenuChoice::CreateChannel
@@ -876,7 +880,8 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::Timeout | C::RemoveTimeout => Icon::Clock,
         C::Kick => Icon::UserX,
         C::Ban => Icon::Gavel,
-        C::TransferOwnership => Icon::Crown,
+        C::TransferOwnership | C::MakeGroupOwner => Icon::Crown,
+        C::RemoveFromGroup => Icon::UserX,
         C::LocalMute | C::SelfMute | C::ServerMute => Icon::MicOff,
         C::SoundboardMute => Icon::Soundboard,
         C::SelfDeafen | C::ServerDeafen => Icon::HeadphoneOff,
@@ -888,6 +893,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::DeleteChannel => Icon::Trash,
         C::SetChannelStatus => Icon::Pencil,
         C::JoinThread => Icon::Thread,
+        C::FolderColour => Icon::Folder,
     }
 }
 
@@ -944,6 +950,8 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::Kick => backcord_iced_kit::i18n::tr("Kick"),
         MenuChoice::Ban => backcord_iced_kit::i18n::tr("Ban"),
         MenuChoice::TransferOwnership => backcord_iced_kit::i18n::tr("Transfer Ownership"),
+        MenuChoice::RemoveFromGroup => backcord_iced_kit::i18n::tr("Remove From Group"),
+        MenuChoice::MakeGroupOwner => backcord_iced_kit::i18n::tr("Make Group Owner"),
         MenuChoice::LocalMute | MenuChoice::SelfMute => backcord_iced_kit::i18n::tr("Mute"),
         MenuChoice::SoundboardMute => backcord_iced_kit::i18n::tr("Mute Soundboard"),
         MenuChoice::SelfDeafen => backcord_iced_kit::i18n::tr("Deafen"),
@@ -978,5 +986,6 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::EditServerProfile => backcord_iced_kit::i18n::tr("Edit server profile"),
         MenuChoice::ServerSettings => backcord_iced_kit::i18n::tr("Server settings"),
         MenuChoice::ChannelsRoles => backcord_iced_kit::i18n::tr("Channels & Roles"),
+        MenuChoice::FolderColour => backcord_iced_kit::i18n::tr("Folder colour"),
     }
 }

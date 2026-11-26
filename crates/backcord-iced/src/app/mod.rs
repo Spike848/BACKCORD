@@ -186,6 +186,8 @@ pub struct App {
     pub viewer: crate::image_viewer::Viewed,
     /// View Icons: an avatar, banner or server icon shown large.
     pub icon: Option<crate::icon_viewer::Shown>,
+    /// Folder colour's dialog, while a rail folder's is open.
+    pub folder_colour: Option<crate::folder_colour::Shown>,
     /// View Icons: the large pictures already downloaded ahead, once each.
     pub icons_ahead: std::collections::HashSet<String>,
     /// Stream Proof, while on.
@@ -208,6 +210,9 @@ pub struct App {
     /// and of linking's progress, which stop when dropped.
     pub sign_in: SignIn,
     pub backend_events: Option<iced::task::Handle>,
+    /// Counts the backends followed: a backend's events that end after
+    /// another started (switching accounts) don't stop the new one.
+    pub backend_generation: u64,
     pub linking: Option<iced::task::Handle>,
     pub mfa: mfa::Mfa,
 }
@@ -244,6 +249,7 @@ impl App {
         backcord_core::discord::set_custom_games(&layout.prefs.game_executables);
         client.share_typing = layout.prefs.share_typing.unwrap_or(false);
         backcord_core::extras::set_message_logger(layout.prefs.message_logger.unwrap_or(true));
+        backcord_core::extras::set_split_long(layout.prefs.split_long_messages.unwrap_or(true));
         backcord_core::extras::set_log_own(layout.prefs.message_logger_own.unwrap_or(true));
         crate::settings::relationship_notifier(&layout.prefs);
         crate::settings::fake_nitro(&layout.prefs);
@@ -329,6 +335,7 @@ impl App {
             talk_pressed: false,
             viewer: Default::default(),
             icon: None,
+            folder_colour: None,
             stream_proof: Default::default(),
             icons_ahead: Default::default(),
             aside: None,
@@ -342,6 +349,7 @@ impl App {
             themes,
             sign_in: SignIn::default(),
             backend_events: None,
+            backend_generation: 0,
             linking: None,
             mfa: mfa::Mfa::default(),
         };
@@ -399,7 +407,11 @@ impl App {
                 let follow = self.follow_stream();
                 Task::batch([self.sync(), follow])
             }
-            Message::Stopped => {
+            Message::Stopped(generation) => {
+                // The end of a backend another has replaced since.
+                if generation != self.backend_generation {
+                    return Task::none();
+                }
                 self.client.stopped();
                 self.backend_events = None;
                 self.sync()
@@ -508,6 +520,7 @@ impl App {
             Message::Clip(clip) => crate::playback::clip_event(self, clip),
             Message::Image(event) => self.image_event(event),
             Message::Icon(event) => self.icon_event(event),
+            Message::FolderColour(event) => self.folder_colour_event(event),
             Message::StreamProof(event) => self.stream_proof_event(event),
             Message::Thread(event) => crate::thread::update(self, event),
             Message::Popover(event) => crate::header_popovers::popover_event(self, event),

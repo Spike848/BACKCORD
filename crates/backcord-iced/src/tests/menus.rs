@@ -906,3 +906,49 @@ fn emulate_platforms_marks_where_someone_is_online_while_on() {
     app.layout.prefs.platform_indicators = Some(false);
     assert!(app.ctx().platforms(user, 14, 1.0).is_none());
 }
+
+#[test]
+fn a_folders_menu_names_and_colours_it_in_discords_settings() {
+    use crate::folder_colour::Event;
+    let (mut app, _folder) = discord_server(0, |_, _| {});
+    super::change(&mut app, |state| {
+        for server in &mut state.servers {
+            std::sync::Arc::make_mut(server).folder = Some(backcord_core::chat::ServerFolder {
+                id: "discord-folder:7".into(),
+                name: Some("Games".into()),
+                color: None,
+            });
+        }
+    });
+    let _ = crate::place_menus::open_place_menu(
+        &mut app,
+        "discord-folder:7",
+        Point::new(100.0, 100.0),
+        false,
+    );
+    assert!(labels(&app).contains(&"Folder colour".to_owned()));
+    let _ = crate::place_menus::choose_place(
+        &mut app,
+        "discord-folder:7".into(),
+        backcord_core::application::MenuChoice::FolderColour,
+    );
+    let shown = app.folder_colour.as_ref().expect("the dialog");
+    assert_eq!((shown.name.as_str(), shown.colour), ("Games", None));
+    app.win.menu = None;
+    assert!(shows(&app, "Folder name"));
+    let _ = app.update(Message::FolderColour(Event::Preset(0x1abc9c)));
+    let _ = app.update(Message::FolderColour(Event::Save));
+    assert!(app.folder_colour.is_none(), "Save closes it");
+    let sent: Vec<_> = std::mem::take(&mut app.client.sent)
+        .into_iter()
+        .filter_map(|command| match command {
+            Command::Discord(DiscordCommand::SetFolder {
+                folder,
+                name,
+                color,
+            }) => Some((folder, name, color)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(sent, [("7".into(), Some("Games".into()), Some(0x1abc9c))]);
+}

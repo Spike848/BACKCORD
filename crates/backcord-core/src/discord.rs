@@ -558,7 +558,7 @@ struct Indexed {
         Option<u64>,
     )>,
     /// The member count of its channel whose list was on screen.
-    listed: Option<(String, u64)>,
+    listed: Option<backcord_discord::service::Listed>,
     /// Its threads on screen, which list while they show.
     viewing: Vec<String>,
     /// What each of its voice channels' status said.
@@ -607,11 +607,13 @@ impl Indexed {
     fn listed<'a>(
         snapshot: &'a Snapshot,
         server: &backcord_discord::ready::Server,
-    ) -> Option<&'a (String, u64)> {
-        snapshot
-            .listed
-            .as_ref()
-            .filter(|(channel, _)| server.text_channels.iter().any(|text| &text.id == channel))
+    ) -> Option<&'a backcord_discord::service::Listed> {
+        snapshot.listed.as_ref().filter(|listed| {
+            server
+                .text_channels
+                .iter()
+                .any(|text| text.id == listed.channel)
+        })
     }
 
     fn viewing(snapshot: &Snapshot, server: &backcord_discord::ready::Server) -> Vec<String> {
@@ -946,6 +948,7 @@ fn dm_room(snapshot: &Snapshot, dm: &Conversation, premium: u8, me: &str) -> Cha
         voice: false,
         encrypted: false,
         members: dm.people as u64,
+        online: None,
         unread: u64::from(dm.unread),
         mentions: dm.mentions,
         muted: dm.muted,
@@ -1115,6 +1118,7 @@ fn server_rooms(
                     .voice
                     .get(&channel.id)
                     .map_or(0, |members| members.len() as u64),
+                online: None,
                 unread: u64::from(marks.unread),
                 mentions: marks.mentions,
                 muted: marks.muted,
@@ -1161,6 +1165,10 @@ fn server_rooms(
                 preview: None,
             }
         } else {
+            let listed = snapshot
+                .listed
+                .as_ref()
+                .filter(|listed| listed.channel == channel.id);
             ChatRoom {
                 id: id.clone(),
                 network: Network::Discord,
@@ -1171,11 +1179,8 @@ fn server_rooms(
                 // Discord messages aren't end-to-end encrypted.
                 encrypted: false,
                 // Known for the channel whose member list is on screen.
-                members: snapshot
-                    .listed
-                    .as_ref()
-                    .filter(|(listed, _)| *listed == channel.id)
-                    .map_or(0, |(_, count)| *count),
+                members: listed.map_or(0, |listed| listed.count),
+                online: listed.and_then(|listed| listed.online),
                 unread: u64::from(marks.unread),
                 mentions: marks.mentions,
                 // Muted itself or through its category.
@@ -1339,6 +1344,7 @@ fn thread_room(
         encrypted: false,
         // Its member list is its channel's.
         members: 0,
+        online: None,
         unread: u64::from(thread.marks.unread),
         mentions: thread.marks.mentions,
         muted: thread.marks.muted,
@@ -2843,7 +2849,11 @@ mod tests {
             // The member list on screen counts its readers.
             Snapshot {
                 voice: [("12".to_owned(), vec![ann])].into(),
-                listed: Some(("21".into(), 7)),
+                listed: Some(backcord_discord::service::Listed {
+                    channel: "21".into(),
+                    count: 7,
+                    online: Some(3),
+                }),
                 ..first.clone()
             },
             // One server changes; another is gone.
@@ -3177,7 +3187,11 @@ mod tests {
             ..Default::default()
         };
         let snapshot = Snapshot {
-            listed: Some(("21".into(), 4)),
+            listed: Some(backcord_discord::service::Listed {
+                channel: "21".into(),
+                count: 4,
+                online: Some(2),
+            }),
             ..snapshot
         };
         let (rooms, servers) = index(&snapshot, false);
@@ -3185,6 +3199,11 @@ mod tests {
             (rooms[0].members, rooms[1].members),
             (4, 0),
             "a listed text channel counts its readers"
+        );
+        assert_eq!(
+            (rooms[0].online, rooms[1].online),
+            (Some(2), None),
+            "and those of them online"
         );
         assert_eq!(rooms[0].id, "discord:10:21");
         assert!(rooms.iter().all(|room| room.network == Network::Discord));

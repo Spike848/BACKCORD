@@ -73,6 +73,7 @@ pub enum Pref {
     HideOthersTyping(bool),
     NoPushToTalk(bool),
     MessageLogger(bool),
+    SplitLongMessages(bool),
     MessageLoggerOwn(bool),
     PlatformIndicators(bool),
     EmulatedPlatform(usize),
@@ -391,6 +392,11 @@ impl Settings {
             Pref::PermissionsViewer(on) => {
                 prefs.permissions_viewer = Some(on);
                 cx.keep("permissions_viewer", on);
+            }
+            Pref::SplitLongMessages(on) => {
+                prefs.split_long_messages = Some(on);
+                backcord_core::extras::set_split_long(on);
+                cx.keep("split_long_messages", on);
             }
             Pref::MessageLogger(on) => {
                 prefs.message_logger = Some(on);

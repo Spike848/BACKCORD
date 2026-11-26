@@ -29,7 +29,9 @@ pub enum Message {
     Events(Batch),
     /// Whether someone is using the window.
     Away(crate::away::Event),
-    Stopped,
+    /// A backend's events ended: the number of the backend they came
+    /// from, as `App::backend_generation` counts them.
+    Stopped(u64),
     /// Linking a Discord account went a step further.
     Linking(backcord_core::discord_link::Progress),
     /// The sign-in screen and the verify banner; Discord's two-factor
@@ -147,6 +149,8 @@ pub enum Message {
     Image(crate::image_viewer::Event),
     /// View Icons' picture large (`icon_viewer.rs`).
     Icon(crate::icon_viewer::Event),
+    /// A rail folder's name and colour (`folder_colour.rs`).
+    FolderColour(crate::folder_colour::Event),
     /// Stream Proof's button (`stream_proof.rs`).
     StreamProof(crate::stream_proof::Event),
     /// The thread beside the channel, or the New Thread form (`thread.rs`).
