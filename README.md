@@ -34,38 +34,37 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.3
+## Novità della 1.5.4
 
-- **Dividi messaggi lunghi**: un messaggio oltre il limite di Discord (2.000
-  caratteri, 4.000 con Nitro) parte in più messaggi, divisi a fine riga e tra
-  le parole, senza spezzare blocchi di codice, menzioni e link. Nuova funzione
-  aggiuntiva, attiva di default.
-- **Chi sta scrivendo nella lista**: puntini animati accanto ai canali, alle DM e
-  ai gruppi in cui qualcuno sta scrivendo.
-- **Conteggio membri**: in cima alla lista membri "Membri — N · Online — M",
-  anche nelle DM di gruppo.
-- **Colore delle cartelle**: tasto destro su una cartella di server →
-  "Colore cartella": tavolozza, colori di Discord e nome, salvati sul tuo
-  account.
-- **Tavolozza nel creatore temi**: clic sul quadratino di un colore per
-  sceglierlo dalla tavolozza.
-- **Esporta chat dall'intestazione**: bottone nella barra in alto di canali,
-  DM e gruppi.
-- **Gruppi**: il proprietario può rendere proprietario un altro membro o
-  rimuoverlo dal gruppo, anche dal menu della chiamata.
-- **Avviso amicizie**: ora anche per le richieste d'amicizia ricevute e per
-  quelle accettate.
-- **Correzioni**: la scheda degli inviti non si sovrappone più al resto; il
-  cambio account non riporta più alla schermata di accesso; il tasto
-  **Aggiorna** funziona anche per le copie installate in Programmi e riavvia
-  BACKCORD in modo affidabile dopo l'aggiornamento.
+- **Messaggi vocali**: nuovo pulsante microfono nella chat, nelle DM e nei
+  server dove puoi inviarli. Registri con timer e livello del microfono, lo
+  ascolti prima di inviarlo, poi lo invii o lo elimini; parte come i vocali
+  delle app di Discord, anche in risposta a un messaggio.
+- **Limitatore voci**: in Voce e video, sotto il volume degli altoparlanti, una
+  barra da -40 a 0 dB che tiene la voce di ogni persona sotto il livello scelto,
+  così chi urla o "mette il loud" non si sente più forte. Solo le voci: stream,
+  soundboard e altri suoni restano come sono. Spento di default.
+- **Auto-smuta**: se un server ti silenzia o ti toglie l'audio e hai il permesso
+  di farlo, lo annulla subito. Nuova funzione aggiuntiva, spenta di default.
+- **Anti-cambio nickname**: se qualcun altro ti cambia il nickname in un server
+  dove puoi cambiarlo tu, lo rimette subito com'era. Spenta di default.
+- **Anti chiamata di gruppo**: le chiamate nei gruppi DM non ti squillano più;
+  quando ne parte una, esci dalla chiamata e dal gruppo senza avvisi. Spenta di
+  default.
+- **Auto-eliminazione**: i tuoi messaggi vengono cancellati dopo il tempo che
+  scegli (da 30 secondi a 7 giorni), anche quelli scaduti mentre BACKCORD era
+  chiuso. Spenta di default.
+- **Correzioni**: i giochi personalizzati indicati con un percorso che passa da
+  un collegamento o una giunzione vengono riconosciuti.
 
 ## Cosa fa
 
 - Server, canali, messaggi diretti, thread, forum, sondaggi, reazioni, emoji e GIF,
   con la scheda degli inviti sotto i messaggi (Entra in un clic) e l'anteprima
   dei messaggi linkati
-- Chiamate vocali e video, condivisione schermo e visione delle dirette altrui
+- Chiamate vocali e video, condivisione schermo e visione delle dirette altrui,
+  con un limitatore in dB per le voci troppo forti
+- Messaggi vocali: registri, riascolti e invii dalla chat
 - Stati dei canali vocali, profili, ruoli, decorazioni e targhette
 - **Esporta chat**: tasto destro su un canale, una DM o un gruppo → **Esporta chat…**,
   in testo (TXT), pagina web (HTML) o JSON; tutta la chat, gli ultimi N messaggi o da
@@ -95,6 +94,10 @@ e le opzioni avanzate dall'ingranaggio:
 | Avviso amicizie | Ti avvisa (notifica e scheda **Avvisi amicizie** nella posta in arrivo) quando qualcuno ti invia una richiesta d'amicizia o accetta la tua, quando un amico ti rimuove o ti blocca, una richiesta di amicizia viene rifiutata o ritirata, vieni rimosso da un gruppo o cacciato/bannato da un server (o il server viene eliminato); all'avvio segnala anche cosa è cambiato mentre BACKCORD era chiuso. Non segnala ciò che fai tu. Ogni tipo di avviso si attiva a parte |
 | Finto muto / finte cuffie mute | Dalla freccetta del microfono o delle cuffie: gli altri ti vedono mutato, ma parli e senti lo stesso |
 | Nitro finto | Senza Nitro puoi scegliere nel selettore le emoji di tutti i server (anche animate) e gli sticker degli altri server: quelli che non potresti usare partono come link alla loro immagine, mascherati come `[nome](https://…)` o nudi, con dimensione delle emoji a scelta. I link di emoji ricevuti si vedono come emoji nel testo. Nessun trucco sulla qualità dello streaming (spento di default) |
+| Auto-smuta | Se un server ti silenzia o ti toglie l'audio in un canale vocale dove puoi silenziare e togliere l'audio ai membri, lo annulla subito; si ferma dopo 5 volte in un minuto (spento di default) |
+| Anti-cambio nickname | Se qualcun altro ti cambia o toglie il nickname in un server dove puoi cambiarlo tu, lo rimette com'era; vale anche per un cambio fatto da un altro tuo dispositivo (spento di default) |
+| Anti chiamata di gruppo | Le chiamate nei gruppi DM non squillano; quando ne parte una esci dalla chiamata e dal gruppo, senza il messaggio che sei uscito. Per chiamare tu un gruppo va spenta (spento di default) |
+| Auto-eliminazione | Cancella i messaggi che invii dopo il tempo scelto dall'ingranaggio, da 30 secondi a 7 giorni (5 minuti di default); quelli scaduti a BACKCORD chiuso vanno alla riapertura (spento di default) |
 | Badge spoofer | Mostra sul tuo profilo (scheda, profilo completo, scheda del tuo account) i badge che scegli come se li avessi: Staff, Partner, Alunni programmi moderatori, Eventi HypeSquad, casata HypeSquad (Bravery, Brilliance, Balance), Cacciatore di bug (normale e d'oro), Sviluppatore attivo, Sviluppatore di bot verificato della prima ora, Sostenitore della prima ora, Missione completata, Nitro con i livelli di anzianità (da Bronzo a Opale) e Booster del server (da 1 mese a 2 anni), nell'ordine di Discord e con le sue immagini ufficiali; volendo accanto ai tuoi badge reali. Solo estetico e locale: li vedi solo tu su questo PC, a Discord non viene inviato nulla (spento di default) |
 
 ## Avvertenze

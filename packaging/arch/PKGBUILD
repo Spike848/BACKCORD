@@ -4,7 +4,7 @@
 
 pkgname=backcord
 # The release to build, by its tag; scripts/set-version keeps it at Cargo.toml's version.
-pkgver=1.5.3
+pkgver=1.5.4
 pkgrel=1
 _id=io.github.spike848.BACKCORD
 # The prebuilt native parts nix/native.nix pins.
