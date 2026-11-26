@@ -89,6 +89,12 @@ static STREAM_MUTED: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(RwLock::d
 static SOUNDBOARD_MUTED: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(RwLock::default);
 static CHANGED: LazyLock<watch::Sender<u64>> = LazyLock::new(|| watch::channel(0).0);
 
+/// The voice limiter's ceiling, in dBFS, as f32 bits; 0 dB is off.
+static VOICE_LIMIT: AtomicU32 = AtomicU32::new(0f32.to_bits());
+
+/// The lowest ceiling the voice limiter takes, in dBFS.
+pub const VOICE_LIMIT_LOWEST: f32 = -40.0;
+
 /// The microphone's and the speakers' gains in every call, as f32 bits.
 static MICROPHONE: AtomicU32 = AtomicU32::new(1f32.to_bits());
 static SPEAKERS: AtomicU32 = AtomicU32::new(1f32.to_bits());
@@ -210,6 +216,25 @@ pub fn set_speakers(gain: f32) {
 /// How loud every call plays; 1.0 unless set.
 pub fn speakers() -> f32 {
     f32::from_bits(SPEAKERS.load(Ordering::Relaxed))
+}
+
+/// Holds people's voices in calls under `db` dBFS, from
+/// [`VOICE_LIMIT_LOWEST`] up; 0 or above turns the limiter off. See
+/// [`crate::voice_limiter`].
+pub fn set_voice_limit(db: f32) {
+    let db = if db >= 0.0 {
+        0.0
+    } else {
+        db.max(VOICE_LIMIT_LOWEST)
+    };
+    VOICE_LIMIT.store(db.to_bits(), Ordering::Relaxed);
+}
+
+/// The ceiling people's voices are held under, as a gain of full scale, or
+/// none while the limiter is off.
+pub fn voice_limit() -> Option<f32> {
+    let db = f32::from_bits(VOICE_LIMIT.load(Ordering::Relaxed));
+    (db < 0.0).then(|| 10f32.powf(db / 20.0))
 }
 
 /// Changes whenever a volume or a mute does.

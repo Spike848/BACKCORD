@@ -90,6 +90,9 @@ pub enum Event {
     Strength(usize),
     InputMode(usize),
     Sensitivity(u32, bool),
+    /// The voice limiter's slider: 0 for -40 dB up to 40 for off, and
+    /// whether it's let go of.
+    VoiceLimit(u32, bool),
     TalkDelay(u32, bool),
     SoundboardVolume(u32, bool),
     EntranceServer(usize),
@@ -261,6 +264,15 @@ impl Settings {
                 }
                 return;
             }
+            Event::VoiceLimit(value, done) => {
+                let db = limit_db(value);
+                voice.voice_limit = (db < 0).then_some(db);
+                backcord_core::volume::set_voice_limit(f32::from(db));
+                if done {
+                    crate::layout::store(&root, "voice_limit", voice.voice_limit);
+                }
+                return;
+            }
             Event::UnmuteOnJoin(on) => {
                 cx.layout.unmute_on_join = Some(on);
                 crate::layout::store(&root, "unmute_on_join", on);
@@ -390,6 +402,16 @@ impl<'a> Page<'a> {
         };
         let mic_volume = u32::from(voice.microphone_volume.unwrap_or(100));
         let speaker_volume = u32::from(voice.speaker_volume.unwrap_or(100));
+        let limit = voice
+            .voice_limit
+            .unwrap_or(0)
+            .clamp(-(LIMIT_STEPS as i8), 0);
+        let limit_value = (i32::from(limit) + LIMIT_STEPS as i32) as u32;
+        let limit_shown = if limit < 0 {
+            format!("{limit} dB")
+        } else {
+            backcord_iced_kit::i18n::tr("Off").to_owned()
+        };
         let mut parts = vec![
             form::title(theme, backcord_iced_kit::i18n::tr("Voice & video")),
             form::halves(
@@ -417,6 +439,23 @@ impl<'a> Page<'a> {
                     )
                     .on_release(voice_message(Event::Volume(false, speaker_volume, true)))
                     .view(theme),
+                    slider(
+                        backcord_iced_kit::i18n::tr("Voice limiter"),
+                        limit_value,
+                        LIMIT_STEPS,
+                        |value| voice_message(Event::VoiceLimit(value, false)),
+                    )
+                    .step(1)
+                    .mark(false)
+                    .shown(limit_shown)
+                    .on_release(voice_message(Event::VoiceLimit(limit_value, true)))
+                    .view(theme),
+                    form::note(
+                        theme,
+                        backcord_iced_kit::i18n::tr(
+                            "Holds each person's voice under this level, so nobody plays louder however loud they send. Streams, the soundboard and other sounds aren't limited.",
+                        ),
+                    ),
                 ]),
             ),
         ];
@@ -1185,4 +1224,12 @@ pub fn entrance_pictures(app: &App) -> Vec<String> {
         .flat_map(|group| &group.sounds)
         .filter_map(|sound| sound.picture.clone())
         .collect()
+}
+
+/// The voice limiter's slider's steps: one per dB from -40 dB up to off.
+const LIMIT_STEPS: u32 = 40;
+
+/// The ceiling the voice limiter's slider stands for, in dBFS: 0 for off.
+fn limit_db(value: u32) -> i8 {
+    (value.min(LIMIT_STEPS) as i32 - LIMIT_STEPS as i32) as i8
 }

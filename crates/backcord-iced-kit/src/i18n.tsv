@@ -4034,3 +4034,5 @@ Deletes the messages you send, anywhere, once they're as old as you choose. Thos
 DELETE AFTER	ELIMINA DOPO
 How long after you send a message it's deleted. Turning Auto Delete off forgets the messages still waiting: they stay.	Dopo quanto tempo dall'invio un messaggio viene eliminato. Se disattivi l'auto-eliminazione, i messaggi ancora in attesa non vengono più eliminati.
 30 seconds	30 secondi
+Voice limiter	Limitatore voci
+Holds each person's voice under this level, so nobody plays louder however loud they send. Streams, the soundboard and other sounds aren't limited.	Tiene la voce di ogni persona sotto questo livello, così nessuno si sente più forte, per quanto alto trasmetta. Stream, soundboard e altri suoni non vengono limitati.

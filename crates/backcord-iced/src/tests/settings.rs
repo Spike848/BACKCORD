@@ -957,3 +957,26 @@ fn auto_delete_starts_off_and_keeps_its_time() {
     let again = start(&folder, true);
     assert_eq!(again.layout.prefs.auto_delete_after, Some(4));
 }
+
+/// The voice limiter under the speakers' volume: off as it starts, in dB as
+/// it's dragged, and kept once let go.
+#[test]
+fn the_voice_limiter_starts_off_and_keeps_its_level() {
+    let (mut app, folder) = preview();
+    // Other tests' windows play their volumes as they open.
+    let _volumes = crate::layout::tests::hold_volumes();
+    open(&mut app, Section::Voice);
+    assert!(shows(&app, "Voice limiter"));
+    assert_eq!(app.layout.voice.voice_limit, None, "off unless set");
+    let voice = |event| Message::Settings(Event::Voice(event));
+    let _ = app.update(voice(VoiceEvent::VoiceLimit(28, false)));
+    assert!(shows(&app, "-12 dB"), "the slider follows the drag");
+    let ceiling = backcord_core::volume::voice_limit().expect("on");
+    assert!((ceiling - 10f32.powf(-12.0 / 20.0)).abs() < 1e-4);
+    let _ = app.update(voice(VoiceEvent::VoiceLimit(28, true)));
+    let stored = || crate::layout::Layout::read(folder.path()).voice.voice_limit;
+    assert_eq!(stored(), Some(-12));
+    let _ = app.update(voice(VoiceEvent::VoiceLimit(40, true)));
+    assert_eq!(stored(), None, "all the way up is off");
+    assert_eq!(backcord_core::volume::voice_limit(), None);
+}

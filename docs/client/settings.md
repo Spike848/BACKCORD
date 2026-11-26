@@ -28,7 +28,8 @@ recording. Each change is kept at once in
 - Voice & video (`voice.rs`): the microphone, speakers and camera, each a
   dropdown of the devices the core lists (listed again as the page shows),
   the microphone's and speakers' volumes, which play while dragged and are
-  kept when let go; Discord's mic test (Let's check), which runs the
+  kept when let go, and under the speakers' the Voice limiter, in dB (see
+  [voice](../discord/voice.md#voice-limiter)); Discord's mic test (Let's check), which runs the
   gate's meter with playback and lights its notches to the level, with
   Discord's captions (read as they're drawn), and the call's deafening
   while it runs (see [Voice](../voice.md#microphone-test)); the camera's

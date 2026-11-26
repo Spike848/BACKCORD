@@ -392,6 +392,8 @@ pub struct Voice {
     /// 100% unless changed.
     pub microphone_volume: Option<u16>,
     pub speaker_volume: Option<u16>,
+    /// The voice limiter's ceiling, in dBFS, from -40; off unless set below 0.
+    pub voice_limit: Option<i8>,
     /// People's own volumes and their streams', by Discord or Matrix id.
     pub volumes: std::collections::BTreeMap<String, f32>,
     pub stream_volumes: std::collections::BTreeMap<String, f32>,
@@ -478,7 +480,8 @@ impl Voice {
         backcord_core::stream_worker::set_hardware_encoding(self.gpu_encoding.unwrap_or(true));
     }
 
-    /// Calls send the microphone and play at the volume sliders' values.
+    /// Calls send the microphone and play at the volume sliders' values,
+    /// with voices under the voice limiter's.
     pub fn play_volumes(&self) {
         // The tests make many windows at once, and each plays its volumes
         // as it opens: one checking them holds them meanwhile.
@@ -490,6 +493,7 @@ impl Voice {
         };
         backcord_core::volume::set_microphone(gain(self.microphone_volume));
         backcord_core::volume::set_speakers(gain(self.speaker_volume));
+        backcord_core::volume::set_voice_limit(f32::from(self.voice_limit.unwrap_or(0)));
     }
 
     /// How loud one of BACKCORD's sounds plays, as a gain.
