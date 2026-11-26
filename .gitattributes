@@ -1,0 +1,3 @@
+# Signed test files: their signatures hold for these exact bytes, so Git
+# never changes their line endings, as core.autocrlf on Windows would.
+/src/update/testdata/** -text

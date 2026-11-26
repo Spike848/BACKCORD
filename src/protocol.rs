@@ -141,6 +141,8 @@ mod windows {
                         delete_value(PROTOCOL, Some("URL Protocol"))?;
                     }
                 }
+                // SAFETY: the key is NUL-terminated UTF-16 that lives
+                // through the call.
                 match unsafe { RegDeleteKeyW(HKEY_CURRENT_USER, wide(BACKUP).as_ptr()) } {
                     ERROR_FILE_NOT_FOUND => Ok(()),
                     status => checked(status),
@@ -215,6 +217,9 @@ mod windows {
         kind: REG_VALUE_TYPE,
     ) -> io::Result<()> {
         let value = wide(value);
+        // SAFETY: the key, the name when there is one and the value are
+        // NUL-terminated UTF-16 that live through the call, and the size
+        // given is the value's in bytes.
         let status = unsafe {
             RegSetKeyValueW(
                 HKEY_CURRENT_USER,
@@ -231,6 +236,8 @@ mod windows {
     }
 
     fn delete_value(key: &str, name: Option<&str>) -> io::Result<()> {
+        // SAFETY: the key, and the name when there is one, are
+        // NUL-terminated UTF-16 that live through the call.
         let status = unsafe {
             RegDeleteKeyValueW(
                 HKEY_CURRENT_USER,
@@ -257,6 +264,9 @@ mod windows {
         let (key, name) = (wide(key), name.map(wide));
         let name = name.as_ref().map_or(std::ptr::null(), Vec::as_ptr);
         let mut size = 0u32;
+        // SAFETY: the key, and the name when there is one, are
+        // NUL-terminated UTF-16 that live through the call; with no buffer
+        // it only writes the size.
         let status = unsafe {
             RegGetValueW(
                 HKEY_CURRENT_USER,
@@ -273,6 +283,7 @@ mod windows {
         }
         let mut data = vec![0u8; size as usize];
         let mut kind = REG_SZ;
+        // SAFETY: as above, and `data` holds the `size` bytes it may write.
         let status = unsafe {
             RegGetValueW(
                 HKEY_CURRENT_USER,

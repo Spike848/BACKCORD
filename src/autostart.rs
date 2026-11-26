@@ -247,6 +247,8 @@ mod windows {
             })
             .collect();
         let value = wide(&line.join(" "));
+        // SAFETY: the key, name and value are NUL-terminated UTF-16 that live
+        // through the call, and the size given is the value's in bytes.
         let status = unsafe {
             RegSetKeyValueW(
                 HKEY_CURRENT_USER,
@@ -268,6 +270,8 @@ mod windows {
     }
 
     fn delete(key: &str) -> io::Result<()> {
+        // SAFETY: the key and name are NUL-terminated UTF-16 that live
+        // through the call.
         let status = unsafe {
             RegDeleteKeyValueW(
                 HKEY_CURRENT_USER,
@@ -285,6 +289,8 @@ mod windows {
     fn query(key: &str, kind: u32) -> Option<Vec<u8>> {
         let (key, name) = (wide(key), wide(super::NAME));
         let mut size = 0u32;
+        // SAFETY: the key and name are NUL-terminated UTF-16 that live
+        // through the call; with no buffer it only writes the size.
         let status = unsafe {
             RegGetValueW(
                 HKEY_CURRENT_USER,
@@ -300,6 +306,7 @@ mod windows {
             return None;
         }
         let mut data = vec![0u8; size as usize];
+        // SAFETY: as above, and `data` holds the `size` bytes it may write.
         let status = unsafe {
             RegGetValueW(
                 HKEY_CURRENT_USER,
@@ -357,6 +364,8 @@ mod windows {
             );
             // Task Manager turns it off with an odd first byte.
             let disabled = [3u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            // SAFETY: the key and name are NUL-terminated UTF-16 that live
+            // through the call, and the size given is `disabled`'s.
             let status = unsafe {
                 RegSetKeyValueW(
                     HKEY_CURRENT_USER,
