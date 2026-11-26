@@ -1297,3 +1297,49 @@ async fn gives_up_the_server_as_discords_client_does() {
     post_control(server, "/_control/guild-reset", "");
     snapshot_where(discord, owner(bob)).await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn keeps_this_accounts_nickname_when_someone_else_changes_it() {
+    /// Anti Nickname Change, off again however the test ends.
+    struct On;
+    impl Drop for On {
+        fn drop(&mut self) {
+            backcord_discord::service::set_keep_nickname(false);
+        }
+    }
+    let Fixture {
+        _fake,
+        discord,
+        server,
+        snapshot,
+        guild,
+        ..
+    } = Fixture::start("keeps_this_accounts_nickname_when_someone_else_changes_it").await;
+    let me = snapshot.user_id.clone().unwrap();
+    let named = |nick: &str| {
+        let discord = &discord;
+        let (guild, me) = (guild.clone(), me.clone());
+        let nick = nick.to_owned();
+        move || discord.name(&guild, &me).as_deref() == Some(nick.as_str())
+    };
+    // Off, Bob's rename stays.
+    discord.set_member_nick(&guild, &me, "Ally").await.unwrap();
+    until("she is Ally", named("Ally")).await;
+    post_control(server, "/_control/rename-alice", "Clown");
+    until("Bob renamed her", named("Clown")).await;
+
+    // On, her own change stays, and Bob's goes back to it.
+    let _on = On;
+    backcord_discord::service::set_keep_nickname(true);
+    discord.set_member_nick(&guild, &me, "Ally").await.unwrap();
+    until("she is Ally again", named("Ally")).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(named("Ally")(), "her own change stays");
+    post_control(server, "/_control/rename-alice", "Clown");
+    until("Bob renamed her", named("Clown")).await;
+    until("her nickname came back", named("Ally")).await;
+    // Taken away, it comes back too.
+    post_control(server, "/_control/rename-alice", "");
+    until("her nickname came back again", named("Ally")).await;
+}

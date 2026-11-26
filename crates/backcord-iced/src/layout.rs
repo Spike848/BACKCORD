@@ -239,6 +239,8 @@ pub struct Prefs {
     pub follow_voice: Option<bool>,
     /// Auto Unmute (off unless turned on).
     pub auto_unmute: Option<bool>,
+    /// Anti Nickname Change (off unless turned on).
+    pub keep_nickname: Option<bool>,
     /// Message Link Previews: a card of each Discord message a message
     /// links to under it (on unless turned off).
     pub message_link_previews: Option<bool>,

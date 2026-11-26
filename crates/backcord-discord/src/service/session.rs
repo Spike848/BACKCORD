@@ -620,6 +620,65 @@ impl Session<'_> {
         }
     }
 
+    /// This account's nickname in a server whose GUILD_MEMBER_UPDATE for it
+    /// this is, before the update takes it in.
+    fn nick_before(&self, event: &Event, data: &Value) -> Option<Option<String>> {
+        let me = self.tracker.me.as_str();
+        if *event != Event::GuildMemberUpdate
+            || me.is_empty()
+            || data["user"]["id"].as_str() != Some(me)
+        {
+            return None;
+        }
+        let guild = data["guild_id"].as_str()?;
+        let names = self
+            .shared
+            .names
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        Some(names.nickname(guild, me).map(str::to_owned))
+    }
+
+    /// Anti Nickname Change: sets this account's nickname back to `before`
+    /// when someone else changed it, where it may change its own.
+    fn keep_nickname(&self, data: &Value, before: Option<String>) {
+        let Some(guild) = data["guild_id"].as_str() else {
+            return;
+        };
+        let roles: Vec<String> = data["roles"]
+            .as_array()
+            .map(|roles| {
+                roles
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let wanted = ready::permission::CHANGE_NICKNAME | ready::permission::MANAGE_NICKNAMES;
+        let may = self
+            .tracker
+            .servers
+            .iter()
+            .find(|server| server.id == guild)
+            .is_some_and(|server| {
+                server.server_permissions(&self.tracker.me, &roles) & wanted != 0
+            });
+        let after = data["nick"].as_str();
+        let Some(nick) = super::keep_nick::restore(guild, before.as_deref(), after, may) else {
+            return;
+        };
+        tracing::info!("Anti Nickname Change: setting this account's nickname back");
+        let (api, guild) = (self.shared.api.clone(), guild.to_owned());
+        tokio::spawn(async move {
+            let nick = nick.unwrap_or_default();
+            if let Err(error) = api.set_member_nick(&guild, None, &nick).await {
+                super::keep_nick::forget(&guild);
+                tracing::warn!(%error, "Anti Nickname Change: could not set the nickname back");
+            }
+        });
+    }
+
     /// Takes in a dispatched event; an error ends the session.
     async fn event(&mut self, mut dispatch: Dispatch) -> Result<()> {
         self.place_ephemeral(&mut dispatch);
@@ -632,6 +691,9 @@ impl Session<'_> {
             _ => true,
         };
         self.join.apply(&self.tracker, &dispatch);
+        // Anti Nickname Change: this account's nickname in the server before
+        // a change to its member takes it in.
+        let nick_before = self.nick_before(event, data);
         // Whether the tracker already took this event in, and changed.
         let mut applied = None;
         match event {
@@ -729,6 +791,9 @@ impl Session<'_> {
         if matches!(event, Event::GuildMemberUpdate | Event::GuildMemberRemove) {
             self.shared.lists.member_changed(&self.tracker, data);
             let _ = self.shared.live.send(Live::Names);
+        }
+        if let Some(before) = nick_before {
+            self.keep_nickname(data, before);
         }
         if *event == Event::UserUpdate {
             self.shared.lists.user_changed(&self.tracker, data);

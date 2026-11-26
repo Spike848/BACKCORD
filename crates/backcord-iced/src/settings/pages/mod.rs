@@ -81,6 +81,7 @@ pub enum Pref {
     AntiDisconnect(bool),
     FollowVoice(bool),
     AutoUnmute(bool),
+    KeepNickname(bool),
     MessageLinkPreviews(bool),
     RelationshipNotifier(bool),
     /// One of Relationship Notifier's removals, by its place in its dialog.
@@ -432,6 +433,11 @@ impl Settings {
                 prefs.auto_unmute = Some(on);
                 cx.dispatch(backcord_core::application::Action::AutoUnmute(on));
                 cx.keep("auto_unmute", on);
+            }
+            Pref::KeepNickname(on) => {
+                prefs.keep_nickname = Some(on);
+                backcord_core::extras::set_keep_nickname(on);
+                cx.keep("keep_nickname", on);
             }
             Pref::MessageLinkPreviews(on) => {
                 prefs.message_link_previews = Some(on);

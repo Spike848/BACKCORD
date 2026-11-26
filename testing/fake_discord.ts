@@ -840,7 +840,9 @@ function collectiblePicture(sku: string, animated: boolean): Uint8Array {
 // far as Alice's roles allow, as Discord checks them. Given Mods, she may
 // delete others' messages in "Server", as she can't otherwise. POST
 // /_control/timeout-alice with a number of seconds has Bob time her out, which
-// leaves her only reading "Server" as it does in Discord, and 0 ends it. Staff may also mute,
+// leaves her only reading "Server" as it does in Discord, and 0 ends it.
+// POST /_control/rename-alice with a nickname has Bob rename her, and an
+// empty one takes hers away. Staff may also mute,
 // deafen and move members in voice: PATCH .../members/{user} with `mute`,
 // `deaf` or `channel_id`, null to disconnect them, changes the voice state
 // of someone in the server's voice, which VOICE_STATE_UPDATE says, and GET
@@ -9388,6 +9390,15 @@ const server = Bun.serve<SocketData>({
       else timeouts.delete(ALICE);
       changeMembers(() => memberUpdated(users.alice));
       return new Response(seconds > 0 ? `Alice is timed out for ${seconds} s\n` : "Alice's timeout ended\n");
+    }
+    if (req.method === "POST" && path === "/_control/rename-alice") {
+      const nick = (await req.text()).trim();
+      changeMembers(() => {
+        if (nick) memberNicks.set(ALICE, nick);
+        else memberNicks.delete(ALICE);
+        memberUpdated(users.alice);
+      });
+      return new Response(nick ? `Bob renamed Alice ${nick}\n` : "Bob took Alice's nickname away\n");
     }
     if (req.method === "POST" && path === "/_control/slow") {
       slowMs = Number(await req.text()) || 0;

@@ -32,6 +32,7 @@ use crate::{
     stream::StreamServer,
 };
 
+mod keep_nick;
 mod live;
 mod marks;
 mod member_lists;
@@ -42,6 +43,8 @@ mod session;
 mod stream_openings;
 mod tracker;
 mod voice_join;
+
+pub use keep_nick::set_keep_nickname;
 
 use member_lists::MemberLists;
 use session::Shared;
@@ -2352,7 +2355,13 @@ impl Discord {
         // As for the main profile, what went through is kept no longer.
         let saved = async {
             if some(member) {
-                self.api.modify_member_me(guild, member).await?;
+                if let Some(nick) = member.get("nick") {
+                    keep_nick::expect(guild, nick.as_str());
+                }
+                if let Err(error) = self.api.modify_member_me(guild, member).await {
+                    keep_nick::forget(guild);
+                    return Err(error);
+                }
             }
             if some(profile) {
                 self.api.modify_guild_profile(guild, profile).await?;
@@ -3544,9 +3553,17 @@ impl Discord {
     /// empty resets it. Names change when Discord confirms it.
     pub async fn set_member_nick(&self, guild: &str, user: &str, nick: &str) -> Result<()> {
         let me = self.snapshots.borrow().user_id.as_deref() == Some(user);
-        self.api
+        if me {
+            keep_nick::expect(guild, Some(nick));
+        }
+        let set = self
+            .api
             .set_member_nick(guild, (!me).then_some(user), nick)
-            .await
+            .await;
+        if me && set.is_err() {
+            keep_nick::forget(guild);
+        }
+        set
     }
 
     /// Gives a member a role, or takes it away.

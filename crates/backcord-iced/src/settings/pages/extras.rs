@@ -200,6 +200,7 @@ impl<'a> Page<'a> {
         let anti_disconnect = prefs.anti_disconnect.unwrap_or(false);
         let follow = prefs.follow_voice.unwrap_or(true);
         let auto_unmute = prefs.auto_unmute.unwrap_or(false);
+        let keep_nickname = prefs.keep_nickname.unwrap_or(false);
         let message_links = prefs.message_link_previews.unwrap_or(true);
         let hidden = prefs.show_hidden_channels;
         let relationships = prefs.relationship_notifier.unwrap_or(true);
@@ -232,6 +233,13 @@ impl<'a> Page<'a> {
                 tr("When a server mutes or deafens you in a voice channel where you may mute and deafen members, undoes it at once."),
                 auto_unmute,
                 Pref::AutoUnmute(!auto_unmute),
+                None,
+            ),
+            self.plugin(
+                tr("Anti Nickname Change"),
+                tr("When someone else changes your nickname in a server where you may change your own, sets it back at once. A change you make on another device is set back too."),
+                keep_nickname,
+                Pref::KeepNickname(!keep_nickname),
                 None,
             ),
             self.plugin(

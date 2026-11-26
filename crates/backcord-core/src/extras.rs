@@ -36,6 +36,14 @@ thread_local! {
     static TEST_FAKE_NITRO: std::cell::Cell<FakeNitro> = const { std::cell::Cell::new(FakeNitro::OFF) };
 }
 
+/// Anti Nickname Change: someone else's change to this account's nickname
+/// in a server, where it may change its own, is set back; see
+/// `backcord_discord::service::set_keep_nickname`.
+#[cfg(feature = "discord")]
+pub fn set_keep_nickname(on: bool) {
+    backcord_discord::service::set_keep_nickname(on);
+}
+
 /// Split Long Messages: a message over Discord's limit is sent as several
 /// ([`crate::split`]) instead of refused.
 pub fn set_split_long(on: bool) {

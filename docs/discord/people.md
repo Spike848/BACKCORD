@@ -1233,6 +1233,20 @@ this account saves its own.
 `scripts/ui-session do 'pick avatar PATH'` chooses a picture in the editor,
 as its file chooser would.
 
+### Anti Nickname Change
+
+With Anti Nickname Change on (an Extra Feature, off by default), a
+GUILD_MEMBER_UPDATE that changes this account's nickname in a server, given
+or taken away, sets it back to what it was before (`service/keep_nick.rs`,
+from the session as the event comes), with `PATCH /guilds/{id}/members/@me`,
+where the account may change its own nickname or manage nicknames there.
+BACKCORD's own changes, from a member's menu or the server profile's editor,
+note the nickname on its way first, so their update stays; one made on
+another client looks like anyone's and is set back too. It sets it back at
+most five times a minute, so a bot that keeps renaming the account doesn't
+start a fight. The fake's `POST /_control/rename-alice` has Bob rename
+Alice.
+
 ## Linux Rich Presence
 
 Games and tools on Linux tell Discord what they're doing through its local

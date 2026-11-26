@@ -124,7 +124,7 @@ it.
 Extra Features (`pages/extras.rs`), under its own group at the foot of the
 column, has a card for each feature, its switch with what it does and its
 own choices under it while it's on, each kept in `layout.json`. All of
-them but Anti-Disconnect, Auto Unmute, Fake Nitro and Badge Spoofer start on, Message Logger with Log my own
+them but Anti-Disconnect, Auto Unmute, Anti Nickname Change, Fake Nitro and Badge Spoofer start on, Message Logger with Log my own
 messages, Silent Typing (not sharing this account's typing) and No Push To
 Talk included, and Stream Proof's button sits in the header bar, with
 Local Blur and Auto Stream Proof on:
@@ -139,7 +139,9 @@ Local Blur and Auto Stream Proof on:
   [people](../discord/people.md#where-someone-is-online) has what each says.
 - Anti-Disconnect (`anti_disconnect`, off by default), Auto Unmute
   (`auto_unmute`, off by default) and Follow (`follow_voice`): see
-  [voice](../discord/voice.md#anti-disconnect-and-follow).
+  [voice](../discord/voice.md#anti-disconnect-and-follow). Anti Nickname
+  Change (`keep_nickname`, off by default): see
+  [people](../discord/people.md#anti-nickname-change).
   Follow adds Follow, ticked while following them, to the menus of another
   Discord user, after Call: theirs in the member list, by a message, as a
   friend, and their voice menu in a channel's list or on a call's tile;
