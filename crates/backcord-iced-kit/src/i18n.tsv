@@ -1,3 +1,12 @@
+1 month	1 mese
+1 year	1 anno
+15 months	15 mesi
+18 months	18 mesi
+2 months	2 mesi
+2 years	2 anni
+3 months	3 mesi
+6 months	6 mesi
+9 months	9 mesi
 ABOUT ME	INFO SU DI ME
 ACTION	AZIONE
 ACTIVE INVITE LINKS	LINK DI INVITO ATTIVI
@@ -5,6 +14,49 @@ ADD TO SERVER	AGGIUNGI AL SERVER
 ADMINS	AMMINISTRATORI
 ADVANCED PERMISSIONS	PERMESSI AVANZATI
 ANSWERS	RISPOSTE
+Active Developer	Sviluppatore attivo
+BADGES	BADGE
+Badge Spoofer	Badge spoofer
+Bronze	Bronzo
+Bug Hunter	Cacciatore di bug
+Completed a Quest	Ha completato una missione
+Diamond	Diamante
+Discord Bug Hunter	Cacciatore di bug di Discord
+Discord Staff	Staff di Discord
+EMOJI SIZE	DIMENSIONE EMOJI
+Early Supporter	Sostenitore della prima ora
+Early Verified Bot Developer	Sviluppatore di bot verificato della prima ora
+Emerald	Smeraldo
+Fake Nitro	Nitro finto
+Gold	Oro
+Golden Bug Hunter	Cacciatore di bug d'oro
+HYPESQUAD HOUSE	CASATA HYPESQUAD
+HypeSquad Events	Eventi HypeSquad
+Lets you pick any server's emoji and stickers without Nitro: those you can't use are sent as links to their pictures, and such links you receive show as emoji.	Ti fa scegliere emoji e sticker di qualsiasi server senza Nitro: quelli che non puoi usare vengono inviati come link alle loro immagini, e i link di questo tipo che ricevi si vedono come emoji.
+Links to emoji pictures in messages show as the emoji, in the text, without their picture under it.	I link alle immagini delle emoji nei messaggi si vedono come l'emoji, nel testo, senza l'immagine sotto.
+Moderator Programs Alumni	Ex membro dei programmi per moderatori
+NITRO	NITRO
+Nitro Bronze	Nitro Bronzo
+Nitro Diamond	Nitro Diamante
+Nitro Emerald	Nitro Smeraldo
+Nitro Gold	Nitro Oro
+Nitro Opal	Nitro Opale
+Nitro Platinum	Nitro Platino
+Nitro Ruby	Nitro Rubino
+Nitro Silver	Nitro Argento
+Opal	Opale
+Partnered Server Owner	Proprietario di server partner
+Platinum	Platino
+Ruby	Rubino
+SERVER BOOSTER	POTENZIAMENTO SERVER
+Sends each link under the emoji's or sticker's name, as [name](link), rather than bare.	Invia ogni link sotto il nome dell'emoji o dello sticker, come [nome](link), invece che nudo.
+Server Booster: {}	Booster del server: {}
+Show my real badges too	Mostra anche i miei badge reali
+Show received emoji links as emoji	Mostra i link di emoji ricevuti come emoji
+Shows the Discord badges you choose on your own profile, as if you had them. Only you see them, in BACKCORD on this computer: nothing is sent to Discord.	Mostra sul tuo profilo i badge di Discord che scegli, come se li avessi. Li vedi solo tu, in BACKCORD su questo computer: a Discord non viene inviato nulla.
+Silver	Argento
+The badges your profile really has stay beside those chosen. A chosen house, Nitro or boost badge takes the place of your own.	I badge che il tuo profilo ha davvero restano accanto a quelli scelti. Una casata, un Nitro o un potenziamento scelti prendono il posto dei tuoi.
+The size, in pixels, of the emoji pictures you send as links.	La dimensione, in pixel, delle immagini delle emoji che invii come link.
 Updates	Aggiornamento
 Accept	Accetta
 Accept Request	Accetta richiesta
@@ -36,6 +88,9 @@ Add to channel list	Aggiungi all'elenco dei canali
 Add your pronouns	Aggiungi i tuoi pronomi
 Add:	Aggiungi:
 Adding more from BACKCORD is coming soon.	Presto potrai aggiungerne altri da BACKCORD.
+Adds Permissions to the menus of members, servers and channels, and to a role's card: what they may do there, and which role or channel override gives or takes each permission.	Aggiunge Permessi ai menu dei membri, dei server e dei canali, e alla scheda di un ruolo: cosa possono fare lì e quale ruolo o eccezione del canale concede o toglie ogni permesso.
+Administrator from {}: every permission, in every channel.	Amministratore da {}: tutti i permessi, in ogni canale.
+Administrator, from {}	Amministratore, da {}
 Advanced	Avanzate
 After 10 minutes without using BACKCORD, as in Discord. Either way, your phone gets notifications while you're away.	Dopo 10 minuti senza usare BACKCORD, come su Discord. In ogni caso, il telefono riceve le notifiche mentre sei via.
 Age-Restricted Channel	Canale con limiti di età
@@ -46,6 +101,8 @@ All your friends are here already.	Tutti i tuoi amici sono già qui.
 Allow Multiple Answers	Consenti risposte multiple
 Allow anyone to @mention this role	Consenti a tutti di menzionare questo ruolo con @
 Allow multiple windows	Consenti più finestre
+Allowed by the channel override for this member	Consentito dall'eccezione del canale per questo membro
+Allowed by the channel override for {}	Consentito dall'eccezione del canale per {}
 Always	Sempre
 Animate decorations and nameplates	Anima decorazioni e targhette nome
 Any changes you made will be lost if you exit now.	Le modifiche fatte andranno perse se esci ora.
@@ -56,6 +113,7 @@ Apps	App
 Are you sure you want to delete 	Vuoi davvero eliminare 
 Are you sure you want to delete this message?	Vuoi davvero eliminare questo messaggio?
 Are you sure you want to go?	Vuoi davvero andare via?
+As BACKCORD starts, what changed while it was closed.	All'avvio di BACKCORD, ciò che è cambiato mentre era chiuso.
 Attach files	Allega file
 Audit Log	Registro eventi
 Author Type	Tipo di autore
@@ -119,6 +177,7 @@ Choose files	Scegli i file
 Choose if server members can share image-based media detected by Discord's sensitive content filters. This setting will apply to channels that are not age-restricted.	Scegli se i membri del server possono condividere contenuti con immagini rilevati dai filtri per contenuti sensibili di Discord. Questa impostazione vale per i canali senza limiti di età.
 Choose what to share	Scegli cosa condividere
 Clear Search History	Cancella cronologia ricerche
+Clear alerts	Cancella avvisi
 Clear permissions	Cancella permessi
 Clear search	Cancella ricerca
 Clear status	Cancella stato
@@ -174,6 +233,7 @@ Dark	Scuro
 Date	Data
 Deafen	Disattiva audio
 Decline	Rifiuta
+Declined your friend request.	Ha rifiutato la tua richiesta di amicizia.
 DeepFilterNet	DeepFilterNet
 DeepFilterNet also takes out typing and other sudden noise. RNNoise uses less processing. Off sends your microphone as it is, for a quiet room. A call going on switches straight away.	DeepFilterNet elimina anche il rumore della tastiera e altri rumori improvvisi. RNNoise usa meno risorse. "Off" invia il microfono così com'è, per una stanza silenziosa. Una chiamata in corso cambia subito.
 Default	Predefinito
@@ -186,6 +246,8 @@ Delete category	Elimina categoria
 Delete channel	Elimina canale
 Delete message	Elimina messaggio
 Delete theme	Elimina tema
+Denied by the channel override for this member	Negato dall'eccezione del canale per questo membro
+Denied by the channel override for {}	Negato dall'eccezione del canale per {}
 Descriptions are optional but must be more than 1 character.	Le descrizioni sono facoltative ma devono avere più di 1 carattere.
 Developer Mode	Modalità sviluppatore
 Didn’t receive a code or it expired? Resend it.	Non hai ricevuto il codice o è scaduto? Invialo di nuovo.
@@ -263,7 +325,9 @@ Forward To	Inoltra a
 Forwarded	Inoltrato
 Frame on	Cornice attiva
 Friend	Amico
+Friend Alerts	Avvisi amicizie
 Friend Request Sent	Richiesta di amicizia inviata
+Friend requests	Richieste di amicizia
 Friend requests and messages from people you don't know show up here.	Le richieste di amicizia e i messaggi di persone che non conosci compaiono qui.
 Friends Since	Amici dal
 From	Da
@@ -276,12 +340,14 @@ Get the newest features before release. Expect some bugs.	Ricevi le novità prim
 Get the party started by uploading an emoji	Inizia caricando una emoji
 Getting a code...	Richiesta del codice...
 GitHub	GitHub
+Given by {}	Concesso da {}
 Go Live	Vai in diretta
 Go back	Torna indietro
 Go to Server	Vai al server
 Go to Settings	Vai alle impostazioni
 Go to server	Vai al server
 Got It	Ho capito
+Group DMs	Gruppi
 HOMESERVER	HOMESERVER
 Hardware acceleration. Off, BACKCORD draws on the processor, which uses about half the memory.	Accelerazione hardware. Se disattivata, BACKCORD disegna con il processore, che usa circa metà della memoria.
 Having mic issues? Start a test and say something fun, and BACKCORD plays your voice back to you, with your noise suppression and volumes. Wear headphones, or it echoes.	Problemi con il microfono? Avvia un test e di' qualcosa: BACKCORD ti riproduce la voce con la tua riduzione del rumore e i tuoi volumi. Usa le cuffie, altrimenti c'è eco.
@@ -321,6 +387,7 @@ Invite to server	Invita nel server
 Add to group	Aggiungi al gruppo
 In the call	Nella chiamata
 Invites	Inviti
+Is no longer your friend.	Non è più tuo amico.
 It's quiet for now...	Per ora è tutto tranquillo...
 Jellybean	Jellybean
 Join	Entra
@@ -433,6 +500,7 @@ Mute	Silenzia
 Mute Soundboard	Silenzia soundboard
 Mute server	Silenzia server
 Muted. Nothing you say is sent.	Silenziato. Niente di quello che dici viene inviato.
+My Permissions	I miei permessi
 My account	Il mio account
 NAME	NOME
 NEW THEME	NUOVO TEMA
@@ -476,6 +544,7 @@ No one found. For Matrix, type a full id such as @name:example.org.	Nessuno trov
 No permissions found	Nessun permesso trovato
 No requests	Nessuna richiesta
 No results	Nessun risultato
+No role gives it	Nessun ruolo lo concede
 No roles	Nessun ruolo
 No speakers found. Connect one, then reopen this menu.	Nessun altoparlante trovato. Collegane uno e riapri questo menu.
 No system tray is running, so closing the window quits BACKCORD.	Nessuna area di notifica è attiva, quindi chiudere la finestra chiude BACKCORD.
@@ -526,6 +595,7 @@ Outbound packet loss rate:	Perdita di pacchetti in uscita:
 Output	Uscita
 Output options	Opzioni di uscita
 Overview	Panoramica
+Owns the server: every permission, in every channel.	Proprietario del server: tutti i permessi, in ogni canale.
 PASSWORD	PASSWORD
 PINNED CHANNELS	CANALI FISSATI
 PLAY GIFS, EMOJI AND STICKERS	RIPRODUCI GIF, EMOJI E STICKER
@@ -544,6 +614,7 @@ Pause	Pausa
 Pause DMs	Sospendi i DM
 Pause Invites	Sospendi gli inviti
 Pending	In attesa
+Permissions Viewer	Visualizzatore permessi
 Permissions not synced with category: 	Permessi non sincronizzati con la categoria: 
 Pictures	Immagini
 Pin channel to top	Fissa il canale in alto
@@ -590,6 +661,7 @@ Recovery key	Chiave di recupero
 Recovery(..)	Recupero(..)
 Refresh devices	Aggiorna dispositivi
 RefreshTrust	RefreshTrust
+Relationship Notifier	Avviso amicizie
 Remove	Rimuovi
 Remove Background	Rimuovi sfondo
 Remove Friend	Rimuovi amico
@@ -601,6 +673,7 @@ Remove friend	Rimuovi amico
 Remove from channel list	Rimuovi dall'elenco dei canali
 Remove timeout	Rimuovi timeout
 Remove tracking from links you send	Rimuovi il tracciamento dai link che invii
+Removed you as a friend.	Ti ha rimosso dagli amici.
 Render with the GPU	Usa la GPU per il rendering
 Reply	Rispondi
 Replying to 	Risposta a 
@@ -681,7 +754,9 @@ Server Profile	Profilo del server
 Server Tag	Tag del server
 Server deafen	Disattiva audio per il server
 Server mute	Silenzia per il server
+Server owner	Proprietario del server
 Server settings	Impostazioni del server
+Servers	Server
 Servers who reach Boosting Level 1 and above get unique invite embeds with custom Server Invite Backgrounds. The recommended minimum size is 1920x1080 and recommended aspect ratio is 16:9.	I server che raggiungono il livello boost 1 o superiore ottengono inviti personalizzati con sfondi dell'invito. La dimensione minima consigliata è 1920x1080 e il rapporto consigliato è 16:9.
 Set a custom status	Imposta uno stato personalizzato
 Set channel status	Imposta stato del canale
@@ -762,8 +837,10 @@ THREAD NAME	NOME DEL THREAD
 THREAD NAME (OPTIONAL)	NOME DEL THREAD (FACOLTATIVO)
 TOKEN	TOKEN
 Take out your room's echo in Discord calls	Elimina l'eco della stanza nelle chiamate Discord
+Taken away by their timeout	Tolto dal timeout
 Tell people what your server is about.	Racconta alle persone di cosa parla il tuo server.
 Tell this server a bit about yourself	Racconta a questo server qualcosa di te
+Tells you when a friend removes you, a friend request ends, or you're removed from a group DM or a server, and lists it in the inbox's Friend Alerts.	Ti avvisa quando un amico ti rimuove, una richiesta di amicizia finisce o vieni rimosso da un gruppo o da un server, e lo segna negli Avvisi amicizie della posta in arrivo.
 Tempo	Tempo
 Temporarily stop new direct messages from being sent between members in your server. Friends can still DM each other, moderators can still DM members, and your Apps can still DM members.	Blocca temporaneamente l'invio di nuovi messaggi diretti tra i membri del server. Gli amici possono ancora scriversi, i moderatori possono scrivere ai membri e le tue app possono scrivere ai membri.
 Temporarily stop new members from joining this server via invite or vanity links.	Impedisci temporaneamente ai nuovi membri di entrare in questo server tramite inviti o link personalizzati.
@@ -852,6 +929,7 @@ Use a code sent to your phone	Usa un codice inviato al telefono
 Use a passkey or security key	Usa una passkey o una chiave di sicurezza
 Use a token	Usa un token
 Use category default	Usa il predefinito della categoria
+Use masked links	Usa link mascherati
 Use permissions to customize who can do what in this channel.	Usa i permessi per personalizzare chi può fare cosa in questo canale.
 Use roles to group your server members and assign permissions.	Usa i ruoli per raggruppare i membri del server e assegnare permessi.
 Use server default	Usa il predefinito del server
@@ -897,10 +975,21 @@ We searched far and wide. Unfortunately, no results were found.	Abbiamo cercato 
 Website	Sito web
 What question do you want to ask?	Che domanda vuoi fare?
 What's happening?	Cosa sta succedendo?
+When a friend removes you, a friend request ends, or you're removed from a group DM or a server, it shows up here.	Quando un amico ti rimuove, una richiesta di amicizia finisce o vieni rimosso da un gruppo o da un server, compare qui.
+When a friend removes you, or blocks you.	Quando un amico ti rimuove dagli amici o ti blocca.
+When someone declines the friend request you sent, or withdraws the one they sent you.	Quando qualcuno rifiuta la richiesta di amicizia che gli hai inviato, o ritira quella che ti aveva inviato.
 When the message was sent	Quando è stato inviato il messaggio
+When you're kicked or banned from a server, or it's deleted.	Quando vieni espulso o bannato da un server, o il server viene eliminato.
+When you're removed from a group DM.	Quando vieni rimosso da un gruppo.
 Where would you like to go?	Dove vuoi andare?
 While BACKCORD is focused	In primo piano
+While offline	Mentre eri offline
 Wishlist	Lista dei desideri
+Withdrew their friend request.	Ha ritirato la sua richiesta di amicizia.
+You were removed from this group.	Sei stato rimosso da questo gruppo.
+You were removed from this server, or it was deleted.	Sei stato rimosso da questo server, o è stato eliminato.
+You're no longer in this group.	Non fai più parte di questo gruppo.
+You're no longer in this server.	Non fai più parte di questo server.
 BACKCORD	BACKCORD
 BACKCORD can't fill this part yet.	BACKCORD non sa ancora compilare questa parte.
 BACKCORD can't read this microphone. Check that it's connected, or choose another.	BACKCORD non riesce a leggere questo microfono. Controlla che sia collegato o scegline un altro.
@@ -926,6 +1015,7 @@ Your Matrix notification rules decide	Le tue regole di notifica Matrix decidono
 Your camera is off.	La fotocamera è spenta.
 Your desktop draws the window's title bar and buttons, as on its other windows. Off, BACKCORD draws its own.	Il desktop disegna la barra del titolo e i pulsanti della finestra, come per le altre finestre. Se disattivato, BACKCORD disegna la sua.
 Your perfect GIF is in another castle. Try the suggested keywords below!	La GIF perfetta è in un altro castello. Prova le parole chiave suggerite qui sotto!
+Your profile shows them in Discord's order, with Discord's own pictures.	Il tuo profilo li mostra nell'ordine di Discord, con le immagini ufficiali di Discord.
 Your screen	Il tuo schermo
 A card, hidden while link previews are off.	Una scheda, nascosta quando le anteprime dei link sono disattivate.
 A gem by the name of each member boosting their Discord server, in the member list.	Una gemma accanto al nome di ogni membro che potenzia il suo server Discord, nell'elenco membri.
@@ -3886,3 +3976,39 @@ Join this server	Unisciti
 Get the invite	Ottieni invito
 DISBOARD asks to slow down: these are the servers saved earlier.	DISBOARD chiede di rallentare: questi sono i server salvati in precedenza.
 DISBOARD asks to slow down for a few minutes. Try again later.	DISBOARD chiede di rallentare per qualche minuto. Riprova più tardi.
+Ask for a new invite!	Chiedi un nuovo invito!
+Invalid Invite	Invito non valido
+Joined	Entrato
+Resolving invite	Ricerca dell'invito
+Try sending a new invite!	Prova a inviare un nuovo invito!
+You received an invite, but...	Hai ricevuto un invito, ma...
+You sent an invite to join a server	Hai inviato un invito per entrare in un server
+You sent an invite, but...	Hai inviato un invito, ma...
+{} Members	{} membri
+Message Link Previews	Anteprime dei link a messaggi
+Message not available	Messaggio non disponibile
+Shows the Discord messages a message links to in a card under it: who wrote them, where, and what they say. Click one to go there.	Mostra in una scheda sotto il messaggio i messaggi di Discord a cui rimanda: chi li ha scritti, dove e cosa dicono. Clicca su una scheda per andarci.
+Another chat is being exported.	È già in corso l'esportazione di un'altra chat.
+Couldn't export {}: {}	Impossibile esportare {}: {}
+Couldn't save the file: {}	Impossibile salvare il file: {}
+Export chat	Esporta chat
+Export chat…	Esporta chat…
+Export of {} stopped.	Esportazione di {} fermata.
+Export stopped: nothing was saved.	Esportazione fermata: non è stato salvato nulla.
+Exported {} messages from {} to {}.	Esportati {} messaggi da {} in {}.
+From a date	Da una data
+How many messages	Quanti messaggi
+Include attachments as links	Includi gli allegati come link
+Last messages	Ultimi messaggi
+MESSAGES	MESSAGGI
+Saved {} messages to {}	Salvati {} messaggi in {}
+Stop	Ferma
+Stopping…	Arresto in corso…
+Text (TXT)	Testo (TXT)
+Type how many messages to export.	Scrivi quanti messaggi esportare.
+Type the first day as dd/mm/yyyy.	Scrivi il primo giorno come gg/mm/aaaa.
+Web page (HTML)	Pagina web (HTML)
+Whole chat	Tutta la chat
+You can close this window: the export goes on.	Puoi chiudere questa finestra: l'esportazione continua.
+dd/mm/yyyy	gg/mm/aaaa
+{} messages downloaded…	{} messaggi scaricati…

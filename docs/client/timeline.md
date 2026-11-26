@@ -238,7 +238,12 @@ the server it's from, whose card asks Discord how many are online there
 and what Discover says of it; a click on the server goes there. An emoji
 of a server out of reach says "Invite-Only Server" and no more. A Discord link this
 account can follow stays in the app, as the core's `discord_route` reads
-it: an invite opens its Join dialog, an app's authorization, a gift and
+it: an invite opens its Join dialog (and shows a card under its message,
+`message/invite.rs`; see [invite cards](../discord/servers.md#invite-cards)),
+a message link shows the linked message's card under its message
+(`message/linked.rs`, laid out once in `Timeline::linked`; see [message
+link cards](../discord/messages.md#message-link-cards)),
+an app's authorization, a gift and
 an event their dialogs (see [dialogs](dialogs.md)), a server, channel or
 message goes
 there, and a person's opens their card.

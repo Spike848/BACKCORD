@@ -395,6 +395,11 @@ impl App {
                 if room == ABOUT {
                     return Task::batch([open, crate::updates::open_about(self)]);
                 }
+                // A relationship alert about no conversation only shows
+                // the window.
+                if room.is_empty() {
+                    return open;
+                }
                 let closed = self.close_settings();
                 self.client.dispatch(Action::OpenChat(room));
                 Task::batch([open, closed, self.sync()])
@@ -679,6 +684,16 @@ impl App {
     /// front, the taskbar flashes and a notification shows, as the settings
     /// allow.
     fn alert(&self, alert: Alert) -> Task<Message> {
+        // Relationship Notifier's come in English, and tell of what shows
+        // nowhere else but the inbox, so they notify in front too.
+        let alert = if alert.relationship {
+            Alert {
+                body: backcord_iced_kit::i18n::t(&alert.body),
+                ..alert
+            }
+        } else {
+            alert
+        };
         let focused = self.shell.focused;
         let reading = focused && self.client.state().selected.as_ref() == Some(&alert.room);
         if !alert.call && !reading {
@@ -700,7 +715,7 @@ impl App {
             task = window::request_user_attention(id, Some(window::UserAttention::Informational));
         }
         if prefs.notifications.unwrap_or(true)
-            && !focused
+            && (!focused || alert.relationship)
             && let Some(notifier) = &self.shell.notifier
         {
             notifier.show(alert, true);

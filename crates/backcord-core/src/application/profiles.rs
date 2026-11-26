@@ -559,3 +559,20 @@ pub(super) fn dm_profile(room: &ChatRoom, person: String) -> Profile {
         ..Default::default()
     }
 }
+
+impl AppState {
+    /// The badges `profile` shows: its own, but on this account's own
+    /// Discord profile those Badge Spoofer chose, as
+    /// [`crate::badge_spoofer::shown`] puts them together.
+    pub fn shown_badges<'a>(
+        &self,
+        profile: &'a Profile,
+    ) -> std::borrow::Cow<'a, [crate::chat::ProfileBadge]> {
+        use crate::badge_spoofer;
+        if self.badge_spoofer.on && badge_spoofer::is_own(profile, self.discord_user.as_deref()) {
+            std::borrow::Cow::Owned(badge_spoofer::shown(&profile.badges, &self.badge_spoofer))
+        } else {
+            std::borrow::Cow::Borrowed(&profile.badges)
+        }
+    }
+}

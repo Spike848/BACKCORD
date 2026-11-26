@@ -524,8 +524,9 @@ fn account_card_sync(app: &mut App, link: u32) -> bool {
         app.profiles.effect.account = None;
         return false;
     };
-    if let Some((kept, _)) = &app.profiles.account
+    if let Some((kept, shown)) = &app.profiles.account
         && Arc::ptr_eq(kept, profile)
+        && shown.look.spoofer == state.badge_spoofer
     {
         return false;
     }
@@ -612,6 +613,7 @@ fn make_shown(
         Arc::ptr_eq(&shown.look.view, view)
             && shown.look.relation == app.state.relation(&view.profile.id)
             && shown.look.live == live
+            && shown.look.spoofer == app.state.badge_spoofer
     };
     if shown.as_ref().is_some_and(same) {
         return shown;
@@ -861,7 +863,7 @@ pub fn profile_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
                 .and_then(|tag| tag.badge.as_deref())
                 .map(str::to_owned),
         );
-        urls.extend(profile.badges.iter().map(|badge| badge.icon.clone()));
+        urls.extend(shown.look.badges.iter().map(|badge| badge.icon.clone()));
     }
     // The account's own popover shows its card whole, as under the pointer.
     let account = ctx
@@ -897,10 +899,11 @@ pub fn profile_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
                 .map(str::to_owned),
         );
         urls.extend(shown.look.thought.emoji.clone());
-        urls.extend(profile.badges.iter().map(|badge| badge.icon.clone()));
+        urls.extend(shown.look.badges.iter().map(|badge| badge.icon.clone()));
         // A levelled badge's large picture, for its tooltip.
         urls.extend(
-            profile
+            shown
+                .look
                 .badges
                 .iter()
                 .filter_map(|badge| badge.level.as_ref())

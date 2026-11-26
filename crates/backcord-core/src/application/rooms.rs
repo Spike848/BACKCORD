@@ -46,6 +46,9 @@ pub enum MenuChoice {
     /// adds them to a DM's and a server's menu; see `delete_all.rs`.
     DeleteAll,
     StopDeleteAll,
+    /// Export Chat: save a Discord channel's, DM's or group's history to a
+    /// file. The window adds it to their menus; see `chat_export.rs`.
+    ExportChat,
     /// Send someone an invite to one of this account's Discord servers, in
     /// a submenu of them; see `places.rs`.
     InviteToServer,
@@ -77,6 +80,12 @@ pub enum MenuChoice {
     ViewIcon,
     /// A server's banner, large.
     ViewBanner,
+    /// Permissions Viewer: a member's permissions where their menu opens,
+    /// or this account's own in a server, channel or category. The window
+    /// adds them while Extra Features turn it on; see
+    /// `permissions_viewer.rs`.
+    Permissions,
+    MyPermissions,
     // A Discord server member's; see `members.rs`.
     /// Mention them in the open channel's composer.
     Mention,
@@ -1089,6 +1098,7 @@ impl Application {
         self.state.mention_groups.clear();
         self.state.found_members.clear();
         self.state.role = None;
+        self.state.permissions = None;
         self.state.pins = None;
         // A server's search stays open in its channels.
         if self.state.search.is_some() && self.state.search_shown().is_none() {

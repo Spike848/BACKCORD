@@ -117,6 +117,10 @@ pub enum Message {
     Friends(crate::friends::Event),
     /// Something done in the Reactions window.
     Reactions(crate::reactions::Event),
+    /// Something done in Permissions Viewer's window.
+    Permissions(crate::permissions::Event),
+    /// Something done in Export Chat's dialog.
+    ChatExport(crate::chat_export::Event),
     /// New video frames the view shows differently: a source's first, or
     /// a message's video's, with how far it's got (milliseconds).
     Frames(Option<u64>),

@@ -20,7 +20,7 @@ mod advanced;
 mod discord;
 pub use discord::blocked_pictures;
 mod extras;
-pub use extras::{Extra, emulate_platform};
+pub use extras::{Extra, emulate_platform, fake_nitro, relationship_notifier};
 mod games;
 mod messages;
 mod notifications;
@@ -79,11 +79,32 @@ pub enum Pref {
     EmulationDepth(usize),
     AntiDisconnect(bool),
     FollowVoice(bool),
+    MessageLinkPreviews(bool),
+    RelationshipNotifier(bool),
+    /// One of Relationship Notifier's removals, by its place in its dialog.
+    RelationshipKind(usize, bool),
+    FakeNitro(bool),
+    /// The size Fake Nitro's emoji links ask for, by its place in
+    /// `backcord_core::fake_nitro::SIZES`.
+    FakeNitroSize(usize),
+    FakeNitroMasked(bool),
+    FakeNitroReceived(bool),
+    BadgeSpoofer(bool),
+    /// A badge of `backcord_core::badge_spoofer::BADGES` ticked or not, by
+    /// its place.
+    SpoofedBadge(usize, bool),
+    /// The house, Nitro level and boost level Badge Spoofer shows: none for
+    /// 0, else the one after it in their lists.
+    SpoofedHouse(usize),
+    SpoofedNitro(usize),
+    SpoofedBoost(usize),
+    SpoofRealBadges(bool),
     ProxyOn(bool),
     Proxy(String),
     Dns(usize),
     DnsCustom(String),
     ClickableRoles(bool),
+    PermissionsViewer(bool),
     ViewIcons(bool),
     IconFormat(usize),
     IconSize(usize),
@@ -367,6 +388,10 @@ impl Settings {
                 prefs.clickable_roles = Some(on);
                 cx.keep("clickable_roles", on);
             }
+            Pref::PermissionsViewer(on) => {
+                prefs.permissions_viewer = Some(on);
+                cx.keep("permissions_viewer", on);
+            }
             Pref::MessageLogger(on) => {
                 prefs.message_logger = Some(on);
                 backcord_core::extras::set_message_logger(on);
@@ -395,6 +420,82 @@ impl Settings {
                 prefs.anti_disconnect = Some(on);
                 cx.dispatch(backcord_core::application::Action::AntiDisconnect(on));
                 cx.keep("anti_disconnect", on);
+            }
+            Pref::MessageLinkPreviews(on) => {
+                prefs.message_link_previews = Some(on);
+                cx.dispatch(backcord_core::application::Action::HideMessageLinks(!on));
+                cx.keep("message_link_previews", on);
+            }
+            Pref::RelationshipNotifier(on) => {
+                prefs.relationship_notifier = Some(on);
+                crate::settings::relationship_notifier(prefs);
+                cx.keep("relationship_notifier", on);
+            }
+            Pref::RelationshipKind(index, on) => {
+                let (switch, key) = match index {
+                    0 => (&mut prefs.relationship_friends, "relationship_friends"),
+                    1 => (&mut prefs.relationship_requests, "relationship_requests"),
+                    2 => (&mut prefs.relationship_groups, "relationship_groups"),
+                    3 => (&mut prefs.relationship_servers, "relationship_servers"),
+                    _ => (&mut prefs.relationship_offline, "relationship_offline"),
+                };
+                *switch = Some(on);
+                crate::settings::relationship_notifier(prefs);
+                cx.keep(key, on);
+            }
+            Pref::FakeNitro(on) => {
+                prefs.fake_nitro = Some(on);
+                crate::settings::fake_nitro(prefs);
+                cx.keep("fake_nitro", on);
+            }
+            Pref::FakeNitroSize(index) => {
+                prefs.fake_nitro_size = Some(index);
+                crate::settings::fake_nitro(prefs);
+                cx.keep("fake_nitro_size", index);
+            }
+            Pref::FakeNitroMasked(on) => {
+                prefs.fake_nitro_masked = Some(on);
+                crate::settings::fake_nitro(prefs);
+                cx.keep("fake_nitro_masked", on);
+            }
+            Pref::FakeNitroReceived(on) => {
+                prefs.fake_nitro_received = Some(on);
+                crate::settings::fake_nitro(prefs);
+                cx.keep("fake_nitro_received", on);
+            }
+            Pref::BadgeSpoofer(on) => {
+                prefs.badge_spoofer = Some(on);
+                let settings = prefs.badge_spoofer();
+                cx.dispatch(Action::SpoofBadges(settings));
+                cx.keep("badge_spoofer", on);
+            }
+            Pref::SpoofedBadge(index, on) => {
+                let badges = prefs.badge_spoofer().with(index, on).badges;
+                prefs.badge_spoofer_badges = Some(badges);
+                let settings = prefs.badge_spoofer();
+                cx.dispatch(Action::SpoofBadges(settings));
+                cx.keep("badge_spoofer_badges", badges);
+            }
+            Pref::SpoofedHouse(index) | Pref::SpoofedNitro(index) | Pref::SpoofedBoost(index) => {
+                let (chosen, key) = match pref {
+                    Pref::SpoofedHouse(_) => {
+                        (&mut prefs.badge_spoofer_house, "badge_spoofer_house")
+                    }
+                    Pref::SpoofedNitro(_) => {
+                        (&mut prefs.badge_spoofer_nitro, "badge_spoofer_nitro")
+                    }
+                    _ => (&mut prefs.badge_spoofer_boost, "badge_spoofer_boost"),
+                };
+                *chosen = Some(index);
+                let settings = prefs.badge_spoofer();
+                cx.dispatch(Action::SpoofBadges(settings));
+                cx.keep(key, index);
+            }
+            Pref::SpoofRealBadges(on) => {
+                prefs.badge_spoofer_real = Some(on);
+                let settings = prefs.badge_spoofer();
+                cx.dispatch(Action::SpoofBadges(settings));
+                cx.keep("badge_spoofer_real", on);
             }
             Pref::FollowVoice(on) => {
                 prefs.follow_voice = Some(on);

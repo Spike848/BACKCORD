@@ -15,12 +15,14 @@ pub mod application;
 mod audio_io;
 pub use audio_io::{set_windows_effects, silence_audio};
 pub mod backend;
+pub mod badge_spoofer;
 pub mod blocks;
 pub mod call_details;
 #[cfg(feature = "matrix")]
 pub mod calls;
 pub mod camera;
 pub mod chat;
+pub mod chat_export;
 pub mod cli;
 #[cfg(feature = "discord")]
 pub mod clip;
@@ -47,6 +49,7 @@ pub mod encode;
 #[cfg(feature = "matrix")]
 pub mod experiment;
 pub mod extras;
+pub mod fake_nitro;
 pub mod frames;
 pub mod keybinds;
 pub mod layout_file;
@@ -75,6 +78,7 @@ pub use backcord_discord::platforms;
 #[cfg(feature = "discord")]
 pub mod playback;
 pub mod push_to_talk;
+pub mod relationship_alerts;
 #[cfg(feature = "discord")]
 pub mod ring;
 pub mod runtime;

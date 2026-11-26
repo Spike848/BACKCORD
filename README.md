@@ -34,21 +34,34 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.1
+## Novità della 1.5.2
 
-- **Aggiungi al gruppo**: nel menu di un amico (e della sua DM) c'è
-  "Aggiungi al gruppo", con i tuoi gruppi in cui lui non c'è ancora e che non
-  sono pieni. Se sei nella chiamata di un gruppo, quel gruppo compare per primo
-  con la scritta "Nella chiamata" e l'amico aggiunto riceve la chiamata.
-- **Ruoli con icona**: nel menu dei ruoli di un membro compaiono le immagini e
-  le emoji dei ruoli, nei server potenziati che possono usarle.
-- **Sottomenu lunghi**: un sottomenu più alto della finestra ora scorre.
+- **Inviti in chat**: un link d'invito mostra sotto il messaggio la scheda del
+  server (icona, nome, persone online e membri) con il bottone "Entra", o
+  "Entrato" se ci sei già. Un invito scaduto lo dice.
+- **Anteprime dei link a messaggi**: un link a un messaggio di Discord mostra
+  autore, canale, testo e immagine del messaggio; un clic ci porta.
+- **Avviso amicizie**: notifica e registro nella Posta in arrivo quando
+  qualcuno ti toglie dagli amici, rifiuta una tua richiesta, ti toglie da un
+  gruppo o da un server, anche mentre eri offline.
+- **Permessi**: tasto destro su un membro → "Permessi", o "I miei permessi"
+  su server e canali: ogni permesso con chi lo concede o lo nega.
+- **Esporta chat**: tasto destro su un canale, una DM o un gruppo → "Esporta
+  chat…", in TXT, HTML o JSON.
+- **Nitro finto** e **Badge spoofer**: nuove funzioni aggiuntive, spente di
+  default.
 
 ## Cosa fa
 
-- Server, canali, messaggi diretti, thread, forum, sondaggi, reazioni, emoji e GIF
+- Server, canali, messaggi diretti, thread, forum, sondaggi, reazioni, emoji e GIF,
+  con la scheda degli inviti sotto i messaggi (Entra in un clic) e l'anteprima
+  dei messaggi linkati
 - Chiamate vocali e video, condivisione schermo e visione delle dirette altrui
 - Stati dei canali vocali, profili, ruoli, decorazioni e targhette
+- **Esporta chat**: tasto destro su un canale, una DM o un gruppo → **Esporta chat…**,
+  in testo (TXT), pagina web (HTML) o JSON; tutta la chat, gli ultimi N messaggi o da
+  una data, con gli allegati come link o senza. Mostra quanti messaggi ha scaricato,
+  si può fermare e salva il file in Download (o dove scegli)
 - Temi **BACKDOOR** (nero e rosso), **Discord**, **Vencord** e **Testcord**, con editor per creare i tuoi temi
 
 ### Funzioni aggiuntive
@@ -59,6 +72,7 @@ e le opzioni avanzate dall'ingranaggio:
 | Funzione | Cosa fa |
 | --- | --- |
 | Ruoli cliccabili | Clic su un ruolo nel profilo per vederne i dettagli |
+| Visualizzatore permessi | Tasto destro su un membro → **Permessi**: i suoi permessi effettivi nel server o nel canale aperto (con le eccezioni del canale), ognuno con spunta verde o croce rossa e il ruolo o l'eccezione che lo concede o lo toglie; proprietario e Amministratore hanno tutto, il timeout lascia solo vedere e leggere. **I miei permessi** nel menu di un server, canale o categoria; **Permessi** nella scheda di un ruolo per ciò che dà il ruolo |
 | No Push To Talk | Parla a rilevamento vocale anche dove il server impone il push-to-talk (spento di default) |
 | Message Logger | Tiene i messaggi eliminati (in rosso) e la cronologia delle modifiche, volendo anche i propri; tasto destro → rimuovi dalla chat (spento di default) |
 | Silent Typing | Nasconde "sta scrivendo…" |
@@ -67,7 +81,11 @@ e le opzioni avanzate dall'ingranaggio:
 | Emula piattaforme | Mostra accanto ai nomi da quali piattaforme le persone sono online (desktop, telefono, web, console, VR), nel colore del loro stato; sceglie la piattaforma su cui Discord ti vede, a tre livelli di emulazione |
 | Anti-disconnessione | Rientra subito nel canale vocale da cui ti hanno disconnesso, se esiste ancora e puoi entrarci (spento di default) |
 | Segui | Tasto destro su una persona → Segui: entri nei canali vocali in cui va, nei server in comune, finché non lo togli |
+| Anteprime dei link a messaggi | Sotto un messaggio con un link a un messaggio di Discord (anche DM, ptb e canary) mostra una scheda con autore, canale, testo e prima immagine; clic per andarci. Al massimo 2 per messaggio |
+| Avviso amicizie | Ti avvisa (notifica e scheda **Avvisi amicizie** nella posta in arrivo) quando un amico ti rimuove o ti blocca, una richiesta di amicizia viene rifiutata o ritirata, vieni rimosso da un gruppo o cacciato/bannato da un server (o il server viene eliminato); all'avvio segnala anche cosa è cambiato mentre BACKCORD era chiuso. Non segnala ciò che fai tu. Ogni tipo di avviso si attiva a parte |
 | Finto muto / finte cuffie mute | Dalla freccetta del microfono o delle cuffie: gli altri ti vedono mutato, ma parli e senti lo stesso |
+| Nitro finto | Senza Nitro puoi scegliere nel selettore le emoji di tutti i server (anche animate) e gli sticker degli altri server: quelli che non potresti usare partono come link alla loro immagine, mascherati come `[nome](https://…)` o nudi, con dimensione delle emoji a scelta. I link di emoji ricevuti si vedono come emoji nel testo. Nessun trucco sulla qualità dello streaming (spento di default) |
+| Badge spoofer | Mostra sul tuo profilo (scheda, profilo completo, scheda del tuo account) i badge che scegli come se li avessi: Staff, Partner, Alunni programmi moderatori, Eventi HypeSquad, casata HypeSquad (Bravery, Brilliance, Balance), Cacciatore di bug (normale e d'oro), Sviluppatore attivo, Sviluppatore di bot verificato della prima ora, Sostenitore della prima ora, Missione completata, Nitro con i livelli di anzianità (da Bronzo a Opale) e Booster del server (da 1 mese a 2 anni), nell'ordine di Discord e con le sue immagini ufficiali; volendo accanto ai tuoi badge reali. Solo estetico e locale: li vedi solo tu su questo PC, a Discord non viene inviato nulla (spento di default) |
 
 ## Avvertenze
 

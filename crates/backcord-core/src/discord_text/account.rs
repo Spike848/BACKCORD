@@ -1,6 +1,7 @@
 //! Commands about the account rather than a channel: finding people,
 //! profiles, role members, member search, friends, the status, calls
-//! ringing, message requests, a channel's pins and search, group DMs,
+//! ringing, message requests, a channel's pins and search, the messages
+//! links lead to, group DMs,
 //! notification settings and invites.
 
 use super::{
@@ -628,6 +629,62 @@ pub(super) fn command(
             (discord, _) => {
                 let _ = events.send(Event::Pins {
                     room,
+                    result: Err(discord.err().unwrap_or(NOT_DISCORD).into()),
+                });
+            }
+        }
+        return None;
+    }
+    if let Command::Discord(DiscordCommand::LinkedMessage { room, id }) = command {
+        let place = discord::parse_room(&room)
+            .map(|(guild, channel)| (guild.to_owned(), channel.to_owned()));
+        match (discord, place) {
+            (Ok(discord), Some((guild, channel))) => {
+                let (discord, events) = (discord.clone(), events.clone());
+                let previews = previews.clone();
+                tokio::spawn(async move {
+                    let linked = match discord.linked_message(&guild, &channel, &id).await {
+                        Ok(Some(linked)) => linked,
+                        Ok(None) => {
+                            let _ = events.send(Event::LinkedMessage {
+                                id,
+                                result: Ok(None),
+                            });
+                            return;
+                        }
+                        Err(error) => {
+                            tracing::debug!(
+                                error = format!("{error:#}"),
+                                "could not look up a linked message"
+                            );
+                            let result = Err(error.to_string());
+                            let _ = events.send(Event::LinkedMessage { id, result });
+                            return;
+                        }
+                    };
+                    // Its card shows at once, its pictures as they come.
+                    let linked = std::slice::from_ref(&linked);
+                    let mut found = found_in(&discord, &room, linked);
+                    let _ = events.send(Event::LinkedMessage {
+                        id: id.clone(),
+                        result: Ok(found.first().cloned()),
+                    });
+                    if found[0]
+                        .attachments
+                        .iter()
+                        .any(|file| file.image || file.video)
+                    {
+                        with_previews(&discord, &previews, linked, &mut found).await;
+                        let _ = events.send(Event::LinkedMessage {
+                            id,
+                            result: Ok(found.pop()),
+                        });
+                    }
+                });
+            }
+            (discord, _) => {
+                let _ = events.send(Event::LinkedMessage {
+                    id,
                     result: Err(discord.err().unwrap_or(NOT_DISCORD).into()),
                 });
             }

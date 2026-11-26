@@ -419,7 +419,7 @@ impl Application {
     /// Whether a member of the Discord server a place names is timed out
     /// now, as far as BACKCORD knows.
     #[cfg(feature = "discord")]
-    fn timed_out(&self, place: &str, user: &str) -> bool {
+    pub(super) fn timed_out(&self, place: &str, user: &str) -> bool {
         let Some((server, _, _)) = self.discord_place(place) else {
             return false;
         };

@@ -212,6 +212,235 @@ fn an_invite_link_opens_the_server_or_the_dialog() {
 
 #[test]
 #[cfg(feature = "discord")]
+fn the_invites_messages_on_screen_link_to_are_looked_up_once_for_their_cards() {
+    use crate::application::InviteCard;
+    let looked_up = |effects: &[Effect]| -> Vec<String> {
+        effects
+            .iter()
+            .filter_map(|effect| match effect {
+                Effect::Backend(Command::Discord(DiscordCommand::ResolveInvite {
+                    code,
+                    typed: None,
+                })) => Some(code.clone()),
+                _ => None,
+            })
+            .collect()
+    };
+    let visible = |items: &[&str]| Action::VisibleMessages {
+        room: "discord:10:11".into(),
+        items: items.iter().map(|item| (*item).to_owned()).collect(),
+        at_end: false,
+    };
+    let mut app = discord_server();
+    app.dispatch(Action::Open("discord:10:11".into()));
+    // Each invite once, three at most, and none in code.
+    let mut linking = message("a", false);
+    linking.body = "Come to https://discord.gg/abc, again https://discordapp.com/invite/abc \
+                    `https://discord.gg/code` https://discord.com/invite/new \
+                    https://discord.gg/gone https://discord.gg/fourth"
+        .into();
+    let mut again = message("b", false);
+    again.body = "<https://discord.gg/abc>".into();
+    let mut later = message("c", false);
+    later.body = "[the server](https://discord.gg/far)".into();
+    let effects = app.apply(Event::Timeline {
+        room: "discord:10:11".into(),
+        messages: timeline(vec![linking, again, later]),
+    });
+    assert!(looked_up(&effects).is_empty(), "nothing shows yet");
+    let effects = app.dispatch(visible(&["a", "b"]));
+    assert_eq!(looked_up(&effects), ["abc", "new", "gone"]);
+    assert_eq!(
+        app.state.invite_cards.get("abc"),
+        Some(&InviteCard::Loading)
+    );
+    assert!(!app.state.invite_cards.contains_key("fourth"));
+    // Events and redraws ask nothing again; a message scrolled to asks for
+    // its own.
+    assert!(
+        looked_up(&app.apply(Event::InviteSent {
+            user: "2".into(),
+            room: "discord:10:11".into(),
+            result: Ok(()),
+        }))
+        .is_empty()
+    );
+    assert_eq!(looked_up(&app.dispatch(visible(&["a", "c"]))), ["far"]);
+
+    // What Discord answers shows on the cards, and a server's icon is
+    // asked for.
+    let mut found = invite_to("abc", "10", "13");
+    found.icon = Some("https://cdn.discordapp.com/icons/10/abc.png".into());
+    let effects = app.apply(Event::InviteResolved {
+        code: "abc".into(),
+        result: Ok(found.clone()),
+    });
+    assert_eq!(
+        app.state.invite_cards.get("abc"),
+        Some(&InviteCard::Found(found))
+    );
+    assert!(effects.iter().any(|effect| matches!(
+        effect,
+        Effect::Backend(Command::Discord(DiscordCommand::Pictures(urls)))
+            if urls.iter().any(|url| url.ends_with("abc.png"))
+    )));
+    app.apply(Event::InviteResolved {
+        code: "gone".into(),
+        result: Err("Unknown Invite".into()),
+    });
+    assert_eq!(
+        app.state.invite_cards.get("gone"),
+        Some(&InviteCard::Invalid)
+    );
+    assert!(app.state.join.is_none(), "a card opens no dialog");
+    assert!(
+        app.dispatch(Action::JoinFromInviteCard("gone".into()))
+            .is_empty()
+    );
+
+    // The button opens a server she's in, at the invite's channel.
+    app.dispatch(Action::JoinFromInviteCard("abc".into()));
+    assert_eq!(app.state.selected.as_deref(), Some("discord:10:13"));
+    assert!(app.state.join.is_none());
+
+    // Another joins it, Join a Server showing how it goes.
+    app.apply(Event::InviteResolved {
+        code: "new".into(),
+        result: Ok(invite_to("new", "30", "31")),
+    });
+    let effects = app.dispatch(Action::JoinFromInviteCard("new".into()));
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::JoinServer {
+            from_link: true,
+            preview,
+        }))] if preview.code == "new"
+    ));
+    let join = app.state.join.clone().expect("the dialog");
+    assert!(join.joining && join.from_link);
+    assert_eq!(
+        join.preview.map(|preview| preview.server),
+        Some("discord:30".into())
+    );
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn the_messages_linked_to_on_screen_are_taken_or_looked_up_once_for_their_cards() {
+    use crate::application::MessageCard;
+    let looked_up = |effects: &[Effect]| -> Vec<(String, String)> {
+        effects
+            .iter()
+            .filter_map(|effect| match effect {
+                Effect::Backend(Command::Discord(DiscordCommand::LinkedMessage { room, id })) => {
+                    Some((room.clone(), id.clone()))
+                }
+                _ => None,
+            })
+            .collect()
+    };
+    let visible = |items: &[&str]| Action::VisibleMessages {
+        room: "discord:10:11".into(),
+        items: items.iter().map(|item| (*item).to_owned()).collect(),
+        at_end: false,
+    };
+    let mut app = discord_server();
+    app.dispatch(Action::Open("discord:10:11".into()));
+    // Two links at most for a message, each once, none in code; one to a
+    // message loaded already is taken from the timeline.
+    let loaded = Arc::new(message("d:500", false));
+    let mut linking = message("a", false);
+    linking.body = "See https://discord.com/channels/10/11/500 and \
+                    `https://discord.com/channels/10/12/700` \
+                    <https://ptb.discord.com/channels/10/12/600> \
+                    https://discordapp.com/channels/10/12/600 \
+                    https://discord.com/channels/10/12/900"
+        .into();
+    let mut dm = message("b", false);
+    dm.body = "[this](https://canary.discord.com/channels/@me/20/800)".into();
+    let mut later = message("c", false);
+    later.body = "https://discord.com/channels/10/13/950".into();
+    app.apply(Event::Timeline {
+        room: "discord:10:11".into(),
+        messages: vec![
+            loaded.clone(),
+            Arc::new(linking),
+            Arc::new(dm),
+            Arc::new(later),
+        ],
+    });
+    let effects = app.dispatch(visible(&["a", "b"]));
+    assert_eq!(
+        looked_up(&effects),
+        [
+            ("discord:10:12".to_owned(), "600".to_owned()),
+            ("discord:@me:20".to_owned(), "800".to_owned()),
+        ]
+    );
+    assert!(matches!(
+        app.state.message_cards.get("500"),
+        Some(MessageCard::Found(found)) if Arc::ptr_eq(found, &loaded)
+    ));
+    assert_eq!(
+        app.state.message_cards.get("600"),
+        Some(&MessageCard::Loading)
+    );
+    assert!(!app.state.message_cards.contains_key("700"), "in code");
+    assert!(!app.state.message_cards.contains_key("900"), "a third");
+    // Redraws ask nothing again; a message scrolled to asks for its own.
+    assert!(looked_up(&app.dispatch(visible(&["a", "b"]))).is_empty());
+    assert_eq!(
+        looked_up(&app.dispatch(visible(&["a", "c"]))),
+        [("discord:10:13".to_owned(), "950".to_owned())]
+    );
+
+    // What Discord answers shows on the cards.
+    let mut found = message("d:600", false);
+    found.body = "The news".into();
+    app.apply(Event::LinkedMessage {
+        id: "600".into(),
+        result: Ok(Some(found.clone())),
+    });
+    assert!(matches!(
+        app.state.message_cards.get("600"),
+        Some(MessageCard::Found(shown)) if **shown == found
+    ));
+    app.apply(Event::LinkedMessage {
+        id: "800".into(),
+        result: Err("Missing Access".into()),
+    });
+    app.apply(Event::LinkedMessage {
+        id: "950".into(),
+        result: Ok(None),
+    });
+    for gone in ["800", "950"] {
+        assert_eq!(
+            app.state.message_cards.get(gone),
+            Some(&MessageCard::Unavailable),
+            "{gone}"
+        );
+    }
+
+    // Turned off, links aren't looked up; turned on again, those on screen
+    // are.
+    app.dispatch(Action::HideMessageLinks(true));
+    let mut newer = message("e", false);
+    newer.body = "https://discord.com/channels/10/12/990".into();
+    let mut messages = (*app.state.messages).clone();
+    messages.push(Arc::new(newer));
+    app.apply(Event::Timeline {
+        room: "discord:10:11".into(),
+        messages,
+    });
+    assert!(looked_up(&app.dispatch(visible(&["e"]))).is_empty());
+    assert_eq!(
+        looked_up(&app.dispatch(Action::HideMessageLinks(false))),
+        [("discord:10:12".to_owned(), "990".to_owned())]
+    );
+}
+
+#[test]
+#[cfg(feature = "discord")]
 fn a_servers_rules_then_questions() {
     use chat::{MemberAnswer, MemberField, MemberFieldKind, MemberOption, MemberQuestion};
     let mut app = discord_server();

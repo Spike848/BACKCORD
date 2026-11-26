@@ -4,7 +4,8 @@
 //!
 //! Every server's stickers show, as the emoji picker shows every server's
 //! emoji: the open server's list first, since they're usable there without
-//! Nitro, and the rest greyed with a lock until Nitro. Discord's default packs
+//! Nitro, and the rest greyed with a lock until Nitro, or Fake Nitro, which
+//! sends them as links to their pictures. Discord's default packs
 //! are anyone's to send, as its client has them. A server's stickers come with
 //! the snapshot, as READY and GUILD_STICKERS_UPDATE give them, and one its
 //! boosts no longer cover isn't listed. The default packs are kept on disk for
@@ -110,7 +111,8 @@ impl StickerPicker {
     /// every server's own stickers — the open server's first — and Discord's
     /// default packs. A search keeps the stickers whose names hold it. A
     /// sticker this account may not use where it is looking is `usable`
-    /// false, which the picker shows greyed with a lock.
+    /// false, which the picker shows greyed with a lock. With Fake Nitro on,
+    /// any server's sticker with a picture is usable.
     pub fn collections(&self, nitro: bool) -> Vec<StickerCollection> {
         self.listed(nitro)
             .into_iter()
@@ -133,6 +135,12 @@ impl StickerPicker {
     /// lays out from, so a scroll or a refresh that brings nothing new copies
     /// no sticker.
     pub fn listed(&self, nitro: bool) -> Vec<ListedCollection<'_>> {
+        self.listed_as(nitro, crate::extras::fake_nitro().on)
+    }
+
+    /// [`Self::listed`], with `fake` (Fake Nitro) making usable any server's
+    /// sticker that has a picture to link, a Lottie one having none.
+    pub(super) fn listed_as(&self, nitro: bool, fake: bool) -> Vec<ListedCollection<'_>> {
         let search = self.query.trim().to_lowercase();
         let here = self.server_for.as_deref();
         // Where each sticker is from, by id: Discord's packs are anyone's, the
@@ -152,7 +160,11 @@ impl StickerPicker {
         }
         let usable = |sticker: &Sticker| match from.get(sticker.id.as_str()) {
             Some(None) => true,
-            Some(Some(server)) => here == Some(*server) || (nitro && self.external),
+            Some(Some(server)) => {
+                here == Some(*server)
+                    || (nitro && self.external)
+                    || (fake && crate::fake_nitro::sticker_link(sticker).is_some())
+            }
             None => false,
         };
         let mut listed = vec![];
@@ -178,8 +190,11 @@ impl StickerPicker {
         servers
             .sort_by_key(|server| (here != Some(server.id.as_str()), server.name.to_lowercase()));
         for server in servers {
-            let where_it_is =
-                |_sticker: &Sticker| here == Some(server.id.as_str()) || (nitro && self.external);
+            let where_it_is = |sticker: &Sticker| {
+                here == Some(server.id.as_str())
+                    || (nitro && self.external)
+                    || (fake && crate::fake_nitro::sticker_link(sticker).is_some())
+            };
             if let Some(collection) = ListedCollection::of(
                 &server.id,
                 &server.name,
@@ -525,7 +540,8 @@ impl Application {
 
     /// A sticker clicked: sends it as a message of its own in the open room,
     /// and the picker closes. One this account may not use goes nothing, as
-    /// the picker shows it locked.
+    /// the picker shows it locked, unless Fake Nitro sends a link to its
+    /// picture in its place.
     pub(super) fn pick_sticker(&mut self, id: String) -> Vec<Effect> {
         let Some(room) = self.state.selected.clone() else {
             return vec![];
@@ -535,10 +551,12 @@ impl Application {
         }
         // Frequently Used counts it, by id; the server's list or a pack names
         // the one picked.
+        let nitro = self.discord_nitro();
+        let fake = crate::extras::fake_nitro();
         let picked = self
             .state
             .stickers
-            .listed(self.discord_nitro())
+            .listed_as(nitro, fake.on)
             .into_iter()
             .flat_map(|collection| collection.stickers)
             .find(|(sticker, _)| sticker.id == id)
@@ -547,6 +565,20 @@ impl Application {
         let Some(sticker) = picked else {
             return vec![];
         };
+        // One only Fake Nitro lets this account pick goes as its picture.
+        let really = self
+            .state
+            .stickers
+            .listed_as(nitro, false)
+            .into_iter()
+            .flat_map(|collection| collection.stickers)
+            .any(|(listed, usable)| listed.id == id && usable);
+        let link = (!really)
+            .then(|| crate::fake_nitro::sticker_message(&sticker, fake))
+            .flatten();
+        if !really && link.is_none() {
+            return vec![];
+        }
         let uses = &mut self.state.stickers.uses;
         match uses.iter_mut().find(|used| used.sticker.id == sticker.id) {
             Some(used) => used.uses = used.uses.saturating_add(1),
@@ -556,9 +588,12 @@ impl Application {
             }),
         }
         let mut effects = self.close_stickers();
-        effects.push(Effect::Backend(Command::Discord(
-            DiscordCommand::SendSticker { room, id },
-        )));
+        match link {
+            Some(link) => effects.extend(self.send_text_in(room, link)),
+            None => effects.push(Effect::Backend(Command::Discord(
+                DiscordCommand::SendSticker { room, id },
+            ))),
+        }
         effects
     }
 

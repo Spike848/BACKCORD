@@ -1732,6 +1732,9 @@ impl OpenChannel {
         id: String,
         wanted: &mut Vec<String>,
     ) -> ChatMessage {
+        // Fake Nitro shows links to emoji as emoji.
+        let shown = crate::fake_nitro::shown_message(message);
+        let message = shown.as_ref().unwrap_or(message);
         let me = snapshot.user_id.as_deref().unwrap_or_default();
         crate::extras::note_me(me);
         let name = |user: &str, fallback: &str| {

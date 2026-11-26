@@ -123,6 +123,11 @@ pub struct Look {
     pub note: String,
     /// The mutual friends' presences, in their order.
     pub presences: Vec<Presence>,
+    /// The badges it shows: the profile's, or on one's own those Badge
+    /// Spoofer chose, with the settings they were chosen with, which a new
+    /// look is made for when they change.
+    pub badges: Vec<chat::ProfileBadge>,
+    pub spoofer: backcord_core::badge_spoofer::BadgeSpoofer,
 }
 
 /// One of someone's activities, written out for its card.
@@ -262,6 +267,18 @@ impl Look {
                         .unwrap_or(Presence::Offline)
                 })
                 .collect(),
+            badges: match state.shown_badges(profile) {
+                std::borrow::Cow::Borrowed(badges) => badges.to_vec(),
+                // Badge Spoofer's are worded in English: the client's own.
+                std::borrow::Cow::Owned(badges) => badges
+                    .into_iter()
+                    .map(|mut badge| {
+                        badge.description = backcord_iced_kit::i18n::t(&badge.description);
+                        badge
+                    })
+                    .collect(),
+            },
+            spoofer: state.badge_spoofer,
             view: view.clone(),
             relation,
             live,

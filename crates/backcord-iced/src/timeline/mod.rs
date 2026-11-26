@@ -174,6 +174,8 @@ pub struct Timeline {
     pub selecting: bool,
     /// The times the rows show, and their timers.
     pub clocks: Clocks,
+    /// The Discord messages the rows link to, laid out for their cards.
+    pub linked: crate::message::linked::Linked,
 }
 
 impl Timeline {
@@ -233,6 +235,7 @@ impl Timeline {
             selection: None,
             selecting: false,
             clocks: Clocks::default(),
+            linked: Default::default(),
         }
     }
 }
@@ -360,6 +363,8 @@ pub enum Event {
     /// An app's slash command a row names, by its name: written in the
     /// composer for its list to find.
     UseCommand(String),
+    /// The button on a message's card for the invite with this code.
+    JoinInvite(String),
 }
 
 /// What each of the timeline's events does.
@@ -460,6 +465,10 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             app.client.dispatch(Action::UseButton { item, custom_id });
             app.sync()
         }
+        Event::JoinInvite(code) => {
+            app.client.dispatch(Action::JoinFromInviteCard(code));
+            app.sync()
+        }
         Event::OpenPerson(user) => {
             let at = app.pressed.get();
             app.open_card(user, Point::new(at.x + 8.0, at.y))
@@ -506,6 +515,9 @@ pub fn recolour(app: &mut App, old: &crate::theme::Theme) {
             look.body = lay(message);
         }
     }
+    // The linked messages' cards' text too.
+    app.timeline.linked.clear();
+    crate::message::linked::linked_sync(app);
 }
 
 /// A spoiler over a message's attachment was clicked: it shows.

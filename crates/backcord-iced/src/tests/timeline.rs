@@ -255,6 +255,197 @@ fn a_link_preview_and_a_file_show_in_their_cards() {
 }
 
 #[test]
+fn an_invite_link_shows_its_servers_card_under_the_message() {
+    use backcord_core::{application::InviteCard, chat::InvitePreview};
+    let (mut app, _folder) = preview();
+    let home = app.client.state().servers[0].clone();
+    let invite = |code: &str, server: &str, name: &str| InvitePreview {
+        code: code.into(),
+        server: server.into(),
+        name: name.into(),
+        icon: None,
+        room: format!("{server}:21"),
+        channel: "general".into(),
+        channel_type: 0,
+        voice: false,
+        members: Some(42),
+        online: Some(7),
+    };
+    change(&mut app, |state| {
+        let mut message = (**state.messages.last().expect("a message")).clone();
+        message.id = "invites".into();
+        message.item = "invites".into();
+        message.own = false;
+        message.body = "Come https://discord.gg/builders https://discord.gg/home \
+                        https://discord.gg/gone https://discord.gg/fourth"
+            .into();
+        message.reply = None;
+        message.reactions = Vec::new();
+        message.embeds = Vec::new();
+        message.attachments = Vec::new();
+        let mut later = message.clone();
+        later.id = "later".into();
+        later.item = "later".into();
+        later.body = "And https://discord.gg/later".into();
+        let mut messages = (*state.messages).clone();
+        messages.extend([Arc::new(message), Arc::new(later)]);
+        state.messages = Arc::new(messages);
+        state.invite_cards.insert(
+            "builders".into(),
+            InviteCard::Found(invite("builders", "discord:20", "Builders")),
+        );
+        state.invite_cards.insert(
+            "home".into(),
+            InviteCard::Found(invite("home", &home.id, "Home server")),
+        );
+        state
+            .invite_cards
+            .insert("gone".into(), InviteCard::Invalid);
+        state
+            .invite_cards
+            .insert("later".into(), InviteCard::Loading);
+    });
+    for words in [
+        "YOU'VE BEEN INVITED TO JOIN A SERVER",
+        "Builders",
+        "7 Online",
+        "42 Members",
+        "Join",
+        "Home server",
+        "Joined",
+        "YOU RECEIVED AN INVITE, BUT...",
+        "Invalid Invite",
+        "Ask for a new invite!",
+        "RESOLVING INVITE",
+    ] {
+        assert!(shows(&app, words), "{words:?} shows");
+    }
+    // Three cards at most for a message, one for each invite.
+    let row = app
+        .timeline
+        .looks
+        .iter()
+        .find(|look| &*look.item == "invites")
+        .expect("the row");
+    assert_eq!(row.body.invites, ["builders", "home", "gone"]);
+    // A server she's in opens; another is joined, as Join a Server shows.
+    interact(&mut app, |ui| {
+        ui.click("Joined").expect("Joined");
+    });
+    assert_eq!(
+        app.client.state().navigation,
+        backcord_core::application::Navigation::Server(home.id.clone())
+    );
+    interact(&mut app, |ui| {
+        ui.click("Join").expect("Join");
+    });
+    let join = app.client.state().join.clone().expect("Join a Server");
+    assert!(join.from_link);
+    assert_eq!(join.code.as_deref(), Some("builders"));
+    assert_eq!(
+        join.preview.map(|preview| preview.name),
+        Some("Builders".into())
+    );
+}
+
+#[test]
+fn a_message_link_shows_the_linked_messages_card_under_the_message() {
+    use backcord_core::application::{Action, MessageCard};
+    let (mut app, _folder) = preview();
+    change(&mut app, |state| {
+        let mut message = (**state.messages.last().expect("a message")).clone();
+        message.id = "links".into();
+        message.item = "links".into();
+        message.body = "See https://discord.com/channels/10/12/600 and \
+                        https://discord.com/channels/@me/20/800 and \
+                        https://discord.com/channels/10/12/900"
+            .into();
+        message.reply = None;
+        message.reactions = Vec::new();
+        message.embeds = Vec::new();
+        message.attachments = Vec::new();
+        let mut later = message.clone();
+        later.id = "later".into();
+        later.item = "later".into();
+        later.body = "And https://discord.com/channels/10/12/700".into();
+        let mut messages = (*state.messages).clone();
+        messages.extend([Arc::new(message), Arc::new(later)]);
+        state.messages = Arc::new(messages);
+        // The channel and the DM they're in.
+        let mut news = (*state.rooms[0]).clone();
+        news.id = "discord:10:12".into();
+        news.name = "news".into();
+        news.direct = false;
+        let mut dm = news.clone();
+        dm.id = "discord:@me:20".into();
+        dm.name = "Ann".into();
+        dm.direct = true;
+        state.rooms.extend([Arc::new(news), Arc::new(dm)]);
+        let linked = backcord_core::chat::ChatMessage {
+            id: "d:600".into(),
+            item: "d:600".into(),
+            author: "Linda".into(),
+            body: "The news of the day".into(),
+            formatted: true,
+            ..Default::default()
+        };
+        state
+            .message_cards
+            .insert("600".into(), MessageCard::Found(Arc::new(linked)));
+        state
+            .message_cards
+            .insert("800".into(), MessageCard::Unavailable);
+        state
+            .message_cards
+            .insert("700".into(), MessageCard::Loading);
+    });
+    for words in ["Linda", "#news", "Message not available", "Ann"] {
+        assert!(shows(&app, words), "{words:?} shows");
+    }
+    // Two cards at most for a message.
+    let row = app
+        .timeline
+        .looks
+        .iter()
+        .find(|look| &*look.item == "links")
+        .expect("the row");
+    let linked: Vec<&str> = row
+        .body
+        .linked
+        .iter()
+        .map(|link| link.message.as_str())
+        .collect();
+    assert_eq!(linked, ["600", "800"]);
+    assert!(app.timeline.linked.contains_key("600"), "laid out");
+    // A click on a card goes to its message, as its link does.
+    let pressed: Vec<Message> = {
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
+        ui.click("Linda").expect("the card");
+        ui.into_messages().collect()
+    };
+    assert!(
+        pressed.iter().any(|message| matches!(
+            message,
+            Message::Link(link, _) if link == "https://discord.com/channels/10/12/600"
+        )),
+        "the card's link"
+    );
+    // Off in Extra Features, no card shows.
+    app.layout.prefs.message_link_previews = Some(false);
+    assert!(
+        app.layout
+            .actions()
+            .iter()
+            .any(|action| matches!(action, Action::HideMessageLinks(true)))
+    );
+    app.client.dispatch(Action::HideMessageLinks(true));
+    let _ = app.sync();
+    assert!(!shows(&app, "Linda"));
+    assert!(!shows(&app, "Message not available"));
+}
+
+#[test]
 fn new_messages_leave_the_earlier_ones_being_read_where_they_are() {
     let (mut app, _folder) = preview();
     long_history(&mut app, 80);

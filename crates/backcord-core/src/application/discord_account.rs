@@ -191,6 +191,7 @@ impl Application {
                             .and_then(|avatar| self.state.pictures.get(avatar).cloned()),
                         call: true,
                         mention: false,
+                        relationship: false,
                     }));
                 }
             }
@@ -636,8 +637,10 @@ impl Application {
                         now.id != then.id || !Arc::ptr_eq(&now.stickers, &then.stickers)
                     })
         });
+        let watched = self.watch_relationships(&snapshot);
         self.discord = Some(snapshot);
         let mut effects = self.list_discord();
+        effects.extend(watched);
         self.refresh_browse();
         effects.extend(self.follow_server_settings());
         effects.extend(self.follow_channel_settings());

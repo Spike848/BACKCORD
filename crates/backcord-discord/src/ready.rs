@@ -708,6 +708,33 @@ pub struct Overwrite {
     pub deny: u64,
 }
 
+/// What decides whether a member holds a permission, as
+/// [`Server::explain`] finds it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Grant {
+    /// They own the server, which gives every permission.
+    Owner,
+    /// Administrator, which gives every permission, from the role it names
+    /// by id: the server's id for @everyone.
+    Administrator(String),
+    /// A role that gives it, by id: the server's id for @everyone.
+    Role(String),
+    /// A channel's or category's overwrite that allows or denies it last:
+    /// a role's by its id (the server's id for @everyone), or the member's.
+    Overwrite { id: String, member: bool },
+    /// Their timeout takes it away.
+    Timeout,
+    /// Nothing gives it.
+    Nothing,
+}
+
+/// Whether a member holds one permission, and what decides it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Verdict {
+    pub held: bool,
+    pub grant: Grant,
+}
+
 impl Server {
     /// Keeps `event` as a GUILD_SCHEDULED_EVENT_CREATE or _UPDATE gives it, or
     /// forgets it for a delete or one that no longer counts.
@@ -1179,13 +1206,18 @@ impl Server {
     /// @everyone, for the roles, and for the member.
     /// A thread takes its channel's overwrites.
     pub fn channel_permissions(&self, channel: &Channel, user: &str, roles: &[String]) -> u64 {
-        let overwrites = match &channel.thread {
+        self.overwritten(self.channel_overwrites(channel), user, roles)
+    }
+
+    /// The overwrites that apply in `channel`: its own, or a thread's
+    /// channel's.
+    pub fn channel_overwrites<'a>(&'a self, channel: &'a Channel) -> &'a [Overwrite] {
+        match &channel.thread {
             Some(_) => self
                 .parent(channel)
                 .map_or(&channel.overwrites, |parent| &parent.overwrites),
             None => &channel.overwrites,
-        };
-        self.overwritten(overwrites, user, roles)
+        }
     }
 
     /// What `user`, holding `roles`, may do in a category, as
@@ -1245,6 +1277,88 @@ impl Server {
             }
             _ => permissions,
         }
+    }
+
+    /// Whether `user`, holding `roles`, holds the permission `bit`, and
+    /// what decides it: in the server as a whole, or with a channel's or
+    /// category's `overwrites` applied, in the order
+    /// [`Self::overwritten`] applies them, whose bits it agrees with. A
+    /// role that gives it is their highest that does, @everyone last.
+    /// `timed_out` takes away what a timeout does, as [`Self::timed_out`]
+    /// does for this account's own; Permissions Viewer asks it of anyone.
+    pub fn explain(
+        &self,
+        bit: u64,
+        overwrites: Option<&[Overwrite]>,
+        user: &str,
+        roles: &[String],
+        timed_out: bool,
+    ) -> Verdict {
+        let verdict = |held, grant| Verdict { held, grant };
+        if self.owner_id.as_deref() == Some(user) {
+            return verdict(true, Grant::Owner);
+        }
+        let bits = |role: &str| self.roles.get(role).copied().unwrap_or_default();
+        // Their roles, highest first.
+        let mut held: Vec<&String> = roles.iter().collect();
+        held.sort_by_key(|role| {
+            std::cmp::Reverse(self.role_positions.get(*role).copied().unwrap_or_default())
+        });
+        let with_everyone = || held.iter().copied().chain(std::iter::once(&self.id));
+        if let Some(admin) = with_everyone().find(|role| bits(role) & ADMINISTRATOR != 0) {
+            return verdict(true, Grant::Administrator(admin.clone()));
+        }
+        let mut found = match with_everyone().find(|role| bits(role) & bit != 0) {
+            Some(role) => verdict(true, Grant::Role(role.clone())),
+            None => verdict(false, Grant::Nothing),
+        };
+        if let Some(overwrites) = overwrites {
+            let decided = |overwrite: &Overwrite, held| Verdict {
+                held,
+                grant: Grant::Overwrite {
+                    id: overwrite.id.clone(),
+                    member: overwrite.member,
+                },
+            };
+            // One overwrite's own: its deny, then its allow over it.
+            let apply = |found: &mut Verdict, overwrite: Option<&Overwrite>| {
+                let Some(overwrite) = overwrite else {
+                    return;
+                };
+                if overwrite.deny & bit != 0 {
+                    *found = decided(overwrite, false);
+                }
+                if overwrite.allow & bit != 0 {
+                    *found = decided(overwrite, true);
+                }
+            };
+            let everyone = overwrites
+                .iter()
+                .find(|overwrite| !overwrite.member && overwrite.id == self.id);
+            apply(&mut found, everyone);
+            // The roles' together: any that allows it beats any that denies.
+            let of_roles: Vec<&Overwrite> = held
+                .iter()
+                .filter_map(|role| {
+                    overwrites
+                        .iter()
+                        .find(|overwrite| !overwrite.member && overwrite.id == **role)
+                })
+                .collect();
+            if let Some(allow) = of_roles.iter().find(|overwrite| overwrite.allow & bit != 0) {
+                found = decided(allow, true);
+            } else if let Some(deny) = of_roles.iter().find(|overwrite| overwrite.deny & bit != 0) {
+                found = decided(deny, false);
+            }
+            let member = overwrites
+                .iter()
+                .find(|overwrite| overwrite.member && overwrite.id == user);
+            apply(&mut found, member);
+        }
+        if timed_out && found.held && bit & (VIEW_CHANNEL | permission::READ_MESSAGE_HISTORY) == 0 {
+            found = verdict(false, Grant::Timeout);
+        }
+        found
     }
 
     /// The position of the highest of `roles`, which decides whom a member
@@ -2231,6 +2345,120 @@ mod tests {
             server.access(&staff, "1", &["30".into()]),
             Access::Join,
             "administrators too"
+        );
+    }
+
+    #[test]
+    fn explain_agrees_with_the_permissions_and_says_what_decides_each() {
+        use permission::{KICK_MEMBERS, MANAGE_MESSAGES, READ_MESSAGE_HISTORY, SEND_MESSAGES};
+        let mut server = Server {
+            id: "10".into(),
+            owner_id: Some("99".into()),
+            roles: HashMap::from([
+                (
+                    "10".into(),
+                    VIEW_CHANNEL | SEND_MESSAGES | READ_MESSAGE_HISTORY,
+                ),
+                ("20".into(), KICK_MEMBERS | MANAGE_MESSAGES),
+                ("30".into(), KICK_MEMBERS),
+                ("40".into(), ADMINISTRATOR),
+            ])
+            .into(),
+            role_positions: HashMap::from([("20".into(), 2), ("30".into(), 1), ("40".into(), 3)])
+                .into(),
+            my_timeout: Some(Timeout {
+                user: "3".into(),
+                until: u64::MAX,
+            }),
+            ..Default::default()
+        };
+        let overwrite = |id: &str, member, allow, deny| Overwrite {
+            id: id.into(),
+            member,
+            allow,
+            deny,
+        };
+        let channels: [Vec<Overwrite>; 3] = [
+            vec![],
+            // @everyone may not send, role 30 may, and member 2 may not
+            // after all; role 20 may not manage messages, role 30 may.
+            vec![
+                overwrite("10", false, 0, SEND_MESSAGES),
+                overwrite("30", false, SEND_MESSAGES | MANAGE_MESSAGES, 0),
+                overwrite("20", false, 0, MANAGE_MESSAGES | VIEW_CHANNEL),
+                overwrite("2", true, 0, SEND_MESSAGES),
+            ],
+            vec![overwrite("20", false, 0, VIEW_CHANNEL)],
+        ];
+        let people: [(&str, Vec<String>); 6] = [
+            ("1", vec![]),
+            ("2", vec!["20".into(), "30".into()]),
+            ("3", vec!["20".into()]),
+            ("4", vec!["40".into()]),
+            ("5", vec!["20".into()]),
+            ("99", vec![]),
+        ];
+        for (user, roles) in &people {
+            let timed_out = *user == "3";
+            for bit in (0..u64::BITS).map(|at| 1u64 << at) {
+                let held = server.server_permissions(user, roles) & bit != 0;
+                let verdict = server.explain(bit, None, user, roles, timed_out);
+                assert_eq!(verdict.held, held, "{user} in the server, bit {bit:#x}");
+                for overwrites in &channels {
+                    let held = server.overwritten(overwrites, user, roles) & bit != 0;
+                    let verdict = server.explain(bit, Some(overwrites), user, roles, timed_out);
+                    assert_eq!(verdict.held, held, "{user} in a channel, bit {bit:#x}");
+                }
+            }
+        }
+        let why = |bit, overwrites: Option<&[Overwrite]>, user: &str, roles: &[String]| {
+            server.explain(bit, overwrites, user, roles, false).grant
+        };
+        let mods = ["20".to_owned(), "30".to_owned()];
+        assert_eq!(
+            why(KICK_MEMBERS, None, "2", &mods),
+            Grant::Role("20".into()),
+            "the highest"
+        );
+        assert_eq!(why(SEND_MESSAGES, None, "1", &[]), Grant::Role("10".into()));
+        assert_eq!(why(permission::BAN_MEMBERS, None, "1", &[]), Grant::Nothing);
+        assert_eq!(why(KICK_MEMBERS, None, "99", &[]), Grant::Owner);
+        assert_eq!(
+            why(KICK_MEMBERS, None, "4", &["40".into()]),
+            Grant::Administrator("40".into())
+        );
+        let busy = &channels[1][..];
+        let decided = |id: &str, member| Grant::Overwrite {
+            id: id.into(),
+            member,
+        };
+        assert_eq!(
+            why(SEND_MESSAGES, Some(busy), "1", &[]),
+            decided("10", false)
+        );
+        assert_eq!(
+            why(SEND_MESSAGES, Some(busy), "5", &["30".into()]),
+            decided("30", false)
+        );
+        assert_eq!(
+            why(SEND_MESSAGES, Some(busy), "2", &mods),
+            decided("2", true)
+        );
+        assert_eq!(
+            why(MANAGE_MESSAGES, Some(busy), "2", &mods),
+            decided("30", false),
+            "allow wins"
+        );
+        assert_eq!(
+            why(MANAGE_MESSAGES, Some(busy), "5", &["20".into()]),
+            decided("20", false)
+        );
+        server.my_timeout = None;
+        assert_eq!(
+            server
+                .explain(KICK_MEMBERS, None, "3", &["20".into()], true)
+                .grant,
+            Grant::Timeout
         );
     }
 

@@ -146,12 +146,12 @@ pub(super) fn profile_body<'a>(
     // below it, and the panel's own keep to their row below.
     let beside = !mode.large()
         && !profile.handle.is_empty()
-        && !profile.badges.is_empty()
-        && profile.badges.len() <= 6
+        && !look.badges.is_empty()
+        && look.badges.len() <= 6
         // A longer line (pronouns, a tag) leaves the badges a row of their own.
         && profile.pronouns.is_empty()
         && profile.tag.is_none();
-    let under = mode == Mode::Card && !ctx.state.preview && !beside && !profile.badges.is_empty();
+    let under = mode == Mode::Card && !ctx.state.preview && !beside && !look.badges.is_empty();
     let mut names = column![name].spacing(2);
     if let Some(line) = handle_line(ctx, shown, &inks, mode, beside) {
         names = names.push(line);
@@ -162,7 +162,7 @@ pub(super) fn profile_body<'a>(
     body = body.push(names);
     // The badges, then what to do: the friend button, Message and More, or
     // one's own Edit Profile.
-    if !profile.badges.is_empty() && !beside && !under {
+    if !look.badges.is_empty() && !beside && !under {
         body = body.push(badge_rows(ctx, shown));
     }
     if mode.large()
@@ -1041,11 +1041,10 @@ fn profile_actions<'a>(
 /// 20 px icons 2 px apart, each row a pill of its own; a badge's name
 /// shows over it, and a click opens its page when it has one.
 pub(crate) fn badge_rows<'a>(ctx: crate::ctx::Ctx<'a>, shown: &'a Shown) -> Element<'a, Message> {
-    let profile = shown.look.profile();
     let mut rows = column![].spacing(4);
     // Ten fit the side panel's width; the full profile has room for twelve.
     let per_row = if shown.look.view.large { 12 } else { 10 };
-    for chunk in profile.badges.chunks(per_row) {
+    for chunk in shown.look.badges.chunks(per_row) {
         let mut pill = row![].spacing(2);
         for badge in chunk {
             let picture: Element<'a, Message> =

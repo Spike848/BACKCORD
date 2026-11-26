@@ -3,7 +3,8 @@
 //! then minimize, maximize and close. Pressing and moving it moves the
 //! window, a double click maximizes it, and its edges resize it. The Inbox
 //! opens its popout under it: the channels and conversations with unread
-//! messages, or those that mention this account.
+//! messages, those that mention this account, or Relationship Notifier's
+//! Friend Alerts.
 //!
 //! Whether BACKCORD draws it is the desktop's way (`frame.rs`) until
 //! Appearance's "Use the system title bar" chooses. A window is made with
@@ -89,6 +90,8 @@ pub enum Event {
     InboxRead(String),
     /// Ask Discord for the tab's messages again.
     InboxReload,
+    /// Empty Friend Alerts.
+    InboxClearAlerts,
     CloseInbox,
     Help,
     /// The bar pressed, the pointer moved on it, the button let go.
@@ -105,12 +108,14 @@ pub enum Event {
     State(bool, bool, u32),
 }
 
-/// The inbox's tabs, as Discord's first two.
+/// The inbox's tabs, as Discord's first two, then Relationship Notifier's
+/// Friend Alerts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Tab {
     #[default]
     Unreads,
     Mentions,
+    FriendAlerts,
 }
 
 /// The inbox popout while it's open: its tab, its channels, and their
@@ -284,6 +289,11 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             load_inbox(app);
             app.sync()
         }
+        Event::InboxClearAlerts => {
+            app.client
+                .dispatch(backcord_core::application::Action::ClearRelationshipAlerts);
+            app.sync()
+        }
         Event::InboxRead(room) => {
             app.client
                 .dispatch(backcord_core::application::Action::MarkRead(room));
@@ -382,7 +392,11 @@ pub fn choose_title_bar(app: &mut App, system: bool) -> Task<Message> {
 
 /// Asks the core for the open inbox's messages, for its tab.
 fn load_inbox(app: &mut App) {
-    let Some(inbox) = &app.inbox else {
+    let Some(inbox) = app
+        .inbox
+        .as_ref()
+        .filter(|inbox| inbox.tab != Tab::FriendAlerts)
+    else {
         return;
     };
     let mentions = inbox.tab == Tab::Mentions;
@@ -405,6 +419,10 @@ pub fn inbox_pictures(app: &App) -> Vec<String> {
     for message in &inbox.messages {
         urls.extend(message.avatar.clone());
         urls.extend(message.picture.as_ref().map(|(url, _, _)| url.clone()));
+    }
+    if inbox.tab == Tab::FriendAlerts {
+        let alerts = &app.client.state().relationship_alerts;
+        urls.extend(alerts.iter().filter_map(|alert| alert.avatar.clone()));
     }
     urls
 }
@@ -450,12 +468,17 @@ pub fn inbox_sync(app: &mut App) {
         }
     };
     let feed = &state.inbox;
-    let messages: Vec<backcord_core::chat::InboxMessage> = if feed.mentions == mentions_only {
-        feed.messages.clone()
-    } else {
+    let alerts = inbox.tab == Tab::FriendAlerts;
+    let messages: Vec<backcord_core::chat::InboxMessage> =
+        if feed.mentions == mentions_only && !alerts {
+            feed.messages.clone()
+        } else {
+            Vec::new()
+        };
+    let rows: Vec<InboxRow> = if alerts {
+        // Friend Alerts list no channels.
         Vec::new()
-    };
-    let rows: Vec<InboxRow> = if mentions_only {
+    } else if mentions_only {
         // The conversations the mentions are in, newest first.
         let mut seen = std::collections::HashSet::new();
         messages
@@ -887,27 +910,41 @@ pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
         .gap(4)
         .into()
     };
-    let head = row![
+    let alerts = inbox.tab == Tab::FriendAlerts;
+    let mut head = row![
         app.look().glyph(Icon::Inbox, 20, theme.text).boxed(20.0),
         text(backcord_iced_kit::i18n::tr("Inbox"))
             .size(18)
             .font(BOLD)
             .color(theme.text),
         Space::new().width(Length::Fill),
-        tool(Icon::Refresh, "Aggiorna", Event::InboxReload),
-        tool(
-            Icon::Check,
-            backcord_iced_kit::i18n::tr("Mark everything as read"),
-            Event::MarkAllRead
-        ),
-    ]
-    .spacing(10)
-    .padding([0, 16])
-    .height(56)
-    .align_y(Alignment::Center);
+    ];
+    head = if alerts {
+        head.push(tool(
+            Icon::Trash,
+            backcord_iced_kit::i18n::tr("Clear alerts"),
+            Event::InboxClearAlerts,
+        ))
+    } else {
+        head.push(tool(Icon::Refresh, "Aggiorna", Event::InboxReload))
+            .push(tool(
+                Icon::Check,
+                backcord_iced_kit::i18n::tr("Mark everything as read"),
+                Event::MarkAllRead,
+            ))
+    };
+    let head = head
+        .spacing(10)
+        .padding([0, 16])
+        .height(56)
+        .align_y(Alignment::Center);
     let tabs = row![
         tab(backcord_iced_kit::i18n::tr("Unreads"), Tab::Unreads),
         tab(backcord_iced_kit::i18n::tr("Mentions"), Tab::Mentions),
+        tab(
+            backcord_iced_kit::i18n::tr("Friend Alerts"),
+            Tab::FriendAlerts
+        ),
     ]
     .spacing(4)
     .padding([0, 12]);
@@ -924,7 +961,16 @@ pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
         .align_y(Alignment::Center)
         .into()
     };
-    let body: Element<'_, Message> = if inbox.rows.is_empty() {
+    let body: Element<'_, Message> = if alerts {
+        friend_alerts(app).unwrap_or_else(|| {
+            note(
+                backcord_iced_kit::i18n::tr(
+                    "When a friend removes you, a friend request ends, or you're removed from a group DM or a server, it shows up here.",
+                )
+                .to_owned(),
+            )
+        })
+    } else if inbox.rows.is_empty() {
         if feed.loading && inbox.tab == Tab::Mentions {
             note("Caricamento…".to_owned())
         } else if let Some(error) = feed.error.as_ref().filter(|_| inbox.tab == Tab::Mentions) {
@@ -935,7 +981,9 @@ pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
                     Tab::Unreads => backcord_iced_kit::i18n::tr(
                         "Unread messages from your unmuted channels show up here.",
                     ),
-                    Tab::Mentions => backcord_iced_kit::i18n::tr("Nothing mentions you right now."),
+                    Tab::Mentions | Tab::FriendAlerts => {
+                        backcord_iced_kit::i18n::tr("Nothing mentions you right now.")
+                    }
                 }
                 .to_owned(),
             )
@@ -975,6 +1023,68 @@ pub fn inbox_view(app: &App) -> Option<Element<'_, Message>> {
             controls::placed(mouse_area(panel).on_press(Message::Nothing), at.x, at.y),
         ]
         .into(),
+    )
+}
+
+/// Relationship Notifier's Friend Alerts, the newest first: each person's,
+/// group's or server's picture and name, when, and what happened; none
+/// while there are none.
+fn friend_alerts(app: &App) -> Option<Element<'_, Message>> {
+    let alerts = &app.client.state().relationship_alerts;
+    if alerts.is_empty() {
+        return None;
+    }
+    let theme = &app.theme;
+    let ctx = app.ctx();
+    let twelve = app.layout.prefs.twelve_hour_clock;
+    let (ground, edge) = (theme.wash(0.03), theme.line);
+    let mut list = column![].spacing(8).padding(12);
+    for alert in alerts {
+        let when = crate::place_menus::until(alert.at / 1000, twelve);
+        let words = column![
+            row![
+                elide(alert.name.as_str())
+                    .size(15)
+                    .font(BOLD)
+                    .color(theme.text)
+                    .shrink(),
+                text(when).size(11).color(theme.muted),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+            text(backcord_iced_kit::i18n::tr(alert.says()))
+                .size(13)
+                .color(theme.secondary),
+        ]
+        .spacing(2)
+        .width(Length::Fill);
+        let radius = if alert.round() { 16.0 } else { 10.0 };
+        list = list.push(
+            container(
+                row![
+                    ctx.avatar_tinted(
+                        alert.avatar.as_deref(),
+                        &alert.name,
+                        &alert.id,
+                        32.0,
+                        radius,
+                        1.0
+                    ),
+                    words
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center),
+            )
+            .padding(8)
+            .width(Length::Fill)
+            .style(move |_| crate::style::outlined(ground, edge, 10.0)),
+        );
+    }
+    Some(
+        scroll_view(list)
+            .style(scrollbar(theme))
+            .height(Length::Fill)
+            .into(),
     )
 }
 

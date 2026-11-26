@@ -238,6 +238,50 @@ async fn reads_history_and_member_lists() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn a_message_link_looks_up_the_message_it_links_to() {
+    let Fixture {
+        _fake,
+        discord,
+        guild,
+        general,
+        ..
+    } = Fixture::start("a_message_link_looks_up_the_message_it_links_to").await;
+    let first = discord
+        .history(&guild, &general, Span::Latest)
+        .await
+        .unwrap()
+        .messages
+        .swap_remove(0);
+    let linked = discord
+        .linked_message(&guild, &general, &first.id)
+        .await
+        .unwrap()
+        .expect("the message");
+    assert_eq!(
+        (&linked.id, &linked.author_id, &linked.content),
+        (&first.id, &first.author_id, &first.content)
+    );
+    // Asking around one that's gone answers with its neighbour, which
+    // isn't it.
+    let gone = (first.id.parse::<u64>().unwrap() - 1).to_string();
+    assert_eq!(
+        discord
+            .linked_message(&guild, &general, &gone)
+            .await
+            .unwrap(),
+        None
+    );
+    // Discord refuses a channel this account can't see.
+    assert!(
+        discord
+            .linked_message(&guild, "1", &first.id)
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
 async fn a_reply_looks_up_the_original_discord_left_out() {
     let Fixture {
         _fake,
@@ -1030,4 +1074,99 @@ async fn deletes_all_of_its_own_messages_in_a_dm_or_a_server() {
         .await
         .unwrap();
     assert_eq!(again.deleted, 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn exports_a_channels_history_a_page_at_a_time() {
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+    };
+    let Fixture {
+        _fake,
+        discord,
+        server,
+        guild,
+        general,
+        ..
+    } = Fixture::start("exports_a_channels_history_a_page_at_a_time").await;
+    // #general's sixty, and forty-five more: more than a page of a hundred.
+    for at in 0..45 {
+        let nonce = backcord_discord::message::nonce();
+        discord
+            .send(
+                &guild,
+                &general,
+                &format!("export {at}"),
+                sending(&nonce, None),
+                vec![],
+            )
+            .await
+            .unwrap();
+    }
+    post_control(server, "/_control/history", "");
+    let counts = Mutex::new(vec![]);
+    let progress = |count: usize| counts.lock().unwrap().push(count);
+    let stop = AtomicBool::new(false);
+
+    // All of it: a whole page, then the rest before its oldest, oldest first.
+    let all = discord
+        .export_history(&general, None, None, &stop, &progress)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(all.len(), 105);
+    assert!(
+        all[0]["content"]
+            .as_str()
+            .unwrap()
+            .starts_with("Welcome to **BACKCORD**")
+    );
+    assert_eq!(all[104]["content"], "export 44");
+    let ids: Vec<u64> = all
+        .iter()
+        .map(|value| value["id"].as_str().unwrap().parse().unwrap())
+        .collect();
+    assert!(ids.windows(2).all(|pair| pair[0] < pair[1]), "oldest first");
+    assert_eq!(std::mem::take(&mut *counts.lock().unwrap()), [100, 105]);
+    let asked: Vec<String> =
+        serde_json::from_str(&control(server, "GET", "/_control/history", "")).unwrap();
+    assert_eq!(
+        asked,
+        [
+            "?limit=100".to_owned(),
+            format!("?limit=100&before={}", ids[5]),
+        ]
+    );
+
+    // The newest thirty, in one page of thirty.
+    post_control(server, "/_control/history", "");
+    let newest = discord
+        .export_history(&general, Some(30), None, &stop, &progress)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(newest, all[75..]);
+    let asked: Vec<String> =
+        serde_json::from_str(&control(server, "GET", "/_control/history", "")).unwrap();
+    assert_eq!(asked, ["?limit=30"]);
+
+    // From a snowflake on: the messages from it, and no page more.
+    let since = discord
+        .export_history(&general, None, Some(ids[90]), &stop, &progress)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(since, all[90..]);
+
+    // Stopped, it gives nothing.
+    stop.store(true, Ordering::Relaxed);
+    assert!(
+        discord
+            .export_history(&general, None, None, &stop, &progress)
+            .await
+            .unwrap()
+            .is_none()
+    );
 }

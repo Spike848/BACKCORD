@@ -23,6 +23,7 @@ mod aside;
 mod browse;
 mod calls;
 mod channel_settings;
+mod chat_export;
 mod commands;
 mod compose;
 mod cosmetics;
@@ -37,6 +38,7 @@ mod gift;
 mod header;
 mod interactions;
 mod join;
+mod link_cards;
 mod link_prompts;
 mod members;
 mod membership;
@@ -44,6 +46,7 @@ mod messages;
 mod mfa;
 mod new_post;
 mod oauth;
+mod permissions_viewer;
 mod picks;
 mod place_search;
 pub use picks::Picked;
@@ -53,6 +56,7 @@ mod preview;
 mod profile_editor;
 mod profiles;
 mod reactions;
+mod relationships;
 mod rooms;
 mod scheduled_event;
 mod server;
@@ -68,6 +72,7 @@ pub use channel_settings::{
     ChannelInput, ChannelSection, ChannelSettingsScreen, OverwriteConfirm, OverwriteRules,
     OverwriteState, Overwrites, channel_groups, channel_permission,
 };
+pub use chat_export::{EXPORT_COUNT, ExportDialog, ExportSpan, Exporting};
 pub use commands::{AppCommands, CommandTarget, SlashCommand};
 pub use cosmetics::Cosmetics;
 pub use delete_all::{DeleteAllDialog, DeletingAll};
@@ -77,7 +82,8 @@ pub use forum::{ForumInfo, ForumPost, ForumPosts, ForumView};
 pub use gifs::{AskedPicture, GifPicker, GifPicture, GifView};
 pub use gift::GiftDialog;
 pub use interactions::{InteractionModal, Interactions, ModalField, SelectChoice, SelectMenu};
-pub use join::JoinDialog;
+pub use join::{InviteCard, JoinDialog};
+pub use link_cards::MessageCard;
 pub use link_prompts::{EventPrompt, GiftPrompt, OAuthPrompt, permission_names};
 pub use members::{BAN_HISTORY, LONGEST_TIMEOUT, RoleChoice, TIMEOUT_TIMES, timeout_length};
 #[cfg(all(feature = "discord", any(test, feature = "test-fixtures")))]
@@ -86,6 +92,9 @@ pub use membership::{MembershipDialog, MembershipStep};
 pub use mfa::MfaPrompt;
 pub use new_post::{NewPost, POST_TAGS, POST_TITLE_LIMIT};
 pub use oauth::OAuthDialog;
+pub use permissions_viewer::{
+    PermissionRow, PermissionSource, PermissionsGroup, PermissionsOf, PermissionsView,
+};
 pub use place_search::Place;
 pub use places::{
     ChannelAsk, ChannelDialog, GroupChoice, INVITE_AGES, INVITE_USES, InviteDialog, InvitePerson,
@@ -509,6 +518,9 @@ pub struct Inbox {
 pub struct AppState {
     /// The inbox's messages, for its tab, as Discord last gave them.
     pub inbox: Inbox,
+    /// Relationship Notifier's alerts, the newest first, as the inbox's
+    /// Friend Alerts lists them.
+    pub relationship_alerts: Vec<crate::relationship_alerts::RelationshipAlert>,
     /// Bots' controls and forms used, waiting for Discord's word.
     pub interactions: Interactions,
     /// The open room's apps' commands, once the person typed `/`.
@@ -551,6 +563,20 @@ pub struct AppState {
     pub invite: Option<InviteDialog>,
     /// Join a Server, while it's open.
     pub join: Option<JoinDialog>,
+    /// The cards under messages for the invites they link to, by the
+    /// invite's code: each is asked of Discord once, as a message linking
+    /// to it first shows.
+    pub invite_cards: HashMap<String, InviteCard>,
+    /// The cards under messages for the Discord messages they link to, by
+    /// the linked message's id: each is taken from the timeline or asked
+    /// of Discord once, as a message linking to it first shows.
+    pub message_cards: HashMap<String, MessageCard>,
+    /// Message links show no card under their message, and aren't looked
+    /// up; see [`Action::HideMessageLinks`].
+    pub hide_message_links: bool,
+    /// Badge Spoofer's settings: the badges this account's own profile
+    /// shows on this screen alone; see [`Action::SpoofBadges`].
+    pub badge_spoofer: crate::badge_spoofer::BadgeSpoofer,
     /// Explore servers, while it's open.
     pub explore: Option<Explore>,
     /// A Discord server's rules and questions for its members, while
@@ -576,6 +602,10 @@ pub struct AppState {
     pub delete_all: Option<DeleteAllDialog>,
     /// Cancella tutto going on, in each DM or server.
     pub deleting_all: Vec<DeletingAll>,
+    /// Export Chat's dialog, while it's open.
+    pub chat_export: Option<ExportDialog>,
+    /// The chat being exported, while one is.
+    pub exporting: Option<Exporting>,
     /// Asks whether a channel dragged into a category takes its
     /// permissions, while it's open.
     pub move_sync: Option<MoveSync>,
@@ -851,6 +881,8 @@ pub struct AppState {
     /// The profile card that's open, shared as [`Self::panel_profile`] is.
     pub profile: Option<Arc<ProfileView>>,
     pub role: Option<RoleView>,
+    /// Permissions Viewer's window, while it's open.
+    pub permissions: Option<PermissionsView>,
     /// Changes when selecting a room, including selecting the same room to retry opening it.
     pub selection_version: u64,
     /// Changes after logout so adapters can clear their inputs and focus sign-in.
@@ -1054,6 +1086,7 @@ impl AppState {
             || self.channel_dialog.is_some()
             || self.leave.is_some()
             || self.delete_all.is_some()
+            || self.chat_export.is_some()
             || self.move_sync.is_some()
             || self.profile_editor.is_some()
             || self.server_settings.is_some()
@@ -2237,6 +2270,9 @@ pub enum Action {
     OpenJoinServer,
     FindInvite(String),
     OpenInviteLink(String),
+    /// The button on a message's card for the invite with this code: join
+    /// its server, or open it for a member.
+    JoinFromInviteCard(String),
     JoinServer,
     OpenJoinCaptcha,
     CloseJoin,
@@ -2324,6 +2360,8 @@ pub enum Action {
     LoadInbox {
         mentions: bool,
     },
+    /// Empty the inbox's Friend Alerts.
+    ClearRelationshipAlerts,
     /// Ask before leaving a Discord server, by its server id, or a group
     /// DM, by its room id; tick or untick leaving the group without telling
     /// its other members; leave the one asked about; or stay.
@@ -2339,6 +2377,20 @@ pub enum Action {
     DeleteAll,
     CloseDeleteAll,
     StopDeleteAll(String),
+    /// Export Chat in a Discord channel, DM or group, by its room id: open
+    /// its dialog; choose the format, how much (with the number or the
+    /// first day typed) and whether files go in as links; start it to the
+    /// file chosen; stop the one going on; or close the dialog, which
+    /// leaves it going.
+    AskExportChat(String),
+    ExportFormat(crate::chat_export::ExportFormat),
+    ExportSpan(ExportSpan),
+    ExportCount(String),
+    ExportSince(String),
+    ToggleExportAttachments,
+    StartExportChat(std::path::PathBuf),
+    StopExportChat,
+    CloseExportChat,
     /// Open the editor of this account's main Discord profile, or of its
     /// profile in a Discord server, by its server id or one of its
     /// channels' room ids; change a text in it; read a picture chosen for
@@ -2570,6 +2622,12 @@ pub enum Action {
     StripTracking(bool),
     /// Turns nameplates off, or on again.
     HideNameplates(bool),
+    /// Settings' Message Link Previews is off: links to Discord messages
+    /// show no card of the message under theirs.
+    HideMessageLinks(bool),
+    /// Settings' Badge Spoofer changed: this account's own profile shows
+    /// the badges it chose, here alone, and Discord is told nothing.
+    SpoofBadges(crate::badge_spoofer::BadgeSpoofer),
     /// Leave out messages from people this account blocked, rather than
     /// collapsing them.
     HideBlocked(bool),
@@ -2665,6 +2723,9 @@ pub enum Action {
     /// Show the members of a role mentioned in a message, or stop.
     ShowRole(String),
     CloseRole,
+    /// Permissions Viewer: show who may do what, and why, or stop.
+    ShowPermissions(PermissionsOf),
+    ClosePermissions,
 }
 
 /// An adapter executes these effects with the shared backend, then applies its events.
@@ -2767,6 +2828,10 @@ pub struct Application {
     /// The timeline whose pictures were asked for, so an unchanged one isn't
     /// gone through again.
     pictured_timeline: Arc<Vec<Arc<ChatMessage>>>,
+    /// The timeline and the thread beside whose links' cards were looked
+    /// up, so unchanged ones aren't gone through again.
+    carded_timeline: TimelineArc,
+    carded_aside: TimelineArc,
     visible_messages: Vec<String>,
     /// How many pictures other than custom emoji were kept the last time
     /// those off screen went.
@@ -2791,6 +2856,8 @@ pub struct Application {
     searched: HashSet<String>,
     /// A conversation to open once it's listed, such as a DM just started.
     pending_open: Option<String>,
+    /// What Relationship Notifier compares each snapshot with.
+    relationships: relationships::Watch,
     /// When Anti-Disconnect joined again lately, in ms: it stops after a few
     /// in a minute, as someone keeps disconnecting this account.
     rejoins: Vec<u64>,
@@ -2912,8 +2979,8 @@ fn open_server_banners(state: &AppState) -> Vec<String> {
 }
 
 /// The server icons and avatars on screen: the rail, the first DMs listed,
-/// the people in the listed voice channels, the call, `timeline` and the
-/// member list, profiles and people to start a DM with, with the server tags
+/// the people in the listed voice channels, the call, `timeline` (with the
+/// servers on its invites' cards) and the member list, profiles and people to start a DM with, with the server tags
 /// and role icons by their names. Without `list_avatars`, it leaves out
 /// those the UI's virtualized rows ask for; without `rooms`, the people in
 /// the rooms in scope, which take going through every room.
@@ -3255,6 +3322,17 @@ fn pictures_on_screen<'a>(
                     timeline.iter().flat_map(|message| {
                         message.all_emoji().map(|emoji| emoji.picture.as_str())
                     }),
+                )
+                // The servers' icons on the cards of the invites linked to.
+                .chain(
+                    timeline
+                        .iter()
+                        .filter(|message| message.notice.is_none())
+                        .flat_map(|message| discord::invite_codes(&message.body))
+                        .filter_map(move |code| match state.invite_cards.get(&code)? {
+                            InviteCard::Found(preview) => preview.icon.as_deref(),
+                            InviteCard::Loading | InviteCard::Invalid => None,
+                        }),
                 ),
         )
         .chain(
@@ -3346,7 +3424,9 @@ impl Application {
         effects.extend(self.show_panel_profile());
         if !composing {
             effects.extend(self.request_pictures());
+            effects.extend(self.request_link_cards());
         }
+        self.note_own_removals(&effects);
         effects
     }
 
@@ -3372,6 +3452,8 @@ impl Application {
         effects.extend(self.send_pending_message());
         effects.extend(self.show_panel_profile());
         effects.extend(self.request_pictures());
+        effects.extend(self.request_link_cards());
+        self.note_own_removals(&effects);
         effects
     }
 
@@ -3919,6 +4001,7 @@ impl Application {
                 }
                 self.visible_messages.clone_from(&items);
                 self.pictured_timeline = Arc::new(Vec::new());
+                self.carded_timeline = Arc::new(Vec::new());
                 vec![Effect::Backend(Command::VisibleMessages {
                     room,
                     items,
@@ -4329,6 +4412,7 @@ impl Application {
             Action::OpenJoinServer => self.open_join(),
             Action::FindInvite(typed) => self.find_invite(typed),
             Action::OpenInviteLink(code) => self.open_invite_link(code),
+            Action::JoinFromInviteCard(code) => self.join_from_card(code),
             Action::JoinServer => self.join_server(),
             Action::OpenJoinCaptcha => self.open_join_captcha(),
             Action::CloseJoin => {
@@ -4405,6 +4489,7 @@ impl Application {
             Action::SaveChannel { kind, settings } => self.save_channel(kind, settings),
             Action::GroupIcon(icon) => self.group_icon(icon),
             Action::LoadInbox { mentions } => self.load_inbox(mentions),
+            Action::ClearRelationshipAlerts => self.clear_relationship_alerts(),
             Action::CloseChannelDialog => {
                 self.state.channel_dialog = None;
                 vec![]
@@ -4430,6 +4515,20 @@ impl Application {
                 vec![]
             }
             Action::StopDeleteAll(place) => self.stop_delete_all(place),
+            Action::AskExportChat(room) => self.ask_export_chat(room),
+            Action::ExportFormat(format) => self.change_export(|dialog| dialog.format = format),
+            Action::ExportSpan(span) => self.change_export(|dialog| dialog.span = span),
+            Action::ExportCount(count) => self.change_export(|dialog| dialog.count = count),
+            Action::ExportSince(since) => self.change_export(|dialog| dialog.since = since),
+            Action::ToggleExportAttachments => {
+                self.change_export(|dialog| dialog.attachments = !dialog.attachments)
+            }
+            Action::StartExportChat(path) => self.start_export_chat(path),
+            Action::StopExportChat => self.stop_export_chat(),
+            Action::CloseExportChat => {
+                self.state.chat_export = None;
+                vec![]
+            }
             Action::CloseLeave => {
                 self.state.leave = None;
                 vec![]
@@ -4771,6 +4870,11 @@ impl Application {
                 self.state.hide_nameplates = hide;
                 vec![]
             }
+            Action::HideMessageLinks(hide) => self.hide_message_links(hide),
+            Action::SpoofBadges(settings) => {
+                self.state.badge_spoofer = settings;
+                vec![]
+            }
             Action::OpenProfileTab(tab) => self.open_profile_tab(tab),
             Action::LoadOwnProfile => self.load_own_profile(),
             Action::OpenWishlist => self.open_wishlist(),
@@ -4876,6 +4980,11 @@ impl Application {
                 self.state.role = None;
                 vec![]
             }
+            Action::ShowPermissions(of) => self.show_permissions(of),
+            Action::ClosePermissions => {
+                self.state.permissions = None;
+                vec![]
+            }
             Action::AnswerRequest(accept) => self.answer_request(accept),
             Action::Voice(voice::Command::Join(id)) => self.dispatch(Action::RequestJoinVoice(id)),
             Action::Voice(command) => self.voice_command(command),
@@ -4942,6 +5051,7 @@ impl Application {
             picture,
             call: false,
             mention,
+            relationship: false,
         }
     }
 
@@ -5235,6 +5345,7 @@ impl Application {
             }
             Event::InviteSent { user, room, result } => self.invite_sent(&user, &room, result),
             Event::InviteResolved { code, result } => return self.invite_resolved(code, result),
+            Event::LinkedMessage { id, result } => self.linked_message(&id, result),
             Event::JoinCaptcha { code, page } => return self.join_captcha(code, page),
             Event::ServerJoined { code, result } => return self.server_joined(code, result),
             Event::OAuthResolved { query, result } => return self.oauth_resolved(query, result),
@@ -5264,6 +5375,11 @@ impl Application {
                 ended,
                 error,
             } => self.deleted_all(place, deleted, ended, error),
+            Event::ChatExported {
+                room,
+                messages,
+                end,
+            } => self.chat_exported(room, messages, end),
             Event::ServerDeleted { server, result } => self.server_deleted(server, result),
             Event::ServerTransferred { server, result } => self.server_transferred(server, result),
             Event::ServerPincodeSent { server, result } => self.server_pincode_sent(server, result),
@@ -5664,8 +5780,15 @@ impl Application {
     /// room's own server first, each saying whether this account may use it in
     /// the room it is looking at. The picker shows all of them, the ones it may
     /// not use greyed as Discord's does; everything else uses
-    /// [`Application::usable_emoji`].
+    /// [`Application::usable_emoji`]. While Fake Nitro is on, every one is
+    /// usable: those this account may not use go as links to their pictures.
     pub fn emoji_sets(&self) -> Vec<chat::EmojiSet> {
+        self.emoji_sets_as(crate::extras::fake_nitro().on)
+    }
+
+    /// [`Application::emoji_sets`], each usable with `fake` (Fake Nitro), or
+    /// usable only when this account may really use it.
+    pub(super) fn emoji_sets_as(&self, fake: bool) -> Vec<chat::EmojiSet> {
         #[cfg(feature = "discord")]
         if let Some(snapshot) = &self.discord {
             let here = self
@@ -5699,11 +5822,12 @@ impl Application {
                                 text: format!(":{}:", emoji.name),
                                 id: emoji.id.clone(),
                                 animated: emoji.animated,
-                                usable: if ours {
-                                    nitro || !emoji.animated
-                                } else {
-                                    external
-                                },
+                                usable: fake
+                                    || if ours {
+                                        nitro || !emoji.animated
+                                    } else {
+                                        external
+                                    },
                                 picture: backcord_discord::ready::custom_emoji(
                                     &emoji.id,
                                     emoji.animated,
@@ -5716,6 +5840,8 @@ impl Application {
                 .filter(|set| !set.emoji.is_empty())
                 .collect();
         }
+        #[cfg(not(feature = "discord"))]
+        let _ = fake;
         vec![]
     }
 
@@ -5760,6 +5886,7 @@ impl Application {
                 .account
                 .as_ref()
                 .is_some_and(|account| account.premium_type > 0);
+            let fake = crate::extras::fake_nitro().on;
             return snapshot
                 .servers
                 .iter()
@@ -5769,7 +5896,7 @@ impl Application {
                         .emojis
                         .iter()
                         .filter(|emoji| emoji.available && ids.contains(emoji.id.as_str()))
-                        .map(move |emoji| (emoji, nitro || (ours && !emoji.animated)))
+                        .map(move |emoji| (emoji, fake || nitro || (ours && !emoji.animated)))
                 })
                 .map(|(emoji, usable)| chat::CustomEmoji {
                     text: format!(":{}:", emoji.name),
@@ -5791,7 +5918,7 @@ impl Application {
 
     /// The custom emoji this account may use in the selected room, by server, the
     /// room's own server first: with Nitro every server's, and without it only
-    /// that server's, none animated.
+    /// that server's, none animated; with Fake Nitro every one.
     pub fn usable_emoji(&self) -> Vec<chat::EmojiSet> {
         self.emoji_sets()
             .into_iter()

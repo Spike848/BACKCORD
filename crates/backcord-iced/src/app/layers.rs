@@ -36,12 +36,17 @@ pub enum Layer {
     Poll,
     LinkDialog,
     ServerDialog,
+    /// Export Chat's dialog.
+    ChatExport,
     /// A search's Filters dialog.
     SearchFilters,
     StatusEditor,
     AccountPopover,
     HeaderPopover,
     ProfileEditor,
+    /// Permissions Viewer's window, over a server's settings it may open
+    /// from.
+    Permissions,
     Settings,
     ServerSettings,
     ChannelSettings,
@@ -76,7 +81,7 @@ pub enum Layer {
 }
 
 /// Every layer, in the order they take keys and Escape.
-const LAYERS: [Layer; 44] = [
+const LAYERS: [Layer; 46] = [
     Layer::Inbox,
     Layer::Mfa,
     Layer::ConfirmDelete,
@@ -89,11 +94,13 @@ const LAYERS: [Layer; 44] = [
     Layer::Poll,
     Layer::LinkDialog,
     Layer::ServerDialog,
+    Layer::ChatExport,
     Layer::SearchFilters,
     Layer::StatusEditor,
     Layer::AccountPopover,
     Layer::HeaderPopover,
     Layer::ProfileEditor,
+    Layer::Permissions,
     Layer::Settings,
     Layer::ServerSettings,
     Layer::ChannelSettings,
@@ -177,10 +184,12 @@ impl Layer {
                 | Layer::Poll
                 | Layer::LinkDialog
                 | Layer::ServerDialog
+                | Layer::ChatExport
                 | Layer::SearchFilters
                 | Layer::StatusEditor
                 | Layer::HeaderPopover
                 | Layer::ProfileEditor
+                | Layer::Permissions
                 | Layer::Settings
                 | Layer::ServerSettings
                 | Layer::ChannelSettings
@@ -250,6 +259,7 @@ impl Layer {
                 | Layer::Poll
                 | Layer::Switcher
                 | Layer::ServerDialog
+                | Layer::ChatExport
                 | Layer::LinkDialog
                 | Layer::SearchFilters
                 | Layer::HeaderPopover
@@ -278,10 +288,12 @@ impl App {
             Layer::LinkDialog => crate::link_dialogs::is_open(state),
             Layer::SearchFilters => crate::search_filters::is_open(self),
             Layer::ServerDialog => crate::server_dialogs::is_open(state),
+            Layer::ChatExport => state.chat_export.is_some(),
             Layer::StatusEditor => state.status_editor.is_some(),
             Layer::AccountPopover => self.status.popover.is_some(),
             Layer::HeaderPopover => crate::header_popovers::popover_open(self),
             Layer::ProfileEditor => self.editor_open(),
+            Layer::Permissions => state.permissions.is_some(),
             Layer::Settings => self.win.settings.is_open(),
             Layer::ServerSettings => self.server_screen.is_open(),
             Layer::ChannelSettings => self.channel_screen.is_open(),
@@ -575,6 +587,14 @@ impl App {
                 crate::header_popovers::popover_event(self, crate::header_popovers::Event::Close)
             }
             Layer::ProfileEditor => self.editor_escape(),
+            Layer::Permissions => {
+                let mut cx = crate::ctx::cx!(self);
+                crate::permissions::update(crate::permissions::Event::Close, &mut cx)
+            }
+            Layer::ChatExport => {
+                let mut cx = crate::ctx::cx!(self);
+                crate::chat_export::update(crate::chat_export::Event::Close, &mut cx)
+            }
             Layer::Settings => self.settings_escape(),
             Layer::ServerSettings => self.server_settings_escape(),
             Layer::ChannelSettings => self.channel_settings_escape(),

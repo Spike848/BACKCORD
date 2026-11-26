@@ -5,14 +5,14 @@
 
 use iced::{
     Alignment, Element, Length,
-    widget::{Space, column, container, opaque, row, stack, text},
+    widget::{Space, button, column, container, opaque, row, stack, text},
 };
 
 use super::{Pref, pref};
 use crate::settings::{Event, Page};
 use crate::{
     app::Message,
-    controls::choices,
+    controls::{choices, choices_within},
     fonts::BOLD,
     form::{self, switch},
     icon_viewer::{DEFAULT_SIZE, FORMATS, SIZE_NAMES},
@@ -28,6 +28,9 @@ pub enum Extra {
     SilentTyping,
     ViewIcons,
     StreamProof,
+    RelationshipNotifier,
+    FakeNitro,
+    BadgeSpoofer,
 }
 
 /// The dialog's width.
@@ -50,6 +53,9 @@ const PLATFORM_NAMES: [&str; 10] = [
 ];
 const DEPTHS: [&str; 3] = ["Low level", "Medium level", "High level"];
 
+/// Fake Nitro's emoji sizes, as `backcord_core::fake_nitro::SIZES` has them.
+const FAKE_NITRO_SIZES: [&str; 6] = ["32", "48", "64", "96", "128", "160"];
+
 /// Hands Discord's side the platform Emulate Platforms says this account
 /// is on, which its next identify sends.
 pub fn emulate_platform(prefs: &crate::layout::Prefs) {
@@ -66,6 +72,110 @@ pub fn emulate_platform(prefs: &crate::layout::Prefs) {
     backcord_core::discord::set_emulation(platform, depth);
 }
 
+/// Relationship Notifier's removals, in the order its dialog lists them and
+/// `Pref::RelationshipKind` numbers them: each switch's name and what it
+/// tells of.
+const RELATIONSHIP_KINDS: [(&str, &str); 5] = [
+    ("Friends", "When a friend removes you, or blocks you."),
+    (
+        "Friend requests",
+        "When someone declines the friend request you sent, or withdraws the one they sent you.",
+    ),
+    ("Group DMs", "When you're removed from a group DM."),
+    (
+        "Servers",
+        "When you're kicked or banned from a server, or it's deleted.",
+    ),
+    (
+        "While offline",
+        "As BACKCORD starts, what changed while it was closed.",
+    ),
+];
+
+/// Relationship Notifier's switches, each on unless turned off, in
+/// [`RELATIONSHIP_KINDS`]' order.
+fn relationship_switches(prefs: &crate::layout::Prefs) -> [bool; 5] {
+    [
+        prefs.relationship_friends,
+        prefs.relationship_requests,
+        prefs.relationship_groups,
+        prefs.relationship_servers,
+        prefs.relationship_offline,
+    ]
+    .map(|on| on.unwrap_or(true))
+}
+
+/// Hands the core the removals Relationship Notifier tells of: none while
+/// it's off.
+pub fn relationship_notifier(prefs: &crate::layout::Prefs) {
+    use backcord_core::relationship_alerts::Kinds;
+    let [friends, requests, groups, servers, offline] = relationship_switches(prefs);
+    let kinds = if prefs.relationship_notifier.unwrap_or(true) {
+        Kinds {
+            friends,
+            requests,
+            groups,
+            servers,
+            offline,
+        }
+    } else {
+        Kinds::NONE
+    };
+    backcord_core::extras::set_relationship_alerts(kinds);
+}
+
+/// Hands the core Fake Nitro and its settings: off unless turned on.
+pub fn fake_nitro(prefs: &crate::layout::Prefs) {
+    use backcord_core::extras::FakeNitro;
+    backcord_core::extras::set_fake_nitro(FakeNitro {
+        on: prefs.fake_nitro.unwrap_or(false),
+        size: fake_nitro_size(prefs),
+        masked: prefs.fake_nitro_masked.unwrap_or(true),
+        received: prefs.fake_nitro_received.unwrap_or(true),
+    });
+}
+
+/// The size Fake Nitro's emoji links ask for, as chosen.
+fn fake_nitro_size(prefs: &crate::layout::Prefs) -> u16 {
+    use backcord_core::fake_nitro::{DEFAULT_SIZE, SIZES};
+    prefs
+        .fake_nitro_size
+        .and_then(|index| SIZES.get(index).copied())
+        .unwrap_or(DEFAULT_SIZE)
+}
+
+/// Badge Spoofer's Nitro levels and boost levels, each "None" first, in the
+/// two rows its dialog shows each in.
+const LEVEL_ROWS: [[usize; 5]; 2] = [[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]];
+
+/// A choice of none or one of `list`, by their labels, in [`LEVEL_ROWS`]'
+/// rows: 0 for none, else the one after it.
+fn level_rows<'a>(
+    theme: &crate::theme::Theme,
+    list: &[backcord_core::badge_spoofer::Spoofable],
+    chosen: usize,
+    choose: fn(usize) -> Pref,
+) -> Vec<Element<'a, Message>> {
+    let tr = backcord_iced_kit::i18n::tr;
+    let label = |index: usize| match index.checked_sub(1) {
+        None => tr("None"),
+        Some(index) => list.get(index).map_or("", |badge| tr(badge.label)),
+    };
+    LEVEL_ROWS
+        .iter()
+        .map(|indices| {
+            let indices = *indices;
+            let current = indices
+                .iter()
+                .position(|index| *index == chosen)
+                .unwrap_or(usize::MAX);
+            choices_within(theme, &indices.map(label), current, 480.0, move |at| {
+                pref(choose(indices[at]))
+            })
+        })
+        .collect()
+}
+
 fn show(extra: Option<Extra>) -> Message {
     Message::Settings(Event::Extra(extra))
 }
@@ -76,6 +186,7 @@ impl<'a> Page<'a> {
         let prefs = &self.cx.layout.prefs;
         let tr = backcord_iced_kit::i18n::tr;
         let roles = prefs.clickable_roles.unwrap_or(true);
+        let permissions = prefs.permissions_viewer.unwrap_or(true);
         let icons = prefs.view_icons.unwrap_or(true);
         let proof = prefs.stream_proof.unwrap_or(true);
         let logger = prefs.message_logger.unwrap_or(true);
@@ -84,7 +195,11 @@ impl<'a> Page<'a> {
         let platforms = prefs.platform_indicators.unwrap_or(true);
         let anti_disconnect = prefs.anti_disconnect.unwrap_or(false);
         let follow = prefs.follow_voice.unwrap_or(true);
+        let message_links = prefs.message_link_previews.unwrap_or(true);
         let hidden = prefs.show_hidden_channels;
+        let relationships = prefs.relationship_notifier.unwrap_or(true);
+        let fake_nitro = prefs.fake_nitro.unwrap_or(false);
+        let badge_spoofer = prefs.badge_spoofer.unwrap_or(false);
         let cards = vec![
             self.plugin(
                 tr("Emulate Platforms"),
@@ -122,6 +237,13 @@ impl<'a> Page<'a> {
                 None,
             ),
             self.plugin(
+                tr("Permissions Viewer"),
+                tr("Adds Permissions to the menus of members, servers and channels, and to a role's card: what they may do there, and which role or channel override gives or takes each permission."),
+                permissions,
+                Pref::PermissionsViewer(!permissions),
+                None,
+            ),
+            self.plugin(
                 tr("No Push To Talk"),
                 tr("Bypasses the push-to-talk requirement for voice activity in channels that enforce it."),
                 no_ptt,
@@ -155,6 +277,34 @@ impl<'a> Page<'a> {
                 proof,
                 Pref::StreamProof(!proof),
                 Some(Extra::StreamProof),
+            ),
+            self.plugin(
+                tr("Message Link Previews"),
+                tr("Shows the Discord messages a message links to in a card under it: who wrote them, where, and what they say. Click one to go there."),
+                message_links,
+                Pref::MessageLinkPreviews(!message_links),
+                None,
+            ),
+            self.plugin(
+                tr("Relationship Notifier"),
+                tr("Tells you when a friend removes you, a friend request ends, or you're removed from a group DM or a server, and lists it in the inbox's Friend Alerts."),
+                relationships,
+                Pref::RelationshipNotifier(!relationships),
+                Some(Extra::RelationshipNotifier),
+            ),
+            self.plugin(
+                tr("Fake Nitro"),
+                tr("Lets you pick any server's emoji and stickers without Nitro: those you can't use are sent as links to their pictures, and such links you receive show as emoji."),
+                fake_nitro,
+                Pref::FakeNitro(!fake_nitro),
+                Some(Extra::FakeNitro),
+            ),
+            self.plugin(
+                tr("Badge Spoofer"),
+                tr("Shows the Discord badges you choose on your own profile, as if you had them. Only you see them, in BACKCORD on this computer: nothing is sent to Discord."),
+                badge_spoofer,
+                Pref::BadgeSpoofer(!badge_spoofer),
+                Some(Extra::BadgeSpoofer),
             ),
         ];
         let mut grid = column![].spacing(12);
@@ -351,12 +501,145 @@ impl<'a> Page<'a> {
                     ],
                 )
             }
+            Extra::FakeNitro => {
+                use backcord_core::fake_nitro::SIZES;
+                let masked = prefs.fake_nitro_masked.unwrap_or(true);
+                let received = prefs.fake_nitro_received.unwrap_or(true);
+                let size = fake_nitro_size(prefs);
+                (
+                    tr("Fake Nitro"),
+                    tr("Lets you pick any server's emoji and stickers without Nitro: those you can't use are sent as links to their pictures, and such links you receive show as emoji."),
+                    vec![
+                        form::heading(theme, tr("EMOJI SIZE")),
+                        form::note(theme, tr("The size, in pixels, of the emoji pictures you send as links.")),
+                        choices_within(
+                            theme,
+                            &FAKE_NITRO_SIZES,
+                            SIZES.iter().position(|known| *known == size).unwrap_or(1),
+                            480.0,
+                            |index| pref(Pref::FakeNitroSize(index)),
+                        ),
+                        switch(tr("Use masked links"), masked, Some(pref(Pref::FakeNitroMasked(!masked))))
+                            .description(tr("Sends each link under the emoji's or sticker's name, as [name](link), rather than bare."))
+                            .view(look),
+                        switch(tr("Show received emoji links as emoji"), received, Some(pref(Pref::FakeNitroReceived(!received))))
+                            .description(tr("Links to emoji pictures in messages show as the emoji, in the text, without their picture under it."))
+                            .view(look),
+                    ],
+                )
+            }
+            Extra::BadgeSpoofer => {
+                use backcord_core::badge_spoofer::{BADGES, BOOSTS, HOUSES, NITRO};
+                let settings = prefs.badge_spoofer();
+                let tick = |index: usize| -> Element<'a, Message> {
+                    let ticked = settings.has(index);
+                    button(
+                        row![
+                            look.checkbox(ticked, false),
+                            text(tr(BADGES[index].label))
+                                .size(14)
+                                .color(theme.text)
+                                .width(Length::Fill)
+                        ]
+                        .spacing(10)
+                        .align_y(Alignment::Center),
+                    )
+                    .padding(0)
+                    .width(Length::Fill)
+                    .on_press(pref(Pref::SpoofedBadge(index, !ticked)))
+                    .style(|_, _| iced::widget::button::Style::default())
+                    .into()
+                };
+                let mut options = vec![
+                    form::heading(theme, tr("BADGES")),
+                    form::note(
+                        theme,
+                        tr(
+                            "Your profile shows them in Discord's order, with Discord's own pictures.",
+                        ),
+                    ),
+                ];
+                // Two to a row, in Discord's order down each row.
+                let mut ticks = column![].spacing(10);
+                for pair in (0..BADGES.len()).collect::<Vec<_>>().chunks(2) {
+                    let second: Element<'a, Message> = match pair.get(1) {
+                        Some(index) => tick(*index),
+                        None => Space::new().width(Length::Fill).into(),
+                    };
+                    ticks = ticks.push(row![tick(pair[0]), second].spacing(12));
+                }
+                options.push(ticks.into());
+                options.push(form::heading(theme, tr("HYPESQUAD HOUSE")));
+                let houses = [tr("None")]
+                    .into_iter()
+                    .chain(HOUSES.iter().map(|house| tr(house.label)))
+                    .collect::<Vec<_>>();
+                options.push(choices(
+                    theme,
+                    &houses,
+                    usize::from(settings.house),
+                    |index| pref(Pref::SpoofedHouse(index)),
+                ));
+                options.push(form::heading(theme, tr("NITRO")));
+                options.extend(level_rows(
+                    theme,
+                    &NITRO,
+                    usize::from(settings.nitro),
+                    Pref::SpoofedNitro,
+                ));
+                options.push(form::heading(theme, tr("SERVER BOOSTER")));
+                options.extend(level_rows(
+                    theme,
+                    &BOOSTS,
+                    usize::from(settings.boost),
+                    Pref::SpoofedBoost,
+                ));
+                options.push(
+                    switch(
+                        tr("Show my real badges too"),
+                        settings.keep_real,
+                        Some(pref(Pref::SpoofRealBadges(!settings.keep_real))),
+                    )
+                    .description(tr("The badges your profile really has stay beside those chosen. A chosen house, Nitro or boost badge takes the place of your own."))
+                    .view(look),
+                );
+                (
+                    tr("Badge Spoofer"),
+                    tr(
+                        "Shows the Discord badges you choose on your own profile, as if you had them. Only you see them, in BACKCORD on this computer: nothing is sent to Discord.",
+                    ),
+                    options,
+                )
+            }
+            Extra::RelationshipNotifier => {
+                let switches = relationship_switches(prefs);
+                (
+                    tr("Relationship Notifier"),
+                    tr(
+                        "Tells you when a friend removes you, a friend request ends, or you're removed from a group DM or a server, and lists it in the inbox's Friend Alerts.",
+                    ),
+                    RELATIONSHIP_KINDS
+                        .into_iter()
+                        .zip(switches)
+                        .enumerate()
+                        .map(|(index, ((name, description), on))| {
+                            switch(tr(name), on, Some(pref(Pref::RelationshipKind(index, !on))))
+                                .description(tr(description))
+                                .view(look)
+                        })
+                        .collect(),
+                )
+            }
         };
         let sunken = theme.sidebar;
         let settings = container(column(options).spacing(12))
             .padding(16)
             .width(Length::Fill)
             .style(move |_| crate::style::rounded(sunken, 8));
+        // A long list of settings scrolls in a window too short for it.
+        let settings =
+            container(crate::widgets::scroll_view(settings).style(crate::style::scrollbar(theme)))
+                .max_height((look.window.height - 240.0).max(160.0));
         let body = column![
             row![
                 text(name)

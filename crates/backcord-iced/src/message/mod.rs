@@ -30,9 +30,13 @@ use crate::{
 pub mod attachments;
 mod embed;
 pub mod hover_bar;
+mod invite;
+pub mod linked;
 mod reaction_chips;
 
 pub use attachments::files;
+pub use invite::INVITE_CARD;
+pub use linked::LINKED_CARD;
 pub use reaction_chips::{emoji_shortcode, reacts};
 
 /// The line above a reply or a command's answer, and its avatar.
@@ -259,6 +263,22 @@ pub fn message_content<'a>(
     }
     if let Some(poll) = &message.poll {
         content = content.push(crate::polls::view(ctx, message, poll));
+    }
+    // A card for each invite the text links to, while Discord can say
+    // what they invite to.
+    if ctx.state.discord_online || ctx.state.preview {
+        for code in &look.body.invites {
+            content = content.push(invite::invite_card(ctx, message, code));
+        }
+    }
+    // A card for each Discord message the text links to, unless Settings'
+    // Message Link Previews is off.
+    if !ctx.state.hide_message_links {
+        for link in &look.body.linked {
+            if let Some(card) = linked::linked_card(ctx, link) {
+                content = content.push(card);
+            }
+        }
     }
     if ctx.layout.prefs.link_previews.unwrap_or(true) {
         for (place, embed) in message.embeds.iter().enumerate() {

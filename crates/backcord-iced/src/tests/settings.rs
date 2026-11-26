@@ -739,3 +739,199 @@ fn the_mic_test_without_a_call_deafens_nothing() {
     assert!(testing(&app));
     assert_eq!(call(&app), before);
 }
+
+/// Relationship Notifier's card in Extra Features, and its dialog's switch
+/// for each removal it tells of, kept across a restart.
+#[test]
+fn relationship_notifier_chooses_what_it_tells_of_and_keeps_it() {
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Extras);
+    assert!(shows(&app, "Relationship Notifier"));
+    let _ = app.update(Message::Settings(Event::Extra(Some(
+        crate::settings::Extra::RelationshipNotifier,
+    ))));
+    for name in [
+        "Friends",
+        "Friend requests",
+        "Group DMs",
+        "Servers",
+        "While offline",
+    ] {
+        assert!(shows(&app, name), "{name}");
+    }
+    interact(&mut app, |ui| {
+        ui.click("Group DMs").expect("the switch");
+    });
+    assert_eq!(app.layout.prefs.relationship_groups, Some(false));
+    let again = start(&folder, true);
+    assert_eq!(again.layout.prefs.relationship_groups, Some(false));
+    assert_eq!(stored(&folder)["relationship_groups"], false);
+}
+
+/// Fake Nitro's card in Extra Features, off as it starts, and its dialog:
+/// the emoji size, masked links and received links as emoji, kept across a
+/// restart.
+#[test]
+fn fake_nitro_starts_off_and_keeps_its_settings() {
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Extras);
+    assert!(shows(&app, "Fake Nitro"));
+    assert_eq!(app.layout.prefs.fake_nitro, None, "off unless turned on");
+    let _ = app.update(Message::Settings(Event::Extra(Some(
+        crate::settings::Extra::FakeNitro,
+    ))));
+    for name in [
+        "EMOJI SIZE",
+        "Use masked links",
+        "Show received emoji links as emoji",
+    ] {
+        assert!(shows(&app, name), "{name}");
+    }
+    interact(&mut app, |ui| {
+        ui.click("96").expect("the size");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Use masked links").expect("the switch");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Show received emoji links as emoji")
+            .expect("the switch");
+    });
+    let prefs = &app.layout.prefs;
+    assert_eq!(
+        (
+            prefs.fake_nitro_size,
+            prefs.fake_nitro_masked,
+            prefs.fake_nitro_received
+        ),
+        (Some(3), Some(false), Some(false))
+    );
+    let again = start(&folder, true);
+    assert_eq!(again.layout.prefs.fake_nitro_size, Some(3));
+    assert_eq!(stored(&folder)["fake_nitro_masked"], false);
+    assert_eq!(stored(&folder)["fake_nitro_received"], false);
+}
+
+/// Badge Spoofer's card in Extra Features, off as it starts, and its
+/// dialog's badges, house, Nitro and boost, kept across a restart. On, one's
+/// own profile shows the badges chosen, with Discord's pictures asked for,
+/// and anyone else's shows what Discord said.
+#[test]
+fn badge_spoofer_starts_off_and_dresses_only_ones_own_profile() {
+    use backcord_core::{
+        application::{Action, ProfileView},
+        badge_spoofer::{BADGES, NITRO},
+        chat::Profile,
+    };
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Extras);
+    assert!(shows(&app, "Badge Spoofer"));
+    assert_eq!(app.layout.prefs.badge_spoofer, None, "off unless turned on");
+    assert!(!app.client.state().badge_spoofer.on);
+    let _ = app.update(Message::Settings(Event::Extra(Some(
+        crate::settings::Extra::BadgeSpoofer,
+    ))));
+    for name in [
+        "BADGES",
+        "Discord Staff",
+        "Completed a Quest",
+        "HYPESQUAD HOUSE",
+        "NITRO",
+        "SERVER BOOSTER",
+        "Show my real badges too",
+    ] {
+        assert!(shows(&app, name), "{name}");
+    }
+    interact(&mut app, |ui| {
+        ui.click("Discord Staff").expect("its box");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Brilliance").expect("the house");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Gold").expect("the Nitro level");
+    });
+    interact(&mut app, |ui| {
+        ui.click("1 year").expect("the boost");
+    });
+    let prefs = &app.layout.prefs;
+    assert_eq!(
+        (
+            prefs.badge_spoofer_badges,
+            prefs.badge_spoofer_house,
+            prefs.badge_spoofer_nitro,
+            prefs.badge_spoofer_boost
+        ),
+        (Some(1), Some(2), Some(4), Some(6))
+    );
+    // The core has the choice, still off.
+    let spoofer = app.client.state().badge_spoofer;
+    assert!(!spoofer.on && spoofer.has(0) && spoofer.nitro == 4);
+    let again = start(&folder, true);
+    assert_eq!(
+        again.client.state().badge_spoofer,
+        spoofer,
+        "told as it starts"
+    );
+    assert_eq!(stored(&folder)["badge_spoofer_house"], 2);
+
+    // Turned on, with one's own profile and someone else's on screen.
+    app.layout.prefs.badge_spoofer = Some(true);
+    app.client
+        .dispatch(Action::SpoofBadges(app.layout.prefs.badge_spoofer()));
+    let view = |id: &str| {
+        std::sync::Arc::new(ProfileView {
+            profile: Profile {
+                id: id.into(),
+                name: "Me".into(),
+                handle: "me".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+    };
+    change(&mut app, |state| {
+        state.discord_user = Some("42".into());
+        state.profile = Some(view("42"));
+    });
+    let badges = |app: &App| -> Vec<String> {
+        app.profiles
+            .shown
+            .as_ref()
+            .expect("the profile")
+            .look
+            .badges
+            .iter()
+            .map(|badge| badge.description.clone())
+            .collect()
+    };
+    assert_eq!(
+        badges(&app),
+        [
+            "Discord Staff",
+            "HypeSquad Brilliance",
+            "Nitro Gold",
+            "Server Booster: 1 year"
+        ]
+    );
+    let pictures = crate::profile::profile_pictures(app.ctx());
+    for hash in [BADGES[0].hash, NITRO[3].hash] {
+        assert!(
+            pictures.iter().any(|url| url.contains(hash)),
+            "{hash}'s picture is asked for"
+        );
+    }
+    change(&mut app, |state| state.profile = Some(view("7")));
+    assert!(
+        badges(&app).is_empty(),
+        "another's profile is as Discord said"
+    );
+    // Off again, one's own shows its own.
+    change(&mut app, |state| state.profile = Some(view("42")));
+    assert_eq!(badges(&app).len(), 4);
+    app.layout.prefs.badge_spoofer = Some(false);
+    app.client
+        .dispatch(Action::SpoofBadges(app.layout.prefs.badge_spoofer()));
+    change(&mut app, |_| {});
+    assert!(badges(&app).is_empty());
+}

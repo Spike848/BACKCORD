@@ -285,6 +285,8 @@ mod channel_list;
 #[cfg(feature = "discord")]
 mod channel_settings;
 #[cfg(feature = "discord")]
+mod chat_export;
+#[cfg(feature = "discord")]
 mod commands;
 mod composer;
 mod direct_messages;
@@ -305,11 +307,15 @@ mod navigation;
 mod ownership;
 #[cfg(feature = "discord")]
 mod people;
+#[cfg(feature = "discord")]
+mod permissions;
 mod pickers;
 mod polls;
 #[cfg(feature = "discord")]
 mod profile_editor;
 mod profiles;
+#[cfg(feature = "discord")]
+mod relationships;
 #[cfg(feature = "discord")]
 mod server_settings;
 #[cfg(feature = "discord")]

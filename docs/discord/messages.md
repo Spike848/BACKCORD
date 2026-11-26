@@ -453,7 +453,8 @@ BACKCORD is back, rather than showing an error.
   quiet square holds each place until its picture arrives. A message of only
   emoji, up to 30, shows them large, as Discord does. Without Nitro, the
   picker offers only the open server's emoji, none animated, and sending
-  turns `:name:` into Discord's `<:name:id>` only for those.
+  turns `:name:` into Discord's `<:name:id>` only for those; Fake Nitro
+  sends the others as links to their pictures ([Fake Nitro](#fake-nitro)).
 - The emoji picker's Favorites and the start of its Frequently used are the
   account's own, as every Discord client of it shows them: `favorite_emojis`,
   `emoji_frecency` and, for a reaction's picker, `emoji_reaction_frecency` in
@@ -982,6 +983,35 @@ message to the inbox's "For Later" list with `PUT
 list to be useful, and Discord's client offers it only where a switch
 Discord controls turns it on.
 
+### Message link cards
+
+Under a message, a card shows for each Discord message its text links to
+(`https://discord.com/channels/{server or @me}/{channel}/{message}`, on
+`ptb.`, `canary.` and `discordapp.com` too), as Vencord's MessageLinkEmbeds
+does: each once, at most two, and none for a link in code
+(`discord::message_links`). It shows the linked message's author by their
+avatar and name in their colour, when it was sent, its text cut to four
+lines with its Markdown as a message's, its first picture or video's poster,
+and its channel ("#news", or a DM's name); a click on it goes there as the
+link itself does (`JumpInRoom`, or the browser for a place BACKCORD can't
+open).
+
+The core finds each in the same pass as [invite
+cards](servers.md#invite-cards) (`request_link_cards` in
+`application/link_cards.rs`), only for the messages on screen and in the
+thread beside, once whatever shows it later. A message the timeline or the
+thread beside has loaded is taken from there; any other is asked of Discord
+with the same `GET /channels/{channel}/messages?limit=1&around={message}`
+a reply's original is (`Discord::linked_message`, which waits a moment for
+the author's server profile as search results do), and its pictures follow
+as a pin's do. `AppState::message_cards` keeps what came of it by the
+message's id: still loading (a grey placeholder card), the message, or
+unavailable, for one gone (Discord answers with another around it) or in a
+channel this account can't read, which Discord refuses (a grey "Message not
+available" card). Extra Features' Message Link Previews, on by default,
+turns the cards off (`Action::HideMessageLinks`): then none shows and none
+is looked up.
+
 ## Stickers
 
 A Stickers tab in the same picker, beside GIFs and Emoji, and a sticker button
@@ -1039,6 +1069,35 @@ the width is the same for all three tabs and comes back at the next start
   aren't.
 - A sticker sent closes the picker as closing it does, and the renderer's
   caches go a second later.
+
+## Fake Nitro
+
+Extra Features' Fake Nitro, off by default, does what Vencord's fakeNitro
+does with messages, in the core's `fake_nitro.rs`, and nothing that tells
+Discord this account has Nitro (no better stream quality, no fake
+`premium_type`):
+
+- The emoji picker and the `:` suggestions offer every server's emoji as
+  usable (`Application::emoji_sets`). Sending writes those this account may
+  really use as `<:name:id>`, and each other one as a link to its picture,
+  `https://cdn.discordapp.com/emojis/{id}.webp?size={size}&quality=lossless&name={name}`
+  (`.gif` for an animated one), at the size chosen, masked as
+  `[name](https://…)` unless Use masked links is off, with a space either side.
+  Edits do the same. Discord embeds the picture for those who see it as a
+  link; the channel needs Embed Links for that, which BACKCORD doesn't check.
+- The sticker picker unlocks another server's stickers, but a Lottie one,
+  which has no picture. A click on one this account may not really send
+  sends a message of the link to its picture instead,
+  `https://media.discordapp.net/stickers/{id}.png?size=160` (`.gif` for a GIF
+  sticker), masked under its name as emoji are; an APNG sticker shows still.
+- With Show received emoji links as emoji, on by default, a link to an
+  emoji's picture on Discord's CDN or media proxy (`/emojis/{id}.webp`,
+  `.png`, `.gif`), bare or masked, shows as that emoji in the text of a
+  message, a search result or a reply's quote, as `<:name:id>` would, named
+  by the link's `name`, else the mask's text, else `emoji`; animated for a
+  GIF or `animated=true`. The picture Discord embedded for it goes, and a
+  message of the link alone, whose text Discord leaves out, gets the emoji
+  back from that picture. Code and links in angle brackets stay as written.
 
 ## Jumping to a message
 
@@ -1228,6 +1287,45 @@ deletion going on. One runs at a time in each place.
 The service's `Discord::delete_own_messages` does the work;
 `discord_text/delete_all.rs` runs it and keeps each run's stop, and the
 core's `application/delete_all.rs` the dialog and the counts.
+
+## Export Chat
+
+A server channel's menu (a text channel, a voice channel's chat, a thread),
+a DM's and a group's offer **Export chat…** while signed in to Discord,
+before View Icons and Copy link (`AppState::may_export_chat`; the window
+adds it, as it does Cancella tutto). Its dialog asks for the format (TXT,
+HTML, JSON), how much (the whole chat, the newest so many, or from a day
+on, typed as `dd/mm/yyyy`, which starts at that day's local midnight) and
+whether files and pictures go in as links. **Export** asks where to save it
+with the system's file dialog, opening in Downloads with the place's name
+and the day (`general-2026-11-25.txt`); nothing starts until a file is
+chosen.
+
+It asks for the history newest first with `GET
+/channels/{id}/messages?limit=100`, then `&before=` each page's oldest,
+as Discord's client pages back (100 is the most Discord gives; the newest
+so many asks for no more than it still needs). Each request waits for
+Discord's limits ([`crate::limits`]); a 429 after the API's own retry, or a
+5xx, waits 5 s and asks again, up to 12 times in a row. A day stops it at
+the first message older than the day's snowflake. The dialog shows how many
+came so far with **Stop**, which ends it after the page going on and writes
+nothing; closing the dialog leaves it going, and the notice then tells how
+it ended. One runs at a time.
+
+The file is written once it's all there, oldest first. TXT is a line a
+message, `[dd/mm/yyyy hh:mm] Author: text` in the local time zone, with
+mentions as `@name`, custom emoji as `:name:` and `<t:…>` timestamps as
+times; a notice (a pin, a join, a call) reads after the author's name, and
+each file is a line under it, indented, `name: url`. HTML is the same in a
+page with a simple dark style, text escaped and files (pictures too) as
+links, never embedded. JSON is Discord's message objects as it sent them,
+without `attachments` when files are left out.
+
+The service's `Discord::export_history` fetches the pages;
+`discord_text/export.rs` runs it, keeps its stop and writes the file;
+`chat_export.rs` in the core makes the file's contents (`render`) and
+names it; the core's `application/chat_export.rs` holds the dialog and the
+count, and the window's `chat_export.rs` draws the dialog.
 
 ## Dates
 

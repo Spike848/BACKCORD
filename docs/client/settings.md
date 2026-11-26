@@ -124,7 +124,7 @@ it.
 Extra Features (`pages/extras.rs`), under its own group at the foot of the
 column, has a card for each feature, its switch with what it does and its
 own choices under it while it's on, each kept in `layout.json`. All of
-them but Anti-Disconnect start on, Message Logger with Log my own
+them but Anti-Disconnect, Fake Nitro and Badge Spoofer start on, Message Logger with Log my own
 messages, Silent Typing (not sharing this account's typing) and No Push To
 Talk included, and Stream Proof's button sits in the header bar, with
 Local Blur and Auto Stream Proof on:
@@ -146,6 +146,11 @@ Local Blur and Auto Stream Proof on:
 
 - Clickable Roles (`clickable_roles`): a role's chip on a profile opens the
   card of who holds it (`info_cards.rs`), as a role mention does.
+- Permissions Viewer (`permissions_viewer`): a member's menu in a server
+  offers Permissions, a server's, channel's and category's menus My
+  Permissions, and a role's card a Permissions button, each opening its
+  window (`permissions.rs`, the layer `Permissions`); see
+  [servers](../discord/servers.md#permissions-viewer).
 - View Icons (`view_icons`, `icon_format`, `icon_size`): a large profile's
   avatar and any profile's banner open large (`icon_viewer.rs`), and the
   menus of a person and a server offer View Avatar and View Icon. A
@@ -165,3 +170,27 @@ Local Blur and Auto Stream Proof on:
 - No Push To Talk (`no_push_to_talk`): on, a channel that denies Use Voice
   Activity is spoken in as any other; off, push to talk is required there,
   as Discord's client requires it (`push_to_talk::set_required`).
+- Message Link Previews (`message_link_previews`): a card under a message
+  for each Discord message it links to (`message/linked.rs`); see
+  [message link cards](../discord/messages.md#message-link-cards). Off, the
+  core is told (`Action::HideMessageLinks`) and looks none up.
+- Relationship Notifier (`relationship_notifier`, and `relationship_friends`,
+  `_requests`, `_groups`, `_servers` and `_offline` for its dialog's
+  switches, each on by default): the removals it tells of reach the core as
+  `extras::set_relationship_alerts`, none while it's off. Its alerts list
+  in the inbox's Friend Alerts tab (`window_bar.rs`), with Clear alerts; see
+  [relationship alerts](../discord/people.md#relationship-alerts).
+- Fake Nitro (`fake_nitro`, off by default, and `fake_nitro_size`,
+  `fake_nitro_masked` and `fake_nitro_received` for its dialog): its
+  emoji size (32 to 160 px, 48 by default), Use masked links and Show
+  received emoji links as emoji, both on, reach the core as
+  `extras::set_fake_nitro`. On, the emoji and sticker pickers unlock what
+  this account may not use, which goes as a link to its picture; see
+  [Fake Nitro](../discord/messages.md#fake-nitro).
+- Badge Spoofer (`badge_spoofer`, off by default, and for its dialog
+  `badge_spoofer_badges`, a bit per badge ticked, `badge_spoofer_house`,
+  `_nitro` and `_boost`, none by default, and `badge_spoofer_real`, on):
+  its dialog ticks badges two to a row and chooses the house, Nitro level
+  and boost level in rows of choices, and scrolls in a short window. They
+  reach the core as `Action::SpoofBadges` (`Prefs::badge_spoofer`), at
+  start too; see [Badge Spoofer](../discord/people.md#badge-spoofer).

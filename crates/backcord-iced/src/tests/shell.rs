@@ -756,3 +756,42 @@ fn a_window_opened_again_goes_back_to_the_messages_it_was_closed_on() {
         "{offset} px into it, was {into} px"
     );
 }
+
+/// The inbox's Friend Alerts list Relationship Notifier's alerts, the
+/// newest first, with what happened; Clear empties them.
+#[test]
+fn the_inbox_lists_friend_alerts_until_they_are_cleared() {
+    use backcord_core::relationship_alerts::{RelationshipAlert, Removal};
+    let (mut app, _folder) = preview();
+    own_bar(&mut app);
+    let alert = |removal, name: &str| RelationshipAlert {
+        removal,
+        id: name.to_lowercase(),
+        name: name.into(),
+        avatar: None,
+        at: 1_700_000_000_000,
+        offline: false,
+    };
+    app.client.app.state.relationship_alerts = vec![
+        alert(Removal::Unfriended, "Annie"),
+        alert(Removal::Server, "Co-op crew"),
+    ];
+    let _ = app.update(Message::Bar(window_bar::Event::Inbox));
+    assert!(shows(&app, "Friend Alerts"));
+    assert!(!shows(&app, "Removed you as a friend."));
+    let _ = app.update(Message::Bar(window_bar::Event::InboxTab(
+        window_bar::Tab::FriendAlerts,
+    )));
+    assert!(shows(&app, "Annie"));
+    assert!(shows(&app, "Removed you as a friend."));
+    assert!(shows(
+        &app,
+        "You were removed from this server, or it was deleted."
+    ));
+    let _ = app.update(Message::Bar(window_bar::Event::InboxClearAlerts));
+    assert!(app.client.state().relationship_alerts.is_empty());
+    assert!(shows(
+        &app,
+        "When a friend removes you, a friend request ends, or you're removed from a group DM or a server, it shows up here."
+    ));
+}

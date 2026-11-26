@@ -8,7 +8,7 @@
 
 use crate::widgets::scroll_view;
 use backcord_core::{
-    application::{Action, Application, Navigation},
+    application::{Action, Application, Navigation, PermissionsOf},
     emoji::card::{self as expression, Target},
 };
 use iced::{
@@ -76,6 +76,9 @@ pub struct Cards {
 #[derive(Clone, Debug)]
 pub enum Event {
     CloseRole,
+    /// Permissions Viewer: what the role on the card gives, in its own
+    /// window in place of the card.
+    RolePermissions,
     /// Someone on the role card, by id: their card, at the press.
     RoleMember(String),
     /// A mutual server in a profile, by id: its card, at the press.
@@ -138,6 +141,16 @@ impl Cards {
             Event::CloseRole => {
                 self.role_at = None;
                 cx.dispatch(Action::CloseRole);
+            }
+            Event::RolePermissions => {
+                let state = cx.state();
+                let shown = state.role.as_ref().map(|role| role.id.clone());
+                let place = state.selected.clone();
+                self.role_at = None;
+                cx.dispatch(Action::CloseRole);
+                if let (Some(role), Some(place)) = (shown, place) {
+                    cx.dispatch(Action::ShowPermissions(PermissionsOf::Role { place, role }));
+                }
             }
             Event::CloseServer => self.server = None,
             Event::CloseExpression => self.expression = None,
@@ -506,6 +519,32 @@ impl<'a> View<'a> {
             }
             let tall = (members.len() as f32 * ROLE_ROW).min(ROLE_LIST);
             card = card.push(scroll_view(list).height(tall).style(scrollbar(theme)));
+        }
+        // Permissions Viewer: what the role gives.
+        if self.cx.layout.prefs.permissions_viewer.unwrap_or(true)
+            && self
+                .cx
+                .state
+                .selected
+                .as_deref()
+                .is_some_and(|place| self.cx.app.offers_permissions(place))
+        {
+            card = card.push(
+                container(
+                    controls::action(
+                        theme,
+                        backcord_iced_kit::i18n::tr("Permissions"),
+                        Kind::Plain,
+                        Some(Message::Info(Event::RolePermissions)),
+                    )
+                    .small()
+                    .wide(32.0),
+                )
+                .padding(Padding {
+                    top: 8.0,
+                    ..Padding::ZERO
+                }),
+            );
         }
         let limit = self.cx.look.window.height - 16.0;
         let card = frame(theme, theme.raised, ROLE_WIDTH, 8.0, card).max_height(limit);

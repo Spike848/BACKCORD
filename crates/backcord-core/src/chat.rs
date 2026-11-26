@@ -3288,6 +3288,12 @@ pub enum DiscordCommand {
     Pins {
         room: String,
     },
+    /// The message `id` in the room `room`, which a message links to, for
+    /// its card under it; [`Event::LinkedMessage`] follows.
+    LinkedMessage {
+        room: String,
+        id: String,
+    },
     /// A page of a Discord server channel's threads, by its room id, as its
     /// list of threads shows them: the archived ones from the `offset`th,
     /// or with a `query`, those of any kind whose name it finds.
@@ -3559,6 +3565,15 @@ pub enum DiscordCommand {
     /// deletion going on.
     StopDeleteAll {
         place: String,
+    },
+    /// Export Chat: fetch a channel's, DM's or group's history a page at a
+    /// time and write it to a file; [`Event::ChatExported`] follows after
+    /// each page, and when it ends. One goes at a time.
+    ExportChat(Box<crate::chat_export::ChatExport>),
+    /// Stop the export going on in a room, after the page going on; it
+    /// writes nothing.
+    StopExport {
+        room: String,
     },
     /// Delete a Discord server this account owns, confirming with
     /// two-factor authentication if Discord asks; [`Event::ServerDeleted`]
@@ -5083,6 +5098,13 @@ pub enum Event {
         ended: bool,
         error: Option<String>,
     },
+    /// How Export Chat goes in a room: how many messages came so far, and
+    /// once it ended, how.
+    ChatExported {
+        room: String,
+        messages: u32,
+        end: Option<crate::chat_export::ExportEnd>,
+    },
     /// Whether Discord deleted a server, or why not.
     ServerDeleted {
         server: String,
@@ -5116,6 +5138,13 @@ pub enum Event {
     InviteResolved {
         code: String,
         result: Result<InvitePreview, String>,
+    },
+    /// The message [`DiscordCommand::LinkedMessage`] looked up by its id,
+    /// none when it's gone, or why Discord didn't show it (as for a channel
+    /// this account can't read). It comes again once its pictures came.
+    LinkedMessage {
+        id: String,
+        result: Result<Option<ChatMessage>, String>,
     },
     /// The address of the page with a captcha Discord asked for before
     /// joining by the invite with this code.
@@ -5796,6 +5825,10 @@ pub struct Alert {
     pub call: bool,
     /// A message mentioning this account.
     pub mention: bool,
+    /// Relationship Notifier's: someone removed this account, as
+    /// [`crate::relationship_alerts`] tells. The window translates its
+    /// English body, and shows it while BACKCORD is in front too.
+    pub relationship: bool,
 }
 
 /// What woke the actor. Each network's own events are handled by its module.

@@ -32,6 +32,21 @@ scrolls them when the window is shorter than they are.
 - Create a Poll, from the composer's + menu: the question with its count,
   the answers each with an emoji from the picker and a bin, Add another
   answer, the duration, Allow Multiple Answers, what's too long, and Post.
+- Permissions (`permissions.rs`), Permissions Viewer's, from a member's
+  menu, My Permissions in a place's or a role's card: whose and where at
+  its top, what gives them everything if something does, then each group
+  under its heading, every permission with a green tick or a red cross and
+  what gives or takes it; it shows over a server's settings, and its X,
+  Escape or a click outside close it
+  ([servers](../discord/servers.md#permissions-viewer)).
+- Export chat (`chat_export.rs`, the layer `ChatExport`), from a channel's,
+  DM's or group's menu: the format, how much of the history (with its
+  number or first day field), Include attachments as links, and Export,
+  which opens the system's save dialog in Downloads with the file named
+  for the place and the day; while it runs, how many messages came so far
+  with Stop; then how it ended. Its X, Escape or a click outside close it,
+  leaving the export going
+  ([messages](../discord/messages.md#export-chat)).
 
 The dialogs a server's and a channel's menus lead to are
 `server_dialogs.rs`'s.

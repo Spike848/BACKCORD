@@ -21,6 +21,33 @@ permissions hide. Members' roles are learned with their names; member list rows 
 `ChatMember::roles` share each member's list with them rather than copying
 it.
 
+### Permissions Viewer
+
+Permissions Viewer, an Extra Feature on by default, shows what someone
+may do and why, as Vencord's plugin of that name does. Permissions in a
+member's menu shows theirs where the menu opens: in the open channel,
+with its overwrites, or in the server from Members in its settings. My
+Permissions in a server's, a channel's or a category's menu shows this
+account's own there, and Permissions on a role's card what the role gives
+on its own, in the server as a whole. Nothing is asked of Discord: the
+window (`AppState::permissions`, `application/permissions_viewer.rs`) is
+worked out as it opens from the server the latest snapshot shares, the
+member's roles as their menu reads them, and their timeout.
+
+`Server::explain` answers for each permission, with the bits
+`server_permissions` and `overwritten` give (a test holds them to it) and
+what decides it: owning the server or Administrator, which give
+everything, in every channel; else the highest of their roles that gives
+it, @everyone last; then, in a channel or category, @everyone's overwrite,
+the roles' together (an allow beating a deny), and the member's own, each
+over the last; then a timeout, which leaves only viewing and reading. The
+window lists Discord's groups and titles, a role's Permissions tab's in a
+server (its Community ones only in a Community server) and the channel's
+Permissions page's in a channel or category, each with a green tick or a
+red cross and what gave or took it: "Given by Mods", "Denied by the
+channel override for @everyone", "Taken away by their timeout", "No role
+gives it".
+
 ## A server member's menu
 
 Right-clicking someone in a server channel's member list, or a message's
@@ -230,7 +257,26 @@ it asks anything, shows it over the channel; see "Joining a server's rules
 and questions" below. A voice
 channel's invite joins the server and opens the channel without joining the
 call. Discord's client also sends `invite_instance_id` from a message's
-invite card, which BACKCORD doesn't show yet, so it leaves that out.
+invite card, which BACKCORD leaves out.
+
+### Invite cards
+
+Under a message, a card shows for each invite its text links to, as
+Discord's "You've been invited to join a server" does: each once, at most
+three, and none for a link in code (`discord::invite_codes`). The core
+looks each code up with the `GET /invites/{code}` above, once whatever
+shows it later, and only as a message linking to it comes on screen
+(`request_link_cards` in `application/link_cards.rs`, going through the
+messages the timeline reports showing, as the pictures on screen do, and
+the thread beside; [message link cards](messages.md#message-link-cards)
+come from the same pass). `AppState::invite_cards` keeps what came of it by code: still
+loading (a grey placeholder card), the server (its icon, which joins the
+pictures on screen, name, "N Online" and "N Members" and a Join button),
+or invalid, for an invite Discord doesn't know or refused (a grey "Invalid
+Invite" card). Join joins as Join a Server does, the dialog opening on the
+invite to show how it goes and any captcha; for a server the account is
+in, the button reads Joined and opens the invite's channel. The link in
+the text still opens Join a Server as before.
 
 ## Joining a server's rules and questions
 

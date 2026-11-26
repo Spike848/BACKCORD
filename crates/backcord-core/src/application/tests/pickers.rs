@@ -1161,3 +1161,179 @@ fn only_as_many_frequent_emoji_as_discord_keeps_stay() {
     assert_eq!(frequent.len(), 42);
     assert_eq!(frequent[0], "emoji000");
 }
+
+/// The servers Fake Nitro's tests write in, without Nitro: the open server
+/// "10" with a still emoji, an animated one and a sticker, and "20" with an
+/// emoji, a sticker and a Lottie sticker, which has no picture to link.
+#[cfg(feature = "discord")]
+fn without_nitro() -> Application {
+    use backcord_discord::{
+        ready::{Channel, Emoji, Server},
+        service::{Snapshot, Status},
+        stickers::Sticker,
+    };
+    use std::sync::Arc;
+    let emoji = |id: &str, name: &str, animated| Emoji {
+        id: id.into(),
+        name: name.into(),
+        animated,
+        available: true,
+    };
+    let sticker = |id: &str, name: &str, format| Sticker {
+        id: id.into(),
+        name: name.into(),
+        format,
+        unavailable: false,
+    };
+    let mut app = connected();
+    app.apply(discord_event(Snapshot {
+        status: Status::Online,
+        user_id: Some("1".into()),
+        servers: vec![
+            MarkedServer::from(Server {
+                id: "10".into(),
+                name: "Test".into(),
+                text_channels: vec![Channel {
+                    id: "21".into(),
+                    name: "general".into(),
+                    ..Default::default()
+                }],
+                emojis: vec![emoji("5", "talk", false), emoji("7", "dance", true)].into(),
+                stickers: Arc::new(vec![sticker("8", "Wave", 1)]),
+                ..Default::default()
+            }),
+            MarkedServer::from(Server {
+                id: "20".into(),
+                name: "Elsewhere".into(),
+                emojis: vec![emoji("6", "party", false)].into(),
+                stickers: Arc::new(vec![sticker("9", "Dance", 1), sticker("11", "Spin", 3)]),
+                ..Default::default()
+            }),
+        ],
+        ..Default::default()
+    }));
+    app.dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.dispatch(Action::SelectRoom("discord:10:21".into()));
+    app.apply(Event::Timeline {
+        room: "discord:10:21".into(),
+        messages: timeline(vec![]),
+    });
+    app
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn fake_nitro_unlocks_every_emoji_and_sends_those_it_may_not_use_as_links() {
+    use crate::extras::{FakeNitro, test_fake_nitro};
+    let mut app = without_nitro();
+    let usable = |app: &Application| -> Vec<(String, bool)> {
+        app.emoji_sets()
+            .into_iter()
+            .flat_map(|set| set.emoji)
+            .map(|emoji| (emoji.text, emoji.usable))
+            .collect()
+    };
+    let sent = |app: &mut Application, draft: &str| -> String {
+        app.dispatch(Action::SetDraft(draft.into()));
+        let Command::Send { body, room, .. } = send_command(app.dispatch(Action::Send)) else {
+            unreachable!()
+        };
+        app.apply(Event::SendResult {
+            room,
+            body: body.clone(),
+            result: Ok(()),
+        });
+        body
+    };
+    // Off, as it starts: the animated emoji and another server's are locked,
+    // and go as their names.
+    assert_eq!(
+        usable(&app),
+        [
+            (":talk:".into(), true),
+            (":dance:".into(), false),
+            (":party:".into(), false)
+        ]
+    );
+    assert_eq!(sent(&mut app, ":talk: :party:"), "<:talk:5> :party:");
+
+    // On, every one is usable, and those this account may not use go as
+    // links to their pictures at the size chosen, bare or masked.
+    test_fake_nitro(FakeNitro {
+        on: true,
+        size: 64,
+        masked: false,
+        received: true,
+    });
+    assert!(usable(&app).iter().all(|(_, usable)| *usable));
+    assert!(
+        app.emoji_by_id(&["6"].into_iter().collect())
+            .iter()
+            .all(|emoji| emoji.usable)
+    );
+    assert!(app.usable_emoji().iter().any(|set| set.id == "20"));
+    assert_eq!(
+        sent(&mut app, ":talk: :dance: hi:party:"),
+        "<:talk:5> https://cdn.discordapp.com/emojis/7.gif?size=64&quality=lossless&name=dance \
+         hi https://cdn.discordapp.com/emojis/6.webp?size=64&quality=lossless&name=party"
+    );
+    test_fake_nitro(FakeNitro {
+        on: true,
+        ..FakeNitro::OFF
+    });
+    assert_eq!(
+        sent(&mut app, ":party:"),
+        "[party](https://cdn.discordapp.com/emojis/6.webp?size=48&quality=lossless&name=party)"
+    );
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn fake_nitro_sends_a_sticker_it_may_not_use_as_its_picture() {
+    use crate::extras::{FakeNitro, test_fake_nitro};
+    let mut app = without_nitro();
+    let usable = |app: &Application, id: &str| {
+        app.state
+            .stickers
+            .collections(false)
+            .into_iter()
+            .flat_map(|collection| collection.stickers)
+            .find(|sticker| sticker.id == id)
+            .map(|sticker| sticker.usable)
+    };
+    app.dispatch(Action::OpenStickers);
+    // Off, another server's sticker is locked and goes nowhere.
+    assert_eq!(usable(&app, "9"), Some(false));
+    assert!(app.dispatch(Action::PickSticker("9".into())).is_empty());
+
+    test_fake_nitro(FakeNitro {
+        on: true,
+        ..FakeNitro::OFF
+    });
+    assert_eq!(usable(&app, "9"), Some(true));
+    assert_eq!(
+        usable(&app, "11"),
+        Some(false),
+        "a Lottie sticker has no picture"
+    );
+    let effects = app.dispatch(Action::PickSticker("9".into()));
+    assert!(
+        effects.iter().any(|effect| matches!(
+            effect,
+            Effect::Backend(Command::Send { body, .. })
+                if body == "[Dance](https://media.discordapp.net/stickers/9.png?size=160)"
+        )),
+        "the sticker's picture goes as a message"
+    );
+    assert!(!app.state.stickers.open, "the picker closes");
+    // The open server's own sticker still goes as a sticker.
+    app.dispatch(Action::OpenStickers);
+    assert!(
+        app.dispatch(Action::PickSticker("8".into()))
+            .iter()
+            .any(|effect| matches!(
+                effect,
+                Effect::Backend(Command::Discord(DiscordCommand::SendSticker { id, .. })) if id == "8"
+            ))
+    );
+}

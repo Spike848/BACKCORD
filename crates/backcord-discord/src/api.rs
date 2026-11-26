@@ -83,6 +83,9 @@ const SUPPRESS_NOTIFICATIONS: u64 = 1 << 12;
 const FORWARD: u64 = 1;
 /// The most messages one history request returns.
 pub const PAGE: usize = 50;
+/// The most messages one request for a channel's history may ask for,
+/// as Export Chat asks a page at a time.
+pub const EXPORT_PAGE: usize = 100;
 
 /// How many archived threads a page of a channel's list of threads holds,
 /// as Discord's client asks for them.
@@ -629,6 +632,26 @@ impl Api {
         };
         if let Some((side, id)) = from {
             let _ = write!(path, "&{side}={id}");
+        }
+        match self.json(self.request(Method::GET, &path)).await? {
+            Value::Array(messages) => Ok(messages),
+            _ => bail!("could not understand Discord's answer"),
+        }
+    }
+
+    /// Up to `limit` messages of a channel, at most [`EXPORT_PAGE`],
+    /// newest first: those before a snowflake, or the newest. Export Chat
+    /// asks for them a page at a time.
+    pub async fn messages_before(
+        &self,
+        channel: &str,
+        before: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<Value>> {
+        let limit = limit.clamp(1, EXPORT_PAGE);
+        let mut path = format!("/channels/{channel}/messages?limit={limit}");
+        if let Some(before) = before {
+            let _ = write!(path, "&before={}", encode(before));
         }
         match self.json(self.request(Method::GET, &path)).await? {
             Value::Array(messages) => Ok(messages),

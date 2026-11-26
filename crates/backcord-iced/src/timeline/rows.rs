@@ -72,6 +72,11 @@ pub struct Laid {
     pub cards: Vec<Vec<Body>>,
     /// The reply quote's single-line snippet, whitespace collapsed.
     pub reply: String,
+    /// The codes of the Discord invites its text links to, whose cards
+    /// show under it.
+    pub invites: Vec<String>,
+    /// The Discord messages its text links to, whose cards show under it.
+    pub linked: Vec<backcord_core::discord::MessageLink>,
 }
 
 impl std::ops::Deref for Laid {
@@ -255,11 +260,21 @@ pub fn body_of(
         .as_ref()
         .map(|reply| reply.body.split_whitespace().collect::<Vec<_>>().join(" "))
         .unwrap_or_default();
+    let (invites, linked) = if message.notice.is_none() {
+        (
+            backcord_core::discord::invite_codes(&message.body),
+            backcord_core::discord::message_links(&message.body),
+        )
+    } else {
+        (Vec::new(), Vec::new())
+    };
     Laid {
         body,
         embeds,
         cards,
         reply,
+        invites,
+        linked,
     }
 }
 
@@ -433,6 +448,8 @@ pub fn row_height(message: &ChatMessage, look: &RowLook, width: f32, edge: f32) 
         // The chips, and the 4 above them.
         content += 34.0;
     }
+    content += look.body.invites.len() as f32 * (crate::message::INVITE_CARD + 7.0);
+    content += look.body.linked.len() as f32 * (crate::message::LINKED_CARD + 7.0);
     if message.thread.is_some() {
         content += THREAD_CHIP;
     }

@@ -286,6 +286,12 @@ impl App {
         if let Some(window) = crate::reactions::view(&self.reactions, self.ctx()) {
             layers = layers.push(self.popup(L(Layer::Reactions), window));
         }
+        if let Some(window) = crate::permissions::view(self.ctx()) {
+            layers = layers.push(self.popup(L(Layer::Permissions), window));
+        }
+        if let Some(dialog) = crate::chat_export::view(self.ctx()) {
+            layers = layers.push(self.popup(L(Layer::ChatExport), dialog));
+        }
         if let Some(modal) = crate::dialogs::delete_view(self.confirm_focus, self.ctx()) {
             layers = layers.push(modal);
         }

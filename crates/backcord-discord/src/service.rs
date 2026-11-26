@@ -1282,6 +1282,24 @@ impl Discord {
         Ok(Some(Reply::of(&original)))
     }
 
+    /// The message `id` of a server's channel, or with [`PRIVATE`] a DM,
+    /// which a message links to, learning its author; none once it's gone.
+    /// Discord refuses one in a channel this account can't read.
+    pub async fn linked_message(
+        &self,
+        guild: &str,
+        channel: &str,
+        id: &str,
+    ) -> Result<Option<Message>> {
+        let Some(linked) = self.api.message(channel, id).await? else {
+            return Ok(None);
+        };
+        Ok(self
+            .learn_authors(guild, std::slice::from_ref(&linked))
+            .await
+            .pop())
+    }
+
     /// Messages from a server's channel, or with [`PRIVATE`] a DM, learning
     /// their authors. Messages fetched over HTTP carry no server profiles,
     /// so the nicknames, server avatars and roles of authors not known yet
@@ -1668,6 +1686,80 @@ impl Discord {
                 messages: self.learn_authors(guild, &values).await,
             }));
         }
+    }
+
+    /// Export Chat: a channel's or DM's messages as Discord sends them,
+    /// oldest first, asked for [`crate::api::EXPORT_PAGE`] at a time, each
+    /// page before the last one's oldest, within Discord's limits; a 429,
+    /// or a failure of Discord's own, waits and goes again, up to
+    /// [`PURGE_PATIENCE`] times in a row. It takes the `most` newest, or
+    /// all, and none older than the snowflake `since`. `progress` hears
+    /// how many came so far after each page, and `stop` ends it after the
+    /// page going on, with none.
+    pub async fn export_history(
+        &self,
+        channel: &str,
+        most: Option<usize>,
+        since: Option<u64>,
+        stop: &std::sync::atomic::AtomicBool,
+        progress: &(dyn Fn(usize) + Send + Sync),
+    ) -> Result<Option<Vec<Value>>> {
+        use std::sync::atomic::Ordering;
+        let mut found: Vec<Value> = Vec::new();
+        let mut before: Option<String> = None;
+        let mut waits = 0;
+        loop {
+            if stop.load(Ordering::Relaxed) {
+                return Ok(None);
+            }
+            let wanted = most.map_or(crate::api::EXPORT_PAGE, |most| {
+                most.saturating_sub(found.len())
+                    .min(crate::api::EXPORT_PAGE)
+            });
+            if wanted == 0 {
+                break;
+            }
+            let page = match self
+                .api
+                .messages_before(channel, before.as_deref(), wanted)
+                .await
+            {
+                Ok(page) => {
+                    waits = 0;
+                    page
+                }
+                Err(error) if slowed(&error) && waits < PURGE_PATIENCE => {
+                    waits += 1;
+                    tokio::time::sleep(PURGE_BACKOFF).await;
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
+            let whole = page.len() >= wanted;
+            let mut reached = false;
+            for value in page {
+                let id = value["id"].as_str().and_then(|id| id.parse::<u64>().ok());
+                if let (Some(id), Some(since)) = (id, since)
+                    && id < since
+                {
+                    reached = true;
+                    break;
+                }
+                found.push(value);
+            }
+            progress(found.len());
+            // Newest first, so the last is the oldest.
+            let oldest = found.last().and_then(|value| value["id"].as_str());
+            match oldest {
+                Some(oldest) if whole && !reached => before = Some(oldest.to_owned()),
+                _ => break,
+            }
+        }
+        if stop.load(Ordering::Relaxed) {
+            return Ok(None);
+        }
+        found.reverse();
+        Ok(Some(found))
     }
 
     /// Deletes every message this account sent in a server, with `guild`,

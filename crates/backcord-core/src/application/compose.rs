@@ -201,6 +201,8 @@ impl Application {
 
     /// What a message carries on the wire for text as typed in a room: links
     /// without tracking, mentions and custom emoji written as Discord has them.
+    /// With Fake Nitro, an emoji this account may not use goes as a link to its
+    /// picture.
     fn outgoing_body(&self, room: &str, text: &str) -> String {
         let text = if self.state.strip_tracking {
             crate::links::without_tracking(text)
@@ -212,12 +214,18 @@ impl Application {
         }
         let wired = mention::wire(&text, &self.state.mention_candidates());
         if Network::of(room) == Network::Discord {
-            let usable: Vec<chat::CustomEmoji> = self
-                .usable_emoji()
+            let fake = crate::extras::fake_nitro();
+            let (usable, locked): (Vec<chat::CustomEmoji>, Vec<chat::CustomEmoji>) = self
+                .emoji_sets_as(false)
                 .into_iter()
                 .flat_map(|set| set.emoji)
-                .collect();
-            chat::wire_emoji(&wired, &usable)
+                .partition(|emoji| emoji.usable);
+            let wired = chat::wire_emoji(&wired, &usable);
+            if fake.on {
+                crate::fake_nitro::wire(&wired, &locked, fake)
+            } else {
+                wired
+            }
         } else {
             wired
         }

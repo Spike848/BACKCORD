@@ -1023,3 +1023,68 @@ fn a_profile_without_a_wishlist_has_an_empty_one() {
         chat::Wishlist::Loaded(Vec::new())
     );
 }
+
+/// Badge Spoofer shows the badges chosen on this account's own profile
+/// alone, sends Discord nothing, and leaves anyone else's as Discord said.
+#[test]
+fn badge_spoofer_dresses_only_this_accounts_profile_and_tells_discord_nothing() {
+    use crate::badge_spoofer::{BadgeSpoofer, NITRO};
+    let mut app = Application::default();
+    app.state.discord_user = Some("42".into());
+    let bravery = crate::chat::ProfileBadge {
+        description: "HypeSquad Bravery".into(),
+        icon: crate::badge_spoofer::icon("8a88d63823d8a71cd5e390baa45efa02"),
+        link: None,
+        level: None,
+    };
+    let profile = |id: &str| Profile {
+        id: id.into(),
+        badges: vec![bravery.clone()],
+        ..Default::default()
+    };
+    let (own, other) = (profile("42"), profile("7"));
+    assert_eq!(
+        app.state.badge_spoofer,
+        BadgeSpoofer::OFF,
+        "off as it starts"
+    );
+    assert_eq!(
+        *app.state.shown_badges(&own),
+        *std::slice::from_ref(&bravery)
+    );
+
+    let settings = BadgeSpoofer {
+        on: true,
+        nitro: 3,
+        ..BadgeSpoofer::OFF
+    }
+    .with(0, true);
+    assert!(
+        app.dispatch(Action::SpoofBadges(settings)).is_empty(),
+        "nothing goes to Discord"
+    );
+    let shown = app.state.shown_badges(&own);
+    assert_eq!(
+        shown
+            .iter()
+            .map(|badge| badge.description.as_str())
+            .collect::<Vec<_>>(),
+        ["Discord Staff", "HypeSquad Bravery", "Nitro Silver"]
+    );
+    assert!(shown[2].icon.contains(NITRO[2].hash));
+    assert_eq!(
+        *app.state.shown_badges(&other),
+        *std::slice::from_ref(&bravery)
+    );
+    assert_eq!(
+        own.badges,
+        *std::slice::from_ref(&bravery),
+        "the profile itself stays"
+    );
+
+    app.dispatch(Action::SpoofBadges(BadgeSpoofer {
+        on: false,
+        ..settings
+    }));
+    assert_eq!(*app.state.shown_badges(&own), [bravery]);
+}

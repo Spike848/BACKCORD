@@ -960,6 +960,65 @@ async fn the_sticker_picker_lists_the_servers_own_stickers() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs testing/fake_discord.ts and BACKCORD_DISCORD_TEST_SERVER"]
+async fn export_chat_writes_a_channels_history_to_a_file() {
+    use crate::chat_export::{ChatExport, ExportEnd, ExportFormat, ExportRange};
+    let discord = fake_discord().await;
+    let (done, _finished) = tokio::sync::mpsc::unbounded_channel();
+    let (events, mut received) = tokio::sync::mpsc::unbounded_channel();
+    let mut channels = Channels::default();
+    let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.local/export-chat-test");
+    std::fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("general.txt");
+    let _ = std::fs::remove_file(&path);
+    let room = discord::room_id(FAKE_GUILD, FAKE_GENERAL);
+    command(
+        Command::Discord(DiscordCommand::ExportChat(Box::new(ChatExport {
+            room: room.clone(),
+            title: "general".into(),
+            format: ExportFormat::Text,
+            range: ExportRange::All,
+            attachments: true,
+            path: path.clone(),
+        }))),
+        Ok(&discord),
+        &mut channels,
+        &done,
+        &events,
+    );
+    let mut counts = vec![];
+    let end = tokio::time::timeout(Duration::from_secs(20), async {
+        loop {
+            if let Event::ChatExported {
+                room: exported,
+                messages,
+                end,
+            } = received.recv().await.expect("the export answers")
+            {
+                assert_eq!(exported, room);
+                match end {
+                    Some(end) => break (messages, end),
+                    None => counts.push(messages),
+                }
+            }
+        }
+    })
+    .await
+    .expect("timed out waiting for the export");
+    assert_eq!(end.1, ExportEnd::Saved(path.clone()));
+    assert!(end.0 >= 60, "#general's sixty at least: {}", end.0);
+    assert!(!counts.is_empty() && counts.windows(2).all(|pair| pair[0] < pair[1]));
+    let text = std::fs::read_to_string(&path).unwrap();
+    let first = text.lines().next().unwrap();
+    assert!(first.starts_with('['), "{first}");
+    assert!(
+        text.lines()
+            .any(|line| line.contains(": Welcome to **BACKCORD**")),
+        "the channel's first message"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs testing/fake_discord.ts and BACKCORD_DISCORD_TEST_SERVER"]
 async fn earlier_history_loads_a_page_at_a_time_until_the_first_message() {
     let discord = fake_discord().await;
     let (done, mut finished) = tokio::sync::mpsc::unbounded_channel();
@@ -1802,6 +1861,81 @@ async fn a_members_mention_has_no_colour_of_its_own_but_a_roles_has() {
     };
     assert_eq!(colour(&Target::User(bob.into())), Some(None));
     assert_eq!(colour(&Target::Role(mods.into())), Some(Some(0x3498db)));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs testing/fake_discord.ts and BACKCORD_DISCORD_TEST_SERVER"]
+async fn a_message_link_brings_the_message_it_links_to() {
+    let discord = fake_discord().await;
+    let (done, _finished) = tokio::sync::mpsc::unbounded_channel();
+    let (events, mut received) = tokio::sync::mpsc::unbounded_channel();
+    let mut channels = Channels::default();
+    let room = discord::room_id(FAKE_GUILD, FAKE_GENERAL);
+    // The pins come twice, the second time with their pictures: an answer
+    // is the next of the kind asked for.
+    let mut run = async |command: Command| {
+        let pins = matches!(command, Command::Discord(DiscordCommand::Pins { .. }));
+        self::command(command, Ok(&discord), &mut channels, &done, &events);
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let event = received.recv().await.expect("events go on");
+                match event {
+                    Event::Pins { .. } if pins => return event,
+                    Event::LinkedMessage { .. } if !pins => return event,
+                    _ => {}
+                }
+            }
+        })
+        .await
+        .expect("timed out waiting for Discord")
+    };
+    // The welcome, pinned, is linked to.
+    let Event::Pins {
+        result: Ok(pins), ..
+    } = run(Command::Discord(DiscordCommand::Pins {
+        room: room.clone(),
+    }))
+    .await
+    else {
+        panic!("the pins came")
+    };
+    let id = pins[0].item.trim_start_matches("d:").to_owned();
+    let Event::LinkedMessage {
+        id: came,
+        result: Ok(Some(linked)),
+    } = run(Command::Discord(DiscordCommand::LinkedMessage {
+        room: room.clone(),
+        id: id.clone(),
+    }))
+    .await
+    else {
+        panic!("the linked message came")
+    };
+    assert_eq!(came, id);
+    assert_eq!(linked.author, "Bob");
+    assert_eq!(linked.color, Some(0x3498db), "Bob is a Mod");
+    assert_eq!(linked.body, pins[0].body);
+    // One gone is none; one in a channel it can't see, refused.
+    let gone = (id.parse::<u64>().unwrap() - 1).to_string();
+    assert!(matches!(
+        run(Command::Discord(DiscordCommand::LinkedMessage {
+            room: room.clone(),
+            id: gone,
+        }))
+        .await,
+        Event::LinkedMessage {
+            result: Ok(None),
+            ..
+        }
+    ));
+    assert!(matches!(
+        run(Command::Discord(DiscordCommand::LinkedMessage {
+            room: discord::room_id(FAKE_GUILD, "1"),
+            id,
+        }))
+        .await,
+        Event::LinkedMessage { result: Err(_), .. }
+    ));
 }
 
 #[tokio::test(flavor = "multi_thread")]

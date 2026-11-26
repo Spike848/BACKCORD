@@ -11,8 +11,8 @@
 use std::borrow::Cow;
 
 use backcord_core::application::{
-    Action, AppState, BAN_HISTORY, CommandTarget, MenuChoice, OwnershipInput, PersonAsk,
-    TIMEOUT_TIMES, network_id, network_link,
+    Action, AppState, BAN_HISTORY, CommandTarget, MenuChoice, OwnershipInput, PermissionsOf,
+    PersonAsk, TIMEOUT_TIMES, network_id, network_link,
 };
 use backcord_core::chat::RelationshipChange;
 use iced::{
@@ -72,6 +72,16 @@ pub(crate) fn offers_follow(app: &App, user: &str) -> bool {
         && state.relation(user) != backcord_core::application::Relation::Me
 }
 
+/// Whether someone's menu offers Permissions: a member's in a Discord
+/// server, while Permissions Viewer is on in Extra Features.
+pub(crate) fn offers_permissions(app: &App, user: &str) -> bool {
+    let core = &app.client.app;
+    app.layout.prefs.permissions_viewer.unwrap_or(true)
+        && core
+            .member_place(user)
+            .is_some_and(|place| core.offers_permissions(place))
+}
+
 /// Opens `user`'s menu at `at`, said to come from `location`.
 pub fn open_person_menu(
     app: &mut App,
@@ -91,6 +101,9 @@ pub fn open_person_menu(
     }
     if offers_follow(app, user) {
         choices.push(MenuChoice::FollowVoice);
+    }
+    if offers_permissions(app, user) {
+        choices.push(MenuChoice::Permissions);
     }
     choices.sort_by_key(|choice| discord_rank(*choice));
     let name = state
@@ -262,6 +275,12 @@ pub fn choose_person(
             muting: backcord_core::chat::Muting::Off,
         }),
         MenuChoice::EditServerProfile => place.map(Action::EditServerProfile),
+        MenuChoice::Permissions => place.map(|place| {
+            Action::ShowPermissions(PermissionsOf::Member {
+                place,
+                user: user.clone(),
+            })
+        }),
         MenuChoice::ServerNickname => ask_member(PersonAsk::ServerNickname),
         MenuChoice::Timeout => ask_member(PersonAsk::Timeout),
         MenuChoice::Kick => ask_member(PersonAsk::Kick),
@@ -773,6 +792,7 @@ pub(crate) fn acts(choice: MenuChoice) -> bool {
             | MenuChoice::RemoveTimeout
             | MenuChoice::TransferOwnership
             | MenuChoice::Mention
+            | MenuChoice::Permissions
             | MenuChoice::CopyLink
             | MenuChoice::CopyId
     )
@@ -894,6 +914,7 @@ pub(crate) fn discord_rank(choice: MenuChoice) -> u8 {
         MenuChoice::Block | MenuChoice::Unblock => 14,
         MenuChoice::ServerNickname => 20,
         MenuChoice::Roles => 21,
+        MenuChoice::Permissions => 22,
         MenuChoice::CopyId => 100,
         MenuChoice::CopyLink => 99,
         MenuChoice::ViewAvatar => 98,

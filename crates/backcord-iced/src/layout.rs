@@ -234,6 +234,36 @@ pub struct Prefs {
     /// (on unless turned off).
     pub anti_disconnect: Option<bool>,
     pub follow_voice: Option<bool>,
+    /// Message Link Previews: a card of each Discord message a message
+    /// links to under it (on unless turned off).
+    pub message_link_previews: Option<bool>,
+    /// Relationship Notifier (on unless turned off), and which removals it
+    /// tells of, each on unless turned off: by friends, of friend requests,
+    /// from group DMs and servers, and those while BACKCORD was closed.
+    pub relationship_notifier: Option<bool>,
+    pub relationship_friends: Option<bool>,
+    pub relationship_requests: Option<bool>,
+    pub relationship_groups: Option<bool>,
+    pub relationship_servers: Option<bool>,
+    pub relationship_offline: Option<bool>,
+    /// Fake Nitro (off unless turned on), the size its emoji links ask for
+    /// (`fake_nitro::SIZES` by index), whether its links go masked, and
+    /// whether links to emoji that come show as emoji (both on unless
+    /// turned off).
+    pub fake_nitro: Option<bool>,
+    pub fake_nitro_size: Option<usize>,
+    pub fake_nitro_masked: Option<bool>,
+    pub fake_nitro_received: Option<bool>,
+    /// Badge Spoofer (off unless turned on): the badges ticked, a bit each
+    /// by their place in `badge_spoofer::BADGES`, the house, Nitro level
+    /// and boost level chosen (none for 0, else the one after it in their
+    /// lists), and whether the real badges show too (on unless turned off).
+    pub badge_spoofer: Option<bool>,
+    pub badge_spoofer_badges: Option<u32>,
+    pub badge_spoofer_house: Option<usize>,
+    pub badge_spoofer_nitro: Option<usize>,
+    pub badge_spoofer_boost: Option<usize>,
+    pub badge_spoofer_real: Option<bool>,
     /// Security: the proxy, whether it's used, and the encrypted DNS
     /// (`pages::security::DNS` by index after the system's, then one's own).
     pub proxy_on: Option<bool>,
@@ -241,6 +271,9 @@ pub struct Prefs {
     pub dns: Option<usize>,
     pub dns_custom: Option<String>,
     pub clickable_roles: Option<bool>,
+    /// Permissions Viewer: Permissions in the menus of members, servers,
+    /// channels and categories, and on a role's card.
+    pub permissions_viewer: Option<bool>,
     /// View Icons, and the format (`icon_viewer::FORMATS`) and size
     /// (`icon_viewer::SIZES`) it asks for, by index.
     pub view_icons: Option<bool>,
@@ -271,6 +304,26 @@ pub enum Animate {
 }
 
 impl Prefs {
+    /// Badge Spoofer's settings, as the core takes them.
+    pub fn badge_spoofer(&self) -> backcord_core::badge_spoofer::BadgeSpoofer {
+        use backcord_core::badge_spoofer::{BOOSTS, BadgeSpoofer, HOUSES, NITRO};
+        // A level past its list's end is none.
+        let level = |chosen: Option<usize>, list: &[_]| {
+            chosen
+                .filter(|chosen| *chosen <= list.len())
+                .and_then(|chosen| u8::try_from(chosen).ok())
+                .unwrap_or(0)
+        };
+        BadgeSpoofer {
+            on: self.badge_spoofer.unwrap_or(false),
+            badges: self.badge_spoofer_badges.unwrap_or(0),
+            house: level(self.badge_spoofer_house, &HOUSES),
+            nitro: level(self.badge_spoofer_nitro, &NITRO),
+            boost: level(self.badge_spoofer_boost, &BOOSTS),
+            keep_real: self.badge_spoofer_real.unwrap_or(true),
+        }
+    }
+
     /// Whether BACKCORD looks for newer releases: on unless turned off.
     pub fn checks_updates(&self) -> bool {
         self.check_for_updates.unwrap_or(true)
@@ -469,6 +522,8 @@ impl Layout {
             Action::StripTracking(self.prefs.strip_tracking.unwrap_or(true)),
             Action::HideNameplates(!self.prefs.nameplates.unwrap_or(true)),
             Action::AntiDisconnect(self.prefs.anti_disconnect.unwrap_or(false)),
+            Action::HideMessageLinks(!self.prefs.message_link_previews.unwrap_or(true)),
+            Action::SpoofBadges(self.prefs.badge_spoofer()),
         ]
     }
 }

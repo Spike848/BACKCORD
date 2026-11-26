@@ -28,6 +28,18 @@ pub struct JoinDialog {
     pub explore: Option<String>,
 }
 
+/// The card under a message for an invite it links to, by the invite's
+/// code in [`AppState::invite_cards`], as Discord shows one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InviteCard {
+    /// Asked of Discord, which hasn't answered yet.
+    Loading,
+    /// The server it invites to.
+    Found(InvitePreview),
+    /// Discord knows no such invite: it was deleted, or it ran out.
+    Invalid,
+}
+
 impl Application {
     /// Opens Join a Server, empty; nothing without a linked Discord account.
     pub(super) fn open_join(&mut self) -> Vec<Effect> {
@@ -85,6 +97,20 @@ impl Application {
         code: String,
         result: Result<InvitePreview, String>,
     ) -> Vec<Effect> {
+        // A message's card for it shows what Discord answered, whichever
+        // asked.
+        if let Some(card) = self.state.invite_cards.get_mut(&code) {
+            *card = match &result {
+                Ok(preview) => InviteCard::Found(preview.clone()),
+                Err(_) => InviteCard::Invalid,
+            };
+            // Its server's icon is asked for with the pictures on screen,
+            // which go through the messages again for it.
+            if result.as_ref().is_ok_and(|preview| preview.icon.is_some()) {
+                self.pictured_timeline = Arc::new(Vec::new());
+                self.pictured_aside = Arc::new(Vec::new());
+            }
+        }
         let Some(join) = self
             .state
             .join
@@ -214,6 +240,33 @@ impl Application {
         let mut effects = self.open_joined(&joined.server, joined.room);
         effects.extend(self.ask_membership(joined.server, false, joined.form));
         effects
+    }
+
+    /// The button on a message's invite card: joins the server, showing
+    /// how it goes (and any captcha Discord asks for) in Join a Server, or
+    /// opens it for a member.
+    pub(super) fn join_from_card(&mut self, code: String) -> Vec<Effect> {
+        let Some(InviteCard::Found(preview)) = self.state.invite_cards.get(&code).cloned() else {
+            return vec![];
+        };
+        if self
+            .state
+            .servers
+            .iter()
+            .any(|server| server.id == preview.server)
+        {
+            return self.open_joined(&preview.server, preview.room);
+        }
+        if self.state.join.as_ref().is_some_and(|join| join.joining) {
+            return vec![];
+        }
+        self.state.join = Some(JoinDialog {
+            code: Some(code),
+            preview: Some(preview),
+            from_link: true,
+            ..JoinDialog::default()
+        });
+        self.join_server()
     }
 
     /// Closes the dialog and opens the invite's channel, now or once it

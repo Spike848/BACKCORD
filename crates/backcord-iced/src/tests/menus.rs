@@ -130,6 +130,7 @@ fn a_servers_menu_shows_and_changes_its_notifications() {
             "Edit server profile",
             "Leave server",
             "Delete all",
+            "My Permissions",
             "Copy link",
         ]
     );
@@ -202,7 +203,8 @@ fn a_servers_menu_shows_and_changes_its_notifications() {
             "Notification settings",
             "Edit server profile",
             "Hide muted channels",
-            "Leave server"
+            "Leave server",
+            "My Permissions"
         ]
     );
 }
@@ -249,7 +251,12 @@ fn the_bell_and_a_channels_menu_offer_the_same_notification_choices() {
     let _ = crate::place_menus::open_place_menu(&mut app, TALK, Point::new(100.0, 100.0), false);
     assert_eq!(
         labels(&app),
-        ["Mark as read", "Mute category", "Notification settings"]
+        [
+            "Mark as read",
+            "Mute category",
+            "Notification settings",
+            "My Permissions"
+        ]
     );
     assert_eq!(rows(&app)[2].1, "Only @mentions");
 }

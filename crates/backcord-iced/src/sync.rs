@@ -353,6 +353,7 @@ impl App {
             tasks.push(self.report());
         }
         tasks.push(crate::timeline::scroll::follow_jumps(self));
+        crate::message::linked::linked_sync(self);
         // Images of pictures the core let go of go too.
         self.win.pictures.prune();
         crate::call::call_sync(self);
@@ -938,6 +939,18 @@ impl App {
             }
             for emoji in &message.emoji {
                 want(Some(&emoji.picture));
+            }
+            // The cards of the messages it links to: their authors and
+            // custom emoji.
+            for link in look.iter().flat_map(|look| &look.body.linked) {
+                if let Some(backcord_core::application::MessageCard::Found(linked)) =
+                    state.message_cards.get(&link.message)
+                {
+                    want(linked.avatar.as_deref());
+                    for emoji in &linked.emoji {
+                        want(Some(&emoji.picture));
+                    }
+                }
             }
             if !look.is_some_and(|look| look.first) {
                 continue;

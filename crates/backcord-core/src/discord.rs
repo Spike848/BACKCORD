@@ -234,6 +234,112 @@ pub fn discord_route(link: &str) -> Option<DiscordRoute> {
     backcord_discord::link::parse(link)
 }
 
+/// The most invites a message shows a card for, as in Discord.
+pub const INVITE_CARDS: usize = 3;
+
+/// The codes of the Discord invites a message's Markdown links to, each
+/// once, in order and at most [`INVITE_CARDS`]: those whose cards show
+/// under it. Links in code don't count.
+pub fn invite_codes(markdown: &str) -> Vec<String> {
+    #[cfg(feature = "discord")]
+    {
+        linked(markdown, INVITE_CARDS, |route| match route {
+            DiscordRoute::Invite { code } => Some(code),
+            _ => None,
+        })
+    }
+    #[cfg(not(feature = "discord"))]
+    {
+        let _ = markdown;
+        Vec::new()
+    }
+}
+
+/// The most messages a message shows a card for, as Vencord's
+/// MessageLinkEmbeds does.
+pub const MESSAGE_CARDS: usize = 2;
+
+/// A Discord message one links to, by its server (`@me` for a DM), its
+/// channel and its id.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct MessageLink {
+    pub guild: String,
+    pub channel: String,
+    pub message: String,
+}
+
+impl MessageLink {
+    /// The room it's in.
+    pub fn room(&self) -> String {
+        room_id(&self.guild, &self.channel)
+    }
+
+    /// Discord's link to it, which opens it here as a link in a message does.
+    pub fn url(&self) -> String {
+        format!(
+            "https://discord.com/channels/{}/{}/{}",
+            self.guild, self.channel, self.message
+        )
+    }
+}
+
+/// The Discord messages a message's Markdown links to, each once, in order
+/// and at most [`MESSAGE_CARDS`]: those whose cards show under it. Links
+/// in code don't count.
+pub fn message_links(markdown: &str) -> Vec<MessageLink> {
+    #[cfg(feature = "discord")]
+    {
+        linked(markdown, MESSAGE_CARDS, |route| match route {
+            DiscordRoute::Message {
+                guild,
+                channel,
+                message,
+            } => Some(MessageLink {
+                guild,
+                channel,
+                message,
+            }),
+            _ => None,
+        })
+    }
+    #[cfg(not(feature = "discord"))]
+    {
+        let _ = markdown;
+        Vec::new()
+    }
+}
+
+/// What `pick` takes of the Discord links a message's Markdown has, each
+/// once, in order and at most `most`, but those in code.
+#[cfg(feature = "discord")]
+fn linked<T: PartialEq>(
+    markdown: &str,
+    most: usize,
+    pick: impl Fn(DiscordRoute) -> Option<T>,
+) -> Vec<T> {
+    // Most messages name no Discord link at all: they're let go of before
+    // any parsing.
+    if !markdown
+        .as_bytes()
+        .windows(7)
+        .any(|word| word.eq_ignore_ascii_case(b"discord"))
+    {
+        return Vec::new();
+    }
+    let mut found: Vec<T> = Vec::new();
+    for link in crate::links::web_addresses(markdown) {
+        if let Some(one) = discord_route(link).and_then(&pick)
+            && !found.contains(&one)
+        {
+            found.push(one);
+            if found.len() == most {
+                break;
+            }
+        }
+    }
+    found
+}
+
 /// A link BACKCORD can open itself, written as one word, as
 /// [`backcord_discord::link::parse_written`] writes it.
 #[cfg(feature = "discord")]

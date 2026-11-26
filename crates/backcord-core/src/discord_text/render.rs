@@ -81,6 +81,9 @@ pub(super) fn found(
     server: Option<&backcord_discord::ready::Server>,
     message: &Message,
 ) -> ChatMessage {
+    // Fake Nitro shows links to emoji as emoji.
+    let shown = crate::fake_nitro::shown_message(message);
+    let message = shown.as_ref().unwrap_or(message);
     let guild = server.map(|server| server.id.as_str());
     let author = discord
         .name(
@@ -473,7 +476,8 @@ fn reply_snippet_with(
     render: impl FnOnce(&str) -> String,
     content: &str,
 ) -> (String, Vec<CustomEmoji>) {
-    let hidden = crate::spoiler::hide(content);
+    let content = crate::fake_nitro::shown_text(content);
+    let hidden = crate::spoiler::hide(&content);
     crate::chat::reply_snippet(&render(&hidden), emoji_in(&hidden))
 }
 

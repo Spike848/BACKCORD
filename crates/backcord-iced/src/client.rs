@@ -56,10 +56,12 @@ pub struct Client {
 
 impl Client {
     pub fn new(runtime: Arc<BackgroundRuntime>, root: PathBuf) -> Self {
+        let mut app = Application::default();
+        app.keep_relationship_alerts_in(&root);
         Self {
             runtime,
             root,
-            app: Application::default(),
+            app,
             backend: None,
             events: None,
             last_visible: None,

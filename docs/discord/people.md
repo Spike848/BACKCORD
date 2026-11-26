@@ -136,6 +136,36 @@ doesn't let a client send many requests quickly, and BACKCORD only sends one whe
 the person clicks. Requests Discord took for spam are listed too, marked
 "Maybe spam".
 
+### Relationship alerts
+
+Extra Features' Relationship Notifier, on by default, tells of what others
+took away from this account, as Vencord's RelationshipNotifier does: a
+friend who removed it (or blocked it, which Discord sends as the same
+RELATIONSHIP_REMOVE), a friend request it sent that was declined or one it
+got that was withdrawn, a group DM it was removed from (CHANNEL_DELETE) and
+a server it was kicked or banned from or that was deleted (GUILD_DELETE
+without `unavailable`; with it, an outage, the tracker keeps the server).
+`application/relationships.rs` compares each online snapshot's friends,
+requests, group DMs and servers, by id, with those it knew
+(`relationship_alerts::Known`), so the gateway events reach it through
+the tracker's lists. What this account removed itself isn't told of: the
+app notes the id of each friend, request, group or server a command it
+sends removes (Remove Friend, Block, cancelling or ignoring a request,
+Leave Server, Leave Group, Delete Server, closing a group) and lets it go
+once seen gone; a friend now blocked or a request now a friendship went
+by its own doing too. Done from another device, it can't tell.
+
+Each alert is listed first in the inbox's Friend Alerts, with the person's,
+group's or server's picture and name, what happened and when, and
+notified as messages are (not while set to Do Not Disturb, and only with
+desktop notifications on), in front too; its click opens the DM with the
+person, when there is one. Settings choose which of the four kinds are
+told of, and whether a start tells of what went while BACKCORD was
+closed: each account's lists and its last 200 alerts are kept by user id in
+the data folder's `relationship-alerts.json`, and an account's first
+online snapshot is compared with them. The file isn't encrypted, as
+`layout.json` isn't.
+
 Those this account blocked are listed at the end of Settings, Discord, as
 Discord's client lists them under Ignore & Block: "Blocked accounts" with
 the count, then each by avatar, name and, under a display name, username,
@@ -533,7 +563,8 @@ count belongs to its badge-management experiment, which is off by default. They 
 sometimes a `link`. Pointing at one shows its description; clicking one that
 has a link opens it. A badge missing its description or icon is left out, and
 a profile with none shows no row. Badges show on profile cards only, not
-beside names in messages or the member list.
+beside names in messages or the member list. On this account's own profile,
+[Badge Spoofer](#badge-spoofer) can show others in their place.
 
 The badges that level up (playing time, game variety, streaming, account age
 and Quests) say little in the profile: their `description` is only the kind,
@@ -795,6 +826,36 @@ the order the profile shows them. Saving is `PATCH
 list of badge ids, as Discord's client sends it (seen in its traffic); it
 answers with both. Any badge can be hidden, Nitro's too; only Nitro may
 reorder. The badges and the profile are asked for again after.
+
+## Badge Spoofer
+
+Extra Features' Badge Spoofer, off by default, is Testcord's BadgeSpoofer
+without anything that reaches Discord: that plugin inflates the levelling
+badges through `/science` events and changes the HypeSquad house with
+`POST /hypesquad/online`; BACKCORD only shows, on this account's own
+profile and on this screen alone, the badges chosen in its dialog. Nobody
+else sees them and the profile Discord keeps doesn't change.
+
+Its dialog ticks Discord Staff, Partnered Server Owner, Moderator Programs
+Alumni, HypeSquad Events, the Bug Hunter and the golden Bug Hunter, Active
+Developer, Early Verified Bot Developer, Early Supporter and Completed a
+Quest, and chooses one HypeSquad house, one Nitro level (Nitro, then
+Bronze to Opal) and one boost level (1 month to 2 years), each none by
+default. They show in Discord's order (staff, partner, moderator alumni,
+HypeSquad, Bug Hunter, developer, early supporter, Quest, Nitro, boost),
+each with Discord's own picture from `/badge-icons/{hash}.png`, the same
+place a profile's `badges` come from, so they look like the real ones, and
+with the link Discord's badge opens. Show my real badges too, on by
+default, keeps the profile's own badges beside them in their places; a
+chosen house, Nitro or boost badge takes the place of a real one of its
+kind, and a badge both chosen and owned shows once.
+
+`crates/backcord-core/src/badge_spoofer.rs` holds the badges and
+`shown`, which puts them together; the window hands the core its settings
+as `Action::SpoofBadges` and `AppState::shown_badges` gives a profile's
+badges, which the profile's `Look` (`crates/backcord-iced/src/profile/look.rs`)
+takes for the card, the full profile, the account's own card and the
+profile editor's preview, made again when the settings change.
 
 ## Profile effects
 

@@ -8,7 +8,9 @@
 //! channel's notification choices.
 
 use backcord_core::{
-    application::{Action, ChannelAsk, MUTE_TIMES, MenuChoice, network_id, network_link},
+    application::{
+        Action, ChannelAsk, MUTE_TIMES, MenuChoice, PermissionsOf, network_id, network_link,
+    },
     chat::{ChannelKind, MemberChange, Muting, NotificationChange, Notifications, NotifyLevel},
 };
 use iced::{Point, Task, widget::operation};
@@ -71,6 +73,40 @@ pub fn open_place_menu(app: &mut App, id: &str, at: Point, header: bool) -> Task
                 .unwrap_or(choices.len());
             choices.insert(at_end, choice);
         }
+    }
+    // Permissions Viewer: this account's own in a server, a channel or a
+    // category, after Cancella tutto, before View Icons and copying.
+    if app.layout.prefs.permissions_viewer.unwrap_or(true) && core.offers_permissions(id) {
+        let at_end = choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    MenuChoice::ViewIcon
+                        | MenuChoice::ViewBanner
+                        | MenuChoice::CopyLink
+                        | MenuChoice::CopyId
+                )
+            })
+            .unwrap_or(choices.len());
+        choices.insert(at_end, MenuChoice::MyPermissions);
+    }
+    // Export Chat: a channel's, a DM's or a group's, before View Icons and
+    // copying.
+    if !header && core.state.may_export_chat(id) {
+        let at_end = choices
+            .iter()
+            .position(|choice| {
+                matches!(
+                    choice,
+                    MenuChoice::ViewIcon
+                        | MenuChoice::ViewBanner
+                        | MenuChoice::CopyLink
+                        | MenuChoice::CopyId
+                )
+            })
+            .unwrap_or(choices.len());
+        choices.insert(at_end, MenuChoice::ExportChat);
     }
     // A DM out of any folder may start one, after Pin.
     if !header
@@ -345,6 +381,7 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
         MenuChoice::EditGroup => Action::AskChannel(ChannelAsk::Group(place)),
         MenuChoice::DeleteAll => Action::AskDeleteAll(place),
         MenuChoice::StopDeleteAll => Action::StopDeleteAll(place),
+        MenuChoice::ExportChat => Action::AskExportChat(place),
         MenuChoice::EditServerProfile => Action::EditServerProfile(place),
         MenuChoice::ServerSettings => Action::OpenServerSettings(place),
         MenuChoice::ChannelsRoles => Action::OpenMembership(place),
@@ -380,6 +417,7 @@ pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Me
         MenuChoice::DeleteChannel => Action::AskChannel(ChannelAsk::Delete(place)),
         MenuChoice::SetChannelStatus => Action::AskChannel(ChannelAsk::Status(place)),
         MenuChoice::LeaveServer => Action::AskLeaveServer(place),
+        MenuChoice::MyPermissions => Action::ShowPermissions(PermissionsOf::Mine(place)),
         MenuChoice::JoinThread | MenuChoice::LeaveThread => Action::JoinThread {
             room: place,
             join: choice == MenuChoice::JoinThread,
@@ -745,6 +783,7 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         | MenuChoice::ViewAvatar
         | MenuChoice::ViewIcon
         | MenuChoice::ViewBanner
+        | MenuChoice::MyPermissions
         | MenuChoice::JoinThread
         | MenuChoice::LeaveThread
         | MenuChoice::Invite
@@ -754,7 +793,11 @@ pub fn group_of(choice: MenuChoice) -> u8 {
         | MenuChoice::RemoveFromChannelList
         | MenuChoice::UnfollowCategory
         | MenuChoice::SetChannelStatus => 3,
-        MenuChoice::ServerNickname | MenuChoice::Roles | MenuChoice::MoveTo => 4,
+        MenuChoice::ServerNickname
+        | MenuChoice::Roles
+        | MenuChoice::Permissions
+        | MenuChoice::MoveTo
+        | MenuChoice::ExportChat => 4,
         MenuChoice::Apps => 10,
         MenuChoice::LocalMute
         | MenuChoice::SoundboardMute
@@ -791,6 +834,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
     match choice {
         C::MarkRead => Icon::Check,
         C::DeleteAll | C::StopDeleteAll => Icon::Trash,
+        C::ExportChat => Icon::Download,
         C::JoinVoice | C::Call => Icon::Phone,
         C::OpenChat => Icon::ForumPost,
         C::Profile => Icon::User,
@@ -828,6 +872,7 @@ pub fn icon(choice: MenuChoice) -> Icon {
         C::Mention => Icon::AtSign,
         C::ServerNickname | C::EditChannel | C::EditServerProfile => Icon::Pencil,
         C::Roles => Icon::Shield,
+        C::Permissions | C::MyPermissions => Icon::Lock,
         C::Timeout | C::RemoveTimeout => Icon::Clock,
         C::Kick => Icon::UserX,
         C::Ban => Icon::Gavel,
@@ -872,6 +917,7 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::EditGroup => backcord_iced_kit::i18n::tr("Edit Group"),
         MenuChoice::DeleteAll => backcord_iced_kit::i18n::tr("Delete all"),
         MenuChoice::StopDeleteAll => backcord_iced_kit::i18n::tr("Stop deleting"),
+        MenuChoice::ExportChat => backcord_iced_kit::i18n::tr("Export chat…"),
         MenuChoice::InviteToServer => backcord_iced_kit::i18n::tr("Invite to server"),
         MenuChoice::AddToGroup => backcord_iced_kit::i18n::tr("Add to group"),
         MenuChoice::Apps => backcord_iced_kit::i18n::tr("Apps"),
@@ -891,6 +937,8 @@ pub fn label(choice: MenuChoice) -> &'static str {
         MenuChoice::Mention => backcord_iced_kit::i18n::tr("Mention"),
         MenuChoice::ServerNickname => backcord_iced_kit::i18n::tr("Change nickname"),
         MenuChoice::Roles => backcord_iced_kit::i18n::tr("Roles"),
+        MenuChoice::Permissions => backcord_iced_kit::i18n::tr("Permissions"),
+        MenuChoice::MyPermissions => backcord_iced_kit::i18n::tr("My Permissions"),
         MenuChoice::RemoveTimeout => backcord_iced_kit::i18n::tr("Remove timeout"),
         MenuChoice::Timeout => backcord_iced_kit::i18n::tr("Time out"),
         MenuChoice::Kick => backcord_iced_kit::i18n::tr("Kick"),

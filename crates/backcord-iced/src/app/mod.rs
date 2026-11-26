@@ -245,6 +245,8 @@ impl App {
         client.share_typing = layout.prefs.share_typing.unwrap_or(false);
         backcord_core::extras::set_message_logger(layout.prefs.message_logger.unwrap_or(true));
         backcord_core::extras::set_log_own(layout.prefs.message_logger_own.unwrap_or(true));
+        crate::settings::relationship_notifier(&layout.prefs);
+        crate::settings::fake_nitro(&layout.prefs);
         // The proxy and encrypted DNS Security set, before anything connects.
         let (proxy, dns) = crate::settings::network(&layout.prefs);
         backcord_core::discord::set_network(proxy, dns);
@@ -554,6 +556,14 @@ impl App {
             Message::Reactions(event) => {
                 let mut cx = crate::ctx::cx!(self);
                 self.reactions.update(event, &mut cx)
+            }
+            Message::Permissions(event) => {
+                let mut cx = crate::ctx::cx!(self);
+                crate::permissions::update(event, &mut cx)
+            }
+            Message::ChatExport(event) => {
+                let mut cx = crate::ctx::cx!(self);
+                crate::chat_export::update(event, &mut cx)
             }
             Message::Frames(clip_time) => {
                 crate::call::stage::frames_found(self, clip_time);

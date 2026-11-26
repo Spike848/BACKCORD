@@ -120,6 +120,9 @@ pub fn command(
     let Some(command) = super::delete_all::command(command, discord, events) else {
         return;
     };
+    let Some(command) = super::export::command(command, discord, events) else {
+        return;
+    };
     let Some(command) = super::expressions::command(command, discord, events) else {
         return;
     };

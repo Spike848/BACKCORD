@@ -90,6 +90,8 @@ impl Picker {
         let listed = picker_state.listed(nitro);
         let mut hasher = std::hash::DefaultHasher::new();
         picker_state.query.hash(&mut hasher);
+        // Which stickers are usable: Nitro's, or Fake Nitro's.
+        (nitro, backcord_core::extras::fake_nitro().on).hash(&mut hasher);
         for collection in &listed {
             (collection.id, collection.name, collection.stickers.len()).hash(&mut hasher);
         }

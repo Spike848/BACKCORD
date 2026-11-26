@@ -180,6 +180,28 @@ pub fn host(link: &str) -> &str {
     }
 }
 
+/// The web addresses written in Markdown, in order, but those in code,
+/// which Discord shows as typed.
+pub fn web_addresses(markdown: &str) -> Vec<&str> {
+    let urls = addresses(markdown);
+    if urls.is_empty() {
+        return Vec::new();
+    }
+    let code: Vec<Range<usize>> = Parser::new_ext(markdown, Options::ENABLE_STRIKETHROUGH)
+        .into_offset_iter()
+        .filter(|(event, _)| matches!(event, Event::Start(Tag::CodeBlock(_)) | Event::Code(_)))
+        .map(|(_, range)| range)
+        .collect();
+    urls.into_iter()
+        .filter(|url| {
+            !code
+                .iter()
+                .any(|skip| skip.start < url.end && url.start < skip.end)
+        })
+        .map(|url| &markdown[url])
+        .collect()
+}
+
 /// Plain text as Markdown with its web addresses as links, or `None`
 /// without any.
 pub fn plain_with_links(text: &str) -> Option<String> {
