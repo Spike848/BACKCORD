@@ -136,6 +136,10 @@ impl App {
         for layer in crate::call::dm::call_layers(self) {
             layers = layers.push(layer);
         }
+        // Over the call's layers, under its popups and Settings.
+        if let Some(island) = crate::island::view(self) {
+            layers = layers.push(island);
+        }
         if let Some(viewer) = crate::call::corner::clip_viewer(self) {
             layers = layers.push(viewer);
         }

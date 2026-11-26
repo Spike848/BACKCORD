@@ -635,6 +635,10 @@ pub struct AppState {
     /// it shows.
     pub discord_show_game: bool,
     pub discord_playing: Option<chat::Playing>,
+    /// What the linked Spotify plays, paused or not, and whether a Spotify
+    /// sharing what it plays is linked.
+    pub spotify: Option<chat::NowPlaying>,
+    pub spotify_linked: bool,
     /// What the Discord account shows it's doing, on this device and its
     /// others, as its own profile shows it.
     pub discord_activities: chat::Activities,
@@ -2629,6 +2633,8 @@ pub enum Action {
     SetStatus(String),
     /// Share the game the Discord account plays, or stop.
     ShowGame(bool),
+    /// Ask the linked Spotify's player to play, pause, skip or like.
+    Spotify(chat::SpotifyControl),
     /// Set how loud the Discord account's soundboard plays, on its slider
     /// from 0 to 100.
     SoundboardVolume(f32),
@@ -4866,6 +4872,23 @@ impl Application {
                 self.state.discord_show_game = shown;
                 vec![Effect::Backend(Command::Discord(DiscordCommand::ShowGame(
                     shown,
+                )))]
+            }
+            Action::Spotify(control) => {
+                if self.state.preview || self.state.discord_user.is_none() {
+                    return vec![];
+                }
+                // The player changes at once; Spotify's own word follows.
+                if let Some(now) = &mut self.state.spotify {
+                    match control {
+                        chat::SpotifyControl::Play => now.playing = true,
+                        chat::SpotifyControl::Pause => now.playing = false,
+                        chat::SpotifyControl::Like(on) if now.likeable => now.liked = Some(on),
+                        _ => {}
+                    }
+                }
+                vec![Effect::Backend(Command::Discord(DiscordCommand::Spotify(
+                    control,
                 )))]
             }
             Action::SoundboardVolume(slider) => {

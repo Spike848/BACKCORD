@@ -55,6 +55,8 @@ pub enum Message {
     /// A channel or category dragged in the sidebar.
     Arrange(crate::arrange::Event),
     Account(crate::account::Event),
+    /// The Dynamic Island's tabs and Spotify's buttons (`island.rs`).
+    Island(crate::island::Event),
     /// The minute turned, for the clocks that show minutes: busy voice
     /// channels', open polls', the activity cards'.
     Minute,

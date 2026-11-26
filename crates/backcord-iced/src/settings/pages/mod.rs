@@ -72,6 +72,17 @@ pub enum Pref {
     SystemTitleBar(bool),
     /// The neon glow's slider, 0 to 100, and whether it's let go of.
     NeonGlow(u32, bool),
+    /// The Dynamic Island: on, its style (0 glass, 1 OLED), its sliders
+    /// (and whether let go of), its glow's and text's colours.
+    Island(bool),
+    IslandStyle(usize),
+    IslandOpacity(u32, bool),
+    IslandGlow(u32, bool),
+    IslandSpeed(u32, bool),
+    IslandRadius(u32, bool),
+    IslandBorder(u32, bool),
+    IslandColor(Option<u32>),
+    IslandInk(Option<u32>),
     HideOthersTyping(bool),
     NoPushToTalk(bool),
     MessageLogger(bool),
@@ -362,6 +373,58 @@ impl Settings {
                 if done {
                     cx.keep("neon_glow", percent);
                 }
+            }
+            Pref::Island(on) => {
+                prefs.island = Some(on);
+                cx.keep("island", on);
+            }
+            Pref::IslandStyle(style) => {
+                let style = style.min(1) as u8;
+                prefs.island_style = Some(style);
+                cx.keep("island_style", style);
+            }
+            Pref::IslandOpacity(value, done) => {
+                let value = value.min(100) as u8;
+                prefs.island_opacity = Some(value);
+                if done {
+                    cx.keep("island_opacity", value);
+                }
+            }
+            Pref::IslandGlow(value, done) => {
+                let value = value.min(100) as u8;
+                prefs.island_glow = Some(value);
+                if done {
+                    cx.keep("island_glow", value);
+                }
+            }
+            Pref::IslandSpeed(value, done) => {
+                let value = value.min(100) as u8;
+                prefs.island_speed = Some(value);
+                if done {
+                    cx.keep("island_speed", value);
+                }
+            }
+            Pref::IslandRadius(value, done) => {
+                let value = value.min(22) as u8;
+                prefs.island_radius = Some(value);
+                if done {
+                    cx.keep("island_radius", value);
+                }
+            }
+            Pref::IslandBorder(value, done) => {
+                let value = value.min(4) as u8;
+                prefs.island_border = Some(value);
+                if done {
+                    cx.keep("island_border", value);
+                }
+            }
+            Pref::IslandColor(colour) => {
+                prefs.island_color = colour;
+                cx.keep("island_color", colour);
+            }
+            Pref::IslandInk(colour) => {
+                prefs.island_ink = colour;
+                cx.keep("island_ink", colour);
             }
             Pref::HideOthersTyping(on) => {
                 prefs.hide_others_typing = Some(on);

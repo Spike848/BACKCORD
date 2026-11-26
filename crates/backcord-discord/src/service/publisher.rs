@@ -56,6 +56,7 @@ impl Publisher {
     pub(super) fn publish(&mut self, tracker: &mut Tracker, lists: &MemberLists) {
         let mut snapshot = tracker.snapshot();
         snapshot.listed = lists.listed();
+        snapshot.keep_spotify(&self.snapshots.borrow());
         self.snapshots.send_replace(Arc::new(snapshot));
         self.published = Instant::now();
         self.stale = false;

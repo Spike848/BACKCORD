@@ -2187,6 +2187,10 @@ impl Tracker {
             soundboard_volume: self.soundboard_volume,
             join_sounds: self.join_sounds.clone(),
             playing: self.playing.clone(),
+            // The service's Spotify follower keeps these; see
+            // `Snapshot::keep_spotify`.
+            now_playing: None,
+            spotify_linked: false,
             own_activities: self.own_activities.clone(),
             friend_requests: people.friend_requests,
             voice,

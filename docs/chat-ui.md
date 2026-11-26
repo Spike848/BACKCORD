@@ -215,6 +215,26 @@ errors make it taller than the minimum window. SSO and OAuth are still pending.
   Messages"; under Shift at once) and Deselect all. A click without Ctrl on a
   message, Escape, a right click on a message not picked or any of the
   menu's rows lets go of them; another channel's no longer count.
+- The Dynamic Island (`island.rs`), off unless Appearance's "Dynamic
+  Island" turns it on, and only for an account whose Discord has a Spotify
+  linked with "Display Spotify as your status": a pill at the top of the
+  window, over the call's layers and under popups and Settings, while
+  Spotify plays something (paused too) or this account is in a call, and
+  nothing otherwise. Its tabs, which the dots under it or the mouse wheel
+  over it move between: Spotify's player (the cover, the song and its
+  artists, like, back, play or pause, on), the call's buttons (its channel,
+  mute, deafen, a red hang up) and where the call is (its signal, server,
+  channel and how it's connected). Spotify's buttons go to the player
+  through the token Discord lends (`spotify.rs`): Spotify only lets a
+  Premium account be played and paused from elsewhere, and a refusal
+  changes nothing. Appearance sets its style, Glass (tinted, its opacity
+  chosen, a thin reflecting edge) or OLED (pure black, a sharp grey edge),
+  the glow's intensity, speed and colour (the theme's accent unless
+  chosen), the text's and icons' colour (white unless chosen), the corners'
+  radius and the border's thickness. Two tails of light run round its edge,
+  brightest along its foot, a lap each 12 s at the slowest to 1.5 s at the
+  fastest, drawn every 33 ms while they move and still at the foot's middle
+  at speed 0; they only draw, so the buttons under them take their clicks.
 - A GIF picker next to the emoji button, on Discord: a search over Klipy,
   trending terms and favourites, as in Discord's client. A click sends a GIF,
   Shift and a click puts it in the message, and a star keeps it among the

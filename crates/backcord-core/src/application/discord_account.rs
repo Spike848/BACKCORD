@@ -576,6 +576,19 @@ impl Application {
         if changed(|a, b| Arc::ptr_eq(&a.own_activities, &b.own_activities)) {
             self.state.discord_activities = snapshot.own_activities.clone();
         }
+        self.state.spotify_linked = snapshot.spotify_linked;
+        if changed(|a, b| {
+            a.now_playing.as_ref().map(Arc::as_ptr) == b.now_playing.as_ref().map(Arc::as_ptr)
+        }) {
+            self.state.spotify = snapshot.now_playing.as_deref().map(|now| chat::NowPlaying {
+                title: now.title.clone(),
+                artists: now.artists.clone(),
+                cover: now.cover.clone(),
+                playing: now.playing,
+                likeable: now.track.is_some(),
+                liked: now.liked,
+            });
+        }
         let playing = snapshot.playing.as_deref();
         // Snapshots come often; the game rarely changes.
         let shown = self.state.discord_playing.as_ref();

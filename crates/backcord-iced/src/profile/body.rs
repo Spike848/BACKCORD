@@ -1443,9 +1443,18 @@ fn connections<'a>(
                     .color(inks.ink3),
             );
         }
-        let entry = row![ctx.look.glyph(Icon::Chain, 24, inks.ink2), words]
-            .spacing(8)
-            .align_y(Alignment::Center);
+        // The service's logo, as Discord's profile shows it, in its own
+        // colour or the text's.
+        let logo = match backcord_iced_kit::icons::Brand::of(&connection.kind) {
+            Some((icon, Some(rgb))) => ctx.look.glyph(
+                icon,
+                24,
+                iced::Color::from_rgb8((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8),
+            ),
+            Some((icon, None)) => ctx.look.glyph(icon, 24, inks.ink),
+            None => ctx.look.glyph(Icon::Chain, 24, inks.ink2),
+        };
+        let entry = row![logo, words].spacing(8).align_y(Alignment::Center);
         list = list.push(match &connection.url {
             Some(url) => Element::from(
                 button(entry)

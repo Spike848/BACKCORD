@@ -14,11 +14,11 @@ use std::{
 };
 
 use futures_util::{SinkExt, StreamExt};
-use reqwest::{Client, Response, StatusCode, header};
+use reqwest::{Client, Method, Response, StatusCode, header};
 use serde_json::{Value, json};
 use tokio::{
     net::TcpStream,
-    sync::{mpsc, watch},
+    sync::{broadcast, mpsc, watch},
     task::JoinSet,
     time::{Instant, MissedTickBehavior, timeout},
 };
@@ -63,6 +63,96 @@ const FLAG_PLAY: u64 = 32;
 const ARTISTS: usize = 5;
 const LONGEST: usize = 128;
 
+/// What the linked Spotify plays now, playing or paused, for BACKCORD's
+/// own player (the Dynamic Island): unlike the activity, a pause keeps it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NowPlaying {
+    pub title: String,
+    /// The artists, or an episode's show.
+    pub artists: String,
+    /// The cover's address on Spotify's servers.
+    pub cover: Option<String>,
+    pub playing: bool,
+    /// The song's id, which Like needs; none for an episode or a local file.
+    pub track: Option<String>,
+    /// Whether the song is among the account's liked songs, once Spotify
+    /// said; Discord's token may not let it say.
+    pub liked: Option<bool>,
+}
+
+impl NowPlaying {
+    /// What a player state plays, if anything.
+    fn of(state: &Value) -> Option<Self> {
+        let item = &state["item"];
+        let title = item["name"].as_str().filter(|title| !title.is_empty())?;
+        let episode = item["type"] == "episode";
+        let artists = if episode {
+            item["show"]["name"].as_str().unwrap_or_default().to_owned()
+        } else {
+            item["artists"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|artist| artist["name"].as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        // The middle size, 300 px: enough for a small cover on any screen.
+        let images = [
+            &item["album"]["images"],
+            &item["images"],
+            &item["show"]["images"],
+        ];
+        let cover = images
+            .into_iter()
+            .find_map(|images| {
+                let images = images.as_array().filter(|images| !images.is_empty())?;
+                images.get(1).or(images.first())?["url"].as_str()
+            })
+            .map(str::to_owned);
+        let track = (item["type"] == "track" && item["is_local"] != true)
+            .then(|| item["id"].as_str().map(str::to_owned))
+            .flatten();
+        Some(Self {
+            title: title.to_owned(),
+            artists,
+            cover,
+            playing: state["is_playing"] == true,
+            track,
+            liked: None,
+        })
+    }
+}
+
+/// What BACKCORD's player asks of the linked Spotify. Spotify only lets a
+/// Premium account be played and paused from elsewhere; a refusal changes
+/// nothing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpotifyControl {
+    Play,
+    Pause,
+    Next,
+    Previous,
+    /// The song added to the liked songs, or taken out.
+    Like(bool),
+}
+
+/// Where what plays goes, and what's asked of the player comes from.
+#[derive(Clone)]
+pub(crate) struct Music {
+    pub(crate) now: watch::Sender<Option<Arc<NowPlaying>>>,
+    pub(crate) controls: broadcast::Sender<SpotifyControl>,
+}
+
+impl Default for Music {
+    fn default() -> Self {
+        Self {
+            now: watch::channel(None).0,
+            controls: broadcast::channel(8).0,
+        }
+    }
+}
+
 /// The account's Spotify links that share what they play, from READY or
 /// Discord's list of connections.
 #[derive(Clone, Default)]
@@ -79,6 +169,11 @@ struct Account {
 }
 
 impl Accounts {
+    /// Whether a Spotify that shares what it plays is linked.
+    pub(crate) fn any(&self) -> bool {
+        !self.linked.is_empty()
+    }
+
     /// Takes in Discord's list of connections, for `me`. Returns whether what
     /// to watch changed. A link with `show_activity` off, Discord's "Display
     /// Spotify as your status", isn't watched. The tokens aren't compared: a
@@ -119,11 +214,12 @@ impl Accounts {
 pub(crate) fn start(
     api: Arc<Api>,
     accounts: watch::Receiver<Accounts>,
+    music: Music,
 ) -> watch::Receiver<Activity> {
     let (shown, receiver) = watch::channel(None);
     // A test server doesn't stand in for Spotify, so nothing reaches it.
     if client::test_server().is_none() {
-        tokio::spawn(run(api, Endpoints::spotify(), accounts, shown));
+        tokio::spawn(run(api, Endpoints::spotify(), accounts, shown, music));
     }
     receiver
 }
@@ -153,9 +249,11 @@ async fn run(
     endpoints: Endpoints,
     mut accounts: watch::Receiver<Accounts>,
     shown: watch::Sender<Activity>,
+    music: Music,
 ) {
     loop {
         let Accounts { me, linked } = accounts.borrow_and_update().clone();
+        music.now.send_replace(None);
         let (found, mut finds) = mpsc::unbounded_channel();
         // Dropped, and with it what they watch, when the accounts change.
         let mut watching = JoinSet::new();
@@ -175,6 +273,9 @@ async fn run(
                                 ends: None,
                                 slot,
                                 found: found.clone(),
+                                now: music.now.clone(),
+                                controls: music.controls.subscribe(),
+                                liked_due: false,
                             }
                             .run(),
                         );
@@ -248,6 +349,11 @@ struct Watch {
     ends: Option<Instant>,
     slot: usize,
     found: mpsc::UnboundedSender<(usize, Activity)>,
+    /// What plays, paused or not, and what's asked of the player.
+    now: watch::Sender<Option<Arc<NowPlaying>>>,
+    controls: broadcast::Receiver<SpotifyControl>,
+    /// A new song came, whose place among the liked songs isn't known.
+    liked_due: bool,
 }
 
 impl Watch {
@@ -256,6 +362,7 @@ impl Watch {
         loop {
             if self.connection(&mut backoff).await == Err(Failed::Stop) {
                 self.show(None);
+                self.now.send_replace(None);
                 return;
             }
             if backoff.fails == 0 {
@@ -279,6 +386,92 @@ impl Watch {
     fn apply(&mut self, state: &Value) {
         let activity = self.player.apply(&self.me, state, now_ms());
         self.show(activity);
+        self.publish(state);
+    }
+
+    /// What plays now, for BACKCORD's player: the song's like kept while
+    /// it's the same song, and asked for when it's a new one.
+    fn publish(&mut self, state: &Value) {
+        let mut next = NowPlaying::of(state);
+        let old = self.now.borrow().clone();
+        if let Some(next) = &mut next {
+            match old.as_deref() {
+                Some(old) if old.track == next.track => next.liked = old.liked,
+                _ => self.liked_due = next.track.is_some(),
+            }
+        }
+        let next = next.map(Arc::new);
+        self.now.send_if_modified(|now| {
+            let changed = *now != next;
+            *now = next;
+            changed
+        });
+    }
+
+    /// Changes what's on show at once, ahead of Spotify's own word.
+    fn change_now(&self, change: impl FnOnce(&mut NowPlaying)) {
+        self.now.send_if_modified(|now| {
+            let Some(now) = now else {
+                return false;
+            };
+            change(Arc::make_mut(now));
+            true
+        });
+    }
+
+    /// Does what BACKCORD's player asked. Spotify refusing (an account
+    /// without Premium, a token not allowed to) changes nothing.
+    async fn control(&mut self, control: SpotifyControl) -> Result<(), Failed> {
+        let api = self.endpoints.api.clone();
+        let track = self.now.borrow().as_ref().and_then(|now| now.track.clone());
+        let (method, url) = match control {
+            SpotifyControl::Play => (Method::PUT, format!("{api}/me/player/play")),
+            SpotifyControl::Pause => (Method::PUT, format!("{api}/me/player/pause")),
+            SpotifyControl::Next => (Method::POST, format!("{api}/me/player/next")),
+            SpotifyControl::Previous => (Method::POST, format!("{api}/me/player/previous")),
+            SpotifyControl::Like(on) => {
+                let Some(track) = track else {
+                    return Ok(());
+                };
+                let method = if on { Method::PUT } else { Method::DELETE };
+                (method, format!("{api}/me/tracks?ids={track}"))
+            }
+        };
+        match self.ask(method, &url).await {
+            Ok(_) => {
+                self.change_now(|now| match control {
+                    SpotifyControl::Play => now.playing = true,
+                    SpotifyControl::Pause => now.playing = false,
+                    SpotifyControl::Like(on) => now.liked = Some(on),
+                    SpotifyControl::Next | SpotifyControl::Previous => {}
+                });
+                Ok(())
+            }
+            Err(Failed::Spotify) => Ok(()),
+            Err(failed) => Err(failed),
+        }
+    }
+
+    /// Asks whether the song playing is among the liked songs.
+    async fn check_liked(&mut self) -> Result<(), Failed> {
+        let Some(track) = self.now.borrow().as_ref().and_then(|now| now.track.clone()) else {
+            return Ok(());
+        };
+        let url = format!("{}/me/tracks/contains?ids={track}", self.endpoints.api);
+        match self.get(&url).await {
+            Ok(response) => {
+                if let Some(liked) = body(response).await[0].as_bool() {
+                    self.change_now(|now| {
+                        if now.track.as_deref() == Some(track.as_str()) {
+                            now.liked = Some(liked);
+                        }
+                    });
+                }
+                Ok(())
+            }
+            Err(Failed::Spotify) => Ok(()),
+            Err(failed) => Err(failed),
+        }
     }
 
     /// One connection of the dealer socket: as Discord's client does, the
@@ -310,7 +503,16 @@ impl Watch {
         let mut devices_free = Instant::now();
         let mut devices_due = None;
         loop {
+            if std::mem::take(&mut self.liked_due) {
+                self.check_liked().await?;
+            }
             tokio::select! {
+                control = self.controls.recv() => {
+                    // Asked while lagging behind: the latest still come.
+                    if let Ok(control) = control {
+                        self.control(control).await?;
+                    }
+                }
                 _ = pings.tick() => {
                     // A socket that heard nothing for three pings is gone.
                     // Discord's client sends the dealer's own ping, which it
@@ -408,23 +610,26 @@ impl Watch {
     /// Discord for a new one and tries once more; that is the only time a
     /// token is renewed, as its age isn't known.
     async fn get(&mut self, url: &str) -> Result<Response, Failed> {
+        self.ask(Method::GET, url).await
+    }
+
+    /// As [`Self::get`], with any method; one that sends isn't given a body.
+    async fn ask(&mut self, method: Method, url: &str) -> Result<Response, Failed> {
         if self.token.is_none() {
             self.new_token().await?;
         }
         let mut renewed = false;
         loop {
             let token = self.token.as_deref().ok_or(Failed::NoToken)?;
-            let response = self
-                .http
-                .get(url)
-                .bearer_auth(token)
-                .send()
-                .await
-                .map_err(|error| {
-                    let error = error.without_url();
-                    tracing::warn!(%error, "couldn't reach Spotify");
-                    Failed::Spotify
-                })?;
+            let mut request = self.http.request(method.clone(), url).bearer_auth(token);
+            if method != Method::GET {
+                request = request.header(header::CONTENT_LENGTH, "0");
+            }
+            let response = request.send().await.map_err(|error| {
+                let error = error.without_url();
+                tracing::warn!(%error, "couldn't reach Spotify");
+                Failed::Spotify
+            })?;
             let status = response.status();
             if status.is_success() {
                 return Ok(response);
@@ -1004,7 +1209,13 @@ mod tests {
         kept.keep("7", &connections);
         let (accounts, receiver) = watch::channel(kept);
         let (sender, shown) = watch::channel(None);
-        let task = tokio::spawn(run(Arc::new(api), endpoints, receiver, sender));
+        let task = tokio::spawn(run(
+            Arc::new(api),
+            endpoints,
+            receiver,
+            sender,
+            Music::default(),
+        ));
         Started {
             accounts,
             shown,

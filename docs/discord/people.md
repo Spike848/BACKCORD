@@ -1247,15 +1247,21 @@ most five times a minute, so a bot that keeps renaming the account doesn't
 start a fight. The fake's `POST /_control/rename-alice` has Bob rename
 Alice.
 
-## Linux Rich Presence
+## Rich Presence
 
-Games and tools on Linux tell Discord what they're doing through its local
-RPC socket, which the discord-rpc library and Discord's game SDK use. While
-the account shares its game ([game detection](#game-detection)), BACKCORD
-serves that socket itself, so no bridge such as arRPC needs to run. Windows'
-named pipes and the macOS socket aren't served yet.
+Games and tools tell Discord what they're doing through its local RPC socket
+(on Windows a named pipe), which the discord-rpc library and Discord's game
+SDK use. While the account shares its game ([game
+detection](#game-detection)), BACKCORD serves it itself, so no bridge such as
+arRPC needs to run. The macOS socket isn't served yet.
 
-The socket is the first free `discord-ipc-0` to `discord-ipc-9` in
+On Windows it's the first free `\\.\pipe\discord-ipc-0` to
+`discord-ipc-9`: a pipe another program made first, such as Discord's own
+app, stays that program's, and a game that only tries `discord-ipc-0` talks
+to it instead. Only this machine's programs may connect, and Windows lets only
+this account's programs write to it. `BACKCORD_DISCORD_RPC=0` turns it off.
+
+On Linux the socket is the first free `discord-ipc-0` to `discord-ipc-9` in
 `XDG_RUNTIME_DIR`, or else in `TMPDIR`, `TMP`, `TEMP` or `/tmp`. A socket
 another program serves, such as Discord's own app, stays that program's, and
 a game that only tries `discord-ipc-0` talks to it instead. A socket left by
@@ -1285,6 +1291,16 @@ is never saved. Presence updates keep to Discord's limit, as every other
 presence change does.
 
 ## Listening to Spotify
+
+BACKCORD's own player, the Dynamic Island, reads what the followed player
+plays, paused too (`NowPlaying`, in the snapshot's `now_playing`), and asks
+it with the same token: `PUT /v1/me/player/play` and `/pause`, `POST
+/v1/me/player/next` and `/previous`, `PUT` or `DELETE
+/v1/me/tracks?ids={id}` to like a song or take it back, and `GET
+/v1/me/tracks/contains?ids={id}` once for each new song. A refusal (an
+account without Premium, a token Spotify doesn't let do it) changes nothing.
+
+### How it's followed
 
 Spotify's apps and libraries don't tell Discord what they play; Discord's
 client follows the player itself, so it shows for any player on the account,

@@ -74,6 +74,7 @@ mod header;
 use backcord_iced_kit::icons;
 mod image_viewer;
 mod info_cards;
+mod island;
 mod layout;
 mod link_dialogs;
 mod links;

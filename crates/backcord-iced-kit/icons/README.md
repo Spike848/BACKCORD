@@ -75,5 +75,13 @@ sketches: a comic shout balloon with typing dots cut out of it.
 - Drawn for BACKCORD: pen, for the profile editor name field.
 - Drawn for BACKCORD: brush and chevrons-right, for the profile editor's Show
   Styles and Hide Styles.
+- Drawn for BACKCORD: heart, heart-filled, skip-back and skip-forward, for
+  the Dynamic Island's player.
 - Drawn for BACKCORD: monitor, smartphone, globe and vr-headset, where
   someone is online beside their name (gamepad marks a console).
+
+The brand-*.svg logos are from Simple Icons 16.34.0 (https://simpleicons.org/,
+CC0 1.0), but for brand-xbox and brand-amazonmusic, which that version no
+longer has, from Simple Icons 11. They mark the services an account links to
+(Discord's connections) in a profile, each drawn in its brand's colour or the
+text's, and each brand's own guidelines apply to it rather than the ISC licence.

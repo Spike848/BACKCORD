@@ -197,6 +197,20 @@ pub struct Prefs {
     /// Appearance's neon glow around speaking rings and tiles, 0 to 100;
     /// [`backcord_iced_kit::style::DEFAULT_GLOW`] unless set.
     pub neon_glow: Option<u8>,
+    /// Appearance's Dynamic Island (`island.rs`): on (off unless set), its
+    /// style (0 glass, 1 OLED), the glass's opacity, the glow's intensity
+    /// and speed (0 to 100), the corners' radius and the border's
+    /// thickness in pixels, and the glow's and the text's colours as
+    /// 0xRRGGBB (the theme's accent and white unless chosen).
+    pub island: Option<bool>,
+    pub island_style: Option<u8>,
+    pub island_opacity: Option<u8>,
+    pub island_glow: Option<u8>,
+    pub island_speed: Option<u8>,
+    pub island_radius: Option<u8>,
+    pub island_border: Option<u8>,
+    pub island_color: Option<u32>,
+    pub island_ink: Option<u32>,
     /// Desktop notifications, shown unless turned off.
     pub notifications: Option<bool>,
     /// Advanced: rendering with the GPU from the next start (on unless

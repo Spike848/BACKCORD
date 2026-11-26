@@ -4054,3 +4054,15 @@ Copy Message Links	Copia link dei messaggi
 Delete {} messages	Elimina {} messaggi
 Deselect all	Deseleziona tutto
 Are you sure you want to delete these {} messages?	Sei sicuro di voler eliminare questi {} messaggi?
+DYNAMIC ISLAND	DYNAMIC ISLAND
+Dynamic Island	Dynamic Island
+A pill at the top of the window with Spotify's player and the call's buttons. It shows only with a Spotify linked to Discord, while it plays something or you're in a call.	Una pillola in cima alla finestra con il lettore di Spotify e i pulsanti della chiamata. Compare solo con Spotify collegato a Discord, mentre riproduce qualcosa o sei in chiamata.
+Glass	Vetro
+OLED	OLED
+Glass opacity	Opacità del vetro
+Glow intensity	Intensità del bagliore
+Glow speed	Velocità del bagliore
+Corner radius (px)	Raggio degli angoli (px)
+Border thickness (px)	Spessore del bordo (px)
+Glow colour	Colore del bagliore
+Text and icon colour	Colore di testo e icone

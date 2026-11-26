@@ -1068,3 +1068,44 @@ fn the_high_pass_and_the_voice_gate_start_off_and_are_kept() {
     assert!(!stored.voice_high_pass);
     assert_eq!(stored.voice_gate, None);
 }
+
+/// The Dynamic Island: off unless turned on, and then only with a Spotify
+/// linked and something to show; Spotify's song in its player.
+#[test]
+fn the_dynamic_island_shows_spotify_only_when_on_and_linked() {
+    let (mut app, _folder) = preview();
+    let song = backcord_core::chat::NowPlaying {
+        title: "Europe (Hardtekk)".into(),
+        artists: "Gxnrc, DJ Yamazora".into(),
+        cover: None,
+        playing: true,
+        likeable: true,
+        liked: Some(false),
+    };
+    change(&mut app, |state| {
+        state.spotify_linked = true;
+        state.spotify = Some(song.clone());
+    });
+    assert!(!crate::island::shown(&app), "off unless turned on");
+    assert!(!shows(&app, "Europe (Hardtekk)"));
+    open(&mut app, Section::Appearance);
+    let _ = app.update(Message::Settings(Event::Pref(
+        crate::settings::Pref::Island(true),
+    )));
+    assert!(
+        shows(&app, "Glow intensity"),
+        "its look's settings show once on"
+    );
+    let _ = app.update(Message::Settings(Event::Close));
+    assert!(crate::island::shown(&app));
+    assert!(shows(&app, "Europe (Hardtekk)"));
+    assert!(shows(&app, "Gxnrc, DJ Yamazora"));
+    assert_eq!(crate::island::tabs(&app), [crate::island::Tab::Player]);
+    change(&mut app, |state| state.spotify_linked = false);
+    assert!(!crate::island::shown(&app), "only with a Spotify linked");
+    change(&mut app, |state| {
+        state.spotify_linked = true;
+        state.spotify = None;
+    });
+    assert!(!crate::island::shown(&app), "nothing playing and no call");
+}

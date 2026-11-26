@@ -61,6 +61,13 @@ impl Icons {
 /// The icons the client draws, from the kit's `icons/`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Icon {
+    /// A linked service's logo, as Discord shows connections.
+    Brand(Brand),
+    /// The Dynamic Island's player: like, and skipping back and on.
+    Heart,
+    HeartFilled,
+    SkipBack,
+    SkipForward,
     SmilePlus,
     Smile,
     Pencil,
@@ -248,6 +255,11 @@ impl Icon {
             };
         }
         match self {
+            Icon::Brand(brand) => brand.svg(),
+            Icon::Heart => icon!("heart.svg"),
+            Icon::HeartFilled => icon!("heart-filled.svg"),
+            Icon::SkipBack => icon!("skip-back.svg"),
+            Icon::SkipForward => icon!("skip-forward.svg"),
             Icon::History => icon!("history.svg"),
             Icon::File => icon!("file.svg"),
             Icon::Download => icon!("download.svg"),
@@ -425,5 +437,105 @@ impl Icon {
             5 => Icon::Trophy,
             _ => return None,
         })
+    }
+}
+
+/// A service an account links to, as Discord lists connections: its logo,
+/// from Simple Icons (`icons/brand-*.svg`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum Brand {
+    Spotify,
+    Youtube,
+    Twitch,
+    Steam,
+    Xbox,
+    Playstation,
+    Battlenet,
+    Reddit,
+    X,
+    Tiktok,
+    Instagram,
+    Facebook,
+    Crunchyroll,
+    EpicGames,
+    RiotGames,
+    LeagueOfLegends,
+    Bluesky,
+    Roblox,
+    Paypal,
+    Ebay,
+    Bungie,
+    Mastodon,
+    AmazonMusic,
+}
+
+impl Brand {
+    fn svg(self) -> &'static str {
+        macro_rules! brand {
+            ($file:literal) => {
+                include_str!(concat!("../icons/brand-", $file, ".svg"))
+            };
+        }
+        match self {
+            Brand::Spotify => brand!("spotify"),
+            Brand::Youtube => brand!("youtube"),
+            Brand::Twitch => brand!("twitch"),
+            Brand::Steam => brand!("steam"),
+            Brand::Xbox => brand!("xbox"),
+            Brand::Playstation => brand!("playstation"),
+            Brand::Battlenet => brand!("battlenet"),
+            Brand::Reddit => brand!("reddit"),
+            Brand::X => brand!("twitter"),
+            Brand::Tiktok => brand!("tiktok"),
+            Brand::Instagram => brand!("instagram"),
+            Brand::Facebook => brand!("facebook"),
+            Brand::Crunchyroll => brand!("crunchyroll"),
+            Brand::EpicGames => brand!("epicgames"),
+            Brand::RiotGames => brand!("riotgames"),
+            Brand::LeagueOfLegends => brand!("leagueoflegends"),
+            Brand::Bluesky => brand!("bluesky"),
+            Brand::Roblox => brand!("roblox"),
+            Brand::Paypal => brand!("paypal"),
+            Brand::Ebay => brand!("ebay"),
+            Brand::Bungie => brand!("bungie"),
+            Brand::Mastodon => brand!("mastodon"),
+            Brand::AmazonMusic => brand!("amazonmusic"),
+        }
+    }
+
+    /// The logo of a connection's service as Discord names it (`spotify`,
+    /// `crunchyroll`, `domain`) and the colour it's drawn in: the brand's,
+    /// or none for a logo in the text's colour, as a black one would vanish
+    /// on a dark theme.
+    pub fn of(kind: &str) -> Option<(Icon, Option<u32>)> {
+        let brand = |brand: Brand, rgb: Option<u32>| Some((Icon::Brand(brand), rgb));
+        match kind {
+            "spotify" => brand(Brand::Spotify, Some(0x1DB954)),
+            "youtube" => brand(Brand::Youtube, Some(0xFF0000)),
+            "twitch" => brand(Brand::Twitch, Some(0x9146FF)),
+            "steam" => brand(Brand::Steam, None),
+            "xbox" => brand(Brand::Xbox, Some(0x107C10)),
+            "playstation" => brand(Brand::Playstation, Some(0x0070D1)),
+            "battlenet" => brand(Brand::Battlenet, Some(0x148EFF)),
+            "reddit" => brand(Brand::Reddit, Some(0xFF4500)),
+            "twitter" | "x" => brand(Brand::X, None),
+            "tiktok" => brand(Brand::Tiktok, None),
+            "instagram" => brand(Brand::Instagram, Some(0xE4405F)),
+            "facebook" => brand(Brand::Facebook, Some(0x0866FF)),
+            "crunchyroll" => brand(Brand::Crunchyroll, Some(0xF47521)),
+            "epicgames" => brand(Brand::EpicGames, None),
+            "riotgames" => brand(Brand::RiotGames, Some(0xEB0029)),
+            "leagueoflegends" => brand(Brand::LeagueOfLegends, Some(0xC28F2C)),
+            "bluesky" => brand(Brand::Bluesky, Some(0x0285FF)),
+            "roblox" => brand(Brand::Roblox, None),
+            "paypal" => brand(Brand::Paypal, Some(0x009CDE)),
+            "ebay" => brand(Brand::Ebay, Some(0xE53238)),
+            "bungie" => brand(Brand::Bungie, None),
+            "mastodon" => brand(Brand::Mastodon, Some(0x6364FF)),
+            "amazonmusic" => brand(Brand::AmazonMusic, Some(0x25D1DA)),
+            "github" => Some((Icon::GitHub, None)),
+            "domain" => Some((Icon::Globe, None)),
+            _ => None,
+        }
     }
 }

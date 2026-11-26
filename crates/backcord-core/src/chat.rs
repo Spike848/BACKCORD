@@ -266,6 +266,33 @@ pub struct Playing {
     pub started_ms: Option<u64>,
 }
 
+/// What the Discord account's linked Spotify plays, playing or paused, for
+/// BACKCORD's own player (the Dynamic Island).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NowPlaying {
+    pub title: String,
+    /// The artists, or an episode's show.
+    pub artists: String,
+    /// The cover's address.
+    pub cover: Option<String>,
+    pub playing: bool,
+    /// Whether it's a song, which may be liked, and whether it is, once
+    /// Spotify said.
+    pub likeable: bool,
+    pub liked: Option<bool>,
+}
+
+/// What BACKCORD's player asks of the linked Spotify.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpotifyControl {
+    Play,
+    Pause,
+    Next,
+    Previous,
+    /// The song added to the liked songs, or taken out.
+    Like(bool),
+}
+
 /// A Discord friend request waiting for an answer.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FriendRequest {
@@ -3643,6 +3670,8 @@ pub enum DiscordCommand {
     /// Share the game the Discord account plays, or stop;
     /// [`Event::ShowGameSet`] follows.
     ShowGame(bool),
+    /// Ask the linked Spotify's player to play, pause, skip or like.
+    Spotify(SpotifyControl),
     /// Move a server or a folder (Discord's ids) before another, or last,
     /// in the account's server list.
     MoveServer {

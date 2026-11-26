@@ -615,6 +615,7 @@ impl<'a> Page<'a> {
                 tiles,
             ]),
             self.neon_glow_slider(),
+            self.island_settings(),
             self.title_bar_switch(),
             column![
                 form::heading(theme, backcord_iced_kit::i18n::tr("PROFILES")),
@@ -1048,6 +1049,109 @@ impl<'a> Page<'a> {
         .into()
     }
 
+    /// Appearance's Dynamic Island: its switch, and while on, its style,
+    /// sliders and colours.
+    pub(super) fn island_settings(self) -> Element<'a, Message> {
+        use super::pages::Pref;
+        use crate::island;
+        let theme = self.cx.look.theme;
+        let prefs = &self.cx.layout.prefs;
+        let pref = |pref| Message::Settings(SettingsEvent::Pref(pref));
+        let on = prefs.island == Some(true);
+        let mut group = column![
+            form::heading(theme, backcord_iced_kit::i18n::tr("DYNAMIC ISLAND")),
+            switch(
+                backcord_iced_kit::i18n::tr("Dynamic Island"),
+                on,
+                Some(pref(Pref::Island(!on))),
+            )
+            .description(backcord_iced_kit::i18n::tr(
+                "A pill at the top of the window with Spotify's player and the call's buttons. It shows only with a Spotify linked to Discord, while it plays something or you're in a call.",
+            ))
+            .view(self.cx.look),
+        ]
+        .spacing(12);
+        if !on {
+            return group.into();
+        }
+        let slider = |label: &'static str,
+                      value: Option<u8>,
+                      default: u8,
+                      most: u32,
+                      make: fn(u32, bool) -> Pref| {
+            let value = u32::from(value.unwrap_or(default));
+            crate::controls::slider(label, value, most, move |value| pref(make(value, false)))
+                .on_release(pref(make(value, true)))
+                .typed(move |value| pref(make(value, true)))
+                .view(theme)
+        };
+        let style = usize::from(prefs.island_style.unwrap_or(0).min(1));
+        group = group.push(crate::controls::choices(
+            theme,
+            &[
+                backcord_iced_kit::i18n::tr("Glass"),
+                backcord_iced_kit::i18n::tr("OLED"),
+            ],
+            style,
+            move |style| pref(Pref::IslandStyle(style)),
+        ));
+        if style == 0 {
+            group = group.push(slider(
+                backcord_iced_kit::i18n::tr("Glass opacity"),
+                prefs.island_opacity,
+                island::OPACITY,
+                100,
+                Pref::IslandOpacity,
+            ));
+        }
+        group = group
+            .push(slider(
+                backcord_iced_kit::i18n::tr("Glow intensity"),
+                prefs.island_glow,
+                island::GLOW,
+                100,
+                Pref::IslandGlow,
+            ))
+            .push(slider(
+                backcord_iced_kit::i18n::tr("Glow speed"),
+                prefs.island_speed,
+                island::SPEED,
+                100,
+                Pref::IslandSpeed,
+            ))
+            .push(slider(
+                backcord_iced_kit::i18n::tr("Corner radius (px)"),
+                prefs.island_radius,
+                island::RADIUS,
+                22,
+                Pref::IslandRadius,
+            ))
+            .push(slider(
+                backcord_iced_kit::i18n::tr("Border thickness (px)"),
+                prefs.island_border,
+                island::BORDER,
+                4,
+                Pref::IslandBorder,
+            ))
+            .push(swatches(
+                theme,
+                backcord_iced_kit::i18n::tr("Glow colour"),
+                theme.accent,
+                &island::GLOWS,
+                prefs.island_color,
+                |colour| pref(Pref::IslandColor(colour)),
+            ))
+            .push(swatches(
+                theme,
+                backcord_iced_kit::i18n::tr("Text and icon colour"),
+                Color::WHITE,
+                &island::INKS,
+                prefs.island_ink,
+                |colour| pref(Pref::IslandInk(colour)),
+            ));
+        group.into()
+    }
+
     /// Appearance's "Use the system title bar", where BACKCORD can draw its
     /// own: the desktop's way until it's chosen.
     pub(super) fn title_bar_switch(self) -> Element<'a, Message> {
@@ -1065,4 +1169,46 @@ impl<'a> Page<'a> {
         .description(backcord_iced_kit::i18n::tr("Your desktop draws the window's title bar and buttons, as on its other windows. Off, BACKCORD draws its own."))
         .view(self.cx.look)
     }
+}
+
+/// A row of colours to choose from, under its label: `first`, which is none
+/// chosen, then each of `colours` (0xRRGGBB); the one chosen ringed.
+fn swatches<'a>(
+    theme: &backcord_iced_kit::theme::Theme,
+    label: &'a str,
+    first: Color,
+    colours: &[u32],
+    chosen: Option<u32>,
+    choose: impl Fn(Option<u32>) -> Message,
+) -> Element<'a, Message> {
+    let ring = theme.text;
+    let swatch = |fill: Color, lit: bool, message: Message| {
+        button(Space::new().width(22).height(22))
+            .padding(0)
+            .on_press(message)
+            .style(move |_, _| iced::widget::button::Style {
+                background: Some(fill.into()),
+                border: Border {
+                    color: if lit {
+                        ring
+                    } else {
+                        Color::from_rgba(0.5, 0.5, 0.5, 0.4)
+                    },
+                    width: if lit { 2.0 } else { 1.0 },
+                    radius: 11.0.into(),
+                },
+                ..Default::default()
+            })
+    };
+    let mut row = row![swatch(first, chosen.is_none(), choose(None))].spacing(8);
+    for colour in colours {
+        let fill = Color::from_rgb8((colour >> 16) as u8, (colour >> 8) as u8, *colour as u8);
+        row = row.push(swatch(fill, chosen == Some(*colour), choose(Some(*colour))));
+    }
+    column![
+        text(label).size(13).font(MEDIUM).color(theme.secondary),
+        row
+    ]
+    .spacing(8)
+    .into()
 }

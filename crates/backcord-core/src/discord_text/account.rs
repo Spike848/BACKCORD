@@ -497,6 +497,19 @@ pub(super) fn command(
         }
         return None;
     }
+    if let Command::Discord(DiscordCommand::Spotify(control)) = command {
+        if let Ok(discord) = discord {
+            use backcord_discord::SpotifyControl as Asked;
+            discord.spotify(match control {
+                crate::chat::SpotifyControl::Play => Asked::Play,
+                crate::chat::SpotifyControl::Pause => Asked::Pause,
+                crate::chat::SpotifyControl::Next => Asked::Next,
+                crate::chat::SpotifyControl::Previous => Asked::Previous,
+                crate::chat::SpotifyControl::Like(on) => Asked::Like(on),
+            });
+        }
+        return None;
+    }
     if let Command::Discord(DiscordCommand::ShowGame(shown)) = command {
         match discord {
             Ok(discord) => {

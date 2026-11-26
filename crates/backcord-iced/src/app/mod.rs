@@ -97,6 +97,8 @@ pub struct App {
     pub post_author: Option<String>,
     /// The account's card, and whether the pointer is on its names.
     pub account: crate::account::Account,
+    /// The Dynamic Island's tab (`island.rs`).
+    pub island: crate::island::Island,
     pub account_pointed: bool,
     /// The composer, the edit in its row and the suggestions over them.
     pub composer: crate::composer::Composer,
@@ -302,6 +304,7 @@ impl App {
             in_server: false,
             post_author: None,
             account: Default::default(),
+            island: Default::default(),
             account_pointed: false,
             composer: Default::default(),
             uploads: Default::default(),
@@ -591,6 +594,7 @@ impl App {
                 Task::none()
             }
             Message::Call(event) => crate::call::update(self, event),
+            Message::Island(event) => crate::island::update(self, event),
             Message::Settings(event) => self.settings_event(event),
             Message::Updates(event) => crate::updates::update(self, event),
             Message::Keybinds(count, told) => crate::keybinds::keybinds_told(self, count, told),

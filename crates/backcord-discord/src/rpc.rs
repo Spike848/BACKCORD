@@ -1,23 +1,28 @@
-//! Linux Discord RPC over IPC, for games and tools using discord-rpc/arRPC.
+//! Discord RPC over IPC, for games and tools using discord-rpc/arRPC: a
+//! Unix socket on Linux, a named pipe (`\\.\pipe\discord-ipc-N`) on Windows.
 //! Protocol: https://docs.discord.food/topics/rpc#ipc-transport.
 //! Only local Rich Presence is exposed; account/voice control needs OAuth2
 //! and is deliberately unsupported here.
 
 use std::{
     collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
+#[cfg(unix)]
+use std::{
     fs::{File, Metadata},
     io,
     os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
 };
 
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
+#[cfg(unix)]
+use tokio::net::{UnixListener, UnixStream};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{UnixListener, UnixStream},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     sync::{mpsc, watch},
     task::JoinSet,
 };
@@ -42,14 +47,26 @@ pub(crate) fn start(
     tokio::spawn(async move {
         // Tests must opt in to avoid advertising their fixture account on
         // the desktop. An explicit directory also helps Wine/sandbox bridges.
-        let directory = std::env::var_os("BACKCORD_DISCORD_RPC_DIR").map(PathBuf::from);
+        let directory = std::env::var_os("BACKCORD_DISCORD_RPC_DIR");
         let disabled = std::env::var_os("BACKCORD_DISCORD_RPC").is_some_and(|v| v == "0")
             || (crate::client::test_server().is_some() && directory.is_none());
         if !disabled {
-            match Socket::bind(&directory.unwrap_or_else(runtime_directory)).await {
-                Ok(socket) => {
+            #[cfg(unix)]
+            let bound = Socket::bind(&directory.map_or_else(runtime_directory, PathBuf::from))
+                .await
+                .inspect(|socket| {
                     tracing::info!(path = %socket.path.display(), "Discord RPC listening");
-                    serve(socket, api, snapshots, &activity).await;
+                });
+            #[cfg(windows)]
+            let bound = {
+                let _ = directory;
+                Pipe::bind().inspect(|pipe| {
+                    tracing::info!(pipe = %pipe.name, "Discord RPC listening");
+                })
+            };
+            match bound {
+                Ok(listener) => {
+                    serve(listener, api, snapshots, &activity).await;
                     activity.send_replace(None);
                     return;
                 }
@@ -63,6 +80,88 @@ pub(crate) fn start(
     receiver
 }
 
+/// Where clients connect from: what takes the next one, which a client
+/// of this account's.
+trait Listener {
+    type Stream: AsyncRead + AsyncWrite + Unpin + Send + 'static;
+
+    fn accept(&mut self) -> impl Future<Output = Self::Stream> + Send;
+}
+
+#[cfg(unix)]
+impl Listener for Socket {
+    type Stream = UnixStream;
+
+    async fn accept(&mut self) -> UnixStream {
+        loop {
+            let Ok((stream, _)) = self.listener.accept().await else {
+                // Out of descriptors, say: wait rather than end RPC for good.
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                continue;
+            };
+            if stream
+                .peer_cred()
+                .is_ok_and(|peer| peer.uid() == self.identity.uid())
+            {
+                return stream;
+            }
+        }
+    }
+}
+
+/// The first free `\\.\pipe\discord-ipc-N`, as Discord's client takes
+/// one: a Discord running first keeps slot 0. Only this machine's clients
+/// may connect, and Windows lets only this account's write to it.
+#[cfg(windows)]
+struct Pipe {
+    name: String,
+    server: tokio::net::windows::named_pipe::NamedPipeServer,
+}
+
+#[cfg(windows)]
+impl Pipe {
+    fn bind() -> Result<Self> {
+        use tokio::net::windows::named_pipe::ServerOptions;
+        for slot in 0..10 {
+            let name = format!(r"\\.\pipe\discord-ipc-{slot}");
+            if let Ok(server) = ServerOptions::new()
+                .first_pipe_instance(true)
+                .reject_remote_clients(true)
+                .create(&name)
+            {
+                return Ok(Self { name, server });
+            }
+        }
+        bail!("no free Discord IPC pipe")
+    }
+}
+
+#[cfg(windows)]
+impl Listener for Pipe {
+    type Stream = tokio::net::windows::named_pipe::NamedPipeServer;
+
+    async fn accept(&mut self) -> Self::Stream {
+        use tokio::net::windows::named_pipe::ServerOptions;
+        loop {
+            if self.server.connect().await.is_err() {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                continue;
+            }
+            // The next client's instance, before this one's handed over.
+            loop {
+                match ServerOptions::new()
+                    .reject_remote_clients(true)
+                    .create(&self.name)
+                {
+                    Ok(next) => return std::mem::replace(&mut self.server, next),
+                    Err(_) => tokio::time::sleep(Duration::from_millis(500)).await,
+                }
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
 fn runtime_directory() -> PathBuf {
     ["XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"]
         .into_iter()
@@ -74,6 +173,7 @@ fn runtime_directory() -> PathBuf {
 
 /// The lock coordinates BACKCORD processes; probing the socket also respects
 /// Discord and other RPC servers, which do not take our lock.
+#[cfg(unix)]
 struct Socket {
     listener: UnixListener,
     path: PathBuf,
@@ -81,6 +181,7 @@ struct Socket {
     _lock: File,
 }
 
+#[cfg(unix)]
 impl Socket {
     async fn bind(directory: &Path) -> Result<Self> {
         let uid = std::fs::metadata("/proc/self")?.uid();
@@ -153,10 +254,12 @@ impl Socket {
     }
 }
 
+#[cfg(unix)]
 fn same_file(left: &Metadata, right: &Metadata) -> bool {
     left.ino() == right.ino() && left.dev() == right.dev()
 }
 
+#[cfg(unix)]
 impl Drop for Socket {
     fn drop(&mut self) {
         if std::fs::symlink_metadata(&self.path).is_ok_and(|now| same_file(&self.identity, &now)) {
@@ -167,8 +270,8 @@ impl Drop for Socket {
     }
 }
 
-async fn serve(
-    socket: Socket,
+async fn serve<L: Listener>(
+    mut listener: L,
     api: Arc<Api>,
     snapshots: watch::Receiver<Arc<Snapshot>>,
     activity: &watch::Sender<Option<Arc<Value>>>,
@@ -182,15 +285,7 @@ async fn serve(
         let removed = tokio::select! {
             biased;
             () = activity.closed() => break,
-            accepted = socket.listener.accept(), if clients.len() < MAX_CLIENTS => {
-                let Ok((stream, _)) = accepted else {
-                    // Out of descriptors, say: wait rather than end RPC for good.
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                    continue;
-                };
-                if !stream.peer_cred().is_ok_and(|peer| peer.uid() == socket.identity.uid()) {
-                    continue;
-                }
+            stream = listener.accept(), if clients.len() < MAX_CLIENTS => {
                 next += 1;
                 let id = next;
                 connected.insert(id);
@@ -233,10 +328,10 @@ async fn serve(
             }
         });
     }
-    // Dropping JoinSet aborts clients, and Socket removes only our own inode.
+    // Dropping JoinSet aborts clients, and a Socket removes only our own inode.
 }
 
-async fn read(stream: &mut UnixStream) -> Result<(u32, Vec<u8>)> {
+async fn read(stream: &mut (impl AsyncRead + Unpin)) -> Result<(u32, Vec<u8>)> {
     let opcode = stream.read_u32_le().await?;
     let size = stream.read_u32_le().await? as usize;
     ensure!(size <= MAX_PACKET, "RPC packet too large");
@@ -245,7 +340,7 @@ async fn read(stream: &mut UnixStream) -> Result<(u32, Vec<u8>)> {
     Ok((opcode, payload))
 }
 
-async fn write(stream: &mut UnixStream, opcode: u32, payload: &[u8]) -> Result<()> {
+async fn write(stream: &mut (impl AsyncWrite + Unpin), opcode: u32, payload: &[u8]) -> Result<()> {
     tokio::time::timeout(WAIT, async {
         stream.write_u32_le(opcode).await?;
         stream.write_u32_le(payload.len() as u32).await?;
@@ -255,12 +350,12 @@ async fn write(stream: &mut UnixStream, opcode: u32, payload: &[u8]) -> Result<(
     Ok(())
 }
 
-async fn send(stream: &mut UnixStream, value: Value) -> Result<()> {
+async fn send(stream: &mut (impl AsyncWrite + Unpin), value: Value) -> Result<()> {
     write(stream, 1, &serde_json::to_vec(&value)?).await
 }
 
 async fn connection(
-    mut stream: UnixStream,
+    mut stream: impl AsyncRead + AsyncWrite + Unpin,
     api: Arc<Api>,
     snapshots: watch::Receiver<Arc<Snapshot>>,
     updates: mpsc::Sender<(u64, Option<Arc<Value>>)>,
@@ -597,7 +692,7 @@ fn normalize(
     Ok(output)
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::own_activity::merge;

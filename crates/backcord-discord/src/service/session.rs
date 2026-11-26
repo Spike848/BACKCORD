@@ -256,7 +256,9 @@ async fn connected_session(
         tracker.view(guild, Some(channel));
     }
     tracker.beside(shared.beside.as_ref().map(|(_, thread)| thread.as_str()));
-    shared.snapshots.send_replace(Arc::new(tracker.snapshot()));
+    let mut snapshot = tracker.snapshot();
+    snapshot.keep_spotify(&shared.snapshots.borrow());
+    shared.snapshots.send_replace(Arc::new(snapshot));
     // Discord's client counts every command index out of date in a new
     // session.
     let _ = shared

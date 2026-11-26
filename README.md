@@ -34,17 +34,20 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.6
+## Novità della 1.5.7
 
-- **Selezione multipla dei messaggi**: Ctrl+clic su più messaggi per
-  selezionarli, poi tasto destro su uno di loro per copiarne il testo o i link
-  tutti insieme, oppure eliminarli con una sola conferma (con Shift senza
-  chiedere). Clic normale o Esc annullano la selezione.
-- **Bagliore neon**: un leggero bagliore intorno ai cerchi di chi parla
-  (soundboard compresa) e ai riquadri di chi parla in chiamata. L'intensità si
-  regola in Aspetto con "Intensità cerchi neon" (0 lo spegne).
-- **Correzioni**: nell'intestazione della chat il numero dei membri non va più
-  a capo sopra la casella di ricerca.
+- **Dynamic Island** (Aspetto, spenta di default): una pillola in cima alla
+  finestra per chi ha Spotify collegato a Discord, mentre Spotify suona o sei
+  in chiamata. Tre schede (rotellina o pallini): il lettore di Spotify
+  (copertina, titolo, mi piace, indietro, play/pausa, avanti), i pulsanti della
+  chiamata (muto, silenzia tutto, riaggancia) e il server e canale in cui sei.
+  Stile Vetro o OLED, bagliore che gira lungo il bordo con intensità, velocità e
+  colore regolabili, colore del testo, raggio e spessore del bordo. I controlli
+  di Spotify funzionano con un account Premium.
+- **Rich Presence su Windows**: giochi e app che mostrano la loro attività su
+  Discord ora la mostrano anche con BACKCORD.
+- **Connessioni con il loro logo** nel profilo: Spotify, Crunchyroll, Steam,
+  Twitch, YouTube, Xbox, PlayStation e gli altri servizi collegati.
 
 ## Cosa fa
 

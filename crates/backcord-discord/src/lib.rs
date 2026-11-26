@@ -46,7 +46,7 @@ pub mod profile;
 pub mod profile_effect;
 pub mod ready;
 pub mod remote_auth;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", windows))]
 mod rpc;
 pub mod rtp;
 pub mod scheduled_event;
@@ -56,6 +56,7 @@ pub mod service;
 pub mod settings;
 pub mod soundboard;
 mod spotify;
+pub use spotify::{NowPlaying, SpotifyControl};
 pub mod stickers;
 pub mod stream;
 pub mod stream_connection;

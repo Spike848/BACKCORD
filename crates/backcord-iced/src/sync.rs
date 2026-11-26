@@ -744,6 +744,10 @@ impl App {
         for url in crate::profile::profile_pictures(self.ctx()) {
             want(Some(&url));
         }
+        // The Dynamic Island's cover.
+        if crate::island::shown(self) {
+            want(state.spotify.as_ref().and_then(|now| now.cover.as_deref()));
+        }
         // The previews of the streams in the call not watched.
         for person in &state.voice.participants {
             if person.streaming

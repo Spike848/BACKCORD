@@ -502,6 +502,12 @@ pub struct Snapshot {
     /// The game this account shows it plays now.
     #[serde(skip)]
     pub playing: Option<Arc<crate::own_activity::Playing>>,
+    /// What the linked Spotify plays, paused or not, and whether a Spotify
+    /// that shares what it plays is linked at all.
+    #[serde(skip)]
+    pub now_playing: Option<Arc<crate::NowPlaying>>,
+    #[serde(skip)]
+    pub spotify_linked: bool,
     /// What this account shows it's doing, here and on its other devices, as
     /// its own profile shows it.
     #[serde(skip)]
@@ -977,6 +983,8 @@ pub struct Discord {
     /// Changes to the status settings on their way; see
     /// [`Self::change_status_settings`].
     status_writes: Arc<StatusWrites>,
+    /// What's asked of the linked Spotify's player; see [`Self::spotify`].
+    spotify_controls: tokio::sync::broadcast::Sender<crate::SpotifyControl>,
 }
 
 /// This account's changes to the settings' `status` on their way.
@@ -1103,7 +1111,14 @@ impl Discord {
         let activity = crate::own_activity::start(api.clone(), watcher.clone(), shown);
         // Nothing is known of a linked Spotify until READY.
         let (spotify, accounts) = watch::channel(crate::spotify::Accounts::default());
-        let music = crate::spotify::start(api.clone(), accounts);
+        let player = crate::spotify::Music::default();
+        let spotify_controls = player.controls.clone();
+        tokio::spawn(follow_spotify(
+            snapshots.clone(),
+            player.now.subscribe(),
+            spotify.subscribe(),
+        ));
+        let music = crate::spotify::start(api.clone(), accounts, player);
         tokio::spawn(cache::keep(watcher.clone(), names.clone()));
         tokio::spawn(session::run(
             token,
@@ -1155,6 +1170,7 @@ impl Discord {
             commands: kept_commands,
             autocompletes: interactions::Autocompletes::default(),
             status_writes: Arc::default(),
+            spotify_controls,
         })
     }
 
@@ -3083,6 +3099,12 @@ impl Discord {
         )
     }
 
+    /// Asks the linked Spotify's player to play, pause, skip or like, for
+    /// BACKCORD's own player.
+    pub fn spotify(&self, control: crate::SpotifyControl) {
+        let _ = self.spotify_controls.send(control);
+    }
+
     /// Shares the game this account plays, everywhere it's signed in, or
     /// stops sharing it. Stopping ends game detection and Rich Presence.
     pub fn set_show_game(&self, shown: bool) -> impl Future<Output = Result<()>> + Send + 'static {
@@ -5007,4 +5029,39 @@ fn new_folder_id() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |since| since.as_nanos());
     u64::try_from(nanos % 4_000_000_000).unwrap_or_default() + 1
+}
+
+impl Snapshot {
+    /// Keeps what the Spotify follower last put in `old`, which the
+    /// tracker doesn't know of.
+    pub(crate) fn keep_spotify(&mut self, old: &Snapshot) {
+        self.now_playing.clone_from(&old.now_playing);
+        self.spotify_linked = old.spotify_linked;
+    }
+}
+
+/// Keeps the snapshot's Spotify current: what plays, and whether one is
+/// linked, until the service goes.
+async fn follow_spotify(
+    snapshots: watch::Sender<Arc<Snapshot>>,
+    mut now: watch::Receiver<Option<Arc<crate::NowPlaying>>>,
+    mut accounts: watch::Receiver<crate::spotify::Accounts>,
+) {
+    loop {
+        let playing = now.borrow_and_update().clone();
+        let linked = accounts.borrow_and_update().any();
+        snapshots.send_if_modified(|snapshot| {
+            if snapshot.now_playing == playing && snapshot.spotify_linked == linked {
+                return false;
+            }
+            let snapshot = Arc::make_mut(snapshot);
+            snapshot.now_playing = playing;
+            snapshot.spotify_linked = linked;
+            true
+        });
+        tokio::select! {
+            changed = now.changed() => if changed.is_err() { return },
+            changed = accounts.changed() => if changed.is_err() { return },
+        }
+    }
 }
