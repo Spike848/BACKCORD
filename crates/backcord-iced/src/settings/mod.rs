@@ -84,7 +84,10 @@ pub enum Section {
     Discord,
     Advanced,
     Security,
+    /// Themes: the themes, colours, corners, background and menus.
     Appearance,
+    /// What costs drawing: the title bar and profiles' extras.
+    Performance,
     Games,
     Keybinds,
     About,
@@ -110,7 +113,8 @@ impl Section {
             Section::Discord => backcord_iced_kit::i18n::tr("Blocked accounts"),
             Section::Advanced => backcord_iced_kit::i18n::tr("Advanced"),
             Section::Security => backcord_iced_kit::i18n::tr("Security"),
-            Section::Appearance => backcord_iced_kit::i18n::tr("Appearance"),
+            Section::Appearance => backcord_iced_kit::i18n::tr("Themes"),
+            Section::Performance => backcord_iced_kit::i18n::tr("Performance"),
             Section::Games => backcord_iced_kit::i18n::tr("Game Activity"),
             Section::Keybinds => backcord_iced_kit::i18n::tr("Keybinds"),
             Section::About => backcord_iced_kit::i18n::tr("Updates"),
@@ -128,6 +132,7 @@ impl Section {
             Section::Advanced => Icon::Settings,
             Section::Security => Icon::Lock,
             Section::Appearance => Icon::Palette,
+            Section::Performance => Icon::Settings,
             Section::Games => Icon::Play,
             Section::Keybinds => Icon::Keyboard,
             Section::About => Icon::Refresh,
@@ -147,6 +152,7 @@ const GROUPS: [(&str, &[Section]); 4] = [
             Section::Messages,
             Section::Notifications,
             Section::Appearance,
+            Section::Performance,
         ],
     ),
     (
@@ -186,6 +192,8 @@ pub struct Settings {
     /// Appearance's theme editor while it's open, and the theme as edited,
     /// which the window shows meanwhile.
     pub editor: Option<Editor>,
+    /// Themes' colours: the one whose palette is open, and its pad.
+    pub quick: Option<(usize, crate::widgets::Hsv, String)>,
     /// How the last theme import or export went, under the themes.
     pub theme_note: Option<String>,
     preview: Option<Theme>,
@@ -477,6 +485,7 @@ impl<'a> Page<'a> {
             Section::Advanced => self.advanced_page(),
             Section::Security => self.security_page(),
             Section::Appearance => self.appearance_page(),
+            Section::Performance => self.performance_page(),
             Section::Games => self.games_page(),
             Section::Keybinds => self.keybinds_page(),
             Section::About => self.about_page(),

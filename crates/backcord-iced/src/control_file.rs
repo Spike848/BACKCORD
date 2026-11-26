@@ -8,7 +8,8 @@
 //! back, which `trim` then does), `open` and `create` (as the tray's Open
 //! BACKCORD), `quit`, `hide` and `show`, `stage PATH` and `stage-aside PATH`
 //! (a file for the next message), `pick KIND PATH` (a picture for a profile
-//! or a server's settings), `theme ID` (a theme, built in or custom, as
+//! or a server's settings; `pick backdrop PATH` for Appearance's custom
+//! background), `theme ID` (a theme, built in or custom, as
 //! Appearance chooses it).
 
 use std::{collections::VecDeque, path::PathBuf, time::Duration};
@@ -84,6 +85,10 @@ pub enum Command {
     Act(Action),
     /// Show and keep a theme, by its id.
     Theme(String),
+    /// Appearance's custom background chosen, as its file chooser would.
+    Backdrop(PathBuf),
+    /// Appearance's DM home picture chosen, as its file chooser would.
+    HomeIcon(PathBuf),
     Unknown,
 }
 
@@ -102,6 +107,10 @@ pub fn parse(command: &str) -> Command {
                 Command::Act(Action::Stage(vec![PathBuf::from(path)]))
             } else if let Some(path) = command.strip_prefix("stage-aside ") {
                 Command::Act(Action::StageAside(vec![PathBuf::from(path)]))
+            } else if let Some(path) = command.strip_prefix("pick home-icon ") {
+                Command::HomeIcon(PathBuf::from(path))
+            } else if let Some(path) = command.strip_prefix("pick backdrop ") {
+                Command::Backdrop(PathBuf::from(path))
             } else if let Some(rest) = command.strip_prefix("pick ") {
                 let (kind, path) = rest.split_once(' ').unwrap_or_default();
                 Command::Act(pick(kind, PathBuf::from(path)))
@@ -191,6 +200,12 @@ pub(crate) fn control(app: &mut App, command: &str) -> Task<Message> {
             app.client.dispatch(action);
             return app.sync();
         }
+        Command::Backdrop(path) => {
+            return crate::backdrop::chosen_file(app, &path);
+        }
+        Command::HomeIcon(path) => {
+            return crate::backdrop::chosen_icon(app, &path);
+        }
         Command::Theme(id) => {
             if !app.choose_theme(&id) {
                 tracing::warn!(id, "no such theme");
@@ -232,6 +247,10 @@ mod tests {
             })
         ));
         assert!(matches!(parse("theme sakura"), Command::Theme(id) if id == "sakura"));
+        assert!(matches!(
+            parse("pick backdrop b.png"),
+            Command::Backdrop(path) if path == std::path::Path::new("b.png")
+        ));
         assert!(matches!(parse("open"), Command::Open));
         assert!(matches!(parse("dance"), Command::Unknown));
     }

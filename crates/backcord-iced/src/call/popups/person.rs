@@ -27,6 +27,35 @@ pub struct Volumes {
     pub stream: u32,
     /// A watched stream's menu: its volume alone.
     pub only_stream: bool,
+    /// Their voice's pitch on its slider: [`PITCH_OFF`] is as it comes,
+    /// each step a semitone up or down.
+    pub pitch: u32,
+}
+
+/// The pitch slider's middle, which leaves the voice as it comes; it goes
+/// a semitone a step to twice this.
+pub const PITCH_OFF: u32 = 12;
+
+/// Someone's voice's pitch from their menu, in semitones from the
+/// slider's middle; the drag's last is kept.
+pub(in crate::call) fn person_pitch(app: &mut App, value: u32, done: bool) {
+    let Some(volumes) = app.win.menu.as_mut().and_then(|menu| menu.volumes.as_mut()) else {
+        return;
+    };
+    let value = value.min(2 * PITCH_OFF);
+    volumes.pitch = value;
+    let person = volumes.person.clone();
+    let semitones = value as f32 - PITCH_OFF as f32;
+    backcord_core::volume::set_pitch(&person, semitones);
+    if done {
+        let kept = &mut app.layout.voice.pitches;
+        if value == PITCH_OFF {
+            kept.remove(&person);
+        } else {
+            kept.insert(person, semitones);
+        }
+        crate::layout::store(app.client.root(), "pitches", &*kept);
+    }
 }
 
 /// Someone's voice or stream volume from their menu: within a step of
@@ -103,6 +132,7 @@ pub(in crate::call) fn open_voice_menu(
         voice: slider(backcord_core::volume::Kind::Voice),
         stream: slider(backcord_core::volume::Kind::Stream),
         only_stream: false,
+        pitch: (backcord_core::volume::pitch(&person) + PITCH_OFF as f32).round() as u32,
     });
     let core = &app.client.app;
     // In the core's order, unlike the person menu's.
@@ -283,6 +313,27 @@ pub fn volumes_view<'a>(ctx: crate::ctx::Ctx<'a>, volumes: &'a Volumes) -> Eleme
             false,
             volumes.voice,
         ));
+    }
+    if !volumes.only_stream {
+        let semitones = volumes.pitch as i32 - PITCH_OFF as i32;
+        let shown = if semitones == 0 {
+            backcord_iced_kit::i18n::tr("Off").to_owned()
+        } else {
+            format!("{semitones:+}")
+        };
+        panel = panel.push(
+            controls::slider(
+                backcord_iced_kit::i18n::tr("Voice pitch (semitones)"),
+                volumes.pitch,
+                2 * PITCH_OFF,
+                |value| Message::Call(Event::Pitch(value, false)),
+            )
+            .step(1)
+            .mark(false)
+            .shown(shown)
+            .on_release(Message::Call(Event::Pitch(volumes.pitch, true)))
+            .view(theme),
+        );
     }
     if volumes.live {
         panel = panel.push(slider(

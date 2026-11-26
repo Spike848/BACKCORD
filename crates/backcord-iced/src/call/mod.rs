@@ -69,6 +69,11 @@ pub struct Call {
     pub pointed: Option<usize>,
     /// The popup open from a control, and where that control is.
     pub popup: Option<Popup>,
+    /// The soundboard: the group its rail shows alone (none for all), its
+    /// volume's slider open, and the slider while it's dragged.
+    pub board_group: Option<String>,
+    pub board_volume_open: bool,
+    pub board_volume: Option<u32>,
     pub spot: Cell<Rectangle>,
     /// The device list open in a device menu.
     pub listing: bool,
@@ -190,6 +195,15 @@ pub enum Event {
     /// Someone's voice or stream volume in their menu, and whether it's the
     /// drag's last.
     Volume(bool, u32, bool),
+    /// The soundboard's rail: a group alone, or all.
+    BoardGroup(Option<String>),
+    /// The soundboard's volume slider opened or closed, and dragged (and
+    /// whether let go of).
+    BoardVolumeOpen(bool),
+    BoardVolume(u32, bool),
+    /// Someone's voice's pitch in their menu, on its slider, and whether
+    /// it's the drag's last.
+    Pitch(u32, bool),
     /// Someone in a call right clicked, by the call's room and their id,
     /// where in the window.
     Person(String, String, Point),
@@ -343,6 +357,31 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Favorite(sound, on) => Action::Voice(Command::FavoriteSound(sound, on)),
         Event::Volume(stream, value, done) => {
             crate::call::popups::person::person_volume(app, stream, value, done);
+            return Task::none();
+        }
+        Event::BoardGroup(group) => {
+            app.call.board_group = group;
+            return Task::none();
+        }
+        Event::BoardVolumeOpen(open) => {
+            app.call.board_volume_open = open;
+            return Task::none();
+        }
+        Event::BoardVolume(value, done) => {
+            let value = value.min(100);
+            if done {
+                app.call.board_volume = None;
+                app.client
+                    .dispatch(backcord_core::application::Action::SoundboardVolume(
+                        value as f32,
+                    ));
+                return app.sync();
+            }
+            app.call.board_volume = Some(value);
+            return Task::none();
+        }
+        Event::Pitch(value, done) => {
+            crate::call::popups::person::person_pitch(app, value, done);
             return Task::none();
         }
         Event::Click(room, user) => {
@@ -807,6 +846,7 @@ fn open_stream_menu(app: &mut App, user: String) -> Task<Message> {
             voice: 0,
             stream,
             only_stream: true,
+            pitch: crate::call::popups::person::PITCH_OFF,
         }),
         ..Menu::new(app.pressed.get(), rows).width(crate::menus::FIELD_WIDTH)
     });

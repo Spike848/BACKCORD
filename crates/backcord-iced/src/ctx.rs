@@ -63,6 +63,8 @@ pub struct Ctx<'a> {
     /// The profiles shown (the card, the full profile, the DM's panel, the
     /// editor), which several areas draw.
     pub profiles: &'a crate::profile::Profiles,
+    /// Appearance's custom background as made.
+    pub backdrop: &'a crate::backdrop::Backdrop,
     /// The minute now, as clocks that show minutes read it.
     pub minute: u64,
     /// What the pointer is on: a member, a message, a row.

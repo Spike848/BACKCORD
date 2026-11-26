@@ -620,7 +620,8 @@ impl Video {
     }
 
     pub fn corners(mut self, radius: u32, behind: u32) -> Self {
-        self.corners = Some((radius, behind));
+        // Square corners cut nothing: a corner of no pixels can't be drawn.
+        self.corners = (radius > 0).then_some((radius, behind));
         self
     }
 }

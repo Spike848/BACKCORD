@@ -76,6 +76,7 @@ pub mod picture;
 #[cfg(feature = "discord")]
 pub use backcord_discord::platforms;
 #[cfg(feature = "discord")]
+pub mod pitch;
 pub mod playback;
 pub mod push_to_talk;
 #[cfg(feature = "discord")]

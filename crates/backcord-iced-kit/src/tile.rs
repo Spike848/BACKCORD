@@ -250,12 +250,25 @@ pub fn chip<'a, M: Clone + 'a>(
     for (icon, ink) in marks {
         face = face.push(look.glyph(icon, 14, ink));
     }
+    // No ground behind it: a dark copy a pixel down and right keeps it
+    // readable over a camera or a light picture.
+    let shade = Color {
+        a: 0.85,
+        ..Color::BLACK
+    };
+    // Cut with "…" where the tile is too narrow for it.
+    let word = |ink: Color| crate::elide::elide(name).size(14).font(BOLD).color(ink);
     face = face.push(
-        text(name)
-            .size(14)
-            .font(BOLD)
-            .color(Color::WHITE)
-            .wrapping(text::Wrapping::None),
+        iced::widget::stack![
+            container(word(shade)).padding(iced::Padding {
+                top: 1.0,
+                left: 1.0,
+                ..iced::Padding::ZERO
+            }),
+            word(Color::WHITE),
+        ]
+        // As wide as the name, so LIVE and the note follow it.
+        .width(Length::Shrink),
     );
     if live {
         face = face.push(controls::live_pill(theme, None));
@@ -273,7 +286,6 @@ pub fn chip<'a, M: Clone + 'a>(
         .height(CHIP)
         .align_y(Alignment::Center)
         .clip(true)
-        .style(|_| rounded(GLASS, 6))
         .into()
 }
 

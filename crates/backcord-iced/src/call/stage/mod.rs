@@ -322,7 +322,12 @@ pub fn frame<'a>(
     app.video.has(key).then(|| {
         let video = Video::new(&app.video, key, Color::BLACK).scale(app.device_scale());
         let video = match corners {
-            Some((radius, behind)) => video.corners(radius, behind),
+            // As Appearance's corner roundness says, as the tile's own are.
+            Some((radius, behind)) => video.corners(
+                backcord_iced_kit::renderer::corner(radius as f32, radius as f32 * 2.0).round()
+                    as u32,
+                behind,
+            ),
             None => video,
         };
         Element::from(video)
@@ -543,10 +548,7 @@ pub fn voice_description(app: &App) -> String {
         } else if voice.participants.len() == 1 {
             backcord_iced_kit::i18n::tr("Nobody else is in the call yet.").into()
         } else {
-            backcord_iced_kit::i18n::tr(
-                "The call stays connected while you browse other conversations.",
-            )
-            .into()
+            String::new()
         };
     }
     if voice_here(app) {
@@ -556,10 +558,7 @@ pub fn voice_description(app: &App) -> String {
             )
             .into()
         } else {
-            backcord_iced_kit::i18n::tr(
-                "Voice stays connected while you browse other conversations.",
-            )
-            .into()
+            String::new()
         };
     }
     let join = if joins_muted(app) {
@@ -766,12 +765,19 @@ fn stage_tile(
                 // without one; a camera whose frames stop keeps its
                 // last.
                 // Over the name's chip at the foot, however small the tile.
-                let below = if size.height < 160.0 { 36.0 } else { 16.0 };
-                let side = (size.height * 0.45)
-                    .min(96.0)
-                    .min(size.height - below - 8.0)
-                    .max(16.0)
-                    .round();
+                // A small tile has it in its middle, small enough to
+                // clear the chip; a large one a little above it.
+                let small = size.height < 160.0;
+                let below = if small { 10.0 } else { 16.0 };
+                let side = if small {
+                    (size.height * 0.45).min(size.height - 60.0)
+                } else {
+                    (size.height * 0.45)
+                        .min(96.0)
+                        .min(size.height - below - 8.0)
+                }
+                .max(16.0)
+                .round();
                 let opacity = if person.connected { 1.0 } else { 0.5 };
                 let avatar = app.ctx().avatar(
                     person.avatar.as_deref(),

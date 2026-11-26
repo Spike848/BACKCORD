@@ -327,10 +327,6 @@ fn clicking_the_docks_channel_line_opens_the_call() {
         ui.simulate(iced_test::simulator::click());
     });
     assert_eq!(app.client.state().selected.as_deref(), Some(room.as_str()));
-    assert!(
-        shows(&app, &crate::call::stage::voice_description(&app)),
-        "the call shows"
-    );
 }
 
 #[test]

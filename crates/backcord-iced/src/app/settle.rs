@@ -45,6 +45,7 @@ impl App {
             lanes: crate::timeline::lanes(self),
             link_spot: &self.link_spot,
             profiles: &self.profiles,
+            backdrop: &self.backdrop,
             minute: self.minute,
             pointed: &self.pointed,
             pressed: &self.pressed,

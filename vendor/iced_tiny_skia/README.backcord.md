@@ -152,3 +152,8 @@ marked `BACKCORD port` in the source and numbered there:
 
 Unmarked lines are iced's. Updating iced means taking the new
 iced_tiny_skia and carrying each marked change over.
+
+- `src/corners.rs` (new), `fill_quad` in `src/lib.rs`: Appearance's corner
+  roundness, `set_corner_scale`, scales every quad's corners, and
+  `set_round_scale` circles and pills (corners at least half the short
+  side); `draw_raster` in `src/layer.rs` scales pictures' corners the same.

@@ -4066,3 +4066,55 @@ Corner radius (px)	Raggio degli angoli (px)
 Border thickness (px)	Spessore del bordo (px)
 Glow colour	Colore del bagliore
 Text and icon colour	Colore di testo e icone
+Themes	Temi
+Performance	Performance
+Corner roundness	Arrotondamento degli angoli
+How round the corners of every window, panel and button are: 0 square, 100 as BACKCORD draws them, 200 rounder. Avatars, dots and pills stay round.	Quanto sono arrotondati gli angoli di finestre, pannelli e pulsanti: 0 squadrati, 100 come li disegna BACKCORD, 200 più tondi. Avatar, pallini e pillole restano tondi.
+Choose a background	Scegli uno sfondo
+Choose image	Scegli immagine
+CUSTOM BACKGROUND	SFONDO PERSONALIZZATO
+A picture of your own behind BACKCORD, see-through as you choose.	Un'immagine tua dietro BACKCORD, trasparente quanto vuoi.
+Drag the preview to choose which part of the picture shows.	Trascina l'anteprima per scegliere quale parte dell'immagine si vede.
+Background blur (0 off)	Sfocatura dello sfondo (0 spenta)
+Background opacity	Opacità dello sfondo
+Voice pitch (semitones)	Tono della voce (semitoni)
+All Sounds	Tutti i suoni
+Choose an icon	Scegli un'icona
+DIRECT MESSAGES ICON	ICONA DEI MESSAGGI DIRETTI
+The picture at the top left, over your direct messages: any picture, cut square and fitted to its size.	L'immagine in alto a sinistra, sopra i messaggi diretti: qualsiasi immagine, ritagliata quadrata e adattata alla sua misura.
+Roundness of avatars and icons	Arrotondamento di avatar e icone
+Like the corners, for what's round: avatars, status dots, pills, switches, and server icons in the list and in folders. 0 square, 100 round.	Come gli angoli, ma per ciò che è tondo: avatar, pallini di stato, pillole, interruttori e icone dei server nella lista e nelle cartelle. 0 squadrati, 100 tondi.
+How round the corners of every window, panel and button are: 0 square, 100 as BACKCORD draws them, 200 rounder. What's round has its own slider below.	Quanto sono arrotondati gli angoli di finestre, pannelli e pulsanti: 0 squadrati, 100 come li disegna BACKCORD, 200 più tondi. Ciò che è tondo ha il suo slider qui sotto.
+MENUS AND DIALOGS	MENU E FINESTRE
+Menu opacity	Opacità dei menu
+Menu blur (0 off)	Sfocatura dei menu (0 spenta)
+mine	mio
+Click a colour to open its palette. A change shows at once; a built-in theme is copied as your own first, so it's never lost.	Clicca un colore per aprire la tavolozza. La modifica si vede subito; un tema predefinito viene prima copiato come tuo, così non va perso.
+Server list	Lista dei server
+The column of server icons on the far left.	La colonna con le icone dei server, all'estrema sinistra.
+Channels and direct messages	Canali e messaggi diretti
+The list beside the servers.	L'elenco accanto ai server.
+Chat background	Sfondo della chat
+Behind the messages.	Dietro i messaggi.
+Side panels	Pannelli laterali
+The member list, the profile beside a DM, and Settings.	L'elenco dei membri, il profilo accanto a un DM e le Impostazioni.
+Cards and boxes	Schede e riquadri
+Embeds, cards and what stands over the background.	Anteprime, schede e ciò che sta sopra lo sfondo.
+Message box and fields	Casella dei messaggi e campi
+Where you write, and the search fields.	Dove scrivi, e i campi di ricerca.
+Highlight under the pointer	Evidenziazione sotto il puntatore
+A row or button the pointer is over.	Una riga o un pulsante sotto il puntatore.
+Names and messages.	Nomi e messaggi.
+Secondary text	Testo secondario
+Times, hints and descriptions.	Orari, suggerimenti e descrizioni.
+Main colour	Colore principale
+Main buttons, switches, sliders and what's chosen.	Pulsanti principali, interruttori, slider e ciò che è selezionato.
+Links	Link
+Web addresses in messages.	Gli indirizzi web nei messaggi.
+Online and connected	Online e connesso
+The online dot, and voice connected.	Il pallino online e la voce connessa.
+Danger	Pericolo
+Delete, leave, and errors.	Elimina, esci ed errori.
+Lines	Linee
+The lines between the window's parts.	Le linee tra le parti della finestra.
+Settings, the soundboard, the call's menus and right-click menus: how see-through they are, and how blurred what's behind them shows. The blur shows when they're not fully opaque.	Impostazioni, soundboard, menu della chiamata e menu del tasto destro: quanto sono trasparenti e quanto appare sfocato ciò che c'è dietro. La sfocatura si vede quando non sono del tutto opachi.

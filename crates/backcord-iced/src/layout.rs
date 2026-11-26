@@ -168,6 +168,9 @@ impl KeptSticker {
 
 /// Settings' pages besides Voice's, each under its key in `layout.json`:
 /// `None` is the default, which for most switches is on.
+/// Corners as drawn: [`Prefs::corners`] unless set.
+pub const CORNERS: u8 = 100;
+
 #[derive(Default, serde::Deserialize)]
 #[serde(default)]
 pub struct Prefs {
@@ -211,6 +214,27 @@ pub struct Prefs {
     pub island_border: Option<u8>,
     pub island_color: Option<u32>,
     pub island_ink: Option<u32>,
+    /// Appearance's corner roundness, in hundredths of how corners are
+    /// drawn (0 square, up to 200); [`CORNERS`] unless set.
+    pub corners: Option<u8>,
+    /// How round circles and pills are (avatars, dots, server icons,
+    /// pills), in hundredths: 0 square, 100 round, the default.
+    pub round: Option<u8>,
+    /// Appearance's custom background (`backdrop.rs`): its file in the
+    /// data folder, the point it's cut round (0 to 100 across and down),
+    /// its blur and its opacity (0 to 100).
+    pub backdrop: Option<String>,
+    pub backdrop_x: Option<u8>,
+    pub backdrop_y: Option<u8>,
+    pub backdrop_blur: Option<u8>,
+    pub backdrop_opacity: Option<u8>,
+    /// The DM home's own picture, in the data folder, in place of the
+    /// theme's (`rail::home_face`).
+    pub home_icon: Option<String>,
+    /// Menus' and dialogs' opacity (0 to 100, 100 the default) and their
+    /// frosted background's blur (0, the default, off): `backdrop.rs`.
+    pub menu_opacity: Option<u8>,
+    pub menu_blur: Option<u8>,
     /// Desktop notifications, shown unless turned off.
     pub notifications: Option<bool>,
     /// Advanced: rendering with the GPU from the next start (on unless
@@ -397,7 +421,6 @@ pub struct Voice {
     pub echo_reduction: Option<u8>,
     /// Discord calls send the microphone untouched at 320 kbit/s.
     pub studio_voice: bool,
-    pub windows_microphone_effects: bool,
     /// The quietest speech Discord calls send, in dBFS.
     pub input_sensitivity: Option<i32>,
     /// Push to talk, its keybind and its release delay in ms.
@@ -423,6 +446,8 @@ pub struct Voice {
     /// People's own volumes and their streams', by Discord or Matrix id.
     pub volumes: std::collections::BTreeMap<String, f32>,
     pub stream_volumes: std::collections::BTreeMap<String, f32>,
+    /// People's voices' pitch, in semitones, where it isn't 0.
+    pub pitches: std::collections::BTreeMap<String, f32>,
     /// Those muted for this account alone, and those whose soundboard
     /// sounds it doesn't hear.
     pub muted_people: BTreeSet<String>,
@@ -475,7 +500,8 @@ impl Voice {
         noise::set_strength(self.noise_strength);
         noise::set_echo(self.echo_reduction.unwrap_or(2));
         backcord_core::studio::set(self.studio_voice);
-        backcord_core::set_windows_effects(self.windows_microphone_effects);
+        // Windows' and the driver's own microphone effects always run.
+        backcord_core::set_windows_effects(true);
         let sensitivity = self
             .input_sensitivity
             .unwrap_or(noise::DEFAULT_SENSITIVITY as i32)
@@ -488,6 +514,9 @@ impl Voice {
                 .min(push_to_talk::MOST_RELEASE_DELAY),
         );
         self.play_volumes();
+        for (person, semitones) in &self.pitches {
+            volume::set_pitch(person, *semitones);
+        }
         for (person, gain) in &self.volumes {
             volume::set(volume::Kind::Voice, person, *gain);
         }

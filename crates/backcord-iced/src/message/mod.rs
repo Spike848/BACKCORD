@@ -964,23 +964,42 @@ fn delivery_line<'a>(
     let (words, retry, cancel) = match message.delivery {
         chat::Delivery::Sent => return None,
         chat::Delivery::Sending if message.attachments.is_empty() => return None,
-        chat::Delivery::Sending => (backcord_iced_kit::i18n::tr("Sending..."), false, true),
+        chat::Delivery::Sending => (
+            backcord_iced_kit::i18n::tr("Sending...").to_owned(),
+            false,
+            true,
+        ),
         chat::Delivery::Waiting => (
             backcord_iced_kit::i18n::tr(
                 "Not sent yet. BACKCORD sends it when the connection returns.",
-            ),
+            )
+            .to_owned(),
             false,
             true,
         ),
         // An app's command, whose row says why.
-        chat::Delivery::Failed if message.item.starts_with("c:") => {
-            (backcord_iced_kit::i18n::tr("Not sent."), true, true)
-        }
-        chat::Delivery::Failed => (
-            backcord_iced_kit::i18n::tr("Not sent. The server refused this message."),
+        chat::Delivery::Failed if message.item.starts_with("c:") => (
+            backcord_iced_kit::i18n::tr("Not sent.").to_owned(),
             true,
             true,
         ),
+        chat::Delivery::Failed => match message.refused.as_deref() {
+            Some(why) => (
+                format!(
+                    "{} {}",
+                    backcord_iced_kit::i18n::tr("Not sent."),
+                    backcord_iced_kit::i18n::t(why)
+                ),
+                true,
+                true,
+            ),
+            None => (
+                backcord_iced_kit::i18n::tr("Not sent. The server refused this message.")
+                    .to_owned(),
+                true,
+                true,
+            ),
+        },
     };
     let failed = message.delivery == chat::Delivery::Failed;
     let mut line =

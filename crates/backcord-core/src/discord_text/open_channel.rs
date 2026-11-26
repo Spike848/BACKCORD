@@ -31,6 +31,8 @@ pub(super) struct Pending {
     /// Files sent with it.
     pub(super) files: Vec<PendingFile>,
     pub(super) failed: bool,
+    /// Why it wasn't sent, as Discord said.
+    pub(super) refused: Option<String>,
 }
 
 pub(super) struct PendingFile {
@@ -803,6 +805,7 @@ impl OpenChannel {
             options,
             files,
             failed: false,
+            refused: None,
         });
         self.start_send(discord, done, &nonce);
     }
@@ -816,6 +819,7 @@ impl OpenChannel {
             return;
         };
         pending.failed = false;
+        pending.refused = None;
         let (discord, done) = (discord.clone(), done.clone());
         let (room, guild, channel) = (self.room.clone(), self.guild.clone(), self.channel.clone());
         let (nonce, body, reply, options) = (
@@ -854,7 +858,11 @@ impl OpenChannel {
                     ping_reply: !options.quiet_reply,
                     silent: options.silent,
                 };
-                if let (Some(voice), Some((_, recording))) = (voice, read.pop()) {
+                // Only a voice message gives up its file to the recording: the
+                // pop is in the condition so other files stay in `read`.
+                if let Some(voice) = voice
+                    && let Some((_, recording)) = read.pop()
+                {
                     let clip = backcord_discord::api::VoiceClip {
                         duration_secs: voice.duration_ms as f32 / 1000.0,
                         waveform: {
@@ -890,9 +898,11 @@ impl OpenChannel {
                 None
             }
             Err(error) => {
+                tracing::warn!(%error, "Discord didn't take a message");
                 for pending in &mut self.pending {
                     if pending.nonce == nonce {
                         pending.failed = true;
+                        pending.refused = Some(error.clone());
                     }
                 }
                 Some(error)
@@ -1721,6 +1731,7 @@ impl OpenChannel {
                 } else {
                     Delivery::Sending
                 },
+                refused: pending.refused.clone(),
                 reply: pending.reply.as_ref().and_then(|id| {
                     let original = self.message(id.parse().unwrap_or_default())?;
                     let (body, emoji) =
@@ -1908,6 +1919,7 @@ impl OpenChannel {
         let shared = !message.ephemeral;
         ChatMessage {
             id,
+            refused: None,
             item: format!("d:{}", message.id),
             application_id: message.application_id.clone(),
             interaction: message

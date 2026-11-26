@@ -15,6 +15,9 @@ pub mod timing;
 // BACKCORD port (patch 26): whether this renderer may start.
 mod enabled;
 pub use enabled::set_enabled;
+// BACKCORD port: Appearance's corner roundness.
+mod corners;
+pub use corners::{set_corner_scale, set_round_scale};
 
 #[cfg(feature = "image")]
 mod raster;
@@ -286,6 +289,9 @@ impl core::Renderer for Renderer {
         quad: renderer::Quad,
         background: impl Into<Background>,
     ) {
+        // BACKCORD port: Appearance's corner roundness.
+        let mut quad = quad;
+        quad.border.radius = corners::corners(quad.border.radius, quad.bounds);
         let (layer, transformation) = self.layers.current_mut();
         layer.draw_quad(quad, background.into(), transformation);
     }

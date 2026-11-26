@@ -216,7 +216,15 @@ pub(super) fn tag_list<'a>(ctx: crate::ctx::Ctx<'a>, editor: &'a Editor) -> Elem
             continue;
         }
         let id = server_id(&server.id);
-        let mut entry = item(format!("{}  {}", server.name, tag.text).into(), None, false);
+        // Its badge, then its tag, then the server's name.
+        let mut entry = item(format!("{}  {}", tag.text, server.name).into(), None, false);
+        let side = 2 * crate::controls::ITEM_ICON;
+        entry.picture = tag
+            .badge
+            .as_deref()
+            .and_then(|badge| ctx.picture(badge, side, side, false));
+        // Its room kept while the badge is on its way.
+        entry.slot = entry.picture.is_none();
         if chosen.as_deref() == Some(id) {
             entry.check = Check::Current;
         }
@@ -249,4 +257,93 @@ pub(super) fn tag_list<'a>(ctx: crate::ctx::Ctx<'a>, editor: &'a Editor) -> Elem
         .width(Length::Fill)
         .style(controls::menu_panel(theme)),
     )
+}
+
+/// Above the editor's top left corner: an arrow and the profile edited,
+/// which opens the others, the main profile and each server's.
+pub(super) fn profile_switch<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    editor: &'a Editor,
+    core: &'a ProfileEditor,
+) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let label = match &core.server {
+        Some(_) => core.server_name.clone(),
+        None => backcord_iced_kit::i18n::tr("Main Profile").to_owned(),
+    };
+    let face = row![
+        ctx.look.glyph(Icon::ArrowLeft, 16, theme.text),
+        text(label)
+            .size(14)
+            .font(crate::fonts::SEMIBOLD)
+            .color(theme.text)
+            .wrapping(text::Wrapping::None),
+        ctx.look.glyph(Icon::ChevronDown, 14, theme.secondary),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+    let chip = button(face)
+        .padding([0, 12])
+        .height(32)
+        .on_press(message(Event::Pop(Some(Pop::Profiles))))
+        .style(controls::lit_style(
+            Some(theme.raised),
+            faded(theme.text, 0.12),
+            8.0,
+        ));
+    let list = (editor.pop == Some(Pop::Profiles)).then(|| {
+        let shown = core.server.as_deref();
+        let mut entry = item(
+            backcord_iced_kit::i18n::tr("Main Profile").into(),
+            Some(Icon::User),
+            false,
+        );
+        if shown.is_none() {
+            entry.check = Check::Current;
+        }
+        let mut rows =
+            column![
+                ctx.look
+                    .menu_item(entry, Light::Pointer, message(Event::Profile(None)))
+            ]
+            .spacing(2);
+        for server in &ctx.state.servers {
+            let id = server_id(&server.id);
+            let mut entry = item(server.name.as_str().into(), None, false);
+            let side = 2 * crate::controls::ITEM_ICON;
+            entry.picture = server
+                .icon
+                .as_deref()
+                .and_then(|icon| ctx.picture(icon, side, side, false));
+            entry.slot = entry.picture.is_none();
+            if shown == Some(id) {
+                entry.check = Check::Current;
+            }
+            rows = rows.push(ctx.look.menu_item(
+                entry,
+                Light::Pointer,
+                message(Event::Profile(Some(server.id.clone()))),
+            ));
+        }
+        opaque(
+            container(
+                scroll_view(rows)
+                    .height(Length::Shrink)
+                    .style(scrollbar(theme)),
+            )
+            .padding(6)
+            .max_height(360)
+            .width(Length::Fill)
+            .style(controls::menu_panel(theme)),
+        )
+    });
+    container(
+        Popover::new(chip, list, Side::Below)
+            .width(Width::Own(280.0))
+            .gap(4.0)
+            .outside(message(Event::Pop(None))),
+    )
+    .width(Length::Fill)
+    .align_x(Alignment::Start)
+    .into()
 }

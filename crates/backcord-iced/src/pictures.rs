@@ -144,6 +144,8 @@ pub struct Pictures {
     pub scaled: RefCell<HashMap<(u32, u32, bool), Converted<Handle>>>,
     /// Presence dots, by what they are and their ring's colour.
     pub marks: RefCell<HashMap<Mark, Handle>>,
+    /// The roundness the marks were drawn at: they go when it changes.
+    pub marks_round: std::cell::Cell<u32>,
     /// Emoji for the menu's quick reactions and the reactions' tooltips.
     pub emoji: RefCell<HashMap<(&'static str, u32), Option<Handle>>>,
     /// Moving pictures playing: those the last view didn't show go after
@@ -159,6 +161,7 @@ impl Pictures {
             previews: Default::default(),
             scaled: Default::default(),
             marks: Default::default(),
+            marks_round: std::cell::Cell::new(100),
             emoji: Default::default(),
             players: Players::default(),
             fitter: RefCell::new(fitter),
@@ -789,6 +792,10 @@ impl<'a> crate::ctx::Ctx<'a> {
 
     /// A presence dot, drawn once.
     pub fn mark(self, mark: Mark) -> Option<Handle> {
+        let round = backcord_iced_kit::renderer::rounds();
+        if self.pictures.marks_round.replace(round) != round {
+            self.pictures.marks.borrow_mut().clear();
+        }
         if let Some(handle) = self.pictures.marks.borrow().get(&mark) {
             return Some(handle.clone());
         }
@@ -884,8 +891,15 @@ impl<'a> crate::ctx::Ctx<'a> {
             play,
             dot,
         } = face;
+        // Under a decoration, drawn for a round avatar, it stays round
+        // whatever the roundness of avatars says.
+        let radius = if decoration.is_some() {
+            backcord_iced_kit::renderer::ALWAYS_ROUND
+        } else {
+            size / 2.0
+        };
         let mut layers =
-            stack![self.avatar_tinted(url, name, key.unwrap_or(name), size, size / 2.0, opacity)];
+            stack![self.avatar_tinted(url, name, key.unwrap_or(name), size, radius, opacity)];
         let square = Size::new(size, size);
         if let Some(decoration) = decoration {
             let side = (size * 1.2).round();

@@ -141,6 +141,107 @@ pub enum Event {
     Imported(Option<(String, String)>),
     Export,
     Exported(Option<String>),
+    /// Themes' colours: a swatch clicked (none closes its palette), the
+    /// pad moved, the code typed.
+    QuickPick(Option<usize>),
+    QuickHsv(Hsv),
+    QuickCode(String),
+}
+
+/// Themes' colours, each a part of the window anyone can point at: its
+/// colour's name in `Theme::NAMES`, what it's called and what it colours.
+const QUICK: [(&str, &str, &str); 14] = [
+    (
+        "rail",
+        "Server list",
+        "The column of server icons on the far left.",
+    ),
+    (
+        "sidebar",
+        "Channels and direct messages",
+        "The list beside the servers.",
+    ),
+    ("chat", "Chat background", "Behind the messages."),
+    (
+        "panel",
+        "Side panels",
+        "The member list, the profile beside a DM, and Settings.",
+    ),
+    (
+        "raised",
+        "Cards and boxes",
+        "Embeds, cards and what stands over the background.",
+    ),
+    (
+        "field",
+        "Message box and fields",
+        "Where you write, and the search fields.",
+    ),
+    (
+        "hover",
+        "Highlight under the pointer",
+        "A row or button the pointer is over.",
+    ),
+    ("text", "Text", "Names and messages."),
+    ("muted", "Secondary text", "Times, hints and descriptions."),
+    (
+        "accent",
+        "Main colour",
+        "Main buttons, switches, sliders and what's chosen.",
+    ),
+    ("link", "Links", "Web addresses in messages."),
+    (
+        "live",
+        "Online and connected",
+        "The online dot, and voice connected.",
+    ),
+    ("danger", "Danger", "Delete, leave, and errors."),
+    ("line", "Lines", "The lines between the window's parts."),
+];
+
+/// Where `name` is among a theme's colours.
+fn quick_index(name: &str) -> Option<usize> {
+    palette::Theme::NAMES
+        .iter()
+        .position(|known| *known == name)
+}
+
+/// Sets the chosen theme's colour `index` and keeps it: a custom theme
+/// changes; a built-in one is copied first as the person's own, named
+/// after it, and that copy is chosen.
+fn set_quick(cx: &mut Cx<'_>, index: usize, colour: palette::Colour) {
+    let (id, theme) = palette::chosen(cx.themes.chosen.as_deref(), &cx.themes.custom);
+    let id = id.to_owned();
+    if theme.colour(index) == Some(colour) {
+        return;
+    }
+    let target = if cx.themes.custom.iter().any(|custom| custom.id == id) {
+        id
+    } else {
+        let built = palette::BUILT_IN
+            .iter()
+            .find(|built| built.id == id)
+            .unwrap_or(&palette::BUILT_IN[0]);
+        let new = palette::new_id(&cx.themes.custom);
+        cx.themes.custom.push(Custom {
+            id: new.clone(),
+            name: format!("{} ({})", built.name, backcord_iced_kit::i18n::tr("mine")),
+            base: built.id,
+            theme,
+        });
+        new
+    };
+    if let Some(slot) = cx
+        .themes
+        .custom
+        .iter_mut()
+        .find(|custom| custom.id == target)
+        .and_then(|custom| custom.theme.colour_mut(index))
+    {
+        *slot = colour;
+    }
+    cx.keep("custom_themes", &cx.themes.custom);
+    choose(cx, &target);
 }
 
 /// Appearance's profile switches.
@@ -164,7 +265,7 @@ impl Settings {
         match event {
             Event::Import => return import_theme(),
             Event::Export => return export_theme(cx),
-            Event::Imported(text) => self.imported_theme(text, cx),
+            Event::Imported(text) => return self.imported_theme(text, cx),
             Event::Exported(note) => {
                 if note.is_some() {
                     self.theme_note = note;
@@ -178,16 +279,20 @@ impl Settings {
     /// Adds the themes in an imported file among the person's own, and
     /// chooses the last: one theme as Export writes it, a list of them, or
     /// a whole `layout.json`.
-    fn imported_theme(&mut self, text: Option<(String, String)>, cx: &mut Cx<'_>) {
+    fn imported_theme(
+        &mut self,
+        text: Option<(String, String)>,
+        cx: &mut Cx<'_>,
+    ) -> iced::Task<Message> {
         let Some(text) = text else {
-            return;
+            return iced::Task::none();
         };
         let (file_name, text) = text;
         let themes = palette::import(&text, &file_name);
         if themes.is_empty() {
             self.theme_note =
                 Some(backcord_iced_kit::i18n::tr("This file is not a BACKCORD theme.").to_owned());
-            return;
+            return iced::Task::none();
         }
         let mut names = Vec::new();
         let mut last = String::new();
@@ -213,6 +318,36 @@ impl Settings {
             backcord_iced_kit::i18n::tr("Theme imported:"),
             names.join(", ")
         ));
+        // The look Export wrote beside the colours, if the file has it.
+        let look = serde_json::from_str::<serde_json::Value>(text.trim_start_matches('\u{feff}'))
+            .ok()
+            .and_then(|mut value| value.get_mut("appearance").map(serde_json::Value::take));
+        let Some(look) = look else {
+            return iced::Task::none();
+        };
+        let number = |key: &str| look.get(key).and_then(serde_json::Value::as_u64);
+        let prefs = &mut cx.layout.prefs;
+        if let Some(value) = number("neon_glow") {
+            let percent = value.min(100) as u8;
+            prefs.neon_glow = Some(percent);
+            backcord_iced_kit::style::set_glow(percent);
+            cx.keep("neon_glow", percent);
+        }
+        let prefs = &mut cx.layout.prefs;
+        if let Some(value) = number("corners") {
+            let percent = value.min(200) as u8;
+            prefs.corners = Some(percent);
+            backcord_iced_kit::renderer::set_corners(u32::from(percent));
+            cx.keep("corners", percent);
+        }
+        let prefs = &mut cx.layout.prefs;
+        if let Some(value) = number("round") {
+            let percent = value.min(100) as u8;
+            prefs.round = Some(percent);
+            backcord_iced_kit::renderer::set_rounds(u32::from(percent));
+            cx.keep("round", percent);
+        }
+        crate::backdrop::look_import(cx.client.root(), &look)
     }
 
     fn theme_change(&mut self, event: Event, cx: &mut Cx<'_>) {
@@ -269,6 +404,36 @@ impl Settings {
                 });
                 if changed {
                     self.show_edited(cx);
+                }
+            }
+            Event::QuickPick(index) => {
+                let (_, chosen) = palette::chosen(cx.themes.chosen.as_deref(), &cx.themes.custom);
+                self.quick = index.and_then(|index| {
+                    let colour = chosen.colour(index)?;
+                    Some((index, rgb_hsv(colour.rgb_part()), palette::hex(colour)))
+                });
+                self.open = None;
+            }
+            Event::QuickHsv(hsv) => {
+                if let Some((index, pad, code)) = self.quick.as_mut() {
+                    let index = *index;
+                    *pad = hsv;
+                    let (_, chosen) =
+                        palette::chosen(cx.themes.chosen.as_deref(), &cx.themes.custom);
+                    let alpha = chosen.colour(index).map_or(0xff, |colour| colour.alpha());
+                    let colour = palette::Colour::rgba((hsv_rgb(hsv) << 8) | u32::from(alpha));
+                    *code = palette::hex(colour);
+                    set_quick(cx, index, colour);
+                }
+            }
+            Event::QuickCode(text) => {
+                if let Some((index, pad, code)) = self.quick.as_mut() {
+                    let index = *index;
+                    *code = text;
+                    if let Some(colour) = palette::parse(code) {
+                        *pad = rgb_hsv(colour.rgb_part());
+                        set_quick(cx, index, colour);
+                    }
                 }
             }
             Event::Pick(index) => {
@@ -440,7 +605,8 @@ fn import_theme() -> iced::Task<Message> {
                 .pick_file()
                 .await?;
             // A theme is a few kilobytes: a bigger file isn't one.
-            const MOST: usize = 512 << 10;
+            // With its background and icon pictures in it, a few dozen MiB.
+            const MOST: usize = 160 << 20;
             let bytes = file.read().await;
             if bytes.len() > MOST {
                 return Some((file.file_name(), String::new()));
@@ -473,7 +639,18 @@ fn export_theme(cx: &Cx<'_>) -> iced::Task<Message> {
             }
         }
     };
-    let Ok(json) = serde_json::to_string_pretty(&custom) else {
+    // The theme's colours, and the rest of how the window looks with it:
+    // roundness, neon, menus, the background and DM icon pictures.
+    let Ok(mut value) = serde_json::to_value(&custom) else {
+        return iced::Task::none();
+    };
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "appearance".to_owned(),
+            crate::backdrop::look_export(&cx.layout.prefs),
+        );
+    }
+    let Ok(json) = serde_json::to_string_pretty(&value) else {
         return iced::Task::none();
     };
     let stem: String = custom
@@ -605,17 +782,28 @@ impl<'a> Page<'a> {
                 .description(description)
                 .view(self.cx.look)
         };
+        if settings.section() == super::Section::Appearance {
+            return form::page([
+                form::title(theme, backcord_iced_kit::i18n::tr("Themes")),
+                form::group([
+                    form::beside(
+                        form::heading(theme, backcord_iced_kit::i18n::tr("THEME")),
+                        theme_buttons,
+                    ),
+                    tiles,
+                ]),
+                self.neon_glow_slider(),
+                self.corners_slider(),
+                self.round_slider(),
+                crate::backdrop::icon_settings(self.cx),
+                crate::backdrop::menu_settings(self.cx),
+                crate::backdrop::settings(self.cx),
+                self.island_settings(),
+                self.quick_colours(),
+            ]);
+        }
         form::page([
-            form::title(theme, backcord_iced_kit::i18n::tr("Appearance")),
-            form::group([
-                form::beside(
-                    form::heading(theme, backcord_iced_kit::i18n::tr("THEME")),
-                    theme_buttons,
-                ),
-                tiles,
-            ]),
-            self.neon_glow_slider(),
-            self.island_settings(),
+            form::title(theme, backcord_iced_kit::i18n::tr("Performance")),
             self.title_bar_switch(),
             column![
                 form::heading(theme, backcord_iced_kit::i18n::tr("PROFILES")),
@@ -775,6 +963,80 @@ impl<'a> Page<'a> {
             )
             .size(24.0, 14);
         stack![face, placed(pencil, width - 8.0 - 24.0, 8.0 + 78.0 + 6.0)].into()
+    }
+
+    /// Themes' colours: each part of the window by a name anyone knows,
+    /// with what it colours and its swatch, whose palette opens under it;
+    /// a change shows at once and is kept.
+    fn quick_colours(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let (_, chosen) = palette::chosen(self.cx.themes.chosen.as_deref(), &self.cx.themes.custom);
+        let mut rows = column![].spacing(10);
+        for (name, label, about) in QUICK {
+            let Some(index) = quick_index(name) else {
+                continue;
+            };
+            let shown = chosen.colour(index).map_or(Color::TRANSPARENT, color);
+            let open = self.s.quick.as_ref().filter(|(at, _, _)| *at == index);
+            let edge = theme.edge;
+            let swatch = button(Space::new())
+                .width(32)
+                .height(32)
+                .padding(0)
+                .on_press(theme_message(Event::QuickPick(
+                    open.is_none().then_some(index),
+                )))
+                .style(move |_, _| button::Style {
+                    background: Some(shown.into()),
+                    border: Border {
+                        color: edge,
+                        width: 1.0,
+                        radius: 8.0.into(),
+                    },
+                    ..Default::default()
+                });
+            rows = rows.push(
+                row![
+                    swatch,
+                    column![
+                        text(backcord_iced_kit::i18n::tr(label))
+                            .size(14)
+                            .font(MEDIUM)
+                            .color(theme.text),
+                        text(backcord_iced_kit::i18n::tr(about))
+                            .size(12)
+                            .color(theme.muted),
+                    ]
+                    .spacing(2)
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center),
+            );
+            if let Some((_, pad, code)) = open {
+                rows = rows.push(form::colour_card(
+                    theme,
+                    ColourPad::new(*pad, |hsv| theme_message(Event::QuickHsv(hsv))),
+                    form::field(theme, THEME_HEX, "#rrggbb", code)
+                        .on_input(|text| theme_message(Event::QuickCode(text)))
+                        .on_submit(theme_message(Event::QuickPick(None))),
+                ));
+            }
+        }
+        form::group([
+            form::heading(theme, backcord_iced_kit::i18n::tr("COLOURS")),
+            form::note(
+                theme,
+                backcord_iced_kit::i18n::tr(
+                    "Click a colour to open its palette. A change shows at once; a built-in theme is copied as your own first, so it's never lost.",
+                ),
+            ),
+            rows.into(),
+        ])
+    }
+
+    /// Settings' Performance: the title bar and the profiles' extras.
+    pub(super) fn performance_page(self) -> Element<'a, Message> {
+        self.appearance_page()
     }
 
     /// The editor: the name with Save and Cancel, what a new theme starts
@@ -1012,6 +1274,72 @@ fn preview<'a>(palette: &palette::Theme, width: f32) -> Element<'a, Message> {
 }
 
 impl<'a> Page<'a> {
+    /// Appearance's corner roundness: every window's corners, from square
+    /// to rounder than drawn; circles and pills have `round_slider`.
+    pub(super) fn corners_slider(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let value = u32::from(
+            self.cx
+                .layout
+                .prefs
+                .corners
+                .unwrap_or(crate::layout::CORNERS),
+        );
+        let pref = |value, done| {
+            Message::Settings(SettingsEvent::Pref(super::pages::Pref::Corners(
+                value, done,
+            )))
+        };
+        column![
+            crate::controls::slider(
+                backcord_iced_kit::i18n::tr("Corner roundness"),
+                value,
+                200,
+                move |value| pref(value, false),
+            )
+            .on_release(pref(value, true))
+            .typed(move |value| pref(value, true))
+            .view(theme),
+            form::note(
+                theme,
+                backcord_iced_kit::i18n::tr(
+                    "How round the corners of every window, panel and button are: 0 square, 100 as BACKCORD draws them, 200 rounder. What's round has its own slider below.",
+                ),
+            ),
+        ]
+        .spacing(8)
+        .into()
+    }
+
+    /// Appearance's roundness of what's round: avatars, status dots, pills,
+    /// server icons in the list and in folders, from square to round.
+    pub(super) fn round_slider(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let value = u32::from(self.cx.layout.prefs.round.unwrap_or(100));
+        let pref = |value, done| {
+            Message::Settings(SettingsEvent::Pref(super::pages::Pref::Round(value, done)))
+        };
+        column![
+            crate::controls::slider(
+                backcord_iced_kit::i18n::tr("Roundness of avatars and icons"),
+                value,
+                100,
+                move |value| pref(value, false),
+            )
+            .on_release(pref(value, true))
+            .typed(move |value| pref(value, true))
+            .view(theme),
+            form::note(
+                theme,
+                backcord_iced_kit::i18n::tr(
+                    "Like the corners, for what's round: avatars, status dots, pills, switches, and server icons in the list and in folders. 0 square, 100 round.",
+                ),
+            ),
+        ]
+        .spacing(8)
+        .into()
+    }
+
     /// Appearance's "Neon ring intensity": how strong the soft glow around
     /// the speaking rings and the call's speaking tiles is, 0 for none.
     pub(super) fn neon_glow_slider(self) -> Element<'a, Message> {

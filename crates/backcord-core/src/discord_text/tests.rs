@@ -141,6 +141,7 @@ fn live_events_echoes_and_failed_sends() {
             options: Default::default(),
             files: vec![],
             failed: false,
+            refused: None,
         });
     }
     assert!(!open.cancel("n:100"), "still sending");

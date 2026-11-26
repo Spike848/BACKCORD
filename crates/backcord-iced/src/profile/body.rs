@@ -598,11 +598,25 @@ pub(super) fn profile_avatar<'a>(
     let profile = shown.look.profile();
     let ring = size + 12.0;
     let ring_size = Size::new(ring, ring);
+    let decoration = ctx
+        .state
+        .cosmetics
+        .decoration(profile.decoration.as_deref());
+    // Under a decoration, drawn for a round avatar, it stays round whatever
+    // the roundness of avatars says.
+    let (ring_radius, face_radius) = if decoration.is_some() {
+        (
+            backcord_iced_kit::renderer::ALWAYS_ROUND,
+            backcord_iced_kit::renderer::ALWAYS_ROUND,
+        )
+    } else {
+        (ring / 2.0, size / 2.0)
+    };
     let mut avatar = stack![
         container(Space::new())
             .width(ring)
             .height(ring)
-            .style(move |_| rounded(ground, ring / 2.0))
+            .style(move |_| rounded(ground, ring_radius))
     ];
     let still = profile.avatar.as_deref().and_then(|url| {
         crate::profile::profile_picture(ctx, shown, url, size as u32, size as u32, true)
@@ -615,21 +629,17 @@ pub(super) fn profile_avatar<'a>(
         .and_then(chat::moving_banner)
         .and_then(|url| ctx.moving(&url, ring_size, face_at, true));
     let face: Element<'a, Message> = match (moving, still) {
-        (Some(moving), still) => moving.radius(size / 2.0).still(still).into(),
+        (Some(moving), still) => moving.radius(face_radius).still(still).into(),
         (None, Some(picture)) => Pic::new(picture, ring_size)
             .at(face_at)
-            .radius(size / 2.0)
+            .radius(face_radius)
             .into(),
-        (None, None) => container(ctx.avatar(None, &profile.name, size, size / 2.0, 1.0))
+        (None, None) => container(ctx.avatar(None, &profile.name, size, face_radius, 1.0))
             .padding(6)
             .into(),
     };
     avatar = avatar.push(face);
-    if let Some(decoration) = ctx
-        .state
-        .cosmetics
-        .decoration(profile.decoration.as_deref())
-    {
+    if let Some(decoration) = decoration {
         let side = (size * 1.2).round();
         let inset = 6.0 - (side - size) / 2.0;
         let at = Rectangle::new(Point::new(inset, inset), Size::new(side, side));

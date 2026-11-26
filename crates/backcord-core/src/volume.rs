@@ -87,6 +87,8 @@ static MUTED: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(RwLock::default)
 static STREAM_MUTED: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(RwLock::default);
 /// Those whose soundboard sounds this account doesn't hear.
 static SOUNDBOARD_MUTED: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(RwLock::default);
+/// Each person's voice's pitch, in semitones, where it isn't 0.
+static PITCHES: LazyLock<RwLock<HashMap<String, f32>>> = LazyLock::new(RwLock::default);
 static CHANGED: LazyLock<watch::Sender<u64>> = LazyLock::new(|| watch::channel(0).0);
 
 /// The voice limiter's ceiling, in dBFS, as f32 bits; 0 dB is off.
@@ -115,6 +117,29 @@ pub fn set(kind: Kind, person: &str, volume: f32) {
         }
     }
     CHANGED.send_modify(|changes| *changes += 1);
+}
+
+/// Raises or lowers `person`'s voice by `semitones` ([`crate::pitch`]);
+/// 0 turns it off.
+pub fn set_pitch(person: &str, semitones: f32) {
+    let semitones = semitones.clamp(-crate::pitch::MOST, crate::pitch::MOST);
+    let mut pitches = PITCHES.write().unwrap();
+    if semitones.abs() < 0.01 {
+        pitches.remove(person);
+    } else {
+        pitches.insert(person.to_owned(), semitones);
+    }
+}
+
+/// `person`'s voice's pitch, in semitones; 0 for as it comes.
+pub fn pitch(person: &str) -> f32 {
+    PITCHES.read().unwrap().get(person).copied().unwrap_or(0.0)
+}
+
+/// Whether anyone's pitch is changed, which the call's audio looks at
+/// before it looks anyone up.
+pub fn any_pitch() -> bool {
+    !PITCHES.read().unwrap().is_empty()
 }
 
 /// How loud `person` sounds, as chosen.

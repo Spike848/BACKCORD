@@ -773,7 +773,18 @@ pub fn clip_cell<'a>(
     let source = format!("clip:{key}");
     let mut layers = stack![poster].width(size.width).height(size.height);
     if failed.is_none() && playing.is_some() && ctx.video.has(&source) {
-        layers = layers.push(Video::new(ctx.video, source, Color::BLACK).scale(ctx.scale));
+        let mut video = Video::new(ctx.video, source, Color::BLACK).scale(ctx.scale);
+        // Cut round as the poster under it is (its corners as Appearance's
+        // roundness says), on the chat's ground; over a custom background
+        // the chat has none to cut on, so it stays square.
+        let chat = ctx.look.theme.chat;
+        if chat.a >= 1.0 {
+            video = video.corners(
+                backcord_iced_kit::renderer::corner(12.0, 24.0).round() as u32,
+                crate::theme::rgb(chat),
+            );
+        }
+        layers = layers.push(video);
     }
     let ended = playing.is_some_and(|video| video.ended);
     if playing.is_none() || failed.is_some() || (ended && !pointed) {

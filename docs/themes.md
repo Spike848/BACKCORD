@@ -66,3 +66,44 @@ for any it doesn't name.
 
 Discord role colours stay as servers set them, and some read faintly on a
 light theme; BACKCORD doesn't adjust them yet.
+
+## Themes and Performance
+
+Settings has two pages for how the window looks. **Themes** holds the theme cards and the theme editor,
+the neon rings' intensity, **Corner roundness** (0 square, 100 as BACKCORD draws
+it, 200 rounder; the renderers scale every rounded corner, pictures' too), and
+**Roundness of avatars and icons** for what's round (0 square, 100 round:
+avatars, status dots, pills, switches, server icons; Discord's avatar
+decorations are pictures and keep their shape) and the **custom background**: a picture behind the whole window,
+chosen with Choose image, placed by dragging its preview, with a blur (0 off)
+and an opacity slider: it's drawn under the window, and the grounds of the
+rail, the lists, the panels, the chat and the stage let it through as the
+opacity says, while text, menus and controls stay solid (a pointed or
+chosen row is a see-through wash); dialogs, cards and
+popups over the window are drawn in the solid theme. **Direct messages
+icon** replaces the picture at the top left, over the DMs, with any picture,
+cut square at its middle and fitted to the tile (`home-icon.<ext>` in the
+data folder); Reset puts the theme's back. The picture is copied to the data folder as
+`backdrop.<ext>`. **Menus and dialogs** sets how see-through Settings, the soundboard, the
+call's menus and right-click menus are, and how blurred what's behind
+them shows (frosted glass: as one opens, the window under it is taken once and
+blurred; it shows when they're not fully opaque, with or without a custom
+background).
+**Colours**, last, lists the window's parts by plain names (server list,
+chat background, text, main colour…), each with its palette: a change shows
+at once and is kept, a built-in theme copied first as the person's own.
+Camera and stream tiles and videos in messages cut their corners as the
+corner roundness says. **Performance** holds the title bar and the profile
+switches.
+
+## Export and import
+
+Export writes the chosen theme as `layout.json` keeps a custom theme, plus
+an `appearance` object with the rest of the look: `neon_glow`, `corners`,
+`round`, the background's `backdrop_blur`, `backdrop_opacity`, `backdrop_x`
+and `backdrop_y`, `menu_opacity`, `menu_blur`, and the background and DM
+icon pictures themselves as `{ "type": "png", "data": "<base64>" }` (null
+when there's none). Import adds the theme and, when the file has
+`appearance`, sets all of it: the pictures are written to the data folder
+as if chosen. A file up to 160 MiB is read; an older export with only the
+colours imports as before.

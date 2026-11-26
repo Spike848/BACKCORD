@@ -24,3 +24,8 @@ Changes, marked `BACKCORD port` in the source:
   on. The client's build has both renderers, and iced's choice between
   them reads only `ICED_BACKEND`; off by default, a CPU start and the
   tests never start a GPU.
+
+- `src/corners.rs` (new), `fill_quad` in `src/lib.rs`: Appearance's corner
+  roundness, `set_corner_scale`, scales every quad's corners, and
+  `set_round_scale` circles and pills (corners at least half the short
+  side); `draw_raster` in `src/layer.rs` scales pictures' corners the same.

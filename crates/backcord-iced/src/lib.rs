@@ -72,6 +72,7 @@ mod friends;
 mod graphics;
 mod header;
 use backcord_iced_kit::icons;
+mod backdrop;
 mod image_viewer;
 mod info_cards;
 mod island;

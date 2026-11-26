@@ -343,6 +343,55 @@ impl RailItem {
     }
 }
 
+/// What the DM home's own picture was made from, bumped as it changes.
+static HOME_ICON: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// The DM home's own picture changed: it's made again from its file.
+pub(crate) fn forget_home_icon() {
+    HOME_ICON.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The DM home's face: Appearance's own picture when one is chosen and
+/// reads, cut square at its middle and fitted to `side`, or the theme's.
+pub(crate) fn home_face(
+    prefs: &crate::layout::Prefs,
+    theme: &str,
+    side: u32,
+) -> Option<iced::advanced::image::Handle> {
+    use std::{cell::RefCell, collections::HashMap};
+    type Made = HashMap<(String, u32, u32), Option<iced::advanced::image::Handle>>;
+    thread_local! {
+        static MADE: RefCell<Made> = RefCell::default();
+    }
+    let Some(file) = prefs.home_icon.as_deref() else {
+        return theme_logo(theme, side);
+    };
+    let generation = HOME_ICON.load(std::sync::atomic::Ordering::Relaxed);
+    let made = MADE.with(|made| {
+        let mut made = made.borrow_mut();
+        made.retain(|(_, _, at), _| *at == generation);
+        made.entry((file.to_owned(), side, generation))
+            .or_insert_with(|| square_picture(file, side))
+            .clone()
+    });
+    made.or_else(|| theme_logo(theme, side))
+}
+
+/// The picture at `file`, cut square at its middle and `side` pixels.
+fn square_picture(file: &str, side: u32) -> Option<iced::advanced::image::Handle> {
+    let picture = image::open(file).ok()?.to_rgba8();
+    let (width, height) = picture.dimensions();
+    let cut = width.min(height);
+    let square =
+        image::imageops::crop_imm(&picture, (width - cut) / 2, (height - cut) / 2, cut, cut)
+            .to_image();
+    let fitted =
+        image::imageops::resize(&square, side, side, image::imageops::FilterType::Lanczos3);
+    let mut pixels = fitted.into_raw();
+    crate::paint::to_native(&mut pixels);
+    Some(iced::advanced::image::Handle::from_rgba(side, side, pixels))
+}
+
 /// BACKCORD's logo, `side` pixels square, as the DM home's face.
 pub(crate) fn home_logo(side: u32) -> Option<iced::advanced::image::Handle> {
     use std::sync::OnceLock;
@@ -934,7 +983,11 @@ impl<'a> View<'a> {
         let home = &self.s.home;
         let pointed = self.cx.pointed.rail.as_deref() == Some("");
         let lit = home.selected || pointed;
-        let face: Element<'a, Message> = match theme_logo(self.cx.themes.chosen_id(), TILE as u32) {
+        let face: Element<'a, Message> = match home_face(
+            &self.cx.layout.prefs,
+            self.cx.themes.chosen_id(),
+            TILE as u32,
+        ) {
             // The logo alone, on no ground.
             Some(logo) => container(Pic::square(logo, TILE)).center(TILE).into(),
             None => self.glyph_tile(Icon::Logo, lit),

@@ -8,7 +8,7 @@
 use crate::widgets::scroll_view;
 use backcord_core::application::{Action, DmScreen, MenuChoice, Navigation};
 use iced::{
-    Element, Length, Point, Task,
+    Element, Length, Point, Rectangle, Task,
     widget::{column, container, scrollable::Viewport, stack},
 };
 
@@ -28,7 +28,9 @@ mod rows;
 mod top;
 mod voice;
 
-pub use rows::{Room, SideHeader, SideRow, channel_name, room_icon, side_header, sidebar};
+pub use rows::{
+    Room, SideHeader, SideRow, channel_name, lead_rows, room_icon, side_header, sidebar,
+};
 
 /// The sidebar: its header and rows, its viewport, what's dragged in it,
 /// and the filters typed into it and into Browse Channels.
@@ -49,6 +51,10 @@ pub struct Sidebar {
     pub dm_moving: Option<crate::arrange::DmMoving>,
     /// The DMs picked with Ctrl, by room id, whose menu acts on them all.
     pub dm_picked: Vec<String>,
+    /// While a selection box is dragged over the list: what was picked as
+    /// it started, kept when Ctrl was held (DMs, and people by their
+    /// channel), which what the box touches adds to.
+    pub boxing: Option<Boxing>,
     /// The DM folder being renamed, and the name typed.
     pub renaming: Option<(String, String)>,
     /// The width the sidebar had as its edge was pressed, while it's
@@ -102,6 +108,7 @@ impl Sidebar {
             moving_person: None,
             dm_moving: None,
             dm_picked: Vec::new(),
+            boxing: None,
             renaming: None,
             drag: None,
             filter: String::new(),
@@ -163,19 +170,113 @@ impl Sidebar {
         (top, top + self.scroll.height)
     }
 
+    /// The header's height: the banner, the events and Channels & Roles
+    /// are rows of the list, and scroll with it.
     pub fn top_height(&self) -> f32 {
-        let head = &self.header;
-        if head.server.is_none() {
-            return HEADER;
-        }
         HEADER
-            + if head.banner.is_some() { BANNER } else { 0.0 }
-            + if head.events.is_some() {
-                EVENTS_ROW
-            } else {
-                0.0
-            }
     }
+
+    /// Where the row with `key` ends in the list's own space, scrolled.
+    fn row_bottom(&self, key: &str) -> Option<f32> {
+        let mut bottom = 0.0;
+        for row in &self.rows {
+            bottom += row.height();
+            if row.key() == key {
+                return Some(bottom - self.viewport().offset);
+            }
+        }
+        None
+    }
+
+    /// How faded the banner is as the list scrolls, as Discord's: 1 at the
+    /// list's top, 0 once it's scrolled the banner's height.
+    pub fn banner_shown(&self) -> f32 {
+        (1.0 - self.viewport().offset / BANNER).clamp(0.0, 1.0)
+    }
+}
+
+/// What was picked as a selection box started: DMs by room, and people by
+/// their channel and id.
+pub type Boxing = (Vec<String>, Vec<(String, String)>);
+
+/// The selection box over the list: everything it touches picked, after
+/// what was picked as it started when Ctrl was held. DMs on the DM home;
+/// people in voice channels in a server.
+fn boxed(app: &mut App, area: Rectangle, done: bool) -> Task<Message> {
+    let control = app.modifiers.control();
+    let state = app.client.state();
+    let side = &mut app.sidebar;
+    let base = side.boxing.get_or_insert_with(|| {
+        if control {
+            (
+                side.dm_picked.clone(),
+                state
+                    .picked
+                    .iter()
+                    .map(|pick| (pick.place.clone(), pick.user.clone()))
+                    .collect(),
+            )
+        } else {
+            (Vec::new(), Vec::new())
+        }
+    });
+    let (mut dms, mut people) = base.clone();
+    // The box in the list's scrolled content.
+    let offset = side.viewport().offset;
+    let (top, bottom) = (area.y + offset, area.y + area.height + offset);
+    let touches = |at: f32, height: f32| at < bottom && at + height > top;
+    let home = state.navigation == backcord_core::application::Navigation::DirectMessages;
+    let mut at = 0.0;
+    for row in &side.rows {
+        let height = row.height();
+        if let SideRow::Room(room) = row {
+            if home
+                && room.direct
+                && touches(at + GAP, room.row_height())
+                && !dms.contains(&room.id)
+            {
+                dms.push(room.id.clone());
+            }
+            let first = at
+                + GAP
+                + room.row_height()
+                + if room.voice_status.is_some() {
+                    STATUS
+                } else {
+                    0.0
+                }
+                + GAP;
+            for (index, person) in room.people.iter().enumerate() {
+                let pick = (room.id.clone(), person.id.clone());
+                if touches(first + index as f32 * PERSON, PERSON) && !people.contains(&pick) {
+                    people.push(pick);
+                }
+            }
+        }
+        at += height;
+    }
+    if done {
+        side.boxing = None;
+    }
+    if home {
+        side.dm_picked = dms;
+        return Task::none();
+    }
+    let now: Vec<(String, String)> = state
+        .picked
+        .iter()
+        .map(|pick| (pick.place.clone(), pick.user.clone()))
+        .collect();
+    if now == people {
+        return Task::none();
+    }
+    if !now.is_empty() {
+        app.client.dispatch(Action::ClearPicks);
+    }
+    for (place, user) in people {
+        app.client.dispatch(Action::Pick { place, user });
+    }
+    app.sync()
 }
 
 /// The sidebar's width, as its Discord look sets it.
@@ -229,8 +330,6 @@ pub const LIST: &str = "sidebar-list";
 /// How much taller the header is with the server's banner behind it, and
 /// how far down the banner's shade reaches.
 const BANNER: f32 = 81.0;
-/// The events row.
-const EVENTS_ROW: f32 = 58.0;
 /// A busy voice channel's card beside its row: its width, how far from
 /// the row, and the people it names before "and N more".
 const VOICE_CARD_WIDTH: f32 = 232.0;
@@ -244,6 +343,9 @@ const INVITE: f32 = 32.0;
 #[derive(Clone, Debug)]
 pub enum Event {
     Scrolled(Viewport),
+    /// The selection box over the list, in its unscrolled terms, and
+    /// whether it was let go of.
+    Boxed(Rectangle, bool),
     /// The pointer came onto a row or left it, by its key.
     Point(String, bool),
     /// The sidebar's edge was dragged this far from where it was pressed,
@@ -273,6 +375,8 @@ pub enum Event {
     InviteTo(String),
     /// The events row: the server's scheduled events, under it.
     Events,
+    /// Channels & Roles: the server's onboarding questions, to answer again.
+    ChannelsRoles,
     /// A right click on a row, by its room id, where the pointer is.
     Menu(String, Point),
     /// Wave, in an empty DM, by its person.
@@ -298,6 +402,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         return task;
     }
     match event {
+        Event::Boxed(area, done) => return boxed(app, area, done),
         Event::Scrolled(viewport) => {
             app.sidebar.scroll = Scroll::of(viewport);
             return app.ask();
@@ -397,12 +502,17 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 iced::widget::operation::focus(crate::app::NOBODY),
             ]);
         }
+        Event::ChannelsRoles => {
+            if let Some(server) = app.sidebar.header.server.clone() {
+                app.client.dispatch(Action::OpenMembership(server));
+            }
+        }
         Event::Events => {
             let Some(server) = app.sidebar.header.server.clone() else {
                 return Task::none();
             };
-            let top = app.sidebar.top_height() - EVENTS_ROW;
-            let at = Point::new(crate::rail::WIDTH + INSET, top + EVENTS_ROW - INSET);
+            let bottom = app.sidebar.row_bottom("events").unwrap_or(0.0);
+            let at = Point::new(crate::rail::WIDTH + INSET, HEADER + bottom - INSET);
             return crate::place_menus::open_events_menu(app, &server, at);
         }
         Event::Menu(id, at) => {
@@ -467,6 +577,12 @@ impl<'a> View<'a> {
             .on_scroll(|viewport| Message::Side(Event::Scrolled(viewport)))
             .height(Length::Fill)
             .style(scrollbar(theme));
+        // A box dragged from the list's blank space picks the DMs and the
+        // people in voice it touches, as Ctrl and a click does.
+        let list =
+            backcord_iced_kit::widgets::marquee::Marquee::new(list, theme.accent, |area, done| {
+                Message::Side(Event::Boxed(area, done))
+            });
         // What's dragged follows the pointer, faint, over the list;
         // someone dragged from a voice channel, below it. Always a stack,
         // the list its first layer, so the list keeps where it's scrolled
@@ -486,16 +602,18 @@ impl<'a> View<'a> {
             ));
         }
         let ground = theme.sidebar;
-        let mut top = column![self.side_header_view()];
-        if let Some(events) = self
-            .s
-            .header
-            .events
-            .filter(|_| self.s.header.server.is_some())
-        {
-            top = top.push(self.events_row(events));
-        }
-        container(column![top, list])
+        // The banner behind the header and the list's top, which scrolls
+        // over it as it fades.
+        let face = column![self.side_header_view(), list];
+        let face: Element<'a, Message> = match self.banner_back() {
+            Some(banner) => stack![
+                column![banner, iced::widget::Space::new().height(Length::Fill)],
+                face
+            ]
+            .into(),
+            None => face.into(),
+        };
+        container(face)
             .width(width(self.cx.layout))
             .height(Length::Fill)
             .clip(true)

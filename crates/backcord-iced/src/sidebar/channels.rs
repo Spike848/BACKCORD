@@ -92,6 +92,41 @@ impl<'a> super::View<'a> {
             .height(40)
             .align_y(Alignment::Center)
             .into(),
+            // The banner shows behind it, from the sidebar; a right click
+            // on it opens the server's menu, as on the name.
+            SideRow::Banner => {
+                let spot = self.cx.pressed;
+                RightPress::new(
+                    container(Space::new())
+                        .width(Length::Fill)
+                        .height(super::BANNER - GAP),
+                    move |_| Message::Side(Event::HeaderAt(spot.get())),
+                )
+                .into()
+            }
+            SideRow::Events { label } => container(self.link_row(
+                ("screen:events", Icon::CalendarFilled, label.as_str()),
+                false,
+                "",
+                Message::Side(Event::Events),
+                false,
+            ))
+            .padding(Padding {
+                top: 6.0,
+                ..Padding::ZERO
+            })
+            .into(),
+            SideRow::ChannelsRoles => self.link_row(
+                (
+                    "screen:channels-roles",
+                    Icon::Hash,
+                    backcord_iced_kit::i18n::tr("Channels & Roles"),
+                ),
+                false,
+                "",
+                Message::Side(Event::ChannelsRoles),
+                false,
+            ),
             SideRow::Browse { open } => container(self.link_row(
                 (
                     "screen:browse",
@@ -365,7 +400,7 @@ impl<'a> super::View<'a> {
     /// screens' rows are `tall`, Discord's 38 px with its own greys.
     pub(super) fn link_row(
         self,
-        (id, icon, label): (&'static str, Icon, &'static str),
+        (id, icon, label): (&'static str, Icon, &'a str),
         selected: bool,
         badge: &str,
         message: Message,

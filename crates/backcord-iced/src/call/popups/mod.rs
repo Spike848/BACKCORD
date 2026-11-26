@@ -135,7 +135,7 @@ pub fn call_popup_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Messa
         ),
         Popup::Soundboard => (
             crate::call::popups::soundboard::soundboard(ctx),
-            SOUNDBOARD_WIDTH,
+            SOUNDBOARD_WIDTH + crate::call::popups::soundboard::BOARD_RAIL,
         ),
         // Under its signal, or above it without room.
         Popup::Link => {
@@ -152,9 +152,13 @@ pub fn call_popup_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Messa
         }
     };
     let spot = ctx.call.spot.get();
-    let panel = container(panel)
-        .width(width)
-        .style(menu_panel(ctx.look.theme));
+    // The frosted background under the panel's see-through ground.
+    let panel = backcord_iced_kit::widgets::frost::Frost::new(
+        [8.0; 4],
+        container(panel)
+            .width(width)
+            .style(menu_panel(ctx.look.theme)),
+    );
     Some(
         Place::new(opaque(panel), Point::new(spot.x - 6.0, spot.y - 6.0), 8.0)
             .anchor(Anchor::Bottom)

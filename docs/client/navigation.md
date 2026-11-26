@@ -138,7 +138,9 @@ keeping the open DM; its menu renames it, in a field in its place (Enter
 keeps the name), or deletes it, its DMs staying. A DM's menu offers New
 folder after Pin while it's in none, and Remove from folder while it's in
 one. A DM is in one place at a time: pinned, in one folder, or loose.
-Ctrl and a click picks a DM, outlined in the accent, or lets it go; a click
+A box dragged from the sidebar list's blank space (`widgets::marquee`)
+picks every DM it touches, as it grows; with Ctrl held it adds to those
+picked already. Ctrl and a click picks a DM, outlined in the accent, or lets it go; a click
 without Ctrl, or a right click on one not picked, ends the picking. A
 right click on one of several picked opens their menu: how many, then Mark
 as read, Pin, Unpin, New folder and Remove from folder, as they fit. A DM
@@ -155,9 +157,14 @@ A server's top: with a banner, the picture with a
 shade over its top and the name and chevron in white on it, the banner
 asked for only while the server is open; Invite people beside the name for
 those who may invite; under it, while the server shows its Boost progress
-bar, the Boost Goal pill (its boosts of 33, filled in pink); and, on a
-server with events or one where this account may create them, the
-"N Events" row, whose menu lists
+bar, the Boost Goal pill (its boosts of 33, filled in pink). The banner
+stays behind the header and the list's top, and the list scrolls over it
+as it fades out, as Discord's; once it's gone the header has its line.
+The list's first rows, which scroll with the channels: room for the
+banner, then, on a server with events or one where this account may
+create them, the "N Events" row, Channels & Roles where the server has
+onboarding questions to answer again, and Browse Channels in a Community
+server. The events row's menu lists
 each event with "Happening now" or when it starts and where, or "No
 upcoming events" greyed; an event's row does nothing. A verified
 server's name has Discord's green badge before it

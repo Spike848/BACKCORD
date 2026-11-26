@@ -72,6 +72,10 @@ pub enum Pref {
     SystemTitleBar(bool),
     /// The neon glow's slider, 0 to 100, and whether it's let go of.
     NeonGlow(u32, bool),
+    /// The corners' roundness slider, 0 to 200, and whether let go of.
+    Corners(u32, bool),
+    /// Circles' and pills' roundness, 0 to 100, and whether let go of.
+    Round(u32, bool),
     /// The Dynamic Island: on, its style (0 glass, 1 OLED), its sliders
     /// (and whether let go of), its glow's and text's colours.
     Island(bool),
@@ -372,6 +376,22 @@ impl Settings {
                 backcord_iced_kit::style::set_glow(percent);
                 if done {
                     cx.keep("neon_glow", percent);
+                }
+            }
+            Pref::Corners(value, done) => {
+                let percent = value.min(200) as u8;
+                prefs.corners = Some(percent);
+                backcord_iced_kit::renderer::set_corners(u32::from(percent));
+                if done {
+                    cx.keep("corners", percent);
+                }
+            }
+            Pref::Round(value, done) => {
+                let percent = value.min(100) as u8;
+                prefs.round = Some(percent);
+                backcord_iced_kit::renderer::set_rounds(u32::from(percent));
+                if done {
+                    cx.keep("round", percent);
                 }
             }
             Pref::Island(on) => {

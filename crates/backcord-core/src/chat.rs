@@ -2387,6 +2387,8 @@ pub struct ChatMessage {
     /// while it's new; see [`Self::highlighted`].
     pub replies_to_me: bool,
     pub delivery: Delivery,
+    /// Why it wasn't sent, as Discord said, while [`Delivery::Failed`].
+    pub refused: Option<String>,
     pub reply: Option<Reply>,
     pub reactions: Vec<Reaction>,
     /// Files and images, in the order the sender attached them, then the
@@ -5227,7 +5229,7 @@ pub enum Event {
     /// this account can't read). It comes again once its pictures came.
     LinkedMessage {
         id: String,
-        result: Result<Option<ChatMessage>, String>,
+        result: Result<Option<Box<ChatMessage>>, String>,
     },
     /// The address of the page with a captcha Discord asked for before
     /// joining by the invite with this code.

@@ -42,6 +42,12 @@ impl Engine {
     ) {
         let physical_bounds = quad.bounds * transformation;
 
+        // BACKCORD port: a quad with no area has no path to build (tiny-skia
+        // can't close one), and nothing to draw.
+        if !(physical_bounds.width > 0.0 && physical_bounds.height > 0.0) {
+            return;
+        }
+
         // BACKCORD port (patch 11): a quad whose shadow alone reaches into
         // the clip still draws (its shadow). Stock, it was skipped, and a
         // damaged region over only the shadow lost it.

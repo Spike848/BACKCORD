@@ -399,7 +399,7 @@ fn the_messages_linked_to_on_screen_are_taken_or_looked_up_once_for_their_cards(
     found.body = "The news".into();
     app.apply(Event::LinkedMessage {
         id: "600".into(),
-        result: Ok(Some(found.clone())),
+        result: Ok(Some(Box::new(found.clone()))),
     });
     assert!(matches!(
         app.state.message_cards.get("600"),

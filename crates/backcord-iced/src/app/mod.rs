@@ -99,6 +99,8 @@ pub struct App {
     pub account: crate::account::Account,
     /// The Dynamic Island's tab (`island.rs`).
     pub island: crate::island::Island,
+    /// Appearance's custom background as made (`backdrop.rs`).
+    pub backdrop: crate::backdrop::Backdrop,
     pub account_pointed: bool,
     /// The composer, the edit in its row and the suggestions over them.
     pub composer: crate::composer::Composer,
@@ -207,6 +209,15 @@ pub struct App {
     /// The colours every part of the window paints with, and the themes
     /// the data folder offers.
     pub theme: Theme,
+    /// The theme as chosen, before a custom background makes its grounds
+    /// see-through; see `crate::backdrop::see_through`.
+    pub theme_solid: Theme,
+    /// Whether views now take `theme_solid`: set as `view` builds what
+    /// opens over the window's own parts.
+    pub solid_look: std::cell::Cell<bool>,
+    /// The theme what opens over the window draws with: the solid one,
+    /// its grounds as see-through as Appearance's menu opacity says.
+    pub theme_over: Theme,
     pub themes: Themes,
     /// The sign-in screen's fields; the listeners of the backend's events
     /// and of linking's progress, which stop when dropped.
@@ -224,7 +235,11 @@ impl App {
     /// The theme, icons and room the kit draws with.
     pub fn look(&self) -> crate::look::Look<'_> {
         crate::look::Look {
-            theme: &self.theme,
+            theme: if self.solid_look.get() {
+                &self.theme_over
+            } else {
+                &self.theme
+            },
             icons: &self.win.icons,
             window: self.window,
         }
@@ -254,6 +269,10 @@ impl App {
                 .neon_glow
                 .unwrap_or(backcord_iced_kit::style::DEFAULT_GLOW),
         );
+        backcord_iced_kit::renderer::set_corners(u32::from(
+            layout.prefs.corners.unwrap_or(crate::layout::CORNERS),
+        ));
+        backcord_iced_kit::renderer::set_rounds(u32::from(layout.prefs.round.unwrap_or(100)));
         backcord_core::discord::set_custom_games(&layout.prefs.game_executables);
         client.share_typing = layout.prefs.share_typing.unwrap_or(false);
         backcord_core::extras::set_message_logger(layout.prefs.message_logger.unwrap_or(true));
@@ -305,6 +324,7 @@ impl App {
             post_author: None,
             account: Default::default(),
             island: Default::default(),
+            backdrop: Default::default(),
             account_pointed: false,
             composer: Default::default(),
             uploads: Default::default(),
@@ -356,6 +376,9 @@ impl App {
             modal: Default::default(),
             searching: Default::default(),
             forum_post: Default::default(),
+            theme_solid: theme.clone(),
+            solid_look: Default::default(),
+            theme_over: theme.clone(),
             theme,
             themes,
             sign_in: SignIn::default(),
@@ -386,7 +409,11 @@ impl App {
             Task::none()
         };
         let away = crate::away::watch_away();
-        (app, Task::batch([sync, frames, focus, away, talk]))
+        let backdrop = crate::backdrop::load(&app);
+        (
+            app,
+            Task::batch([sync, frames, focus, away, talk, backdrop]),
+        )
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -395,7 +422,12 @@ impl App {
         self.focus_asked = false;
         crate::timeline::keys::follow_press(self);
         let task = self.handle_message(message);
-        let task = Task::batch([task, self.settle(), crate::call::fit_screen(self)]);
+        let task = Task::batch([
+            task,
+            self.settle(),
+            crate::call::fit_screen(self),
+            crate::backdrop::follow_layers(self),
+        ]);
         if let Some(top) = top {
             self.focus_backstop(top);
         }
@@ -595,6 +627,7 @@ impl App {
             }
             Message::Call(event) => crate::call::update(self, event),
             Message::Island(event) => crate::island::update(self, event),
+            Message::Backdrop(event) => crate::backdrop::update(self, event),
             Message::Settings(event) => self.settings_event(event),
             Message::Updates(event) => crate::updates::update(self, event),
             Message::Keybinds(count, told) => crate::keybinds::keybinds_told(self, count, told),

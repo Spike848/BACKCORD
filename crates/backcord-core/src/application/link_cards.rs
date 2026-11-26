@@ -101,12 +101,16 @@ impl Application {
 
     /// What came of looking up a linked message: its card shows it, or
     /// that it isn't there.
-    pub(super) fn linked_message(&mut self, id: &str, result: Result<Option<ChatMessage>, String>) {
+    pub(super) fn linked_message(
+        &mut self,
+        id: &str,
+        result: Result<Option<Box<ChatMessage>>, String>,
+    ) {
         let Some(card) = self.state.message_cards.get_mut(id) else {
             return;
         };
         *card = match result {
-            Ok(Some(message)) => MessageCard::Found(Arc::new(message)),
+            Ok(Some(message)) => MessageCard::Found(Arc::from(message)),
             Ok(None) | Err(_) => MessageCard::Unavailable,
         };
     }

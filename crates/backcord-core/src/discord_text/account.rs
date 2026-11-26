@@ -696,7 +696,7 @@ pub(super) fn command(
                     let mut found = found_in(&discord, &room, linked);
                     let _ = events.send(Event::LinkedMessage {
                         id: id.clone(),
-                        result: Ok(found.first().cloned()),
+                        result: Ok(found.first().cloned().map(Box::new)),
                     });
                     if found[0]
                         .attachments
@@ -706,7 +706,7 @@ pub(super) fn command(
                         with_previews(&discord, &previews, linked, &mut found).await;
                         let _ = events.send(Event::LinkedMessage {
                             id,
-                            result: Ok(found.pop()),
+                            result: Ok(found.pop().map(Box::new)),
                         });
                     }
                 });

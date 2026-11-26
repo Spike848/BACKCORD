@@ -356,6 +356,9 @@ pub struct JoinSound {
 pub struct SoundGroup {
     pub name: String,
     pub sounds: Vec<SoundChoice>,
+    /// The server the sounds are from, by Discord id; none for the
+    /// favourites and Discord's own.
+    pub server: Option<String>,
 }
 
 /// A soundboard sound, as the soundboard offers it.

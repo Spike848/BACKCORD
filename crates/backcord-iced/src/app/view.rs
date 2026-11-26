@@ -28,6 +28,9 @@ impl App {
     pub fn view(&self) -> Element<'_, Message> {
         // Whatever this returns, what it no longer shows goes at its end.
         let _viewing = self.win.pictures.view();
+        // The window's own parts in the theme as shown, see-through over a
+        // custom background; what opens over them in the solid one.
+        self.solid_look.set(false);
         if !crate::signin::workspace(self) {
             return self.frame_layers(crate::signin::view(self.ctx()));
         }
@@ -72,7 +75,19 @@ impl App {
         // Always a stack, so the window's widget state stays as overlays
         // come and go: the card, the suggestions, the picker, a menu, the
         // modal, each over the last.
-        let mut layers = stack![base];
+        // The custom background under everything, its first layer even
+        // without one so the window's own keep their state; the grounds
+        // over it are see-through for it.
+        let backdrop =
+            crate::backdrop::view(self).unwrap_or_else(|| iced::widget::Space::new().into());
+        let under = stack![backdrop, base]
+            .width(Length::Fill)
+            .height(Length::Fill);
+        self.solid_look.set(true);
+        // What opens over the window, in a stack of its own, as large as
+        // the window, so the window can be taken without it for the menus'
+        // glass (`backdrop::follow_layers`) and keep its state.
+        let mut layers = stack![Space::new().width(Length::Fill).height(Length::Fill)];
         // A role's card, under the card of someone on it; over the profile
         // it was opened from, with Clickable Roles.
         let mut role_over = None;
@@ -322,6 +337,13 @@ impl App {
         }
         // While the keys are on the messages a press says so, for one off
         // the list to take them (`timeline::keys::follow_press`).
+        let layers = stack![
+            under,
+            backcord_iced_kit::widgets::hide::Hide::new(
+                layers.width(Length::Fill).height(Length::Fill),
+                self.backdrop.capturing,
+            )
+        ];
         let content = crate::widgets::RightPress::spot(
             layers.width(Length::Fill).height(Length::Fill),
             &self.pressed,
@@ -403,7 +425,7 @@ impl App {
 
     pub fn window_style(&self, _: &iced::Theme) -> iced::theme::Style {
         iced::theme::Style {
-            background_color: self.theme.chat,
+            background_color: self.theme_solid.chat,
             text_color: self.theme.text,
         }
     }
@@ -429,6 +451,9 @@ impl App {
     /// Shows the window in `theme` without keeping it, as the theme
     /// editor shows what's edited.
     pub fn show_theme(&mut self, theme: Theme) {
+        self.theme_solid = theme.clone();
+        self.theme_over = crate::backdrop::menus(self, theme.clone());
+        let theme = crate::backdrop::see_through(self, theme);
         if theme == self.theme {
             return;
         }

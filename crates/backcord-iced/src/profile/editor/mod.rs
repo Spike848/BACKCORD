@@ -56,6 +56,8 @@ const SIDE: f32 = 241.0;
 /// A tile's width, two to a row of the styles column.
 const TILE: f32 = (SIDE - 32.0 - 8.0) / 2.0;
 const AVATAR: f32 = 120.0;
+/// The profiles' switch's height above the card, with its gap.
+const SWITCH: f32 = 40.0;
 /// Round the main profile's preview, which stands apart from the styles
 /// and its tabs, with room for its frame, as Discord's editor has it.
 const CARD_MARGIN: f32 = 24.0;
@@ -85,6 +87,8 @@ pub enum Pop {
     More,
     Top,
     Bottom,
+    /// The profiles to edit: the main one and each server's.
+    Profiles,
 }
 
 /// What's done in the editor.
@@ -113,6 +117,8 @@ pub enum Event {
     Status,
     Note,
     Close,
+    /// Another profile to edit: a server's by its id, or the main one.
+    Profile(Option<String>),
     /// In the Display Name Style window.
     Style(crate::profile::name_style::Event),
     /// A style from the text formatting panel, for the bio.
@@ -650,6 +656,18 @@ impl Editor {
             }
             // The slot closes as the core's editor goes.
             Event::Close => cx.dispatch(Action::CloseProfileEditor),
+            Event::Profile(server) => {
+                editor.pop = None;
+                match server {
+                    Some(server) => cx.dispatch(Action::EditServerProfile(server)),
+                    None => cx.dispatch(Action::EditProfile),
+                }
+                // The new profile's editor, from what it starts with.
+                let link = rgb(cx.theme.link);
+                if cx.state().profile_editor.is_some() {
+                    *editor = Editor::open(cx.state(), link);
+                }
+            }
         }
         cx.touch();
         Task::none()
@@ -881,7 +899,8 @@ pub fn profile_editor_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, M
     let height = ctx.look.window.height;
     let inks = crate::profile::inks(ctx, &editor.shown.look, Mode::Side);
     let card_width = editor_card_width(ctx, editor, main);
-    let card_height = (height - 48.0).min(if main { 798.0 } else { 620.0 });
+    // Room above it for the profiles' switch.
+    let card_height = (height - 48.0 - SWITCH).min(if main { 798.0 } else { 620.0 });
     let middle = crate::profile::editor::card::editor_middle(ctx, editor, core, &inks);
     let mut parts = row![];
     if main && editor.side {
@@ -959,6 +978,10 @@ pub fn profile_editor_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, M
             ));
         }
     }
+    // The profiles' switch above its top left corner, outside it.
+    let card = column![menus::profile_switch(ctx, editor, core), card]
+        .spacing(SWITCH - 32.0)
+        .width(card_width);
     // Over the window dimmed as under a dialog.
     let mut layers = stack![
         crate::controls::dimmed(message(Event::Close), crate::controls::DIM),

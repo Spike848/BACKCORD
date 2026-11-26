@@ -1028,23 +1028,23 @@ pub struct Count {
     pub pad: f32,
 }
 
-/// The mention count on a tile: 16 px, 12 px bold, on a 3 px ring.
+/// The mention count on a tile: 14 px, 10 px bold, on a 3 px ring.
 pub const RAIL_COUNT: Count = Count {
-    height: 16.0,
-    size: 12.0,
+    height: 14.0,
+    size: 10.0,
+    pad: 3.5,
+};
+/// A channel's count of mentions: 15 px, 10 px bold.
+pub const ROW_COUNT: Count = Count {
+    height: 15.0,
+    size: 10.0,
     pad: 4.0,
 };
-/// A channel's count of mentions: 18 px, 11 px bold.
-pub const ROW_COUNT: Count = Count {
-    height: 18.0,
-    size: 11.0,
-    pad: 5.0,
-};
-/// An inbox row's count of mentions: 16 px, 11 px bold.
+/// An inbox row's count of mentions: 14 px, 10 px bold.
 pub const INBOX_COUNT: Count = Count {
-    height: 16.0,
-    size: 11.0,
-    pad: 5.0,
+    height: 14.0,
+    size: 10.0,
+    pad: 4.0,
 };
 
 /// A count as a badge shows it: nothing for none, and at most "99+".

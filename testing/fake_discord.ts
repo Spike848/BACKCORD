@@ -108,9 +108,7 @@
 // POST /_control/call makes Bob call her; see "DM calls" below.
 // Bob and Carol are her friends; POST /users/@me/channels opens a DM, as with
 // Carol, whom she has none with yet, or with several people makes a group DM,
-// and PUT /channels/{id}/recipients/{user} adds someone to a group. Alice
-// owns the groups she makes: DELETE on the same path removes someone, and
-// PATCH /channels/{id} with {"owner": id} gives the group to them.
+// and PUT /channels/{id}/recipients/{user} adds someone to a group.
 // GET /channels/{id}/messages/pins lists a channel's pins: Bob's welcome in
 // #general, his question in his DM and Carol's in the group. PUT and DELETE
 // /channels/{id}/messages/pins/{message} pin a message and unpin it, which
@@ -342,10 +340,6 @@
 // POST /_control/clip makes Bob attach clip.mp4, six seconds with sound, and
 // link a post whose card plays a video, as vxtwitter's do; Carol forwards
 // the clip. They go to #general, or with ?channel=ID to that channel or thread.
-// Alice sends a voice message as Discord's apps do: POST
-// /channels/{id}/messages flagged IS_VOICE_MESSAGE (1 << 13), with one
-// uploaded voice-message.ogg whose attachment has duration_secs and a base64
-// waveform, and no content; anything else so flagged is refused.
 // POST /_control/voice-message makes Bob send a voice message, the two
 // seconds of testing/fixtures/voice-tone.ogg, to #general or ?channel=ID.
 // POST /_control/bob-away makes Bob idle with a custom status,
@@ -844,9 +838,7 @@ function collectiblePicture(sku: string, animated: boolean): Uint8Array {
 // far as Alice's roles allow, as Discord checks them. Given Mods, she may
 // delete others' messages in "Server", as she can't otherwise. POST
 // /_control/timeout-alice with a number of seconds has Bob time her out, which
-// leaves her only reading "Server" as it does in Discord, and 0 ends it.
-// POST /_control/rename-alice with a nickname has Bob rename her, and an
-// empty one takes hers away. Staff may also mute,
+// leaves her only reading "Server" as it does in Discord, and 0 ends it. Staff may also mute,
 // deafen and move members in voice: PATCH .../members/{user} with `mute`,
 // `deaf` or `channel_id`, null to disconnect them, changes the voice state
 // of someone in the server's voice, which VOICE_STATE_UPDATE says, and GET
@@ -1413,10 +1405,8 @@ const messages = new Map<string, Message[]>([
   [SPAM_FRANK, []],
 ]);
 
-// DMs and group DMs by channel id, with everyone in them besides Alice. A
-// group's owner is its first recipient unless `owner` names someone, as
-// Alice is of those she makes.
-type Private = { type: 1 | 3; recipients: User[]; name?: string; owner?: string; request?: boolean; spam?: boolean };
+// DMs and group DMs by channel id, with everyone in them besides Alice.
+type Private = { type: 1 | 3; recipients: User[]; name?: string; request?: boolean; spam?: boolean };
 const privates = new Map<string, Private>();
 const byId = new Map<string, Message>();
 let lastId = 0n;
@@ -1648,7 +1638,7 @@ function wirePrivate(id: string, channel: Private, users: "ids" | "objects") {
     type: channel.type,
     last_message_id: messages.get(id)!.at(-1)?.id ?? null,
     flags: 0,
-    ...(channel.type === 3 ? { name: channel.name ?? null, icon: null, owner_id: channel.owner ?? channel.recipients[0]!.id } : {}),
+    ...(channel.type === 3 ? { name: channel.name ?? null, icon: null, owner_id: channel.recipients[0]!.id } : {}),
     ...(channel.request
       ? { is_message_request: true, is_message_request_timestamp: iso(timeOf(messages.get(id)![0]!.id)), is_spam: !!channel.spam }
       : {}),
@@ -6471,7 +6461,7 @@ async function api(req: Request, path: string, origin: string): Promise<Response
       const people = (body.recipients as unknown[]).map((id) => userById.get(String(id)));
       if (people.some((user) => !user) || people.length > 9) return json({ message: "Invalid Recipient(s)", code: 50033 }, 400);
       const id = snowflake(Date.now(), 78);
-      const channel: Private = { type: 3, recipients: people as User[], owner: ALICE };
+      const channel: Private = { type: 3, recipients: people as User[] };
       privates.set(id, channel);
       messages.set(id, []);
       dispatch("CHANNEL_CREATE", wirePrivate(id, channel, "objects"));
@@ -6589,27 +6579,14 @@ async function api(req: Request, path: string, origin: string): Promise<Response
         }
       }
       const reply = body.message_reference?.message_id;
-      // A voice message, IS_VOICE_MESSAGE: its recording alone, named as
-      // Discord's apps name it, with how long it plays and its waveform.
-      const voiceMessage = (Number(body.flags ?? 0) & (1 << 13)) !== 0;
-      const recording = body.attachments?.[0];
-      if (voiceMessage && (body.attachments?.length !== 1 || body.content
-        || recording?.filename !== "voice-message.ogg" || typeof recording?.duration_secs !== "number"
-        || typeof recording?.waveform !== "string")) {
-        return json({ message: "Invalid Form Body", code: 50035 }, 400);
-      }
       const attached = takeUploads(body.attachments, m[1]!);
       if (!attached) return json({ message: "Invalid Form Body", code: 50035 }, 400);
-      if (voiceMessage) {
-        attached[0]!.voice = { seconds: recording.duration_secs, waveform: Buffer.from(recording.waveform, "base64") };
-      }
       const message = post(m[1]!, users.alice, body.content ?? "", Date.now(), {
         nonce: body.nonce ? String(body.nonce) : undefined,
         reply: reply && byId.has(reply) ? reply : undefined,
         files: attached,
         stickers,
         poll,
-        ...(voiceMessage ? { flags: 1 << 13 } : {}),
       });
       // An env's favourite GIF comes with its embed, so a recording doesn't
       // show its link for the moment before the embed would come.
@@ -6849,36 +6826,6 @@ async function api(req: Request, path: string, origin: string): Promise<Response
       dispatch("CHANNEL_RECIPIENT_ADD", { channel_id: m[1]!, user: wireUser(user) });
     }
     return new Response(null, { status: 204 });
-  }
-
-  // Its owner removing someone from a group DM.
-  if (method === "DELETE" && (m = path.match(/^\/channels\/(\d+)\/recipients\/(\d+)$/))) {
-    const channel = privates.get(m[1]!);
-    const user = channel?.recipients.find((known) => known.id === m![2]);
-    if (channel?.type !== 3) return notFound("Unknown Channel", 10003);
-    if (channel.owner !== ALICE) return json({ message: "Missing Permissions", code: 50013 }, 403);
-    if (!user) return notFound("Unknown User", 10013);
-    channel.recipients = channel.recipients.filter((known) => known !== user);
-    dispatch("CHANNEL_RECIPIENT_REMOVE", { channel_id: m[1]!, user: wireUser(user) });
-    return new Response(null, { status: 204 });
-  }
-
-  // Its owner giving a group DM to another of its people, or renaming it.
-  if (method === "PATCH" && (m = path.match(/^\/channels\/(\d+)$/)) && privates.get(m[1]!)?.type === 3) {
-    const id = m[1]!;
-    const channel = privates.get(id)!;
-    const body: any = await req.json().catch(() => ({}));
-    if ("owner" in body) {
-      if (channel.owner !== ALICE) return json({ message: "Missing Permissions", code: 50013 }, 403);
-      if (!channel.recipients.some((known) => known.id === String(body.owner))) {
-        return json({ message: "Invalid Form Body", code: 50035 }, 400);
-      }
-      channel.owner = String(body.owner);
-    }
-    if ("name" in body) channel.name = body.name ?? undefined;
-    const wire = wirePrivate(id, channel, "objects");
-    dispatch("CHANNEL_UPDATE", wire);
-    return json(wire);
   }
 
   if ((m = path.match(/^\/channels\/(\d+)\/messages\/pins\/(\d+)$/)) && (method === "PUT" || method === "DELETE")) {
@@ -9407,15 +9354,6 @@ const server = Bun.serve<SocketData>({
       else timeouts.delete(ALICE);
       changeMembers(() => memberUpdated(users.alice));
       return new Response(seconds > 0 ? `Alice is timed out for ${seconds} s\n` : "Alice's timeout ended\n");
-    }
-    if (req.method === "POST" && path === "/_control/rename-alice") {
-      const nick = (await req.text()).trim();
-      changeMembers(() => {
-        if (nick) memberNicks.set(ALICE, nick);
-        else memberNicks.delete(ALICE);
-        memberUpdated(users.alice);
-      });
-      return new Response(nick ? `Bob renamed Alice ${nick}\n` : "Bob took Alice's nickname away\n");
     }
     if (req.method === "POST" && path === "/_control/slow") {
       slowMs = Number(await req.text()) || 0;

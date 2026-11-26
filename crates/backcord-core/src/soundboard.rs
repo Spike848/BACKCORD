@@ -320,6 +320,7 @@ pub fn grouped(
         groups.push(SoundGroup {
             name: "Favorites".into(),
             sounds: favorite,
+            server: None,
         });
     }
     let mut ordered: Vec<&_> = snapshot.servers.iter().collect();
@@ -329,6 +330,7 @@ pub fn grouped(
         (!sounds.is_empty()).then(|| SoundGroup {
             name: server.name.clone(),
             sounds,
+            server: Some(server.id.clone()),
         })
     }));
     let defaults = choices(&mut defaults.iter());
@@ -336,6 +338,7 @@ pub fn grouped(
         groups.push(SoundGroup {
             name: "Default".into(),
             sounds: defaults,
+            server: None,
         });
     }
     groups

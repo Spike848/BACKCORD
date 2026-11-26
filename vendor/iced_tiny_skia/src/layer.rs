@@ -156,8 +156,11 @@ impl Layer {
     ) {
         let image = Image::Raster {
             image: core::Image {
-                border_radius: image.border_radius
-                    * transformation.scale_factor(),
+                // BACKCORD port: Appearance's corner roundness.
+                border_radius: crate::corners::corners(
+                    image.border_radius,
+                    bounds,
+                ) * transformation.scale_factor(),
                 ..image
             },
             bounds: bounds * transformation,

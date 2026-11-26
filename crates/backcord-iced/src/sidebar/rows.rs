@@ -91,6 +91,16 @@ pub enum SideRow {
     },
     /// "Direct Messages", with its buttons.
     DmHeading,
+    /// Room for the server's banner at the list's top: the banner stays
+    /// behind it and fades as the list scrolls over it, as Discord's.
+    Banner,
+    /// The server's events ("N Events"), as a row at the list's top.
+    Events {
+        label: String,
+    },
+    /// Channels & Roles, as a row at the list's top: the server's
+    /// onboarding questions to answer again.
+    ChannelsRoles,
     /// Browse Channels, at the top of a Community server's list.
     Browse {
         open: bool,
@@ -125,6 +135,9 @@ impl SideRow {
         match self {
             SideRow::Screens { .. } => "screens".into(),
             SideRow::DmHeading => "dm-heading".into(),
+            SideRow::Banner => "banner".into(),
+            SideRow::Events { .. } => "events".into(),
+            SideRow::ChannelsRoles => "channels-roles".into(),
             SideRow::Browse { .. } => "browse".into(),
             SideRow::Pinned => "pinned".into(),
             SideRow::PinnedEnd => "pinned-end".into(),
@@ -140,6 +153,9 @@ impl SideRow {
         GAP + match self {
             SideRow::Screens { .. } => 9.0 + NAV_ROW + GAP + NAV_ROW + 6.0,
             SideRow::DmHeading => 40.0,
+            SideRow::Banner => super::BANNER - GAP,
+            SideRow::Events { .. } => 6.0 + ROW,
+            SideRow::ChannelsRoles => ROW,
             SideRow::Browse { .. } => 6.0 + ROW + 6.0,
             SideRow::Pinned => 36.0,
             SideRow::PinnedEnd => 9.0,
@@ -184,6 +200,9 @@ pub struct SideHeader {
     /// How many scheduled events it has, while the events row shows: while
     /// it has some, or this account may schedule one, as Discord's.
     pub events: Option<usize>,
+    /// Channels & Roles shows under the events: the server has its
+    /// onboarding questions to answer again, as its menu's Channels & Roles.
+    pub channels_roles: bool,
 }
 
 /// The header, from the core's state.
@@ -205,6 +224,7 @@ pub fn side_header(app: &Application) -> SideHeader {
                 boosts: server.boosts,
                 events: (!server.events.is_empty() || app.may(id, Permission::CreateEvents))
                     .then_some(server.events.len()),
+                channels_roles: app.header_choices(id).contains(&MenuChoice::ChannelsRoles),
             }),
         Navigation::DirectMessages => SideHeader::default(),
     }
@@ -642,4 +662,29 @@ fn dm_place(state: &AppState, room: &str) -> (usize, usize) {
             Some((index + 1, at))
         })
         .unwrap_or((usize::MAX, 0))
+}
+
+/// The rows at the top of a server's list, before its channels: room for
+/// its banner, its events and Channels & Roles. They scroll with the
+/// channels.
+pub fn lead_rows(head: &SideHeader) -> Vec<SideRow> {
+    let mut rows = Vec::new();
+    if head.server.is_none() {
+        return rows;
+    }
+    if head.banner.is_some() {
+        rows.push(SideRow::Banner);
+    }
+    if let Some(events) = head.events {
+        let label = match events {
+            0 => backcord_iced_kit::i18n::tr("Events").to_owned(),
+            1 => backcord_iced_kit::i18n::tr("1 Event").to_owned(),
+            count => backcord_iced_kit::i18n::t(format!("{count} Events")),
+        };
+        rows.push(SideRow::Events { label });
+    }
+    if head.channels_roles {
+        rows.push(SideRow::ChannelsRoles);
+    }
+    rows
 }

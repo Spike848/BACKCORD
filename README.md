@@ -34,20 +34,53 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.7
+## Novità della 1.5.8
 
-- **Dynamic Island** (Aspetto, spenta di default): una pillola in cima alla
-  finestra per chi ha Spotify collegato a Discord, mentre Spotify suona o sei
-  in chiamata. Tre schede (rotellina o pallini): il lettore di Spotify
-  (copertina, titolo, mi piace, indietro, play/pausa, avanti), i pulsanti della
-  chiamata (muto, silenzia tutto, riaggancia) e il server e canale in cui sei.
-  Stile Vetro o OLED, bagliore che gira lungo il bordo con intensità, velocità e
-  colore regolabili, colore del testo, raggio e spessore del bordo. I controlli
-  di Spotify funzionano con un account Premium.
-- **Rich Presence su Windows**: giochi e app che mostrano la loro attività su
-  Discord ora la mostrano anche con BACKCORD.
-- **Connessioni con il loro logo** nel profilo: Spotify, Crunchyroll, Steam,
-  Twitch, YouTube, Xbox, PlayStation e gli altri servizi collegati.
+- **Temi e Performance**: l'Aspetto è diviso in due pagine. In **Temi** ci sono
+  i temi, i colori e tutto il look; in **Performance** la barra del titolo e le
+  opzioni dei profili.
+- **Sfondo personalizzato**: un'immagine tua dietro tutta la finestra, con
+  sfocatura, opacità e posizione (trascini l'anteprima per scegliere la parte
+  che si vede).
+- **Menu e finestre trasparenti e sfocati**: opacità e sfocatura di
+  Impostazioni, soundboard, menu della chiamata, menu del tasto destro e
+  dialoghi. Dietro si vede l'interfaccia sfocata, anche senza sfondo
+  personalizzato.
+- **Arrotondamento degli angoli** (da 0 squadrati a 200 più tondi) per finestre,
+  pannelli, pulsanti, foto, video e GIF, e **arrotondamento di avatar e icone**
+  (da 0 quadrati a 100 tondi). Gli avatar con una decorazione restano sempre
+  tondi, così la decorazione non si taglia.
+- **Icona dei messaggi diretti**: un'immagine a tua scelta al posto del logo in
+  alto a sinistra.
+- **Colori**: in fondo a Temi, 14 parti della finestra con nomi semplici (lista
+  dei server, sfondo della chat, testo, colore principale…), ognuna con la sua
+  tavolozza. La modifica si vede subito; un tema predefinito viene prima
+  copiato come tuo.
+- **Esporta e Importa** salvano tutto l'aspetto: tema, neon, arrotondamenti,
+  sfondo e icona (immagini comprese), opacità e sfocature.
+- **Server come su Discord**: il banner resta in cima e sfuma mentre scorri, e i
+  canali ne prendono il posto. Eventi, **Canali e ruoli** (per rifare le scelte
+  dell'onboarding) e Sfoglia canali stanno in cima alla lista come canali.
+- **Tono della voce**: nel menu di una persona in chiamata puoi alzare o
+  abbassare la sua voce di qualche semitono, solo per te.
+- **Soundboard rinnovata**: una colonna con Tutti, i preferiti, ogni server e i
+  suoni di Discord, il volume in alto a destra, niente barre di scorrimento.
+- **Riquadri della chiamata**: nomi senza sfondo nero e con "…" quando sono
+  troppo lunghi; nelle schede piccole sotto uno stream la foto profilo sta al
+  centro.
+- **Voce e video** riordinata: modalità d'ingresso, modalità studio, riduzione
+  del rumore, riduzione dell'eco. Il microfono si attiva sempre entrando in
+  chiamata e gli effetti di Windows sul microfono sono sempre attivi: i due
+  interruttori non servono più.
+- **Selezione a riquadro**: trascinando il mouse nei messaggi diretti o tra le
+  persone in vocale selezioni più elementi insieme (con Ctrl aggiungi alla
+  selezione).
+- **Modifica profilo**: in alto un selettore per passare dal profilo principale
+  a quelli dei server.
+- Un messaggio non inviato ora dice il motivo dato da Discord.
+- I badge con i numeri sono più piccoli.
+- Corretti: un crash entrando in vocale con gli angoli a 0, e un messaggio
+  vocale che faceva perdere gli altri file allegati.
 
 ## Cosa fa
 

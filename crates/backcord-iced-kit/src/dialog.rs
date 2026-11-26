@@ -119,7 +119,10 @@ pub fn dialog<'a, M: Clone + 'a>(
     on_outside: M,
 ) -> Element<'a, M> {
     let (ground, edge) = (theme.raised, theme.edge);
-    let card = opaque(
+    // The frosted window under it, when Appearance blurs menus; its
+    // ground over that, as see-through as the menus' opacity.
+    let card = opaque(crate::widgets::frost::Frost::new(
+        [12.0; 4],
         container(body)
             .width(width)
             .style(move |_| container::Style {
@@ -128,7 +131,7 @@ pub fn dialog<'a, M: Clone + 'a>(
                 shadow: card_shadow(),
                 ..Default::default()
             }),
-    );
+    ));
     // Kept inside the window, by its padding, both ways.
     opaque(stack![
         outside(on_outside, true),

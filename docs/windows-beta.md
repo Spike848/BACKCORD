@@ -88,11 +88,9 @@ Microphones open in raw mode (`AUDCLNT_STREAMOPTIONS_RAW`, through
 sound driver run on them: what Sound settings calls "device default effects"
 or "audio enhancements", often the driver's own noise suppression or
 beamforming. Under BACKCORD's suppressor they muffled a voice that Discord's
-client left clear. A device without raw mode opens with its effects. Settings ›
-Voice's "Let Windows process your microphone in Discord calls"
-(`windows_microphone_effects`, off unless turned on, shown on Windows only)
-keeps them, for a laptop microphone that needs its driver's beamforming; a
-call's microphone opens again within 2 s of the switch. Matrix calls record
+client left clear. A device without raw mode opens with its effects. BACKCORD now
+always keeps them (there's no setting any more), for laptop microphones
+that need their driver's beamforming. Matrix calls record
 through LiveKit's WebRTC, which opens the microphone itself, with the effects.
 
 A Discord call's threads join MMCSS tasks, the microphone's "Audio" and the

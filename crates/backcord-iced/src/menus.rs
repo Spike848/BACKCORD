@@ -1143,12 +1143,20 @@ impl<'a> View<'a> {
         let panel: Element<'a, Message> = if menu.rows.is_empty() {
             Space::new().into()
         } else {
-            container(rows).width(width).style(menu_panel(theme)).into()
+            // The frosted background under the panel's see-through ground.
+            backcord_iced_kit::widgets::frost::Frost::new(
+                [8.0; 4],
+                container(rows).width(width).style(menu_panel(theme)),
+            )
+            .into()
         };
         // Someone's volumes, in a panel of their own over their rows.
         let panel: Element<'a, Message> = match volumes {
             Some(volumes) => column![
-                container(volumes).width(width).style(menu_panel(theme)),
+                backcord_iced_kit::widgets::frost::Frost::new(
+                    [8.0; 4],
+                    container(volumes).width(width).style(menu_panel(theme)),
+                ),
                 panel
             ]
             .spacing(8)
@@ -1165,11 +1173,12 @@ impl<'a> View<'a> {
         .max_height(self.cx.look.window.height - 2.0 * MENU_MARGIN);
         let mut place = Place::new(opaque(panel), menu.at, MENU_MARGIN).anchor(menu.anchor);
         if let (Some(sub), Some(child)) = (menu.sub, sub_child) {
-            // Through the frame and the scrollable to the rows.
+            // Through the frame, the scrollable and the frosted glass under
+            // them to the rows.
             let mut path = if menu.volumes.is_some() {
-                vec![0, 0, 1, 0]
+                vec![0, 0, 1, 0, 0]
             } else {
-                vec![0, 0, 0]
+                vec![0, 0, 0, 0]
             };
             path.push(child);
             // The layout's places are the rows' unscrolled ones.
@@ -1223,11 +1232,12 @@ impl<'a> View<'a> {
         }
         // A submenu taller than the window scrolls, as the menu does.
         container(
-            scroll_view(
+            scroll_view(backcord_iced_kit::widgets::frost::Frost::new(
+                [8.0; 4],
                 container(rows)
                     .width(menu.fit(Some(sub)))
                     .style(menu_panel(theme)),
-            )
+            ))
             .height(Length::Shrink)
             .style(crate::style::scrollbar(theme)),
         )

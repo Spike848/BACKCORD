@@ -78,7 +78,7 @@ fn a_theme_chosen_in_appearance_shows_at_once_and_is_kept() {
     open(&mut app, Section::Account);
     assert!(shows(&app, "My account"));
     interact(&mut app, |ui| {
-        ui.click("Appearance").expect("the section");
+        ui.click("Themes").expect("the section");
     });
     assert!(shows(&app, "BACKDOOR"), "the theme's tile");
     app.themes.custom.push(light());

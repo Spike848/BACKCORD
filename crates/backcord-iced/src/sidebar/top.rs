@@ -10,13 +10,13 @@ use crate::{
     app::Message,
     controls::{bar, lit_style},
     elide::elide,
-    fonts::{BOLD, MEDIUM},
+    fonts::BOLD,
     pictures::Icon,
     style::corners,
     widgets::{Pic, RightPress},
 };
 
-use super::{BANNER, EVENTS_ROW, Event, FILTER, HEADER, INSET, INVITE};
+use super::{BANNER, Event, FILTER, HEADER, INSET, INVITE};
 
 /// The number in a server's Boost level badge, measured (237, 237, 239).
 const TIER_INK: Color = Color::from_rgb(237.0 / 255.0, 237.0 / 255.0, 239.0 / 255.0);
@@ -84,33 +84,18 @@ impl<'a> super::View<'a> {
             .height(HEADER - 1.0)
             .width(Length::Fill);
         let banner = head.banner.as_deref().filter(|_| head.server.is_some());
-        let Some(banner) = banner else {
+        // Faded out as the list scrolled, the banner leaves the bar as
+        // it is without one.
+        if banner.is_none() || self.s.banner_shown() <= 0.0 {
             return column![bar_, bar(theme.outline, Length::Fill, 1)].into();
-        };
-        let height = HEADER + BANNER;
-        let mut layers = stack![];
-        let width = super::width(self.cx.layout);
-        let size = iced::Size::new(width, height);
-        let still = self.cx.picture(banner, width as u32, height as u32, true);
-        // A moving banner plays, round and round, its still showing until
-        // it's ready.
-        let moving = backcord_core::chat::moving_banner(banner).and_then(|url| {
-            self.cx
-                .moving(&url, size, iced::Rectangle::with_size(size), true)
-        });
-        if let Some(moving) = moving {
-            layers = layers.push(
-                moving
-                    .forever()
-                    .radius_each([12.0, 0.0, 0.0, 0.0])
-                    .still(still),
-            );
-        } else if let Some(picture) = still {
-            layers = layers.push(Pic::new(picture, size).radius_each([12.0, 0.0, 0.0, 0.0]));
         }
+        let mut layers = stack![];
         let shade = Background::Gradient(
             iced::gradient::Linear::new(iced::Degrees(180.0))
-                .add_stop(0.0, Color::from_rgba(0.0, 0.0, 0.0, 0.6))
+                .add_stop(
+                    0.0,
+                    Color::from_rgba(0.0, 0.0, 0.0, 0.6 * self.s.banner_shown()),
+                )
                 .add_stop(1.0, Color::TRANSPARENT)
                 .into(),
         );
@@ -126,49 +111,46 @@ impl<'a> super::View<'a> {
                     }),
             )
             .push(bar_);
-        layers.width(Length::Fill).height(height).into()
+        layers.width(Length::Fill).height(HEADER).into()
     }
 
-    /// Discord's "N Events" row under the server's name, which opens the
-    /// server's scheduled events under it.
-    pub(super) fn events_row(self, events: usize) -> Element<'a, Message> {
-        let theme = self.cx.look.theme;
-        let label = match events {
-            0 => backcord_iced_kit::i18n::tr("Events").to_owned(),
-            1 => backcord_iced_kit::i18n::tr("1 Event").to_owned(),
-            count => backcord_iced_kit::i18n::t(format!("{count} Events")),
-        };
-        let (hover, ink) = (theme.hover, theme.channel_read);
-        let face = button(
-            row![
-                self.cx.look.glyph(Icon::CalendarFilled, 20, ink),
-                text(label)
-                    .size(14)
-                    .font(MEDIUM)
-                    .color(ink)
-                    .wrapping(text::Wrapping::None)
-            ]
-            .spacing(8)
-            .height(Length::Fill)
-            .align_y(Alignment::Center),
-        )
-        .padding(Padding {
-            left: INSET,
-            right: INSET,
-            ..Padding::ZERO
-        })
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .on_press(Message::Side(Event::Events))
-        .style(lit_style(None, hover, 6.0));
-        column![
-            container(face)
-                .padding(INSET)
-                .height(EVENTS_ROW - 1.0)
-                .width(Length::Fill),
-            container(bar(theme.outline, Length::Fill, 1)).padding([0.0, 16.0])
-        ]
-        .into()
+    /// The server's banner behind the header and the list's top: it
+    /// stays where it is and fades as the list scrolls over it, as
+    /// Discord's.
+    pub(super) fn banner_back(self) -> Option<Element<'a, Message>> {
+        let head = &self.s.header;
+        let banner = head.banner.as_deref().filter(|_| head.server.is_some())?;
+        let height = HEADER + BANNER;
+        let mut layers = stack![];
+        let width = super::width(self.cx.layout);
+        let size = iced::Size::new(width, height);
+        let still = self.cx.picture(banner, width as u32, height as u32, true);
+        // A moving banner plays, round and round, its still showing until
+        // it's ready.
+        let moving = backcord_core::chat::moving_banner(banner).and_then(|url| {
+            self.cx
+                .moving(&url, size, iced::Rectangle::with_size(size), true)
+        });
+        // It stays where it is and fades as the list scrolls, as Discord's.
+        let shown = self.s.banner_shown();
+        if shown <= 0.0 {
+            // Faded out: nothing to draw.
+        } else if let Some(moving) = moving {
+            layers = layers.push(
+                moving
+                    .forever()
+                    .radius_each([12.0, 0.0, 0.0, 0.0])
+                    .opacity(shown)
+                    .still(still),
+            );
+        } else if let Some(picture) = still {
+            layers = layers.push(
+                Pic::new(picture, size)
+                    .radius_each([12.0, 0.0, 0.0, 0.0])
+                    .opacity(shown),
+            );
+        }
+        Some(layers.width(Length::Fill).height(height).into())
     }
 
     /// A server's name at the top of its channels: its Community badge,
@@ -179,7 +161,8 @@ impl<'a> super::View<'a> {
         let head = &self.s.header;
         let open = self.cx.menu.is_some_and(|menu| menu.header);
         // Over the banner, in white.
-        let on_banner = head.banner.is_some();
+        // Once the banner has mostly faded, as the list's own.
+        let on_banner = head.banner.is_some() && self.s.banner_shown() > 0.5;
         let (ink, chevron) = if on_banner {
             (Color::WHITE, Color::WHITE)
         } else {

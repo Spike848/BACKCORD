@@ -147,13 +147,15 @@ impl App {
             Navigation::DirectMessages => Vec::new(),
         };
         let state = self.client.state();
-        let side = sidebar(
+        let head = crate::sidebar::side_header(&self.client.app);
+        let mut side = crate::sidebar::lead_rows(&head);
+        side.extend(sidebar(
             state,
             &categories,
             &self.layout.collapsed,
             &self.sidebar.filter,
             self.theme.dark,
-        );
+        ));
         if self.sidebar.rows != side {
             self.sidebar.rows = side;
         }
@@ -171,7 +173,6 @@ impl App {
             // What's dragged may have gone, or moved to another place.
             self.sidebar.arranging = None;
         }
-        let head = crate::sidebar::side_header(&self.client.app);
         if self.sidebar.header != head {
             self.sidebar.header = head;
         }
@@ -743,6 +744,25 @@ impl App {
         // and its moving avatar and banner are the largest to come.
         for url in crate::profile::profile_pictures(self.ctx()) {
             want(Some(&url));
+        }
+        // Every server tag's badge, so the tag picker has them at once.
+        for server in state.servers.iter() {
+            want(server.tag.as_ref().and_then(|tag| tag.badge.as_deref()));
+        }
+        // The icons of the servers the call's soundboard has sounds from,
+        // for its rail.
+        for group in state.voice.soundboard.as_deref().unwrap_or(&[]) {
+            let Some(guild) = group.server.as_deref() else {
+                continue;
+            };
+            let place = backcord_core::discord::server_id(guild);
+            want(
+                state
+                    .servers
+                    .iter()
+                    .find(|server| server.id == place)
+                    .and_then(|server| server.icon.as_deref()),
+            );
         }
         // The Dynamic Island's cover.
         if crate::island::shown(self) {

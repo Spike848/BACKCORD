@@ -31,21 +31,27 @@ pub fn status_dot(presence: Presence, ring: u32, live: u32, faint: u32) -> Optio
         canvas.circle(7.0, 15.0, 2.0, ring);
         return Some(canvas);
     }
+    // Round as Appearance's roundness of what's round says: 100 a circle,
+    // 0 a square.
+    let round = backcord_iced_kit::renderer::rounds() as f32 / 100.0;
+    let dot = |canvas: &mut Canvas, x: f32, y: f32, size: f32, ink: Ink| {
+        canvas.rounded(x, y, size, size, size / 2.0 * round, ink);
+    };
     let mut canvas = Canvas::new(16, 16);
-    canvas.circle(0.0, 0.0, 16.0, ring);
+    dot(&mut canvas, 0.0, 0.0, 16.0, ring);
     match presence {
-        Presence::Online => canvas.circle(3.0, 3.0, 10.0, Ink(live, 1.0)),
+        Presence::Online => dot(&mut canvas, 3.0, 3.0, 10.0, Ink(live, 1.0)),
         Presence::Idle => {
-            canvas.circle(2.0, 2.0, 12.0, Ink(0xf0b232, 1.0));
-            canvas.circle(1.0, 1.0, 7.0, ring);
+            dot(&mut canvas, 2.0, 2.0, 12.0, Ink(0xf0b232, 1.0));
+            dot(&mut canvas, 1.0, 1.0, 7.0, ring);
         }
         Presence::DoNotDisturb => {
-            canvas.circle(3.0, 3.0, 10.0, Ink(0xf23f43, 1.0));
+            dot(&mut canvas, 3.0, 3.0, 10.0, Ink(0xf23f43, 1.0));
             canvas.rounded(5.0, 7.0, 6.0, 2.0, 1.0, ring);
         }
         Presence::Offline => {
-            canvas.circle(3.0, 3.0, 10.0, Ink(faint, 1.0));
-            canvas.circle(6.0, 6.0, 4.0, ring);
+            dot(&mut canvas, 3.0, 3.0, 10.0, Ink(faint, 1.0));
+            dot(&mut canvas, 6.0, 6.0, 4.0, ring);
         }
         Presence::Mobile => return None,
     }

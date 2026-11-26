@@ -44,6 +44,8 @@ pub struct Hearing {
     sounds: Mutex<Vec<Playing>>,
     /// Each voice's compressor and limiter, while on.
     effects: Mutex<VoiceEffects>,
+    /// Each voice's pitch shifter, while their pitch is changed.
+    pitched: Mutex<Pitched>,
     ended: UnboundedSender<String>,
 }
 
@@ -67,6 +69,7 @@ impl Hearing {
             sounding: Mutex::default(),
             sounds: Mutex::default(),
             effects: Mutex::default(),
+            pitched: Mutex::default(),
             ended,
         }
     }
@@ -146,6 +149,20 @@ impl Listener for Hearing {
         };
         let volume =
             |user: u64| crate::volume::heard(crate::volume::Kind::Voice, &user.to_string());
+        // Voices whose pitch is changed, shifted first.
+        let mut pitched = self.pitched.lock().unwrap();
+        let shifted = pitched.shift(voices);
+        let voices: Vec<(u64, &[i16])> = voices
+            .iter()
+            .map(|(user, samples)| {
+                let samples = shifted
+                    .iter()
+                    .find(|(shifted, _)| shifted == user)
+                    .map_or(*samples, |(_, samples)| samples.as_slice());
+                (*user, samples)
+            })
+            .collect();
+        let voices = voices.as_slice();
         let mut frame = spare_frame();
         let mut sounds = self.sounds.lock().unwrap();
         let mut effects = self.effects.lock().unwrap();
@@ -163,6 +180,7 @@ impl Listener for Hearing {
         );
         drop(sounds);
         drop(effects);
+        drop(pitched);
         // A full queue means the speakers are behind; dropping a frame keeps
         // the delay from growing.
         match output.try_send(frame) {
@@ -221,6 +239,40 @@ impl Chosen {
 
 /// A voice not heard for this many 20 ms frames, a second, is forgotten.
 const FORGET_AFTER: u32 = 50;
+
+/// Each voice's pitch shifter, by Discord user, while their pitch is changed.
+#[derive(Default)]
+struct Pitched {
+    voices: HashMap<u64, (crate::pitch::Shifter, u32)>,
+}
+
+impl Pitched {
+    /// The voices whose pitch is changed, shifted; nothing while none is.
+    fn shift(&mut self, voices: &[(u64, &[i16])]) -> Vec<(u64, Vec<i16>)> {
+        if !crate::volume::any_pitch() {
+            self.voices.clear();
+            return Vec::new();
+        }
+        let mut shifted = Vec::new();
+        for (user, samples) in voices {
+            let semitones = crate::volume::pitch(&user.to_string());
+            if semitones == 0.0 {
+                self.voices.remove(user);
+                continue;
+            }
+            let (shifter, idle) = self.voices.entry(*user).or_default();
+            *idle = 0;
+            let mut samples = samples.to_vec();
+            shifter.process(&mut samples, semitones);
+            shifted.push((*user, samples));
+        }
+        self.voices.retain(|_, (_, idle)| {
+            *idle += 1;
+            *idle <= FORGET_AFTER
+        });
+        shifted
+    }
+}
 
 /// Each voice's state for [`Chosen`]'s effects, by Discord user.
 #[derive(Default)]

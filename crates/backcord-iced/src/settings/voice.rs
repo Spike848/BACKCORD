@@ -81,11 +81,9 @@ pub enum Event {
     TestCamera,
     MicTest,
     Volume(bool, u32, bool),
-    UnmuteOnJoin(bool),
     /// The echo reduction chosen: off, normal or strong.
     Echo(usize),
     Studio(bool),
-    WindowsEffects(bool),
     Noise(usize),
     Strength(usize),
     InputMode(usize),
@@ -292,10 +290,6 @@ impl Settings {
                 backcord_core::volume::set_voice_compressor(on);
                 crate::layout::store(&root, "voice_compressor", on);
             }
-            Event::UnmuteOnJoin(on) => {
-                cx.layout.unmute_on_join = Some(on);
-                crate::layout::store(&root, "unmute_on_join", on);
-            }
             Event::Echo(level) => {
                 let level = level.min(2) as u8;
                 voice.echo_reduction = Some(level);
@@ -306,11 +300,6 @@ impl Settings {
                 voice.studio_voice = on;
                 backcord_core::studio::set(on);
                 crate::layout::store(&root, "studio_voice", on);
-            }
-            Event::WindowsEffects(on) => {
-                voice.windows_microphone_effects = on;
-                backcord_core::set_windows_effects(on);
-                crate::layout::store(&root, "windows_microphone_effects", on);
             }
             Event::Noise(index) => {
                 let suppressor = SUPPRESSORS[index.min(2)];
@@ -612,21 +601,12 @@ impl<'a> Page<'a> {
                 .icon(Icon::Refresh, 16, crate::theme::rgb(theme.secondary)),
         )
         .into()]));
-        parts.push(form::rule(theme));
-        let unmute = self.cx.layout.unmute_on_join.unwrap_or(true);
-        parts.push(
-            switch(
-                backcord_iced_kit::i18n::tr("Turn on your microphone when you join a call"),
-                unmute,
-                Some(voice_message(Event::UnmuteOnJoin(!unmute))),
-            )
-            .description(backcord_iced_kit::i18n::tr(
-                "Otherwise you join muted, and unmute when you're ready.",
-            ))
-            .view(self.cx.look),
-        );
+        // The microphone turns on as a call is joined, unless it was muted
+        // beforehand, and Windows' own microphone effects run: neither is
+        // a setting.
         if linked {
-            parts.extend(self.discord_extras());
+            parts.push(form::rule(theme));
+            parts.push(self.entrance_sounds());
         }
         form::page(parts)
     }
@@ -688,7 +668,7 @@ impl<'a> Page<'a> {
                 .round()
                 .clamp(0.0, 100.0) as u32
         });
-        let mut parts = vec![form::group([
+        let soundboard = form::group([
             form::heading(theme, backcord_iced_kit::i18n::tr("SOUNDBOARD VOLUME")),
             slider(
                 backcord_iced_kit::i18n::tr("Soundboard volume"),
@@ -705,8 +685,9 @@ impl<'a> Page<'a> {
                     "How loud soundboard sounds play in Discord calls, yours and everyone else's. Discord keeps it for all your devices.",
                 ),
             ),
-        ])];
+        ]);
         let studio = voice.studio_voice;
+        let mut parts = vec![];
         parts.push(
             switch(
                 backcord_iced_kit::i18n::tr("Studio mode"),
@@ -776,25 +757,7 @@ impl<'a> Page<'a> {
                 backcord_iced_kit::i18n::tr("Keeps what your speakers play from going back out through your microphone, so others don't hear themselves. Strong also turns your microphone down while only that echo reaches it; your own voice still goes through. With headphones you can turn it off. A call going on switches straight away."),
             ),
         ]));
-        parts
-    }
-
-    /// The rest of Discord calls' settings: entrance sounds, and on Windows
-    /// whether Windows' own microphone effects run.
-    fn discord_extras(self) -> Vec<Element<'a, Message>> {
-        let mut parts = vec![self.entrance_sounds()];
-        if cfg!(windows) {
-            let effects = self.cx.layout.voice.windows_microphone_effects;
-            parts.push(
-                switch(
-                    backcord_iced_kit::i18n::tr("Let Windows process your microphone in Discord calls"),
-                    effects,
-                    Some(voice_message(Event::WindowsEffects(!effects))),
-                )
-                .description(backcord_iced_kit::i18n::tr("Runs the effects Windows and your sound driver add to the microphone, such as their own noise suppression. Off, BACKCORD skips them, as they can muffle your voice on top of BACKCORD's. Turn it on if your microphone sounds worse without them, as some laptop microphones can."))
-                .view(self.cx.look),
-            );
-        }
+        parts.push(soundboard);
         parts
     }
 
@@ -867,6 +830,7 @@ impl<'a> Page<'a> {
                 None,
                 false,
                 |sound| voice_message(Event::Entrance(Some(sound.id.clone()))),
+                None,
             );
             container(board)
                 .style(crate::controls::menu_panel(theme))

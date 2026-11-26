@@ -57,6 +57,8 @@ pub enum Message {
     Account(crate::account::Event),
     /// The Dynamic Island's tabs and Spotify's buttons (`island.rs`).
     Island(crate::island::Event),
+    /// Appearance's custom background (`backdrop.rs`).
+    Backdrop(crate::backdrop::Event),
     /// The minute turned, for the clocks that show minutes: busy voice
     /// channels', open polls', the activity cards'.
     Minute,

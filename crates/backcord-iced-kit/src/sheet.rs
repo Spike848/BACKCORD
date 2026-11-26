@@ -380,14 +380,23 @@ pub fn backdrop<'a, M: Clone + 'a>(
     // Its parts round their own grounds to its corners; its edge goes over
     // them. The ground under them is opaque, so its shadow is drawn only
     // round it.
-    let card = container(controls::edged(card, edge, RADIUS))
-        .width(Length::Fill)
-        .max_width(WIDEST)
-        .height(Length::Fill)
-        .clip(true)
-        .style(move |_| {
-            crate::style::rounded(ground, RADIUS).shadow(crate::style::raised_shadow())
-        });
+    // The frosted background under it, when Appearance blurs menus.
+    // The ground inside the frost, so the glass shows under it.
+    let card = container(crate::widgets::frost::Frost::new(
+        [RADIUS; 4],
+        container(controls::edged(card, edge, RADIUS))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(move |_| crate::style::rounded(ground, RADIUS)),
+    ))
+    .width(Length::Fill)
+    .max_width(WIDEST)
+    .height(Length::Fill)
+    .clip(true)
+    .style(move |_| {
+        crate::style::rounded(iced::Color::TRANSPARENT, RADIUS)
+            .shadow(crate::style::raised_shadow())
+    });
     opaque(stack![
         controls::dimmed(close, DIM),
         container(crate::widgets::motion::grow(opaque(card)))
