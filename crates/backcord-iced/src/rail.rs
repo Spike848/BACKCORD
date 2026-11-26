@@ -42,6 +42,11 @@ pub struct Rail {
     pub scroll: crate::sync::Scroll,
     /// A server or folder held down, which a move drags.
     pub drag: Option<Drag>,
+    /// The servers picked together, with Ctrl and a click or a box, which
+    /// one menu acts on.
+    pub picked: Vec<String>,
+    /// While a box is dragged over the rail, the servers picked before it.
+    pub boxing: Option<Vec<String>>,
 }
 
 /// A server or folder held down on the rail: by its id, where the pointer
@@ -76,8 +81,137 @@ pub fn drag_subscription() -> iced::Subscription<Message> {
         iced::Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left)) => {
             Some(Message::Rail(Event::Release))
         }
+        // Let go outside the window, or the window left: nothing is held.
+        iced::Event::Window(iced::window::Event::Unfocused)
+        | iced::Event::Mouse(iced::mouse::Event::CursorLeft) => Some(Message::Rail(Event::Leave)),
         _ => None,
     })
+}
+
+/// While anything is picked (people, DMs, messages, servers), a left click
+/// let go where nothing took it, without Ctrl, picks none.
+pub fn elsewhere_subscription() -> iced::Subscription<Message> {
+    iced::event::listen_with(|event, status, _| match event {
+        iced::Event::Mouse(iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left))
+            if status == iced::event::Status::Ignored =>
+        {
+            Some(Message::Rail(Event::Elsewhere))
+        }
+        _ => None,
+    })
+}
+
+/// Whether anything is picked anywhere.
+pub fn anything_picked(app: &App) -> bool {
+    !app.rail.picked.is_empty()
+        || !app.sidebar.dm_picked.is_empty()
+        || !app.timeline.picked.is_empty()
+        || !app.client.state().picked.is_empty()
+}
+
+/// Every pick, everywhere, let go.
+fn unpick(app: &mut App) -> Task<Message> {
+    app.rail.picked.clear();
+    app.sidebar.dm_picked.clear();
+    app.timeline.picked.clear();
+    if app.client.state().picked.is_empty() {
+        return Task::none();
+    }
+    app.client.dispatch(Action::ClearPicks);
+    app.sync()
+}
+
+/// The servers a box over the rail touches, with those picked before it.
+fn boxed(app: &mut App, area: iced::Rectangle, done: bool) -> Task<Message> {
+    let control = app.modifiers.control();
+    let rail = &mut app.rail;
+    let picked = rail.picked.clone();
+    let mut now = rail
+        .boxing
+        .get_or_insert_with(|| if control { picked } else { Vec::new() })
+        .clone();
+    let offset = rail.scroll.offset;
+    let (top, bottom) = (area.y + offset, area.y + area.height + offset);
+    let mut at = 0.0;
+    for (index, item) in rail.items.iter().enumerate() {
+        let height = item.height(index);
+        let face = height - GAP;
+        if matches!(item.kind, Kind::Server | Kind::Nested { .. })
+            && at < bottom
+            && at + face > top
+            && !now.contains(&item.id)
+        {
+            now.push(item.id.clone());
+        }
+        at += height;
+    }
+    if done {
+        rail.boxing = None;
+    }
+    rail.picked = now;
+    Task::none()
+}
+
+/// The menu of the servers picked together, at `at`.
+fn open_picked_menu(app: &mut App, at: iced::Point) -> Task<Message> {
+    use crate::menus::{Menu, MenuAct, MenuRow};
+    use backcord_core::application::MenuChoice;
+    let count = app.rail.picked.len();
+    let mut rows = vec![MenuRow {
+        disabled: true,
+        ..MenuRow::plain(
+            MenuAct::RailPicked(MenuChoice::CopyId),
+            backcord_iced_kit::i18n::t(format!("{count} servers picked")),
+        )
+    }];
+    rows.extend(
+        [
+            MenuChoice::MarkRead,
+            MenuChoice::MuteServer,
+            MenuChoice::UnmuteServer,
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, choice)| MenuRow {
+            icon: Some(crate::place_menus::icon(choice)),
+            separated: index == 0,
+            ..MenuRow::plain(
+                MenuAct::RailPicked(choice),
+                crate::place_menus::label(choice),
+            )
+        }),
+    );
+    app.win.menu = Some(Menu::new(at, rows).width(crate::menus::FIELD_WIDTH));
+    iced::widget::operation::focus(crate::app::NOBODY)
+}
+
+/// A row of the picked servers' menu: it acts on each, then the picking
+/// ends.
+pub fn choose_picked(
+    app: &mut App,
+    choice: backcord_core::application::MenuChoice,
+) -> Task<Message> {
+    use backcord_core::{
+        application::MenuChoice,
+        chat::{Muting, NotificationChange},
+    };
+    let picked = std::mem::take(&mut app.rail.picked);
+    let mute = |muting| {
+        move |place: String| Action::ChangeNotifications {
+            place,
+            change: NotificationChange::Mute(muting),
+        }
+    };
+    let actions: Vec<Action> = match choice {
+        MenuChoice::MarkRead => picked.into_iter().map(Action::MarkRead).collect(),
+        MenuChoice::MuteServer => picked.into_iter().map(mute(Muting::Always)).collect(),
+        MenuChoice::UnmuteServer => picked.into_iter().map(mute(Muting::Off)).collect(),
+        _ => Vec::new(),
+    };
+    for action in actions {
+        app.client.dispatch(action);
+    }
+    app.sync()
 }
 
 /// How far the pointer moves before a press drags.
@@ -102,6 +236,8 @@ impl Rail {
             items: Vec::new(),
             scroll: crate::sync::Scroll::new(height),
             drag: None,
+            picked: Vec::new(),
+            boxing: None,
         }
     }
 }
@@ -158,8 +294,15 @@ pub enum Event {
     DragTo(iced::Point),
     /// Let go: a click where it didn't move, else a drop.
     Release,
-    /// The pointer left the rail while one was held.
+    /// The pointer left the rail while one was held, or the window lost
+    /// its focus.
     Leave,
+    /// A box dragged over the rail's rows, in the list's terms, and
+    /// whether it was let go.
+    Boxed(iced::Rectangle, bool),
+    /// A click let go somewhere nothing took it: whatever is picked, here
+    /// or elsewhere, stops being picked.
+    Elsewhere,
 }
 
 /// Where a server or folder dragged to `y`, down the rail's rows, would
@@ -604,12 +747,15 @@ pub fn rail(state: &AppState, open_folders: &BTreeSet<String>) -> Vec<RailItem> 
                     && !room.unlisted
                     && !(server.discord && room.voice));
             marks.mentions += room.mentions;
-            if voice
-                && counted(server, room)
-                && let Some(media) = room_media(room, &hidden)
-            {
-                marks.media = marks.media.max(Some(media));
-                marks.busy.0.push(Arc::clone(room));
+            if voice && let Some(media) = room_media(room, &hidden) {
+                if counted(server, room) {
+                    marks.media = marks.media.max(Some(media));
+                }
+                // The card lists everyone the channel list shows in voice:
+                // muted channels' and Stages' too, not the inactive one's.
+                if carded(server, room) {
+                    marks.busy.0.push(Arc::clone(room));
+                }
             }
         }
         if in_call(server) {
@@ -726,6 +872,12 @@ fn counted(server: &ChatServer, room: &ChatRoom) -> bool {
         && server.afk_channel.as_deref() != Some(room.id.as_str())
 }
 
+/// A voice channel whose people a server's card lists: one this account
+/// may see, but the inactive channel.
+fn carded(server: &ChatServer, room: &ChatRoom) -> bool {
+    room.voice && !room.locked && server.afk_channel.as_deref() != Some(room.id.as_str())
+}
+
 /// What a voice channel's people show on its server's speaker, if anyone
 /// shown is in it.
 fn room_media(room: &ChatRoom, hidden: &HashSet<&str>) -> Option<Media> {
@@ -787,7 +939,9 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         }
         Event::Point(id, entered) => {
             crate::app::point(&mut app.pointed.rail, id, entered);
-            return Task::none();
+            // The faces of the voice card it shows come as it's pointed
+            // at, wherever it is on the rail.
+            return if entered { app.ask() } else { Task::none() };
         }
         Event::Home => app
             .client
@@ -808,7 +962,27 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Join => app.client.dispatch(Action::OpenJoinServer),
         Event::Explore => app.client.dispatch(Action::OpenExplore),
         Event::Menu(id, at) => {
+            // On one of several picked servers, the menu of them all.
+            if app.rail.picked.len() > 1 && app.rail.picked.contains(&id) {
+                return open_picked_menu(app, at);
+            }
+            app.rail.picked.clear();
             return crate::place_menus::open_place_menu(app, &id, at, false);
+        }
+        // With Ctrl, a server is picked, or picked no more.
+        Event::Press(id)
+            if app.modifiers.control()
+                && app.rail.items.iter().any(|item| {
+                    item.id == id && matches!(item.kind, Kind::Server | Kind::Nested { .. })
+                }) =>
+        {
+            match app.rail.picked.iter().position(|picked| *picked == id) {
+                Some(at) => {
+                    app.rail.picked.remove(at);
+                }
+                None => app.rail.picked.push(id),
+            }
+            return Task::none();
         }
         Event::Press(id) => {
             // The middle of the tile held, down the rows.
@@ -842,6 +1016,19 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Leave => {
             app.rail.drag = None;
             return Task::none();
+        }
+        Event::Boxed(area, done) => return boxed(app, area, done),
+        Event::Elsewhere => {
+            // Ctrl adds to what's picked; a drag or a menu has its own
+            // use for the click.
+            if app.modifiers.control()
+                || app.rail.drag.is_some()
+                || app.sidebar.arranging.is_some()
+                || app.win.menu.is_some()
+            {
+                return Task::none();
+            }
+            return unpick(app);
         }
         Event::Release => {
             let Some(drag) = app.rail.drag.take() else {
@@ -965,6 +1152,13 @@ impl<'a> View<'a> {
             .on_scroll(|viewport| Message::Rail(Event::Scrolled(viewport)))
             .height(Length::Fill)
             .style(scrollbar(theme));
+        // A box dragged from the rail's margins, or anywhere with Ctrl,
+        // picks the servers it touches.
+        let list =
+            backcord_iced_kit::widgets::marquee::Marquee::new(list, theme.accent, |area, done| {
+                Message::Rail(Event::Boxed(area, done))
+            })
+            .forced(self.cx.modifiers.control());
         let line = container(bar(theme.outline, 32, 1)).center_x(WIDTH);
         let items = column![self.home_tile(), line, list]
             .spacing(GAP)
@@ -1234,6 +1428,32 @@ impl<'a> View<'a> {
             self.voice_card(name, &item.busy.0)
         } else {
             self.name_tip(name)
+        };
+        // Picked with others, a ring in the accent round it.
+        let face: Element<'a, Message> = if self.s.picked.contains(&item.id) {
+            let accent = self.cx.look.theme.accent;
+            let radius = if side == FOLDER {
+                FOLDER_RADIUS
+            } else {
+                RADIUS
+            };
+            stack![
+                face,
+                container(Space::new())
+                    .width(side)
+                    .height(side)
+                    .style(move |_| iced::widget::container::Style {
+                        border: iced::Border {
+                            color: accent,
+                            width: 3.0,
+                            radius: radius.into(),
+                        },
+                        ..Default::default()
+                    }),
+            ]
+            .into()
+        } else {
+            face
         };
         let cell = self.tile_cell(item.id.clone(), tip, face, (side, ABOVE), marks, message);
         // An open folder's servers sit on a strip of its colour, from the

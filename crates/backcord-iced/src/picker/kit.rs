@@ -330,12 +330,16 @@ pub fn frame<'a>(
     theme: &Theme,
 ) -> Element<'a, Message> {
     let (raised, edge) = (theme.raised, theme.edge);
-    container(content)
-        .width(size.width)
-        .height(size.height)
-        .clip(true)
-        .style(move |_| crate::style::panel(raised, edge, 10.0))
-        .into()
+    // The frosted window under its see-through ground, as the menus'.
+    backcord_iced_kit::widgets::frost::Frost::new(
+        [10.0; 4],
+        container(content)
+            .width(size.width)
+            .height(size.height)
+            .clip(true)
+            .style(move |_| crate::style::panel(raised, edge, 10.0)),
+    )
+    .into()
 }
 
 /// A favourite's star, `side` across with its `glyph` in it, on the

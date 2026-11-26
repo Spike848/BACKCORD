@@ -4118,3 +4118,13 @@ Delete, leave, and errors.	Elimina, esci ed errori.
 Lines	Linee
 The lines between the window's parts.	Le linee tra le parti della finestra.
 Settings, the soundboard, the call's menus and right-click menus: how see-through they are, and how blurred what's behind them shows. The blur shows when they're not fully opaque.	Impostazioni, soundboard, menu della chiamata e menu del tasto destro: quanto sono trasparenti e quanto appare sfocato ciò che c'è dietro. La sfocatura si vede quando non sono del tutto opachi.
+Open GIF and sticker picker	Apri il selettore GIF e sticker
+Received quality limit	Limite qualità ricevuta
+RECEIVED QUALITY	QUALITÀ RICEVUTA
+RECEIVED FRAME RATE	FRAME RATE RICEVUTO
+Stream blurred	Stream sfocata
+Blur stream	Sfoca stream
+Blur the whole stream for those watching, without stopping it	Sfoca l'intera stream per chi guarda, senza interromperla
+Delete my messages ({})	Elimina i miei messaggi ({})
+Delete all ({})	Elimina tutti ({})
+{} servers picked	{} server selezionati

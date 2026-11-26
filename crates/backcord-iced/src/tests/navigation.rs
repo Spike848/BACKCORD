@@ -705,8 +705,13 @@ fn a_server_with_people_in_voice_shows_a_speaker_as_discords_list_does() {
     voice_server(&mut app);
     assert_eq!(
         friends(&app),
-        (Some(Media::Voice), false, vec!["lounge".to_owned()]),
-        "Lounge only: muted, inactive, Stage, hidden and blocked-only channels don't count"
+        (
+            Some(Media::Voice),
+            false,
+            vec!["lounge".to_owned(), "quiet".to_owned(), "talks".to_owned()]
+        ),
+        "the speaker counts Lounge only; the card lists everyone in voice the \
+         channel list shows, but the inactive, hidden and blocked-only channels"
     );
     let set_lounge = |app: &mut App, set: fn(&mut backcord_core::chat::VoicePerson)| {
         change(app, |state| {
@@ -730,7 +735,14 @@ fn a_server_with_people_in_voice_shows_a_speaker_as_discords_list_does() {
     change(&mut app, |state| {
         Arc::make_mut(&mut state.servers[0]).muted = true;
     });
-    assert_eq!(friends(&app), (None, false, vec!["lounge".to_owned()]));
+    assert_eq!(
+        friends(&app),
+        (
+            None,
+            false,
+            vec!["lounge".to_owned(), "quiet".to_owned(), "talks".to_owned()]
+        )
+    );
     // In a call there, it shows green whatever its mute, with this
     // account's own call's marks: no screen of its own, a camera in it.
     change(&mut app, |state| {
@@ -782,6 +794,36 @@ fn a_closed_folder_shows_a_speaker_only_for_this_accounts_call() {
             ("coop", Some(Media::Voice), true)
         ]
     );
+}
+
+#[test]
+fn servers_picked_with_ctrl_or_a_box_go_with_a_click_elsewhere() {
+    use crate::rail::Event;
+    let (mut app, _folder) = preview();
+    let ctrl = |app: &mut App, on: bool| {
+        let _ = app.update(Message::Modifiers(if on {
+            iced::keyboard::Modifiers::CTRL
+        } else {
+            iced::keyboard::Modifiers::empty()
+        }));
+    };
+    ctrl(&mut app, true);
+    for id in ["friends", "coop"] {
+        let _ = app.update(Message::Rail(Event::Press(id.into())));
+    }
+    assert_eq!(app.rail.picked, ["friends", "coop"]);
+    assert!(app.rail.drag.is_none(), "a pick never drags");
+    let _ = app.update(Message::Rail(Event::Elsewhere));
+    assert_eq!(app.rail.picked.len(), 2, "with Ctrl, a click adds");
+    ctrl(&mut app, false);
+    let _ = app.update(Message::Rail(Event::Elsewhere));
+    assert!(app.rail.picked.is_empty(), "a click elsewhere lets go");
+    // A box over the whole rail picks every server.
+    let all = iced::Rectangle::new(iced::Point::ORIGIN, iced::Size::new(72.0, 2000.0));
+    let _ = app.update(Message::Rail(Event::Boxed(all, false)));
+    let _ = app.update(Message::Rail(Event::Boxed(all, true)));
+    assert!(app.rail.picked.len() >= 2, "{:?}", app.rail.picked);
+    assert!(app.rail.boxing.is_none());
 }
 
 #[test]

@@ -944,24 +944,30 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
         )));
     }
     let state = ctx.state;
-    if state.can_pick_gifs() {
+    // The GIFs and the stickers share one button: it opens the GIFs (the
+    // stickers where there are no GIFs), its picker's tabs move between
+    // them, and it's lit, and closes the picker, while either shows.
+    let (gifs, stickers) = (state.can_pick_gifs(), state.can_pick_stickers());
+    if gifs || stickers {
+        let tab = match shown {
+            Some(tab @ (Tab::Gifs | Tab::Stickers)) => tab,
+            _ if gifs => Tab::Gifs,
+            _ => Tab::Stickers,
+        };
+        let lit = matches!(shown, Some(Tab::Gifs | Tab::Stickers));
         buttons = buttons.push(lift(composer_button(
             ctx,
-            Icon::Gif,
-            backcord_iced_kit::i18n::tr("Open GIF picker"),
+            if gifs { Icon::Gif } else { Icon::Sticker },
+            if gifs && stickers {
+                backcord_iced_kit::i18n::tr("Open GIF and sticker picker")
+            } else if gifs {
+                backcord_iced_kit::i18n::tr("Open GIF picker")
+            } else {
+                backcord_iced_kit::i18n::tr("Open sticker picker")
+            },
             22,
-            tint(Tab::Gifs),
-            opens(Tab::Gifs),
-        )));
-    }
-    if state.can_pick_stickers() {
-        buttons = buttons.push(lift(composer_button(
-            ctx,
-            Icon::Sticker,
-            backcord_iced_kit::i18n::tr("Open sticker picker"),
-            22,
-            tint(Tab::Stickers),
-            opens(Tab::Stickers),
+            if lit { theme.text } else { theme.secondary },
+            opens(tab),
         )));
     }
     // Stream Proof's button, on the chat bar.

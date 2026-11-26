@@ -205,6 +205,18 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
                 when(Message::Call(Event::Open(Popup::Camera))),
             )));
         }
+        // Beside the camera: the limit on the cameras and streams
+        // received, lit while one is set.
+        if voice.can_film || !voice.participants.is_empty() {
+            let limited = !ctx.layout.voice.receive_limit().is_none();
+            buttons = buttons.push(ctx.spot(controls::dock_button(
+                face(Icon::Tv),
+                backcord_iced_kit::i18n::tr("Received quality limit"),
+                limited,
+                theme,
+                Some(Message::Call(Event::Open(Popup::Limit))),
+            )));
+        }
         // Stopping is beside "Your screen"; while the system's dialog
         // first picks what to share, there's nothing to switch yet.
         if can_share || sharing {

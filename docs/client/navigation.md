@@ -26,7 +26,21 @@ channel's name, by a screen when someone in it shares theirs, else a
 speaker, over its people's overlapping faces, the first four channels
 and six faces each, with how many more. Discord's card puts everyone in
 one row; by channel, it says who is together. A muted server still lists
-them.
+them, and so does the card list the people of muted channels and Stages
+(only the inactive channel and hidden ones are left out), though they
+don't count on the speaker; the faces it shows are fetched as the server
+is pointed at. Someone seen joining voice in one server leaves whatever
+other server's channel they were listed in, which a large server that
+isn't subscribed may never have said.
+Ctrl and a click picks a server, ringed in the accent, or lets it go, and
+a box dragged from the rail's margins (or anywhere with Ctrl) picks every
+server it touches. A right click on one of several picked opens their
+menu: how many, then Mark as read, Mute server and Unmute server for all
+of them.
+Whatever is picked (people, DMs, messages, servers) goes with a left
+click let go anywhere that doesn't take it, without Ctrl; a box or a drag
+stops when another press comes, the window loses its focus or the pointer
+leaves it, so nothing stays held in mid-air.
 A folder opens and closes on a click, its servers on a strip of its
 colour; closed it shows its first four servers' icons, and the speaker
 only for the call this account is in, as Discord's does.

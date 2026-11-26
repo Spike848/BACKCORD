@@ -187,7 +187,9 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
 
 /// The island, over the window at its top, while it shows.
 pub fn view(app: &App) -> Option<Element<'_, Message>> {
-    if !shown(app) {
+    // Not over the call full screen, where it covered the stream.
+    if !shown(app) || crate::call::stage::full_shown(app) || crate::call::stage::theatre_shown(app)
+    {
         return None;
     }
     let tabs = tabs(app);

@@ -20,6 +20,7 @@ use crate::{
 
 pub mod camera;
 pub mod device;
+pub mod limit;
 pub mod person;
 pub mod quality;
 pub mod share;
@@ -81,7 +82,7 @@ pub(super) fn open_popup(app: &mut App, popup: Popup) -> Task<Message> {
             crate::call::details::read_link(app);
             return Task::none();
         }
-        Popup::Live => app.call.popup = Some(popup),
+        Popup::Live | Popup::Limit => app.call.popup = Some(popup),
         Popup::Camera => {
             app.client
                 .dispatch(backcord_core::application::Action::Voice(Command::Devices));
@@ -132,6 +133,10 @@ pub fn call_popup_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Messa
         Popup::Camera => (
             crate::call::popups::camera::camera_menu(ctx),
             camera::CAMERA_WIDTH,
+        ),
+        Popup::Limit => (
+            crate::call::popups::limit::limit_menu(ctx),
+            limit::LIMIT_WIDTH,
         ),
         Popup::Soundboard => (
             crate::call::popups::soundboard::soundboard(ctx),

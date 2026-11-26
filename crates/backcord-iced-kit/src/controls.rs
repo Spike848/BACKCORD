@@ -1468,6 +1468,16 @@ fn choice_row<'a, M: Clone + 'a>(
             }
         }
     };
+    // Words that wouldn't fit `widest` at 14 px (a language with longer
+    // ones) come smaller, down to 11 px, rather than spill out of their
+    // buttons.
+    let need: f32 = options
+        .iter()
+        .map(|option| option.chars().count() as f32 * 7.8 + 10.0)
+        .sum::<f32>()
+        + 3.0 * options.len().saturating_sub(1) as f32
+        + 6.0;
+    let size = (14.0 * (widest / need.max(1.0)).min(1.0)).max(11.0).floor();
     let mut row = row![].spacing(3).padding(3);
     for (index, option) in options.iter().enumerate() {
         let chosen = index == current;
@@ -1482,7 +1492,7 @@ fn choice_row<'a, M: Clone + 'a>(
             button(
                 container(
                     text(*option)
-                        .size(14)
+                        .size(size)
                         .font(if chosen { BOLD } else { MEDIUM })
                         .wrapping(text::Wrapping::None),
                 )
@@ -1491,7 +1501,7 @@ fn choice_row<'a, M: Clone + 'a>(
                 .align_y(Alignment::Center),
             )
             .padding([0, 4])
-            .width(Length::FillPortion(option.len() as u16 + 6))
+            .width(Length::FillPortion(option.chars().count() as u16 + 3))
             .height(Length::Fill)
             .on_press_maybe(enabled.then(|| on_choose(index)))
             .style(move |_, status| {

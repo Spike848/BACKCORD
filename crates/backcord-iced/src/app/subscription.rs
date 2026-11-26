@@ -68,6 +68,10 @@ impl App {
         if self.rail.drag.is_some() {
             subscriptions.push(crate::rail::drag_subscription());
         }
+        // Anything picked: a click elsewhere lets it go.
+        if crate::rail::anything_picked(self) {
+            subscriptions.push(crate::rail::elsewhere_subscription());
+        }
         // A look at the releases every six hours while the check is on.
         if self.layout.prefs.checks_updates() {
             subscriptions.push(

@@ -33,7 +33,14 @@ The call's views and what they do are in `call/`.
   right click opens the person's voice menu.
 - The controls under the stage, in this order: mute and
   deafen (each with its device menu), the camera (its menu, from this button
-  and the one under the call alike: the camera, its quality, on or off), Go Live, the soundboard, and leave.
+  and the one under the call alike: the camera, its quality, on or off), Go Live, the soundboard,
+  while sharing "Blur stream" (`Command::BlurStream`: the worker blurs each
+  frame whole, scaled down and back up, before its preview and the
+  encoder, so viewers see it hidden while the stream goes on; amber with
+  "Stream blurred" while on, off each time sharing starts), and leave.
+  Over the call full screen (the theatre and the large tile alike) the
+  same blur button, leave and exit sit at the bottom right, and the
+  Dynamic Island hides, so nothing covers the stream's top.
   At their right, in a voice channel or a DM, Full screen call (`Event::Theatre`)
   puts the call over the whole screen (`theatre_view`, a layer of
   `call_layers`): its tiles alone, no rail, sidebar, header or controls,
@@ -80,7 +87,16 @@ The call's views and what they do are in `call/`.
   and the call's time, the channel line (underlined under the pointer)
   that shows the call, noise suppression's toggle, which turns back on the
   kind last used, leave, and while sharing its state with a stop; the
-  soundboard, camera and Go Live buttons; an error with Dismiss.
+  soundboard, camera and Go Live buttons, and beside them the received
+  quality limit (`call/popups/limit.rs`, lit while one is set): the most
+  lines (every resolution the quality pickers send at, 2160p for the
+  source's 4K down to 144p) and frames a second (60, 30, 15) taken from the
+  call's cameras and the streams watched, kept in `layout.json` as
+  `receive_height` and `receive_fps` (`voice::set_receive_limit`).
+  Cameras are asked for (op 15) at the ladder's highest step within it, so
+  their senders film smaller; streams come at their streamer's quality and
+  are shown no larger and no oftener (`Control::Limit`), every frame
+  still decoded. Then an error, with Dismiss.
 - The connection's details (`call/details.rs`): once the call measures
   its connection, its signal (the
   dock's, and the header's in the call's conversation) shows the last ping

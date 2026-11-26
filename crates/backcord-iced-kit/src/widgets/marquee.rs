@@ -22,6 +22,9 @@ pub struct Marquee<'a, M> {
     content: Element<'a, M, Theme, Renderer>,
     on_change: Box<dyn Fn(Rectangle, bool) -> M + 'a>,
     ink: Color,
+    /// A press starts a box even where the list took it (Ctrl held over
+    /// rows that pick on a press).
+    forced: bool,
 }
 
 impl<'a, M> Marquee<'a, M> {
@@ -35,7 +38,15 @@ impl<'a, M> Marquee<'a, M> {
             content: content.into(),
             on_change: Box::new(on_change),
             ink,
+            forced: false,
         }
+    }
+
+    /// Whether a press the list took starts a box too.
+    #[must_use]
+    pub fn forced(mut self, forced: bool) -> Self {
+        self.forced = forced;
+        self
     }
 }
 
@@ -120,8 +131,42 @@ impl<M> Widget<M, Theme, Renderer> for Marquee<'_, M> {
     ) {
         let bounds = layout.bounds();
         let held = tree.state.downcast_mut::<Held>();
-        // While a box is being drawn, the list under it hears nothing.
-        if !held.dragging
+        let local = |point: Point| Point::new(point.x - bounds.x, point.y - bounds.y);
+        // A box whose release never came (let go outside the window, or
+        // the window lost the focus): the next press or the focus going
+        // ends it, so it never sticks to the pointer.
+        let lost = matches!(
+            event,
+            iced::Event::Mouse(mouse::Event::ButtonPressed(_))
+                | iced::Event::Window(iced::window::Event::Unfocused)
+                | iced::Event::Mouse(mouse::Event::CursorLeft)
+        );
+        if held.dragging && lost {
+            if let Some(from) = held.from.take() {
+                shell.publish((self.on_change)(boxed(from, held.to), true));
+            }
+            held.dragging = false;
+            shell.request_redraw();
+        }
+        let released = matches!(
+            event,
+            iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+        );
+        // Let go of a box: it's done, and the list hears the release as
+        // taken, so what was under the press neither clicks nor goes on
+        // thinking it's held.
+        if released && let Some(from) = held.from.take() {
+            if held.dragging {
+                shell.publish((self.on_change)(boxed(from, held.to), true));
+                shell.request_redraw();
+                shell.capture_event();
+            }
+            held.dragging = false;
+        }
+        // While a box is being drawn, the list under it hears nothing but
+        // the button's release.
+        let held = tree.state.downcast_mut::<Held>();
+        if (!held.dragging || released)
             && let Some(inner) = layout.children().next()
         {
             self.content.as_widget_mut().update(
@@ -136,10 +181,10 @@ impl<M> Widget<M, Theme, Renderer> for Marquee<'_, M> {
             );
         }
         let held = tree.state.downcast_mut::<Held>();
-        let local = |point: Point| Point::new(point.x - bounds.x, point.y - bounds.y);
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if !shell.is_event_captured()
+                *held = Held::default();
+                if (self.forced || !shell.is_event_captured())
                     && let Some(at) = cursor.position_over(bounds)
                 {
                     *held = Held {
@@ -151,6 +196,11 @@ impl<M> Widget<M, Theme, Renderer> for Marquee<'_, M> {
             }
             iced::Event::Mouse(mouse::Event::CursorMoved { position }) => {
                 if let Some(from) = held.from {
+                    // The list took the move first (a row dragged): no box.
+                    if !held.dragging && shell.is_event_captured() && !self.forced {
+                        held.from = None;
+                        return;
+                    }
                     held.to = local(*position);
                     let moved = (held.to - from) * 1.0;
                     if !held.dragging && moved.x.abs().max(moved.y.abs()) > SLOP {
@@ -161,16 +211,6 @@ impl<M> Widget<M, Theme, Renderer> for Marquee<'_, M> {
                         shell.request_redraw();
                         shell.capture_event();
                     }
-                }
-            }
-            iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
-                if let Some(from) = held.from.take() {
-                    if held.dragging {
-                        shell.publish((self.on_change)(boxed(from, held.to), true));
-                        shell.request_redraw();
-                        shell.capture_event();
-                    }
-                    held.dragging = false;
                 }
             }
             _ => {}

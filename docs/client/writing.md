@@ -119,8 +119,11 @@ command's name back. What they show and do is the core's
 text, and `Action::Send` runs the command.
 
 The expression picker (`picker/`): in a Discord
-room the composer's GIF, sticker and emoji buttons open one panel of three
-tabs over them (498 by 486; its left edge drags it wider, up to 8 px
+room the composer's GIF and sticker button (one for both: the GIFs, or
+the stickers where there are no GIFs; lit and closing it while either
+shows) and its emoji button open one panel of three tabs over them, on
+the menus' frosted glass (`widgets::frost`) as the text formatting panel
+is (498 by 486; its left edge drags it wider, up to 8 px
 right of the server rail or the window's edge, its grids following, the
 width kept in `layout.json` as `picker_width`, and a double click puts it
 back); elsewhere, and for the edit or a reaction,

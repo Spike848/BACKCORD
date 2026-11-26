@@ -1238,6 +1238,14 @@ impl Tracker {
         let key = (guild.to_owned(), user.to_owned());
         match state["channel_id"].as_str() {
             Some(channel) => {
+                // Someone is in one server's voice at a time: one seen
+                // joining here has left wherever else they were, which a
+                // server not subscribed to may never have said.
+                if guild != PRIVATE {
+                    self.voice.retain(|(server, who), _| {
+                        who != user || server == guild || server == PRIVATE
+                    });
+                }
                 let flag = |name: &str| state[name].as_bool().unwrap_or(false);
                 self.voice.insert(
                     key,
@@ -2578,6 +2586,29 @@ mod tests {
             (true, true, true, true),
             "the server's"
         );
+    }
+
+    #[test]
+    fn someone_joining_voice_in_one_server_leaves_the_last() {
+        let ready = json!({"session_id": "here", "user": {"id": "1", "username": "me"}});
+        let mut tracker = Tracker::from_ready("1".into(), &ready, Default::default());
+        tracker.apply(
+            &Event::ReadySupplemental,
+            &json!({"guilds": [{"id": "10", "voice_states": [
+                {"user_id": "2", "channel_id": "11", "session_id": "theirs"},
+            ]}]}),
+        );
+        // Server 20 says they joined; server 10 never said they left.
+        tracker.apply(
+            &Event::VoiceStateUpdate,
+            &json!({"guild_id": "20", "user_id": "2", "channel_id": "21", "session_id": "theirs"}),
+        );
+        let snapshot = tracker.snapshot();
+        assert!(
+            !snapshot.voice.contains_key("11"),
+            "gone from the last server"
+        );
+        assert_eq!(snapshot.voice["21"].len(), 1);
     }
 
     #[test]

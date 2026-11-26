@@ -208,11 +208,15 @@ errors make it taller than the minimum window. SSO and OAuth are still pending.
   buttons change, so its tooltip and highlight match what a click does.
 - Ctrl and a click on a message picks it, as people are picked in a voice
   channel's list (`timeline/picks.rs`): its row tinted in the accent with the
-  accent's edge, a second Ctrl and click letting it go. A right click on one
+  accent's edge, a second Ctrl and click letting it go. A box dragged from
+  the list's blank space (a press no text, link or button takes), or over
+  the rows with Ctrl held, picks every message it touches, as the sidebar's
+  box picks people; with Ctrl it adds to those picked. A right click on one
   of two or more picked opens one menu for them all: how many, Copy text
-  (each as "author: text", a line each), Copy Message Links, Delete N
-  messages (only those this account may delete, after one question, "Delete
-  Messages"; under Shift at once) and Deselect all. A click without Ctrl on a
+  (each as "author: text", a line each), Copy Message Links, "Delete my
+  messages (N)" (this account's own, of those it may delete), "Delete all
+  (N)" where it may delete others' too (managing messages), each after one
+  question, "Delete Messages", or under Shift at once, and Deselect all. A click without Ctrl on a
   message, Escape, a right click on a message not picked or any of the
   menu's rows lets go of them; another channel's no longer count.
 - The Dynamic Island (`island.rs`), off unless Appearance's "Dynamic

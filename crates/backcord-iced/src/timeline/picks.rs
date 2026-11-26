@@ -20,8 +20,18 @@ use crate::{
 pub enum MessagePick {
     CopyText,
     CopyLinks,
+    /// This account's own of them, of those it may delete.
+    DeleteOwn,
+    /// All it may delete: its own, and others' where it may manage
+    /// messages.
     Delete,
     Clear,
+}
+
+/// Whether `message` is one the menu deletes: `own` alone, or any this
+/// account may delete.
+fn deletes(message: &backcord_core::chat::ChatMessage, own: bool) -> bool {
+    message.can_delete && !message.deleted && (message.own || !own)
 }
 
 /// Whether the message `item` is picked.
@@ -45,6 +55,46 @@ pub fn toggle(app: &mut App, item: Arc<str>) {
             app.timeline.picked.remove(at);
         }
         None => app.timeline.picked.push(item),
+    }
+}
+
+/// A box dragged over the channel's rows, `area` in the list's viewport:
+/// the messages it touches picked, with those picked before it when Ctrl
+/// was held as it started. Let go of, it's done.
+pub fn boxed(app: &mut App, area: iced::Rectangle, done: bool) {
+    let control = app.modifiers.control();
+    let timeline = &mut app.timeline;
+    let base = timeline
+        .boxing
+        .get_or_insert_with(|| {
+            if control {
+                timeline.picked.clone()
+            } else {
+                Vec::new()
+            }
+        })
+        .clone();
+    // The box among the rows: past where the view starts, less the room
+    // a short history is held down by.
+    let lead = (timeline.height - timeline.total_height()).max(0.0);
+    let shift = timeline.view_top() - lead;
+    let (top, bottom) = (area.y + shift, area.y + area.height + shift);
+    let mut picked = base;
+    for (index, message) in timeline.messages.iter().enumerate() {
+        let (Some(&at), Some(&height)) = (timeline.tops.get(index), timeline.heights.get(index))
+        else {
+            break;
+        };
+        if at >= bottom {
+            break;
+        }
+        if at + height > top && !picked.iter().any(|pick| **pick == *message.item) {
+            picked.push(Arc::from(message.item.as_str()));
+        }
+    }
+    timeline.picked = picked;
+    if done {
+        timeline.boxing = None;
     }
 }
 
@@ -84,7 +134,11 @@ fn open_menu(
     let count = messages.len();
     let deletable = messages
         .iter()
-        .filter(|message| message.can_delete && !message.deleted)
+        .filter(|message| deletes(message, false))
+        .count();
+    let own = messages
+        .iter()
+        .filter(|message| deletes(message, true))
         .count();
     let act = MenuAct::PickedMessages;
     let mut rows = vec![MenuRow {
@@ -115,14 +169,27 @@ fn open_menu(
             Icon::Chain,
         ));
     }
-    if deletable > 0 {
+    // Deleting this account's own of them; and, where it may delete
+    // others' too (managing messages), all of them.
+    if own > 0 {
         rows.push(MenuRow {
             danger: true,
             separated: true,
             icon: Some(Icon::Trash),
             ..MenuRow::plain(
+                act(MessagePick::DeleteOwn),
+                backcord_iced_kit::i18n::t(format!("Delete my messages ({own})")),
+            )
+        });
+    }
+    if deletable > own {
+        rows.push(MenuRow {
+            danger: true,
+            separated: own == 0,
+            icon: Some(Icon::Trash),
+            ..MenuRow::plain(
                 act(MessagePick::Delete),
-                backcord_iced_kit::i18n::t(format!("Delete {deletable} messages")),
+                backcord_iced_kit::i18n::t(format!("Delete all ({deletable})")),
             )
         });
     }
@@ -164,10 +231,11 @@ pub fn choose(app: &mut App, pick: MessagePick) -> Task<Message> {
                 .join("\n");
             Task::batch([iced::clipboard::write(links), focus])
         }
-        MessagePick::Delete => {
+        MessagePick::Delete | MessagePick::DeleteOwn => {
+            let own = pick == MessagePick::DeleteOwn;
             let items: Vec<String> = messages
                 .iter()
-                .filter(|message| message.can_delete && !message.deleted)
+                .filter(|message| deletes(message, own))
                 .map(|message| message.item.clone())
                 .collect();
             if app.modifiers.shift() {

@@ -635,6 +635,7 @@ fn switching_with_only_the_systems_dialog_opens_it_with_no_menu() {
             phase: voice::SharePhase::Live,
             frames: std::sync::Arc::new(backcord_core::frames::Frames::create(16, 16).unwrap()),
             viewers: vec![],
+            blurred: false,
         });
     });
     let _ = crate::call::update(&mut app, Event::Open(Popup::Share));

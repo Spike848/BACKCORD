@@ -32,6 +32,10 @@ memory only while sharing; the process exits when sharing stops. Playing a
 video file runs there too (`Job::Play`, `video_player`), which also keeps
 FFmpeg's reading of files people sent out of the window's process. Its
 frames carry their time, which the seek bar shows.
+Where the worker can't be started (BACKCORD's file moved, renamed or taken
+by an antivirus while it runs, "file not found"), the job runs on a thread
+of BACKCORD itself (`Worker::inside`), its controls through a pipe, so the
+stream starts all the same; a warning in the log says so.
 `stream_worker` starts it with one job as a JSON line and reads its reports
 back. On Linux it starts `/proc/self/exe`, the running BACKCORD, since BACKCORD's path
 names a deleted file once a rebuild or update replaces it. Frames reach the UI through `frames`, a triple buffer in a memory-mapped

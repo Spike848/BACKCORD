@@ -802,6 +802,13 @@ impl App {
             }
             // The faces on a server's voice card are fetched ahead, a few
             // at a time, so the card finds them ready when the pointer comes.
+            // The server pointed at: every face its card shows, past the
+            // cap on those fetched ahead.
+            if self.pointed.rail.as_deref() == Some(item.id.as_str()) {
+                for person in item.busy.0.iter().flat_map(|room| room.people.iter()) {
+                    want(person.avatar.as_deref());
+                }
+            }
             for room in item.busy.0.iter().take(crate::rail::CARD_ROOMS) {
                 for person in room.people.iter().take(crate::rail::CARD_FACES + 4) {
                     if faces < CARD_PICTURES {
@@ -851,6 +858,14 @@ impl App {
                 }
                 for person in &room.people {
                     want(person.avatar.as_deref());
+                    // The server tag's badge after their name, which
+                    // otherwise came only once something else (their
+                    // profile) had fetched it.
+                    want(
+                        cosmetics
+                            .tag(person.tag.as_ref())
+                            .and_then(|tag| tag.badge.as_deref()),
+                    );
                 }
             }
             top += height;

@@ -101,6 +101,14 @@ pub(crate) fn timeline<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             .then_some(Message::SelectClear),
         ctx.lanes.timeline.selecting.then_some(Message::SelectEnd),
     );
+    // A box dragged from the list's blank space, or over the rows with
+    // Ctrl held, picks the messages it touches, as Ctrl and a click does.
+    let list = backcord_iced_kit::widgets::marquee::Marquee::new(
+        list,
+        ctx.look.theme.accent,
+        |area, done| Message::Timeline(Event::Boxed(area, done)),
+    )
+    .forced(ctx.modifiers.control());
     let mut layers = stack![list].width(Length::Fill).height(Length::Fill);
     if let Some(typing) = crate::typing::view(ctx) {
         layers = layers.push(typing);

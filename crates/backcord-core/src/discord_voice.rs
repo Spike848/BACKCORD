@@ -55,6 +55,7 @@ impl Share {
             phase: SharePhase::Choosing,
             frames: Arc::new(frames),
             viewers: vec![],
+            blurred: false,
         });
         Ok(Self {
             worker,
@@ -230,6 +231,20 @@ impl Watch {
         }
     }
 
+    /// Shows the streams within `limit` from now on.
+    fn limit(watches: &mut [Self], limit: crate::voice::ReceiveLimit) {
+        for watch in watches {
+            if let Some((worker, _)) = watch.worker.as_mut()
+                && let Err(error) = worker.limit(limit)
+            {
+                tracing::warn!(
+                    error = format!("{error:#}"),
+                    "could not tell the stream worker"
+                );
+            }
+        }
+    }
+
     /// Plays the stream's sound at the volume chosen for it, times the
     /// speakers'.
     fn volume(watches: &mut [Self]) {
@@ -279,6 +294,16 @@ impl Watch {
         let volume = crate::volume::heard(crate::volume::Kind::Stream, &self.user);
         let (worker, frames, reports) =
             Worker::watch(server, state.speaker.clone(), state.deafened, volume)?;
+        let mut worker = worker;
+        let limit = crate::voice::receive_limit();
+        if !limit.is_none()
+            && let Err(error) = worker.limit(limit)
+        {
+            tracing::warn!(
+                error = format!("{error:#}"),
+                "could not tell the stream worker"
+            );
+        }
         self.worker = Some((worker, reports));
         if let Some(shown) = state
             .watching
@@ -749,6 +774,20 @@ pub(crate) async fn call(
                                 stopped.stop(discord, state);
                             }
                             starting = None;
+                        }
+                        Some(Command::BlurStream(on)) => {
+                            if let Some(going) = share.as_mut()
+                                && let Some(sharing) = state.sharing.as_mut()
+                            {
+                                match going.worker.blur(on) {
+                                    Ok(()) => sharing.blurred = on,
+                                    Err(error) => tracing::warn!(error = format!("{error:#}"), "could not blur the stream"),
+                                }
+                            }
+                        }
+                        Some(Command::ReceiveLimit(limit)) => {
+                            crate::voice::set_receive_limit(limit);
+                            Watch::limit(&mut watches, limit);
                         }
                         Some(Command::Watch(user)) => {
                             let watching = watches.iter().any(|watch| watch.user == user);

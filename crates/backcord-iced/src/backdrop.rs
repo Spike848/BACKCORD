@@ -149,7 +149,8 @@ fn frosted(prefs: &crate::layout::Prefs) -> bool {
 /// Settings, a popup), the window under it is taken, without it, and
 /// blurred, for the glass menus show under their see-through grounds.
 pub fn follow_layers(app: &mut App) -> Task<Message> {
-    let covered = app.layers().next().is_some();
+    // The format panel opens over the window too, though it's no layer.
+    let covered = app.layers().any(crate::app::layers::Layer::floats) || app.format.is_some();
     let opened = covered && !app.backdrop.covered;
     app.backdrop.covered = covered;
     if !covered {

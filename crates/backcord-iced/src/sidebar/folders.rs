@@ -147,6 +147,7 @@ impl<'a> super::View<'a> {
                     .click(Message::Side(Event::Select(room.id.clone())))
                     .head(DM_ROW)
                     .drag(move |_| Message::Arrange(crate::arrange::Event::TakeDm(id.clone())))
+                    .dropped(Message::Arrange(crate::arrange::Event::Drop))
                     .tracking(dragging, onto(DmTarget::Room(room.id.clone())))
                     .into()
             }

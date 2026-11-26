@@ -547,7 +547,12 @@ fn take(shared: &Shared, progress: &Progress, control: Control) {
             Some(size) => progress.downloaded(size),
             None => progress.failed(),
         },
-        Control::Send(_) | Control::Switch(_) | Control::Quality { .. } | Control::Hear(_) => {}
+        Control::Send(_)
+        | Control::Switch(_)
+        | Control::Quality { .. }
+        | Control::Hear(_)
+        | Control::Blur(_)
+        | Control::Limit { .. } => {}
     }
     shared.changed.notify_all();
 }

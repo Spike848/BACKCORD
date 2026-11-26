@@ -99,12 +99,14 @@ pub(super) fn menu_list<'a>(
     for (entry, pressed) in rows {
         list = list.push(ctx.look.menu_item(entry, Light::Pointer, pressed));
     }
-    opaque(
+    // The frosted window under its see-through ground, as the menus'.
+    opaque(backcord_iced_kit::widgets::frost::Frost::new(
+        [8.0; 4],
         container(list)
             .padding(6)
             .width(Length::Fill)
             .style(controls::menu_panel(ctx.look.theme)),
-    )
+    ))
 }
 
 /// The pencil, or the lock where Nitro is wanted, on a dark disc.
@@ -234,7 +236,8 @@ pub(super) fn tag_list<'a>(ctx: crate::ctx::Ctx<'a>, editor: &'a Editor) -> Elem
             message(Event::Tag(id.to_owned())),
         ));
     }
-    opaque(
+    opaque(backcord_iced_kit::widgets::frost::Frost::new(
+        [8.0; 4],
         container(
             column![
                 form::field(
@@ -256,7 +259,7 @@ pub(super) fn tag_list<'a>(ctx: crate::ctx::Ctx<'a>, editor: &'a Editor) -> Elem
         .max_height(290)
         .width(Length::Fill)
         .style(controls::menu_panel(theme)),
-    )
+    ))
 }
 
 /// Above the editor's top left corner: an arrow and the profile edited,
@@ -325,7 +328,8 @@ pub(super) fn profile_switch<'a>(
                 message(Event::Profile(Some(server.id.clone()))),
             ));
         }
-        opaque(
+        opaque(backcord_iced_kit::widgets::frost::Frost::new(
+            [8.0; 4],
             container(
                 scroll_view(rows)
                     .height(Length::Shrink)
@@ -335,7 +339,7 @@ pub(super) fn profile_switch<'a>(
             .max_height(360)
             .width(Length::Fill)
             .style(controls::menu_panel(theme)),
-        )
+        ))
     });
     container(
         Popover::new(chip, list, Side::Below)

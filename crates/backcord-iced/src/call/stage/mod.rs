@@ -379,7 +379,7 @@ pub fn theatre_view(app: &App) -> Option<Element<'_, Message>> {
     let size = stage_size(app);
     let mut stage = stack![
         stage_view(app),
-        container(theatre_button(app))
+        container(full_screen_buttons(app, theatre_button(app)))
             .padding(16)
             .width(Length::Fill)
             .height(Length::Fill)
@@ -955,6 +955,93 @@ pub fn stream_viewers<'a>(
     viewers(app.ctx(), &people, names)
 }
 
+/// While this account shares its screen, the button that sends the
+/// stream blurred whole, to hide what's on it, and sharp again, the stream
+/// going on: amber with its words while it blurs, so it's never forgotten.
+pub fn blur_button(app: &App) -> Option<Element<'_, Message>> {
+    let theme = &app.theme;
+    let blurred = app.client.state().voice.sharing.as_ref()?.blurred;
+    let amber = crate::style::hex(0x00F0_B232);
+    let (icon, words, ink) = if blurred {
+        (
+            Icon::EyeOff,
+            backcord_iced_kit::i18n::tr("Stream blurred"),
+            Color::BLACK,
+        )
+    } else {
+        (
+            Icon::Eye,
+            backcord_iced_kit::i18n::tr("Blur stream"),
+            theme.text,
+        )
+    };
+    let face = row![
+        app.look().glyph(icon, 20, ink),
+        text(words).size(14).font(crate::fonts::BOLD).color(ink),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+    let (ground, lit) = if blurred {
+        (amber, faded(amber, 0.85))
+    } else {
+        (theme.raised, theme.hover)
+    };
+    let press = button(container(face).center_y(Length::Fill))
+        .height(ROUND)
+        .padding([0, 16])
+        .on_press(Message::Call(Event::BlurStream(!blurred)))
+        .style(controls::lit_style(Some(ground), lit, ROUND / 2.0));
+    Some(
+        iced::widget::tooltip(
+            press,
+            controls::tip(
+                theme,
+                backcord_iced_kit::i18n::tr(
+                    "Blur the whole stream for those watching, without stopping it",
+                ),
+            ),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(6)
+        .into(),
+    )
+}
+
+/// Over the call full screen, at its bottom right: blurring the stream
+/// while sharing, leaving, and `exit`, the button back.
+pub fn full_screen_buttons<'a>(app: &'a App, exit: Element<'a, Message>) -> Element<'a, Message> {
+    let theme = &app.theme;
+    let voice = &app.client.state().voice;
+    let mut buttons = row![].spacing(12).align_y(Alignment::Center);
+    if let Some(blur) = blur_button(app) {
+        buttons = buttons.push(blur);
+    }
+    let leaving = voice.phase == voice::Phase::Leaving;
+    let leave = button(
+        app.look()
+            .glyph(Icon::PhoneOff, ROUND_GLYPH, theme.on_danger)
+            .boxed(Length::Fill),
+    )
+    .width(64)
+    .height(ROUND)
+    .padding(0)
+    .on_press_maybe((!leaving).then_some(Message::Call(Event::Leave)))
+    .style(controls::lit_style(
+        Some(theme.danger),
+        theme.danger_hover,
+        ROUND / 2.0,
+    ));
+    buttons = buttons.push(
+        iced::widget::tooltip(
+            leave,
+            controls::tip(theme, backcord_iced_kit::i18n::tr("Leave voice")),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(6),
+    );
+    buttons.push(exit).into()
+}
+
 /// The call's controls under the stage: mute, deafen, the soundboard, the
 /// camera, share the screen, and leave.
 fn call_controls(app: &App) -> Element<'_, Message> {
@@ -1106,6 +1193,10 @@ fn call_controls(app: &App) -> Element<'_, Message> {
         iced::widget::tooltip::Position::Top,
     )
     .gap(6);
+    // Blurring the stream, beside leaving, while sharing.
+    if let Some(blur) = blur_button(app) {
+        controls = controls.push(blur);
+    }
     let bar = container(controls.push(leave))
         .padding(Padding {
             top: 8.0,

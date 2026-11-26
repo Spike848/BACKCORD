@@ -76,12 +76,16 @@ fn messages_picked_with_ctrl_are_deleted_together() {
     // A moderator's: another's message deletable too.
     change(&mut app, |state| {
         let messages = Arc::make_mut(&mut state.messages);
-        for message in messages
+        for (index, message) in messages
             .iter_mut()
             .filter(|message| !message.deleted)
             .take(3)
+            .enumerate()
         {
-            Arc::make_mut(message).can_delete = true;
+            let message = Arc::make_mut(message);
+            message.can_delete = true;
+            // This account's first, another's second.
+            message.own = index != 1;
         }
     });
     let ours: Vec<Arc<str>> = app
@@ -102,8 +106,10 @@ fn messages_picked_with_ctrl_are_deleted_together() {
         iced::Point::new(200.0, 200.0),
     )));
     assert!(shows(&app, "2 messages picked"));
+    // Its own alone, or, as a moderator may, both.
+    assert!(shows(&app, "Delete my messages (1)"));
     interact(&mut app, |ui| {
-        ui.click("Delete 2 messages").expect("Delete 2 messages");
+        ui.click("Delete all (2)").expect("Delete all (2)");
     });
     assert!(app.timeline.picked.is_empty(), "the picking ended");
     assert_eq!(app.client.state().confirm_delete_more.len(), 1);
@@ -124,6 +130,84 @@ fn messages_picked_with_ctrl_are_deleted_together() {
             "{item} went"
         );
     }
+}
+
+/// "Delete my messages" deletes this account's own of those picked, and
+/// leaves another's.
+#[test]
+fn delete_my_messages_leaves_others() {
+    let (mut app, _folder) = preview();
+    change(&mut app, |state| {
+        let messages = Arc::make_mut(&mut state.messages);
+        for (index, message) in messages
+            .iter_mut()
+            .filter(|message| !message.deleted)
+            .take(2)
+            .enumerate()
+        {
+            let message = Arc::make_mut(message);
+            message.can_delete = true;
+            message.own = index == 0;
+        }
+    });
+    let picked: Vec<Arc<str>> = app
+        .timeline
+        .messages
+        .iter()
+        .filter(|message| message.can_delete && !message.deleted)
+        .map(|message| Arc::from(message.item.as_str()))
+        .take(2)
+        .collect();
+    for item in &picked {
+        let _ = app.update(Message::Timeline(crate::timeline::Event::PickRow(
+            item.clone(),
+        )));
+    }
+    let _ = app.update(Message::Timeline(crate::timeline::Event::RowMenu(
+        picked[0].clone(),
+        iced::Point::new(200.0, 200.0),
+    )));
+    interact(&mut app, |ui| {
+        ui.click("Delete my messages (1)")
+            .expect("Delete my messages (1)");
+    });
+    assert!(app.client.state().confirm_delete_more.is_empty());
+    assert_eq!(
+        app.client.state().confirm_delete.as_deref(),
+        Some(&*picked[0]),
+        "only this account's own is asked about"
+    );
+}
+
+/// A box dragged over the rows picks every message it touches; with Ctrl,
+/// those picked already stay.
+#[test]
+fn a_box_over_the_messages_picks_them() {
+    let (mut app, _folder) = preview();
+    let count = app.timeline.messages.len();
+    assert!(count >= 2, "messages show");
+    // The whole list: every message touched.
+    let all = iced::Rectangle::new(
+        iced::Point::ORIGIN,
+        iced::Size::new(400.0, app.timeline.total_height().max(app.timeline.height)),
+    );
+    let boxed = |area, done| Message::Timeline(crate::timeline::Event::Boxed(area, done));
+    let _ = app.update(boxed(all, false));
+    let _ = app.update(boxed(all, true));
+    let shown = {
+        let (first, last) = app.timeline.in_view(0.0);
+        last - first
+    };
+    assert!(
+        app.timeline.picked.len() >= shown.min(count),
+        "{} picked of {shown} in view",
+        app.timeline.picked.len()
+    );
+    assert!(app.timeline.boxing.is_none(), "let go of, the box is done");
+    // An empty box without Ctrl starts the picking anew.
+    let nothing = iced::Rectangle::new(iced::Point::new(0.0, -10.0), iced::Size::new(1.0, 1.0));
+    let _ = app.update(boxed(nothing, true));
+    assert!(app.timeline.picked.is_empty());
 }
 
 /// A click without Ctrl, or Escape, lets go of the messages picked.

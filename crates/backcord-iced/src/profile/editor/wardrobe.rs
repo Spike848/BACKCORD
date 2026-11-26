@@ -471,6 +471,8 @@ pub(super) fn view<'a>(
     .height(height)
     .clip(true)
     .style(move |_| rounded(ground, 16).shadow(crate::style::window_shadow()));
+    // The frosted window under its see-through ground, as the dialogs'.
+    let card = backcord_iced_kit::widgets::frost::Frost::new([16.0; 4], card);
     let close = ctx
         .look
         .icon_button(

@@ -390,14 +390,35 @@ pub fn stage_full_view(app: &App) -> Option<Element<'_, Message>> {
     if !crate::call::stage::full_shown(app) {
         return None;
     }
+    let viewer = Viewer::new(
+        Color::BLACK,
+        crate::call::stage::stage_view(app),
+        app.window,
+        Message::Nothing,
+    )
+    .view(app.look());
+    // Blurring the stream and leaving at hand, as over the call full
+    // screen.
+    let theme = &app.theme;
+    let exit = crate::controls::round_button(
+        app.look()
+            .glyph(Icon::Minimize, crate::controls::ROUND_GLYPH, theme.text),
+        backcord_iced_kit::i18n::tr("Exit full screen"),
+        theme.raised,
+        theme,
+        Some(Message::Call(Event::Full(false))),
+    );
     Some(
-        Viewer::new(
-            Color::BLACK,
-            crate::call::stage::stage_view(app),
-            app.window,
-            Message::Nothing,
-        )
-        .view(app.look()),
+        iced::widget::stack![
+            viewer,
+            container(crate::call::stage::full_screen_buttons(app, exit))
+                .padding(16)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(iced::Alignment::End)
+                .align_y(iced::Alignment::End),
+        ]
+        .into(),
     )
 }
 

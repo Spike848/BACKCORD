@@ -36,13 +36,14 @@ recording. Each change is kept at once in
   while it runs (see [Voice](../voice.md#microphone-test)); the camera's
   preview, filmed only while Test video
   is on (`camera:settings` among the window's video sources, at 400 by
-  225); under the mic test the input mode, and either the gate's sensitivity
+  225); under the microphone's volume, in its column beside the speakers',
+  the input mode and, for Discord calls, studio mode, noise suppression
+  and its strength, and echo reduction, the last two applying in studio
+  mode too; under the mic test either the gate's sensitivity
   over the microphone's level as the gate hears it (read as it's drawn,
   twenty times a second, only while it shows) or push to talk's keybind and release delay;
   then in Discord calls the soundboard's volume (Discord
-  keeps it; the slider follows a drag and what it's left at is sent),
-  studio mode, noise suppression and its strength, and echo reduction,
-  the last two applying in studio mode too; after the
+  keeps it; the slider follows a drag and what it's left at is sent); after the
   camera, joining unmuted, the entrance sound for every server or one (Choose, with
   Nitro, opens the sounds Discord has as the call's soundboard does,
   `soundboard::sound_board`, a click choosing one) and, on Windows,

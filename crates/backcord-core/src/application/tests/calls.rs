@@ -620,6 +620,7 @@ fn streams_sound_as_others_start_and_stop_watching() {
             phase: voice::SharePhase::Live,
             frames: frames.clone(),
             viewers: viewers.iter().map(|&viewer| viewer.into()).collect(),
+            blurred: false,
         }),
         watching: watching
             .into_iter()

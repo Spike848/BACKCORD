@@ -34,53 +34,37 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.8
+## Novità della 1.5.9
 
-- **Temi e Performance**: l'Aspetto è diviso in due pagine. In **Temi** ci sono
-  i temi, i colori e tutto il look; in **Performance** la barra del titolo e le
-  opzioni dei profili.
-- **Sfondo personalizzato**: un'immagine tua dietro tutta la finestra, con
-  sfocatura, opacità e posizione (trascini l'anteprima per scegliere la parte
-  che si vede).
-- **Menu e finestre trasparenti e sfocati**: opacità e sfocatura di
-  Impostazioni, soundboard, menu della chiamata, menu del tasto destro e
-  dialoghi. Dietro si vede l'interfaccia sfocata, anche senza sfondo
-  personalizzato.
-- **Arrotondamento degli angoli** (da 0 squadrati a 200 più tondi) per finestre,
-  pannelli, pulsanti, foto, video e GIF, e **arrotondamento di avatar e icone**
-  (da 0 quadrati a 100 tondi). Gli avatar con una decorazione restano sempre
-  tondi, così la decorazione non si taglia.
-- **Icona dei messaggi diretti**: un'immagine a tua scelta al posto del logo in
-  alto a sinistra.
-- **Colori**: in fondo a Temi, 14 parti della finestra con nomi semplici (lista
-  dei server, sfondo della chat, testo, colore principale…), ognuna con la sua
-  tavolozza. La modifica si vede subito; un tema predefinito viene prima
-  copiato come tuo.
-- **Esporta e Importa** salvano tutto l'aspetto: tema, neon, arrotondamenti,
-  sfondo e icona (immagini comprese), opacità e sfocature.
-- **Server come su Discord**: il banner resta in cima e sfuma mentre scorri, e i
-  canali ne prendono il posto. Eventi, **Canali e ruoli** (per rifare le scelte
-  dell'onboarding) e Sfoglia canali stanno in cima alla lista come canali.
-- **Tono della voce**: nel menu di una persona in chiamata puoi alzare o
-  abbassare la sua voce di qualche semitono, solo per te.
-- **Soundboard rinnovata**: una colonna con Tutti, i preferiti, ogni server e i
-  suoni di Discord, il volume in alto a destra, niente barre di scorrimento.
-- **Riquadri della chiamata**: nomi senza sfondo nero e con "…" quando sono
-  troppo lunghi; nelle schede piccole sotto uno stream la foto profilo sta al
-  centro.
-- **Voce e video** riordinata: modalità d'ingresso, modalità studio, riduzione
-  del rumore, riduzione dell'eco. Il microfono si attiva sempre entrando in
-  chiamata e gli effetti di Windows sul microfono sono sempre attivi: i due
-  interruttori non servono più.
-- **Selezione a riquadro**: trascinando il mouse nei messaggi diretti o tra le
-  persone in vocale selezioni più elementi insieme (con Ctrl aggiungi alla
-  selezione).
-- **Modifica profilo**: in alto un selettore per passare dal profilo principale
-  a quelli dei server.
-- Un messaggio non inviato ora dice il motivo dato da Discord.
-- I badge con i numeri sono più piccoli.
-- Corretti: un crash entrando in vocale con gli angoli a 0, e un messaggio
-  vocale che faceva perdere gli altri file allegati.
+- **Blur della stream**: in chiamata, vicino al tasto per uscire, un pulsante
+  ben visibile sfoca tutta la tua stream per nascondere dati sensibili. Si
+  accende e si spegne senza fermare la stream; parte spento.
+- **Schermo intero pulito**: a schermo intero il pannello vocale non si
+  sovrappone più alla stream; restano solo blur, esci e riduci.
+- **Limite di qualità ricevuta**: accanto al tasto della fotocamera scegli la
+  risoluzione (da 4K a 144p) e i frame al secondo (60, 30, 15) massimi che
+  ricevi da fotocamere e stream, per risparmiare rete e CPU.
+- **Selezione dei messaggi**: trascina un riquadro sui messaggi (o Ctrl+clic);
+  col tasto destro cancelli solo i tuoi oppure tutti, se hai il permesso.
+- **Selezione dei server**: Ctrl+clic o un riquadro sulla lista dei server; col
+  tasto destro li segni come letti, li silenzi o li riattivi tutti insieme.
+- **Selezioni più affidabili**: trascinare non lascia più un utente "a
+  mezz'aria", e un clic in un altro punto dello schermo annulla qualsiasi
+  selezione.
+- **Persone in vocale sulla lista server**: la scheda che appare passando sopra
+  un server mostra chi c'è davvero, anche nei canali silenziati, e non tiene
+  più chi è passato a un altro server.
+- **GIF e sticker in un solo pulsante** nella barra di scrittura.
+- **Sfocatura del tema ovunque**: selettore emoji, GIF e sticker, pannello di
+  formattazione, e nella modifica profilo i selettori di tag server, targhetta,
+  effetto, cornice e badge.
+- **Voce e video**: modalità d'ingresso, modalità studio, riduzione del rumore
+  e dell'eco ora stanno sotto il microfono, accanto agli altoparlanti.
+- **Stream senza "could not start the stream worker"**: se il processo
+  separato della stream non può partire, la stream gira dentro BACKCORD invece
+  di chiudersi subito.
+- Corretti: le icone dei tag server in vocale che non si caricavano finché non
+  aprivi il profilo, e il testo di "Crea sondaggio" che usciva dai bordi.
 
 ## Cosa fa
 

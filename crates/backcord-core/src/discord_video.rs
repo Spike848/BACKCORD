@@ -238,9 +238,30 @@ fn wants(feeds: &HashMap<u64, Feed>, others: usize) -> HashMap<u64, (u8, u32)> {
             let (width, height) = feed.shown_at()?;
             let pixels = width * height;
             let quality = quality(feeds.len(), others, feed.shown_large(), pixels);
-            Some((user, (quality, pixels)))
+            Some((
+                user,
+                limited(quality, pixels, crate::voice::receive_limit().height),
+            ))
         })
         .collect()
+}
+
+/// `quality` and `pixels` kept within a limit of `height` lines (0 for
+/// none): the ladder's highest step no taller, so the sender films no
+/// larger than it.
+fn limited(quality: u8, pixels: u32, height: u32) -> (u8, u32) {
+    if height == 0 {
+        return (quality, pixels);
+    }
+    // Each step's pixels are 16:9: its lines are the root of 9/16 of them.
+    let lines = |rung: u32| ((f64::from(rung) * 9.0 / 16.0).sqrt()).round() as u32;
+    let (top, rung) = LADDER
+        .iter()
+        .rev()
+        .find(|(_, rung)| lines(*rung) <= height)
+        .copied()
+        .unwrap_or(LADDER[0]);
+    (quality.min(top), pixels.min(rung))
 }
 
 /// The quality Discord's desktop app asks for a camera when `cameras` film
@@ -287,6 +308,9 @@ fn decode(
     // Each camera's decoder, the feed it writes, and the sink writing it.
     type Sink = Box<dyn FnMut(&I420<'_>, Turn) + Send>;
     let mut decoders: HashMap<u64, (Decoder, Feed, Sink)> = HashMap::new();
+    // When each camera's last frame was shown, for the receive limit's
+    // rate.
+    let mut last_shown: HashMap<u64, Instant> = HashMap::new();
     let mut pruned = Instant::now();
     // What became of each camera's frames, logged every few seconds:
     // (came, out of sight, waiting for a keyframe, shown, failed).
@@ -356,8 +380,19 @@ fn decode(
                 };
                 match decoder.decode(&frame.data) {
                     Ok(Some(picture)) => {
-                        count[3] += 1;
-                        sink(&picture.i420(), turn);
+                        // Each frame is decoded, building on the last, but
+                        // one sooner than the limit's rate isn't shown.
+                        let fps = crate::voice::receive_limit().fps;
+                        let early = fps > 0
+                            && last_shown.get(&frame.user).is_some_and(|at| {
+                                at.elapsed()
+                                    < Duration::from_micros(1_000_000 / u64::from(fps)) * 9 / 10
+                            });
+                        if !early {
+                            last_shown.insert(frame.user, Instant::now());
+                            count[3] += 1;
+                            sink(&picture.i420(), turn);
+                        }
                     }
                     Ok(None) => {}
                     Err(error) => {
@@ -379,6 +414,7 @@ fn decode(
                     .get(user)
                     .is_some_and(|feed| feed == shown && feed.shown_at().is_some())
             });
+            last_shown.retain(|user, _| decoders.contains_key(user));
         }
     }
 }
@@ -395,6 +431,20 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_receive_limit_asks_for_no_taller_a_step() {
+        // No limit leaves it as it was.
+        assert_eq!(limited(100, 1280 * 720, 0), (100, 1280 * 720));
+        // 720p and over keep the top step.
+        assert_eq!(limited(100, 1280 * 720, 1080), (100, 1280 * 720));
+        assert_eq!(limited(100, 1280 * 720, 720), (100, 1280 * 720));
+        // 480p: 896x504 is taller, so 672x378.
+        assert_eq!(limited(100, 1280 * 720, 480), (80, 672 * 378));
+        assert_eq!(limited(100, 1280 * 720, 360), (70, 640 * 360));
+        // A lower step asked for already stays.
+        assert_eq!(limited(50, 416 * 234, 360), (50, 416 * 234));
+    }
 
     #[test]
     fn cameras_are_asked_for_as_discords_desktop_app_asks() {

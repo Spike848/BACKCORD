@@ -453,11 +453,15 @@ pub fn view<'a>(
         grid = grid.push(line);
     }
     let (ground, edge) = (theme.raised, theme.line);
-    let panel = container(grid)
-        .padding(PAD)
-        .width(size.width)
-        .height(size.height)
-        .style(move |_| crate::style::outlined(ground, edge, 8.0));
+    // The frosted window under its see-through ground, as the menus'.
+    let panel = backcord_iced_kit::widgets::frost::Frost::new(
+        [8.0; 4],
+        container(grid)
+            .padding(PAD)
+            .width(size.width)
+            .height(size.height)
+            .style(move |_| crate::style::outlined(ground, edge, 8.0)),
+    );
     // Over the button, or under it when there's no room above.
     let top = if open.at.y - size.height - 16.0 >= 8.0 {
         open.at.y - size.height - 16.0

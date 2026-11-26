@@ -305,6 +305,9 @@ pub struct Drags<'a, M> {
     click: Option<M>,
     drag: Option<Box<dyn Fn(f32) -> M + 'a>>,
     over: Option<Box<dyn Fn(bool) -> M + 'a>>,
+    /// Sent as the button goes up after a drag started on it: the drag's
+    /// end even when the window's own watch on the button isn't on yet.
+    dropped: Option<M>,
     tracking: bool,
     head: Option<f32>,
 }
@@ -317,6 +320,7 @@ impl<'a, M: Clone> Drags<'a, M> {
                 click: None,
                 drag: None,
                 over: None,
+                dropped: None,
                 tracking: false,
                 head: None,
             },
@@ -339,6 +343,12 @@ impl<'a, M: Clone> Wrap<'a, Drags<'a, M>, M> {
 
     pub fn drag(mut self, drag: impl Fn(f32) -> M + 'a) -> Self {
         self.hooks.drag = Some(Box::new(drag));
+        self
+    }
+
+    /// What letting go after a drag sends.
+    pub fn dropped(mut self, dropped: M) -> Self {
+        self.hooks.dropped = Some(dropped);
         self
     }
 
@@ -386,6 +396,9 @@ impl<M: Clone> Hooks<M> for Drags<'_, M> {
         {
             state.moved = true;
             shell.publish(drag(from.y - bounds.y));
+            // The move is the drag's: a selection box over the list
+            // doesn't start from it too.
+            shell.capture_event();
         }
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
@@ -402,6 +415,12 @@ impl<M: Clone> Hooks<M> for Drags<'_, M> {
             }
             iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
                 let pressed = state.pressed.take();
+                if pressed.is_some()
+                    && state.moved
+                    && let Some(dropped) = &self.dropped
+                {
+                    shell.publish(dropped.clone());
+                }
                 if pressed.is_some()
                     && !state.moved
                     && !self.tracking

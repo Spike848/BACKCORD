@@ -192,6 +192,8 @@ pub enum MenuAct {
     PickedMessages(crate::timeline::picks::MessagePick),
     /// A row of the menu of DMs picked together (`sidebar::folders`).
     DmPicked(backcord_core::application::MenuChoice),
+    /// A row of the menu of servers picked together (`rail`).
+    RailPicked(backcord_core::application::MenuChoice),
     /// A change to the place's notifications: a mute for a time, a level,
     /// a server's switch.
     Notify(backcord_core::chat::NotificationChange),
@@ -752,6 +754,9 @@ fn carry_out(app: &mut App, row: &MenuRow, ticked: Option<bool>, stays: bool) ->
         MenuAct::DmPicked(choice) => {
             Task::batch([focus, crate::sidebar::folders::choose_picked(app, choice)])
         }
+        MenuAct::RailPicked(choice) => {
+            Task::batch([focus, crate::rail::choose_picked(app, choice)])
+        }
         MenuAct::Notify(_)
         | MenuAct::MuteDm(_)
         | MenuAct::ShowAll
@@ -981,6 +986,7 @@ pub fn act(
         | MenuAct::MovePicked
         | MenuAct::PickedMessages(_)
         | MenuAct::DmPicked(_)
+        | MenuAct::RailPicked(_)
         | MenuAct::CopyImage
         | MenuAct::SaveMedia
         | MenuAct::CopyMediaLink

@@ -127,6 +127,9 @@ pub enum Popup {
     Live,
     /// What the camera button opens: the camera, its quality, on or off.
     Camera,
+    /// What the dock's limit button opens: the quality and frame rate
+    /// received from cameras and streams.
+    Limit,
     Soundboard,
     /// The connection's details, from the signal.
     Link,
@@ -178,6 +181,10 @@ pub enum Event {
     LiveQuality(backcord_core::voice::StreamQuality),
     /// The camera's resolution and frame rate, from its menu.
     CameraQuality(backcord_core::voice::CameraQuality),
+    /// This account's stream sent blurred whole, or sharp again.
+    BlurStream(bool),
+    /// The limit on the cameras and streams received, from its menu.
+    ReceiveLimit(backcord_core::voice::ReceiveLimit),
     /// The camera to film with, by id, from its menu.
     ChooseCamera(String),
     /// The device list in a device menu, opened or closed; a device chosen,
@@ -265,6 +272,15 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         }
         Event::LiveQuality(quality) => Action::Voice(Command::StreamQuality(quality)),
         Event::CameraQuality(quality) => Action::Voice(Command::CameraQuality(quality)),
+        Event::BlurStream(on) => Action::Voice(Command::BlurStream(on)),
+        Event::ReceiveLimit(limit) => {
+            app.layout.voice.receive_height = limit.height;
+            app.layout.voice.receive_fps = limit.fps;
+            let root = app.client.root().to_owned();
+            crate::layout::store(&root, "receive_height", limit.height);
+            crate::layout::store(&root, "receive_fps", limit.fps);
+            Action::Voice(Command::ReceiveLimit(limit))
+        }
         Event::ChooseCamera(id) => Action::Voice(Command::Camera(id)),
         Event::Watch(user) => Action::Voice(Command::Watch(user)),
         Event::StopWatching(user) => Action::Voice(Command::StopWatching(user)),

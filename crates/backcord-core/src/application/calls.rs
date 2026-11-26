@@ -487,6 +487,9 @@ impl Application {
     }
 
     pub(super) fn voice_command_quietly(&mut self, command: voice::Command) -> Vec<Effect> {
+        if let voice::Command::ReceiveLimit(limit) = command {
+            voice::set_receive_limit(limit);
+        }
         if matches!(command, voice::Command::Leave) {
             self.state.switch_voice = None;
             self.state.pending_watch = None;

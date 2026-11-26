@@ -14,7 +14,7 @@
 use std::{
     io::{BufRead, BufReader, Write},
     path::PathBuf,
-    process::{Child, ChildStdin, Command, ExitStatus, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -308,6 +308,14 @@ pub enum Control {
         fps: u32,
         effort: Effort,
     },
+    /// Send the shared frames blurred whole, or sharp again.
+    Blur(bool),
+    /// Show a watched stream's frames at most `height` lines tall and
+    /// `fps` a second, 0 for no limit.
+    Limit {
+        height: u32,
+        fps: u32,
+    },
     /// Play a watched stream's sound, or not, as being deafened changes.
     Hear(bool),
     /// Play a watched stream's or a video's sound this loud.
@@ -480,6 +488,7 @@ fn serve(mut input: Box<dyn BufRead + Send>, report: &mut dyn FnMut(Report)) {
                 requested: None,
                 previewed: None,
                 window: None,
+                blur: false,
             };
             report(Report::Ready);
             match source {
@@ -579,6 +588,20 @@ struct Sink {
     /// The window shared, whose application alone the stream's sound is
     /// of; none for a screen.
     window: Option<u64>,
+    /// Frames go out blurred whole ([`Control::Blur`]).
+    blur: bool,
+}
+
+/// `picture` blurred past reading: scaled down to a few dozen pixels
+/// across and back up, which smooths it as it grows, in two quick passes
+/// of the scaler rather than a blur over every pixel.
+fn blurred(picture: &mut I420Buffer) -> I420Buffer {
+    let (width, height) = (picture.width() as i32, picture.height() as i32);
+    let even = |size: i32| (size.max(2) + 1) & !1;
+    let small_width = even(width / 40);
+    let small_height = even(height / 40);
+    let mut small = picture.scale(small_width, small_height);
+    small.scale(width, height)
 }
 
 struct Video {
@@ -633,6 +656,15 @@ impl Sink {
     /// Takes a frame at the size it's sent: the preview shows it, scaled
     /// down to fit, and Discord gets it once the stream has a server.
     fn frame(&mut self, picture: &mut I420Buffer) -> Result<()> {
+        // Blurred before the preview and the encoder alike, so what's
+        // hidden never leaves, and the preview shows it hidden.
+        let mut hidden;
+        let picture = if self.blur {
+            hidden = blurred(picture);
+            &mut hidden
+        } else {
+            picture
+        };
         let (width, height) = (picture.width(), picture.height());
         let thumbnail_due = self.preview_due.is_some_and(|due| due <= Instant::now());
         let drawn = self
@@ -844,6 +876,7 @@ impl Sink {
                     self.effort = effort;
                     self.requested = Some((width, height));
                 }
+                Control::Blur(on) => self.blur = on,
                 _ => {}
             }
         }
@@ -995,6 +1028,10 @@ fn watch(
     let mut held: std::collections::VecDeque<(Instant, stream_connection::ReceivedFrame)> =
         std::collections::VecDeque::new();
     let mut told_quality = None;
+    // The limit shown within (`Control::Limit`), and when a frame was
+    // last shown.
+    let (mut limit_height, mut limit_fps) = (0u32, 0u32);
+    let mut last_shown: Option<Instant> = None;
     while !stop.load(Ordering::Relaxed) {
         let quality = receiver.quality();
         if quality != told_quality {
@@ -1007,6 +1044,9 @@ fn watch(
             match control {
                 Control::Hear(hearing) => sound.hearing.store(hearing, Ordering::Relaxed),
                 Control::Volume(volume) => sound.volume.set(volume),
+                Control::Limit { height, fps } => {
+                    (limit_height, limit_fps) = (height, fps);
+                }
                 _ => {}
             }
         }
@@ -1056,10 +1096,28 @@ fn watch(
                 continue;
             }
         };
+        // Every frame is decoded, each building on the last, but one
+        // sooner than the limit's rate isn't shown.
+        if limit_fps > 0
+            && last_shown.is_some_and(|at| {
+                at.elapsed() < Duration::from_micros(1_000_000 / u64::from(limit_fps)) * 9 / 10
+            })
+        {
+            continue;
+        }
+        last_shown = Some(Instant::now());
         let (width, height) = (picture.width, picture.height);
         // The colours Discord's client and BACKCORD send a stream of this
         // height in.
         let colours = Colours::of_stream(height);
+        let (max_width, max_height) = if limit_height > 0 {
+            (
+                max_width.min(limit_height * 16 / 9),
+                max_height.min(limit_height),
+            )
+        } else {
+            (max_width, max_height)
+        };
         let (width, height) =
             if writer.fits(width, height) && width <= max_width && height <= max_height {
                 (width, height)
@@ -1678,9 +1736,11 @@ pub fn set_hardware_encoding(on: bool) {
 /// BACKCORD's handle on a running worker. Dropping it stops the worker.
 pub struct Worker {
     /// Shared with the thread reading its reports, which waits on it when
-    /// it ends without saying so.
-    child: Arc<Mutex<Child>>,
-    stdin: Option<ChildStdin>,
+    /// it ends without saying so; none when the job runs in this process.
+    child: Option<Arc<Mutex<Child>>>,
+    /// Where its controls go: the worker's input, or the pipe the job in
+    /// this process reads.
+    stdin: Option<Box<dyn Write + Send>>,
 }
 
 impl Worker {
@@ -1794,6 +1854,19 @@ impl Worker {
     }
 
     /// Tells a watching worker whether to play the stream's sound.
+    /// Sends the shared frames blurred whole, or sharp again.
+    pub fn blur(&mut self, on: bool) -> Result<()> {
+        self.control(&Control::Blur(on))
+    }
+
+    /// Shows the watched stream within `limit` from now on.
+    pub fn limit(&mut self, limit: crate::voice::ReceiveLimit) -> Result<()> {
+        self.control(&Control::Limit {
+            height: limit.height,
+            fps: limit.fps,
+        })
+    }
+
     pub fn hear(&mut self, hearing: bool) -> Result<()> {
         self.control(&Control::Hear(hearing))
     }
@@ -1824,6 +1897,62 @@ impl Worker {
     }
 
     fn start(job: &Job) -> Result<(Self, mpsc::UnboundedReceiver<Report>)> {
+        match Self::spawn(job) {
+            Ok(started) => Ok(started),
+            // BACKCORD's file can't be started again (moved, renamed, taken
+            // by an antivirus, run from where Windows can't start it):
+            // the job runs in this process instead of failing.
+            Err(error) => {
+                tracing::warn!(
+                    error = format!("{error:#}"),
+                    "the stream worker didn't start; streaming in BACKCORD itself"
+                );
+                Self::inside(job)
+            }
+        }
+    }
+
+    /// Runs `job` on a thread of this process, its controls through a
+    /// pipe, as the worker process would.
+    fn inside(job: &Job) -> Result<(Self, mpsc::UnboundedReceiver<Report>)> {
+        let (reader, mut writer) = std::io::pipe().context("could not start streaming")?;
+        let line = serde_json::to_string(job)?;
+        writeln!(writer, "{line}").context("could not start streaming")?;
+        if crate::picture::wakes_for_frames() {
+            crate::frames::tell_each_frame(crate::picture::frame_made);
+        }
+        let (reports, receiver) = mpsc::unbounded_channel();
+        let unexpected = match job {
+            Job::Play { .. } => "The video stopped unexpectedly.",
+            _ => "Screen sharing stopped unexpectedly.",
+        };
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
+        std::thread::Builder::new()
+            .name("backcord-stream-inside".into())
+            .spawn(move || {
+                let _logging = tracing::dispatcher::set_default(&dispatch);
+                let mut ended = false;
+                serve(Box::new(BufReader::new(reader)), &mut |report| {
+                    ended |= matches!(report, Report::Ended { .. });
+                    let _ = reports.send(report);
+                });
+                if !ended {
+                    let _ = reports.send(Report::Ended {
+                        error: Some(unexpected.into()),
+                    });
+                }
+            })
+            .context("could not start streaming")?;
+        Ok((
+            Self {
+                child: None,
+                stdin: Some(Box::new(writer)),
+            },
+            receiver,
+        ))
+    }
+
+    fn spawn(job: &Job) -> Result<(Self, mpsc::UnboundedReceiver<Report>)> {
         // Tests run from their own binary, so they name BACKCORD's.
         let program = match std::env::var_os("BACKCORD_STREAM_WORKER") {
             Some(program) => PathBuf::from(program),
@@ -1841,7 +1970,10 @@ impl Worker {
         let mut child = command
             .spawn()
             .context("could not start the stream worker")?;
-        let mut stdin = child.stdin.take();
+        let mut stdin: Option<Box<dyn Write + Send>> = child
+            .stdin
+            .take()
+            .map(|stdin| Box::new(stdin) as Box<dyn Write + Send>);
         let stdout = child.stdout.take();
         let line = serde_json::to_string(job)?;
         if let Some(stdin) = stdin.as_mut() {
@@ -1889,7 +2021,13 @@ impl Worker {
                 }
             })
             .context("could not start the stream worker")?;
-        Ok((Self { child, stdin }, receiver))
+        Ok((
+            Self {
+                child: Some(child),
+                stdin,
+            },
+            receiver,
+        ))
     }
 }
 
@@ -2039,7 +2177,11 @@ impl Drop for Worker {
         if let Some(mut stdin) = self.stdin.take() {
             let _ = writeln!(stdin, "stop");
         }
-        let Ok(mut child) = self.child.lock() else {
+        // In this process, the job stops at the line and its pipe closing.
+        let Some(child) = &self.child else {
+            return;
+        };
+        let Ok(mut child) = child.lock() else {
             return;
         };
         // The worker checks for the stop between frames.
@@ -2143,6 +2285,27 @@ mod tests {
         assert_eq!(how(ExitStatus::from_raw(1 << 8)), "code=1");
     }
 
+    /// Where the worker can't start, the job runs in this process, and
+    /// stopping it ends it.
+    #[test]
+    fn a_job_runs_inside_when_no_worker_starts() {
+        let (worker, mut reports) = Worker::inside(&Job::Glance {
+            screens: vec![],
+            windows: vec![],
+            width: 32,
+            height: 18,
+        })
+        .unwrap();
+        drop(worker);
+        loop {
+            match reports.blocking_recv() {
+                Some(Report::Ended { .. }) => break,
+                Some(_) => {}
+                None => panic!("it ended without saying so"),
+            }
+        }
+    }
+
     #[test]
     fn the_worker_is_the_running_backcord() {
         // Here that's the test binary, which lists its tests and exits.
@@ -2204,6 +2367,7 @@ mod tests {
             requested: None,
             previewed: None,
             window: None,
+            blur: false,
         };
         let (offers, encoder) = sink.offers(320, 180).unwrap();
         eprintln!("offering {offers:?}, encoding with {}", encoder.engine());
@@ -2241,6 +2405,7 @@ mod tests {
             requested: None,
             previewed: None,
             window: None,
+            blur: false,
         };
         // A 1080p picture, mid-grey: luma and chroma halfway.
         let mut picture = I420Buffer::new(SHARE_WIDTH, SHARE_HEIGHT);
@@ -2282,6 +2447,7 @@ mod tests {
             requested: None,
             previewed: None,
             window: None,
+            blur: false,
         };
         let mut report = |_| {};
         assert_eq!(sink.check(&mut report).unwrap(), None);
@@ -2313,6 +2479,7 @@ mod tests {
             requested: None,
             previewed: None,
             window: None,
+            blur: false,
         };
         let mut picture = I420Buffer::new(SHARE_WIDTH, SHARE_HEIGHT);
         let (y, u, v) = picture.data_mut();

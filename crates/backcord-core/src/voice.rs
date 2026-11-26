@@ -71,6 +71,9 @@ pub struct Sharing {
     pub frames: Arc<crate::frames::Frames>,
     /// Who watches it, by user id, as Discord lists them.
     pub viewers: Vec<String>,
+    /// Sent blurred whole, to hide what's on it without stopping the
+    /// stream: [`Command::BlurStream`].
+    pub blurred: bool,
 }
 
 /// Watching someone's stream in the call.
@@ -157,6 +160,42 @@ impl Default for StreamQuality {
             fps: 30,
             high_quality: false,
         }
+    }
+}
+
+/// A limit on the video this account receives, the cameras' and the
+/// streams' alike, chosen from the dock: lines (0 for none) and frames a
+/// second (0 for none). Cameras are asked for at the quality step that
+/// fits it, so their senders film smaller; streams, which Discord sends at
+/// the streamer's quality, are shown no larger and no oftener.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub struct ReceiveLimit {
+    pub height: u32,
+    pub fps: u32,
+}
+
+impl ReceiveLimit {
+    pub fn is_none(self) -> bool {
+        self.height == 0 && self.fps == 0
+    }
+}
+
+static RECEIVE_HEIGHT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static RECEIVE_FPS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// Sets the limit every call's cameras and streams follow from now on.
+pub fn set_receive_limit(limit: ReceiveLimit) {
+    use std::sync::atomic::Ordering::Relaxed;
+    RECEIVE_HEIGHT.store(limit.height, Relaxed);
+    RECEIVE_FPS.store(limit.fps, Relaxed);
+}
+
+/// The limit set last ([`set_receive_limit`]); none at first.
+pub fn receive_limit() -> ReceiveLimit {
+    use std::sync::atomic::Ordering::Relaxed;
+    ReceiveLimit {
+        height: RECEIVE_HEIGHT.load(Relaxed),
+        fps: RECEIVE_FPS.load(Relaxed),
     }
 }
 
@@ -463,6 +502,12 @@ pub enum Command {
     /// for next time.
     StreamQuality(StreamQuality),
     StopLive,
+    /// Send this account's stream blurred whole, or sharp again, the
+    /// stream going on; off each time it starts.
+    BlurStream(bool),
+    /// Receive the cameras and streams within this limit from now on
+    /// ([`set_receive_limit`]).
+    ReceiveLimit(ReceiveLimit),
     /// Play the soundboard sound with this id for everyone in the call.
     Soundboard(String),
     /// Play the soundboard sound with this id here only, to hear it first.

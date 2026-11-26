@@ -209,6 +209,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Cancel => {
             app.sidebar.moving_person = None;
             app.sidebar.dm_moving = None;
+            app.sidebar.arranging = None;
         }
         Event::Over(place, over) => {
             if let Some(arranging) = &mut app.sidebar.arranging {
@@ -505,6 +506,11 @@ pub fn arrange_subscription(app: &App) -> Option<Subscription<Message>> {
             key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
             ..
         }) => Some(message(Event::Cancel)),
+        // A release that never came (let go outside the window, or the
+        // window lost the focus): the next press, or the focus going,
+        // ends the drag, so nothing stays held to the pointer.
+        iced::Event::Mouse(iced::mouse::Event::ButtonPressed(_))
+        | iced::Event::Window(iced::window::Event::Unfocused) => Some(message(Event::Cancel)),
         _ => None,
     });
     let (top, bottom) = side_list_span(app);

@@ -427,22 +427,55 @@ impl<'a> Page<'a> {
             Some(db) => format!("{db} dB"),
             None => backcord_iced_kit::i18n::tr("Off").to_owned(),
         };
+        // Beside the speakers, the microphone: its device and volume, how
+        // it sends, and how Discord calls process it.
+        let push = voice.input_mode == InputMode::PushToTalk;
+        let mut microphone_side = vec![
+            form::group([
+                form::heading(theme, backcord_iced_kit::i18n::tr("MICROPHONE")),
+                device(Drop::Microphone, microphones, microphone),
+                slider(
+                    backcord_iced_kit::i18n::tr("Microphone volume"),
+                    mic_volume,
+                    backcord_core::volume::MOST,
+                    |value| voice_message(Event::Volume(true, value, false)),
+                )
+                .on_release(voice_message(Event::Volume(true, mic_volume, true)))
+                .typed(|value| voice_message(Event::Volume(true, value, true)))
+                .view(theme),
+            ]),
+            form::group([
+                form::heading(theme, backcord_iced_kit::i18n::tr("INPUT MODE")),
+                choices(
+                    theme,
+                    &[
+                        backcord_iced_kit::i18n::tr("Voice activity"),
+                        backcord_iced_kit::i18n::tr("Push to talk"),
+                    ],
+                    usize::from(push),
+                    |index| voice_message(Event::InputMode(index)),
+                ),
+                form::note(
+                    theme,
+                    if push {
+                        backcord_iced_kit::i18n::tr(
+                            "BACKCORD sends your microphone only while you hold a key.",
+                        )
+                    } else {
+                        backcord_iced_kit::i18n::tr(
+                            "BACKCORD sends your voice when it hears you speak.",
+                        )
+                    },
+                ),
+            ]),
+        ];
+        if linked {
+            microphone_side.extend(self.discord_processing());
+        }
         let mut parts = vec![
             form::title(theme, backcord_iced_kit::i18n::tr("Voice & video")),
             form::halves(
-                form::group([
-                    form::heading(theme, backcord_iced_kit::i18n::tr("MICROPHONE")),
-                    device(Drop::Microphone, microphones, microphone),
-                    slider(
-                        backcord_iced_kit::i18n::tr("Microphone volume"),
-                        mic_volume,
-                        backcord_core::volume::MOST,
-                        |value| voice_message(Event::Volume(true, value, false)),
-                    )
-                    .on_release(voice_message(Event::Volume(true, mic_volume, true)))
-                    .typed(|value| voice_message(Event::Volume(true, value, true)))
-                    .view(theme),
-                ]),
+                form::page(microphone_side),
                 form::group([
                     form::heading(theme, backcord_iced_kit::i18n::tr("SPEAKERS")),
                     device(Drop::Speaker, speakers, speaker),
@@ -525,39 +558,15 @@ impl<'a> Page<'a> {
         if backcord_core::discord_audio::AVAILABLE {
             parts.push(self.mic_test());
         }
-        // Under the test: how the microphone sends, then how it's processed.
-        let push = voice.input_mode == InputMode::PushToTalk;
-        parts.push(form::group([
-            form::heading(theme, backcord_iced_kit::i18n::tr("INPUT MODE")),
-            choices(
-                theme,
-                &[
-                    backcord_iced_kit::i18n::tr("Voice activity"),
-                    backcord_iced_kit::i18n::tr("Push to talk"),
-                ],
-                usize::from(push),
-                |index| voice_message(Event::InputMode(index)),
-            ),
-            form::note(
-                theme,
-                if push {
-                    backcord_iced_kit::i18n::tr(
-                        "BACKCORD sends your microphone only while you hold a key.",
-                    )
-                } else {
-                    backcord_iced_kit::i18n::tr(
-                        "BACKCORD sends your voice when it hears you speak.",
-                    )
-                },
-            ),
-        ]));
+        // Under the test: push to talk's keys or the sensitivity, then the
+        // soundboard.
         if push {
             parts.extend(self.push_to_talk());
         } else if linked {
             parts.push(self.sensitivity());
         }
         if linked {
-            parts.extend(self.discord_processing());
+            parts.push(self.soundboard());
         }
         let mut camera_group = vec![
             form::heading(theme, backcord_iced_kit::i18n::tr("CAMERA")),
@@ -658,17 +667,17 @@ impl<'a> Page<'a> {
     /// Discord calls' microphone processing, in Settings' order: the
     /// soundboard's volume, studio mode, then noise suppression and echo
     /// reduction, which apply in studio mode too.
-    fn discord_processing(self) -> Vec<Element<'a, Message>> {
+    /// The soundboard's volume, for Discord calls.
+    fn soundboard(self) -> Element<'a, Message> {
         let settings = self.s;
         let theme = self.cx.look.theme;
-        let voice = &self.cx.layout.voice;
         let state = self.cx.state;
         let board = settings.voice.soundboard.unwrap_or_else(|| {
             backcord_core::volume::to_slider(state.soundboard_volume / 100.0)
                 .round()
                 .clamp(0.0, 100.0) as u32
         });
-        let soundboard = form::group([
+        form::group([
             form::heading(theme, backcord_iced_kit::i18n::tr("SOUNDBOARD VOLUME")),
             slider(
                 backcord_iced_kit::i18n::tr("Soundboard volume"),
@@ -685,7 +694,14 @@ impl<'a> Page<'a> {
                     "How loud soundboard sounds play in Discord calls, yours and everyone else's. Discord keeps it for all your devices.",
                 ),
             ),
-        ]);
+        ])
+    }
+
+    /// How Discord calls process the microphone: studio mode, noise
+    /// suppression and its strength, echo reduction.
+    fn discord_processing(self) -> Vec<Element<'a, Message>> {
+        let theme = self.cx.look.theme;
+        let voice = &self.cx.layout.voice;
         let studio = voice.studio_voice;
         let mut parts = vec![];
         parts.push(
@@ -757,7 +773,6 @@ impl<'a> Page<'a> {
                 backcord_iced_kit::i18n::tr("Keeps what your speakers play from going back out through your microphone, so others don't hear themselves. Strong also turns your microphone down while only that echo reaches it; your own voice still goes through. With headphones you can turn it off. A call going on switches straight away."),
             ),
         ]));
-        parts.push(soundboard);
         parts
     }
 

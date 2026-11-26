@@ -282,6 +282,7 @@ impl<'a> super::View<'a> {
                     .click(click)
                     .head(head)
                     .drag(move |grab| Message::Arrange(crate::arrange::Event::Start(place, grab)))
+                    .dropped(Message::Arrange(crate::arrange::Event::Drop))
                     .tracking(self.s.dragging(), move |on| over(Some(place), on))
                     .into()
             }

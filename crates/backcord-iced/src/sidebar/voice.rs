@@ -251,7 +251,8 @@ impl<'a> super::View<'a> {
             )))
             .drag(move |_| {
                 Message::Arrange(crate::arrange::Event::Take(room.clone(), user.clone()))
-            });
+            })
+            .dropped(Message::Arrange(crate::arrange::Event::Drop));
         if !person.elsewhere {
             return drags.into();
         }

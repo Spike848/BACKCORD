@@ -456,6 +456,10 @@ pub struct Voice {
     pub stream_muted_people: BTreeSet<String>,
     /// Encoding a shared screen on the GPU; on unless turned off.
     pub gpu_encoding: Option<bool>,
+    /// The limit on the cameras and streams received, from the dock's
+    /// button: lines and frames a second, 0 (the default) for none.
+    pub receive_height: u32,
+    pub receive_fps: u32,
     /// BACKCORD's sounds: how loud as a slider's percentage, each one's own
     /// volume where it isn't 100%, the presets made of files chosen in
     /// place of Discord's, and the preset playing (none: Discord's).
@@ -536,6 +540,15 @@ impl Voice {
             volume::mute_stream(person, true);
         }
         backcord_core::stream_worker::set_hardware_encoding(self.gpu_encoding.unwrap_or(true));
+        backcord_core::voice::set_receive_limit(self.receive_limit());
+    }
+
+    /// The limit on the video received, as kept.
+    pub fn receive_limit(&self) -> backcord_core::voice::ReceiveLimit {
+        backcord_core::voice::ReceiveLimit {
+            height: self.receive_height,
+            fps: self.receive_fps,
+        }
     }
 
     /// Calls send the microphone and play at the volume sliders' values,

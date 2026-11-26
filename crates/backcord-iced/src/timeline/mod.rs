@@ -176,6 +176,9 @@ pub struct Timeline {
     /// The messages picked with Ctrl and a click, by item, which one menu
     /// acts on together (`picks.rs`).
     pub picked: Vec<Arc<str>>,
+    /// While a box is dragged over the rows, the messages picked before it
+    /// (those picked with Ctrl held as it started, else none).
+    pub boxing: Option<Vec<Arc<str>>>,
     /// The times the rows show, and their timers.
     pub clocks: Clocks,
     /// The Discord messages the rows link to, laid out for their cards.
@@ -239,6 +242,7 @@ impl Timeline {
             selection: None,
             selecting: false,
             picked: Vec::new(),
+            boxing: None,
             clocks: Clocks::default(),
             linked: Default::default(),
         }
@@ -375,6 +379,9 @@ pub enum Event {
     PickRow(Arc<str>),
     /// A click on a message without Ctrl, while some are picked.
     ClearPicks,
+    /// A box dragged over the list, in its viewport's terms, and whether
+    /// it was let go of: the messages it touches picked.
+    Boxed(iced::Rectangle, bool),
 }
 
 /// What each of the timeline's events does.
@@ -443,6 +450,10 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         }
         Event::ClearPicks => {
             app.timeline.picked.clear();
+            Task::none()
+        }
+        Event::Boxed(area, done) => {
+            picks::boxed(app, area, done);
             Task::none()
         }
         Event::RowMenu(item, at) => {

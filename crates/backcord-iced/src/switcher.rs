@@ -615,7 +615,9 @@ impl<'a> View<'a> {
                 theme,
                 &DURATIONS.map(backcord_iced_kit::i18n::tr),
                 draft.duration.min(POLL_HOURS.len() - 1),
-                460.0,
+                // The dialog's width inside its padding and the scrollbar's
+                // room.
+                500.0_f32.min(self.cx.look.window.width - 48.0) - 40.0 - 12.0,
                 move |index| edit(PollEdit::Duration(index)),
             ));
         let ticked = draft.multiselect;

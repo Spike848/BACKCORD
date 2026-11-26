@@ -211,6 +211,21 @@ impl Layer {
         )
     }
 
+    /// Whether it opens over the window, so the menus' glass is taken
+    /// as it does: the reply bar, the edit in its row, a selection and
+    /// the threads' forms stay in the window, open beside what opens.
+    pub fn floats(self) -> bool {
+        !matches!(
+            self,
+            Layer::Selection
+                | Layer::Search
+                | Layer::Editing
+                | Layer::Compose
+                | Layer::AsideForm
+                | Layer::AsideReply
+        )
+    }
+
     /// Whether it takes every key no field took while it's open; the
     /// others take only Escape, the rest of the keys going on to the
     /// timeline and the composer.
