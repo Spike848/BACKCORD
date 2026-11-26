@@ -215,6 +215,20 @@ struct Detector {
     executables: Vec<(String, Arc<GameInfo>)>,
 }
 
+/// A custom game's executable as a running process names it: a path,
+/// through a junction or a symbolic link, the file it reaches, as the
+/// system gives a process's path; a bare file name as it is, as is a path
+/// to nothing there now.
+fn resolved(executable: &str) -> String {
+    if !executable.contains(['/', '\\']) {
+        return executable.to_owned();
+    }
+    std::fs::canonicalize(executable).map_or_else(
+        |_| executable.to_owned(),
+        |path| path.to_string_lossy().into_owned(),
+    )
+}
+
 fn custom_match(
     entries: &[(String, Arc<GameInfo>)],
     path: &str,
@@ -352,7 +366,7 @@ impl Detector {
             .filter(|game| !game.executable.trim().is_empty() && !game.name.trim().is_empty())
             .map(|game| {
                 (
-                    game.executable.trim().to_owned(),
+                    resolved(game.executable.trim()),
                     Arc::new(GameInfo {
                         id: None,
                         name: game.name.trim().into(),

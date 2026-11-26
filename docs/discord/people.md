@@ -1364,7 +1364,9 @@ game's name, its application id and when it started go to Discord.
 Rich Presence comes first, then the custom games, Discord's list and Steam.
 A custom game is an executable and the name to show after Playing: a file
 name matches the executable in any folder, a full path only there, and
-Windows and Wine paths ignore case. Custom games are this device's, kept in
+Windows and Wine paths ignore case. A full path is taken to the file it
+reaches through junctions and symbolic links, as a running process's path
+is, so one written through either still matches. Custom games are this device's, kept in
 `layout.json`, and a change rescans at once.
 
 Discord's list comes from
