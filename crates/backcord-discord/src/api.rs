@@ -78,6 +78,7 @@ impl NewPoll {
 
 /// The message flag of `@silent`: no push or desktop notifications.
 const SUPPRESS_NOTIFICATIONS: u64 = 1 << 12;
+const IS_VOICE_MESSAGE: u64 = 1 << 13;
 /// The type of a message reference that forwards the message, rather than
 /// replying to it.
 const FORWARD: u64 = 1;
@@ -143,7 +144,21 @@ pub struct User {
 pub struct Upload {
     pub filename: String,
     pub uploaded_filename: String,
+    /// A voice message's recording, which its attachment describes.
+    pub voice: Option<VoiceClip>,
 }
+
+/// A voice message's recording, as its attachment says to Discord: how
+/// long it plays, in seconds, and its loudness, base64 of up to 256 bytes,
+/// each from 0 to 255, as Discord's apps send it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VoiceClip {
+    pub duration_secs: f32,
+    pub waveform: String,
+}
+
+/// The name Discord's apps give a voice message's recording.
+pub const VOICE_MESSAGE_FILE: &str = "voice-message.ogg";
 
 /// The most files one message can carry.
 pub const MAX_FILES: usize = 10;
@@ -697,8 +712,16 @@ impl Api {
         uploads: &[Upload],
     ) -> Result<Value> {
         let mut body = message_body(content, options.nonce);
+        let mut flags = 0;
         if options.silent {
-            body["flags"] = SUPPRESS_NOTIFICATIONS.into();
+            flags |= SUPPRESS_NOTIFICATIONS;
+        }
+        // A voice message is its recording alone, flagged.
+        if uploads.iter().any(|upload| upload.voice.is_some()) {
+            flags |= IS_VOICE_MESSAGE;
+        }
+        if flags != 0 {
+            body["flags"] = flags.into();
         }
         if !uploads.is_empty() {
             body["attachments"] = attachments(uploads);
@@ -1020,6 +1043,7 @@ impl Api {
         Ok(Upload {
             filename: filename.to_owned(),
             uploaded_filename: uploaded_filename.to_owned(),
+            voice: None,
         })
     }
 
@@ -2901,11 +2925,16 @@ fn attachments(uploads: &[Upload]) -> Value {
         .iter()
         .enumerate()
         .map(|(index, upload)| {
-            json!({
+            let mut attachment = json!({
                 "id": index.to_string(),
                 "filename": upload.filename,
                 "uploaded_filename": upload.uploaded_filename,
-            })
+            });
+            if let Some(voice) = &upload.voice {
+                attachment["duration_secs"] = voice.duration_secs.into();
+                attachment["waveform"] = voice.waveform.as_str().into();
+            }
+            attachment
         })
         .collect()
 }
@@ -3069,6 +3098,7 @@ mod tests {
         let upload = super::Upload {
             filename: "crash.png".into(),
             uploaded_filename: "uploads/1/crash.png".into(),
+            voice: None,
         };
         assert_eq!(
             super::post_body("Crash", 4320, &["7".into()], "It closes.", &[upload]),

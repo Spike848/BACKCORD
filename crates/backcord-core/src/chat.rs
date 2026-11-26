@@ -129,6 +129,9 @@ pub struct ChatRoom {
     pub style: Option<Arc<NameStyle>>,
     /// The largest file a message here may carry, in bytes.
     pub upload_limit: u64,
+    /// This account may send voice messages here: a Discord DM, or a
+    /// channel where it may attach files and send voice messages.
+    pub voice_messages: bool,
     /// A one-to-one Discord DM's other person: whether they're around, when
     /// Discord says, and their custom status or what they're doing.
     pub presence: Option<Presence>,
@@ -415,6 +418,24 @@ pub struct OutgoingFile {
     pub path: PathBuf,
     /// Marked as a spoiler, which only Discord keeps.
     pub spoiler: bool,
+    /// A voice message's recording, which the message is alone.
+    pub voice: Option<VoiceClip>,
+}
+
+/// The item a recording not yet sent plays as, by its file.
+pub fn recorded_item(path: &std::path::Path) -> String {
+    format!("{RECORDED}{}", path.display())
+}
+
+/// What starts [`recorded_item`]'s items.
+pub const RECORDED: &str = "recorded:";
+
+/// A voice message's recording, as it goes: how long it plays and its
+/// loudness, up to 256 points from 0 to 255.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VoiceClip {
+    pub duration_ms: u64,
+    pub waveform: Vec<u8>,
 }
 
 impl From<PathBuf> for OutgoingFile {
@@ -422,6 +443,7 @@ impl From<PathBuf> for OutgoingFile {
         Self {
             path,
             spoiler: false,
+            voice: None,
         }
     }
 }

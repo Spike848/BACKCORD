@@ -133,6 +133,7 @@ impl App {
         }
         subscriptions.extend(crate::arrange::arrange_subscription(self));
         subscriptions.extend(crate::uploads::follow_subscription(self));
+        subscriptions.extend(crate::voice_note::subscription(self));
         subscriptions.push(crate::away::away_subscription(self));
         subscriptions.push(crate::keybinds::window_talk_keys());
         if self.call.grab.is_some() {

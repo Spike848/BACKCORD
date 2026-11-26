@@ -515,3 +515,119 @@ fn a_long_message_goes_in_parts_in_order_with_split_long_messages() {
     });
     assert!(!app.state.drafts.contains_key(&room));
 }
+
+/// `connected()` with its DM taking voice messages.
+fn voice_messages_allowed(app: &mut Application) {
+    let dm = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == "dm")
+        .unwrap();
+    dm.voice_messages = true;
+}
+
+fn clip() -> chat::VoiceClip {
+    chat::VoiceClip {
+        duration_ms: 2500,
+        waveform: vec![0, 128, 255],
+    }
+}
+
+#[test]
+fn a_voice_message_goes_alone_as_its_recording_and_leaves_the_draft() {
+    let mut app = connected();
+    let path = std::path::PathBuf::from("voice-message.ogg");
+    let send = |app: &mut Application| {
+        app.dispatch(Action::SendVoiceMessage {
+            room: "dm".into(),
+            path: path.clone(),
+            clip: clip(),
+        })
+    };
+    assert!(send(&mut app).is_empty(), "not where it may not");
+    voice_messages_allowed(&mut app);
+    app.dispatch(Action::SetDraft("half written".into()));
+    app.state.compose.insert(
+        "dm".into(),
+        Compose::Reply {
+            item: "d:5".into(),
+            author: "Bob".into(),
+            body: "hi".into(),
+            emoji: vec![],
+            ping: false,
+        },
+    );
+    let effects = send(&mut app);
+    let sent = effects.iter().find_map(|effect| match effect {
+        Effect::Backend(Command::Send {
+            room,
+            body,
+            reply,
+            options,
+            files,
+        }) if room == "dm" => Some((body, reply, options, files)),
+        _ => None,
+    });
+    let (body, reply, options, files) = sent.expect("sent");
+    assert!(body.is_empty());
+    assert_eq!(
+        reply.as_deref(),
+        Some("d:5"),
+        "as the reply the composer held"
+    );
+    assert!(options.quiet_reply);
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].path, path);
+    assert_eq!(files[0].voice, Some(clip()));
+    assert!(
+        !app.state.compose.contains_key("dm"),
+        "the reply went with it"
+    );
+    assert_eq!(
+        app.state.drafts.get("dm").map(String::as_str),
+        Some("half written")
+    );
+}
+
+#[test]
+fn a_recording_plays_before_it_goes_and_stops_as_it_does() {
+    let mut app = connected();
+    voice_messages_allowed(&mut app);
+    let path = std::path::PathBuf::from("voice-message.ogg");
+    let play = |app: &mut Application| {
+        app.dispatch(Action::PlayRecording {
+            room: "dm".into(),
+            path: path.clone(),
+        })
+    };
+    assert!(matches!(
+        play(&mut app).as_slice(),
+        [Effect::Backend(Command::PlayVoiceMessage { item, index: 0, .. })]
+            if *item == chat::recorded_item(&path)
+    ));
+    assert!(
+        app.state
+            .voice_message
+            .as_ref()
+            .is_some_and(|playing| playing.playing)
+    );
+    assert!(matches!(
+        play(&mut app).as_slice(),
+        [Effect::Backend(Command::PauseVoiceMessage)]
+    ));
+    play(&mut app);
+    let effects = app.dispatch(Action::SendVoiceMessage {
+        room: "dm".into(),
+        path: path.clone(),
+        clip: clip(),
+    });
+    assert!(
+        effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::Backend(Command::PauseVoiceMessage))),
+        "the recording stopped playing"
+    );
+    assert!(app.state.voice_message.is_none(), "it stopped as it went");
+}

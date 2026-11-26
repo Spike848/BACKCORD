@@ -1213,3 +1213,38 @@ async fn auto_delete_deletes_this_accounts_messages_in_time() {
         "not before its time"
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn sends_a_voice_message() {
+    let Fixture {
+        _fake,
+        discord,
+        guild,
+        general,
+        ..
+    } = Fixture::start("sends_a_voice_message").await;
+    let mut live = discord.live();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let recording = std::fs::read(root.join("testing/fixtures/voice-tone.ogg")).unwrap();
+    let nonce = backcord_discord::message::nonce();
+    // Its waveform: silent, half and full, as base64.
+    let clip = backcord_discord::api::VoiceClip {
+        duration_secs: 2.0,
+        waveform: "AID/".into(),
+    };
+    let sent = discord
+        .send_voice_message(&guild, &general, sending(&nonce, None), recording, clip)
+        .await
+        .unwrap();
+    let echoed = live_where(&mut live, |event| match event {
+        Live::Created(message) if message.id == sent.id => Some(message),
+        _ => None,
+    })
+    .await;
+    let voice = echoed.voice.as_ref().expect("a voice message");
+    assert_eq!(voice.duration_ms, 2000);
+    assert_eq!(&voice.waveform[..], [0, 128, 255]);
+    assert_eq!(echoed.attachments[0].name, "voice-message.ogg");
+    assert!(echoed.content.is_empty());
+}

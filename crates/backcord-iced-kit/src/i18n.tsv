@@ -4036,3 +4036,6 @@ How long after you send a message it's deleted. Turning Auto Delete off forgets 
 30 seconds	30 secondi
 Voice limiter	Limitatore voci
 Holds each person's voice under this level, so nobody plays louder however loud they send. Streams, the soundboard and other sounds aren't limited.	Tiene la voce di ogni persona sotto questo livello, così nessuno si sente più forte, per quanto alto trasmetta. Stream, soundboard e altri suoni non vengono limitati.
+Record a voice message	Registra un messaggio vocale
+Send voice message	Invia messaggio vocale
+BACKCORD couldn't record from the microphone.	BACKCORD non è riuscito a registrare dal microfono.

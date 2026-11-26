@@ -1978,6 +1978,36 @@ impl Discord {
         message::parse(&value).ok_or_else(|| anyhow!("could not understand Discord's answer"))
     }
 
+    /// Sends a voice message, as Discord's apps do: its Ogg Opus
+    /// `recording` uploaded as `voice-message.ogg`, then a message of it
+    /// alone, flagged IS_VOICE_MESSAGE, with how long it plays and its
+    /// waveform; a reply as `options` says.
+    pub async fn send_voice_message(
+        &self,
+        guild: &str,
+        channel: &str,
+        options: crate::api::Sending<'_>,
+        recording: Vec<u8>,
+        clip: crate::api::VoiceClip,
+    ) -> Result<Message> {
+        let mut upload = self
+            .api
+            .upload(channel, crate::api::VOICE_MESSAGE_FILE, recording)
+            .await?;
+        upload.voice = Some(clip);
+        let uploads = [upload];
+        let sent = self
+            .api
+            .send(server(guild), channel, "", options, &uploads)
+            .await;
+        if sent.is_err() {
+            self.discard(&uploads).await;
+        }
+        let value = sent?;
+        self.write_names().learn_message(server(guild), &value);
+        message::parse(&value).ok_or_else(|| anyhow!("could not understand Discord's answer"))
+    }
+
     /// Uploads files for a message in `channel`, given as their names and
     /// contents, all at once as Discord's client does; if one fails, the
     /// others are thrown away.

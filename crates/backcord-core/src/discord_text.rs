@@ -378,6 +378,26 @@ impl Chat {
             return;
         }
         self.voice_message = None;
+        // A recording not yet sent plays from its file.
+        if let Some(path) = item.strip_prefix(crate::chat::RECORDED) {
+            let path = std::path::PathBuf::from(path);
+            let playback = VoicePlayback {
+                room,
+                item,
+                index,
+                ..Default::default()
+            };
+            let player = crate::voice_message::Player::start(
+                playback,
+                speakers,
+                tuning,
+                moved_to,
+                async move { tokio::fs::read(&path).await.map_err(anyhow::Error::from) },
+            );
+            let _ = events.send(Event::VoiceMessage(Some(player.playback.clone())));
+            self.voice_message = Some(player);
+            return;
+        }
         let url = self
             .channels
             .shown_mut(&room)

@@ -68,6 +68,25 @@ let go with its file) or a file's icon, either under the SPOILER cover
 once marked, the name and size, the spoiler button where the room has
 spoilers, and the X.
 
+### Voice messages
+
+Where this account may send voice messages, the composer has a microphone
+button before the emoji's (`voice_note.rs`). It records from the
+microphone chosen for calls (`backcord_core::recorder`): 48 kHz mono on a
+thread of its own, encoded to Opus at 48 kbps as it comes, each 20 ms's
+peak kept for the waveform, up to 20 minutes, when it stops by itself. In
+the field's place, a red dot, how long it has gone, the level of the last
+four seconds, Stop and Cancel show, moving ten times a second. Stopped,
+the recording is written to `voice-message.ogg` in a folder of its own in
+the system's temporary folder, as an Ogg Opus file (RFC 7845, a page a
+second), with its waveform of up to 256 points, the loudest at 255. Shorter
+than half a second, it goes. It waits there to play first, on the voice
+messages' player (`Action::PlayRecording`, the item
+`chat::recorded_item`), with its waveform filling as it plays, to delete,
+or to send (`Action::SendVoiceMessage`); see
+[messages](../discord/messages.md). A microphone that won't open says so
+there instead.
+
 A message of one's own is edited in its row (`edit.rs`), tinted with
 Discord's edit tint: the text becomes a field of its own there, with the
 emoji button beside it and "escape to cancel • enter to save" under it,

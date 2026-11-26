@@ -396,6 +396,15 @@ BACKCORD is back, rather than showing an error.
   one playing. Moved, its thread seeks the
   recording 80 ms early, Opus's pre-roll, and leaves out what's before the
   time.
+- Sending one, as Discord's apps do: `POST /channels/{id}/attachments` for
+  its recording, `voice-message.ogg`, then `POST /channels/{id}/messages`
+  flagged `IS_VOICE_MESSAGE`, with no content and that one attachment, its
+  `duration_secs` and base64 `waveform` beside it
+  (`Discord::send_voice_message`). It goes as a message with a file does
+  otherwise, showing at once and offering Retry if it fails, as a reply when
+  the composer holds one. BACKCORD offers it in DMs, and in channels where
+  this account may attach files and send voice messages (`ChatRoom::voice_messages`);
+  [the composer](../client/writing.md#voice-messages) records it.
 - Markdown shows as Discord's client shows it. Bold, italics, strikethrough,
   inline code, lists and links are runs of styled text
   (`crates/backcord-iced/src/markdown.rs`, which reads them with

@@ -787,3 +787,42 @@ fn the_formatting_panel_changes_only_a_double_clicked_word() {
     )));
     assert_eq!(app.composer.draft.text(), "SAY hi now");
 }
+
+/// The composer's voice message: only where voice messages may go, it
+/// records, waits to go once stopped as its file, and goes with its file
+/// when thrown away.
+#[test]
+fn a_voice_message_records_waits_to_go_and_is_thrown_away() {
+    use crate::voice_note::{Event as Voice, VoiceNote};
+    let (mut app, _folder) = preview();
+    let voice = |event| Message::Write(crate::composer::Event::Voice(event));
+    let _ = app.update(voice(Voice::Start));
+    assert!(app.composer.voice.is_none(), "not where it may not");
+    super::change(&mut app, |state| {
+        let selected = state.selected.clone().expect("a room open");
+        for room in state.rooms.iter_mut().map(std::sync::Arc::make_mut) {
+            if room.id == selected {
+                room.voice_messages = true;
+            }
+        }
+    });
+    let _ = app.update(voice(Voice::Start));
+    assert!(matches!(
+        app.composer.voice,
+        Some(VoiceNote::Recording { .. })
+    ));
+    assert!(shows(&app, "0:00"), "how long it has gone");
+    std::thread::sleep(std::time::Duration::from_millis(800));
+    let _ = app.update(voice(Voice::Tick));
+    let _ = app.update(voice(Voice::Stop));
+    let Some(VoiceNote::Recorded { path, clip, .. }) = &app.composer.voice else {
+        panic!("it waits to go");
+    };
+    assert!(path.ends_with("voice-message.ogg"));
+    assert!(std::fs::metadata(path).is_ok_and(|file| file.len() > 0));
+    assert!(clip.duration_ms >= 500, "{}", clip.duration_ms);
+    let path = path.clone();
+    let _ = app.update(voice(Voice::Cancel));
+    assert!(app.composer.voice.is_none());
+    assert!(!path.exists(), "thrown away with its file");
+}

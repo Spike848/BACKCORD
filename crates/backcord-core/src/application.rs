@@ -1965,6 +1965,23 @@ pub enum Action {
     /// attachment at this index (0 for a voice message), or pause it while
     /// it plays.
     ToggleVoiceMessage(String, usize),
+    /// Send a voice message in a Discord room: the Ogg Opus recording at
+    /// `path`, named voice-message.ogg, as a reply when the composer holds
+    /// one.
+    SendVoiceMessage {
+        room: String,
+        path: std::path::PathBuf,
+        clip: chat::VoiceClip,
+    },
+    /// Play the recording at `path` before it's sent, or pause it while it
+    /// plays; it shows as the voice message playing, by
+    /// [`chat::recorded_item`].
+    PlayRecording {
+        room: String,
+        path: std::path::PathBuf,
+    },
+    /// Stop playing a recording that was sent or thrown away.
+    StopRecording,
     /// Play voice messages at the next speed: 1, 1.5, then 2 times as fast.
     CycleVoiceMessageSpeed,
     /// Play voice messages this loud, from 0 to 1 as the slider stands,
@@ -4225,6 +4242,11 @@ impl Application {
                 vec![Effect::Backend(Command::Video(command))]
             }
             Action::ToggleVoiceMessage(item, index) => self.toggle_voice_message(item, index),
+            Action::SendVoiceMessage { room, path, clip } => {
+                self.send_voice_message(room, path, clip)
+            }
+            Action::PlayRecording { room, path } => self.play_recording(room, path),
+            Action::StopRecording => self.stop_recording(),
             Action::MoveVoiceMessage(item, index, fraction) => {
                 self.move_voice_message(item, index, fraction)
             }

@@ -60,6 +60,8 @@ pub struct Composer {
     pub suggest: crate::suggest::Suggest,
     /// The composer written in last, the channel's or the thread's.
     pub writing_last: Writing,
+    /// A voice message being recorded, or waiting to go.
+    pub voice: Option<crate::voice_note::VoiceNote>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -107,6 +109,8 @@ pub enum Event {
     CommandFileChosen(usize, String),
     /// The commands' list scrolled to this far down.
     CommandsScrolled(f32),
+    /// The voice message's button and bar.
+    Voice(crate::voice_note::Event),
 }
 
 /// What the composer shows for the open room, from the core's state.
@@ -247,6 +251,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             app.composer.suggest.command_offset = offset;
             Task::none()
         }
+        Event::Voice(event) => crate::voice_note::update(app, event),
     }
 }
 
@@ -983,6 +988,9 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
             Some(Message::StreamProof(crate::stream_proof::Event::Toggle)),
         )));
     }
+    if let Some(mic) = crate::voice_note::button(ctx) {
+        buttons = buttons.push(lift(mic));
+    }
     let emoji = buttons.push(lift(composer_button(
         ctx,
         Icon::Smile,
@@ -991,10 +999,14 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
         tint(Tab::Emoji),
         opens(Tab::Emoji),
     )));
-    let line = row![lift(plus), field, emoji]
-        .spacing(6)
-        .align_y(Alignment::End)
-        .padding(Padding::ZERO.left(10).right(8));
+    let line: Element<'a, Message> = match crate::voice_note::bar(ctx) {
+        Some(bar) => bar,
+        None => row![lift(plus), field, emoji]
+            .spacing(6)
+            .align_y(Alignment::End)
+            .padding(Padding::ZERO.left(10).right(8))
+            .into(),
+    };
     let ground = if look.enabled {
         theme.composer
     } else {

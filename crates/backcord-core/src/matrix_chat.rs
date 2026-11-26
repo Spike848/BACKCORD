@@ -1217,6 +1217,7 @@ async fn room_index(client: &Client) -> RoomIndex {
             incoming: false,
             avatar: None,
             upload_limit: MAX_ATTACHMENT_BYTES,
+            voice_messages: false,
             presence: None,
             activity: None,
             activities: Default::default(),

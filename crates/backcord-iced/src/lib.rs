@@ -133,6 +133,7 @@ mod typing;
 mod updates;
 mod uploads;
 mod video;
+mod voice_note;
 use backcord_iced_kit::viewer;
 use backcord_iced_kit::widgets;
 mod window_bar;

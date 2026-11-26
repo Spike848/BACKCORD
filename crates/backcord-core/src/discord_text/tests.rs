@@ -1543,6 +1543,7 @@ async fn a_file_marked_as_a_spoiler_arrives_as_one() {
             files: vec![OutgoingFile {
                 path,
                 spoiler: true,
+                voice: None,
             }],
         },
         Ok(&discord),
@@ -1625,6 +1626,7 @@ async fn a_sent_picture_has_a_link_and_downloads_to_copy() {
             files: vec![OutgoingFile {
                 path,
                 spoiler: false,
+                voice: None,
             }],
         },
         Ok(&discord),

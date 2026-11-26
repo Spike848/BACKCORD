@@ -342,6 +342,10 @@
 // POST /_control/clip makes Bob attach clip.mp4, six seconds with sound, and
 // link a post whose card plays a video, as vxtwitter's do; Carol forwards
 // the clip. They go to #general, or with ?channel=ID to that channel or thread.
+// Alice sends a voice message as Discord's apps do: POST
+// /channels/{id}/messages flagged IS_VOICE_MESSAGE (1 << 13), with one
+// uploaded voice-message.ogg whose attachment has duration_secs and a base64
+// waveform, and no content; anything else so flagged is refused.
 // POST /_control/voice-message makes Bob send a voice message, the two
 // seconds of testing/fixtures/voice-tone.ogg, to #general or ?channel=ID.
 // POST /_control/bob-away makes Bob idle with a custom status,
@@ -6585,14 +6589,27 @@ async function api(req: Request, path: string, origin: string): Promise<Response
         }
       }
       const reply = body.message_reference?.message_id;
+      // A voice message, IS_VOICE_MESSAGE: its recording alone, named as
+      // Discord's apps name it, with how long it plays and its waveform.
+      const voiceMessage = (Number(body.flags ?? 0) & (1 << 13)) !== 0;
+      const recording = body.attachments?.[0];
+      if (voiceMessage && (body.attachments?.length !== 1 || body.content
+        || recording?.filename !== "voice-message.ogg" || typeof recording?.duration_secs !== "number"
+        || typeof recording?.waveform !== "string")) {
+        return json({ message: "Invalid Form Body", code: 50035 }, 400);
+      }
       const attached = takeUploads(body.attachments, m[1]!);
       if (!attached) return json({ message: "Invalid Form Body", code: 50035 }, 400);
+      if (voiceMessage) {
+        attached[0]!.voice = { seconds: recording.duration_secs, waveform: Buffer.from(recording.waveform, "base64") };
+      }
       const message = post(m[1]!, users.alice, body.content ?? "", Date.now(), {
         nonce: body.nonce ? String(body.nonce) : undefined,
         reply: reply && byId.has(reply) ? reply : undefined,
         files: attached,
         stickers,
         poll,
+        ...(voiceMessage ? { flags: 1 << 13 } : {}),
       });
       // An env's favourite GIF comes with its embed, so a recording doesn't
       // show its link for the moment before the embed would come.

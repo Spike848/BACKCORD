@@ -78,6 +78,8 @@ pub use backcord_discord::platforms;
 #[cfg(feature = "discord")]
 pub mod playback;
 pub mod push_to_talk;
+#[cfg(feature = "discord")]
+pub mod recorder;
 pub mod relationship_alerts;
 #[cfg(feature = "discord")]
 pub mod ring;

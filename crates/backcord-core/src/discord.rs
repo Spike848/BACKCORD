@@ -988,6 +988,7 @@ fn dm_room(snapshot: &Snapshot, dm: &Conversation, premium: u8, me: &str) -> Cha
         nameplate: dm.nameplate.clone().map(|plate| Arc::new(plate.into())),
         style: dm.style.map(|style| Arc::new(style.into())),
         upload_limit: backcord_discord::api::upload_limit(premium, None),
+        voice_messages: !dm.request,
         presence: dm.presence.map(presence),
         activity: dm.activity.clone(),
         activities: dm.activities.clone(),
@@ -1128,6 +1129,8 @@ fn server_rooms(
                 locked: marks.access == Access::Hidden,
                 join_locked: marks.access != Access::Join,
                 read_only: !server.may_send(channel, me, &server.marks.roles),
+                voice_messages: server.may_send(channel, me, &server.marks.roles)
+                    && server.may_send_voice_messages(channel, me, &server.marks.roles),
                 reacts: reacts(server, channel, me),
                 slowed: server.slowed(channel, me, &server.marks.roles),
                 timed_out_until: server.my_timeout.as_ref().map(|timeout| timeout.until),
@@ -1191,6 +1194,8 @@ fn server_rooms(
                 locked: marks.access == Access::Hidden,
                 join_locked: false,
                 read_only: marks.access == Access::Locked,
+                voice_messages: marks.access != Access::Locked
+                    && server.may_send_voice_messages(channel, me, &server.marks.roles),
                 reacts: reacts(server, channel, me),
                 slowed: server.slowed(channel, me, &server.marks.roles),
                 timed_out_until: server.my_timeout.as_ref().map(|timeout| timeout.until),
@@ -1355,6 +1360,8 @@ fn thread_room(
         join_locked: false,
         // Locked, or this account may not write in threads here.
         read_only: thread.marks.access == Access::Locked,
+        voice_messages: thread.marks.access != Access::Locked
+            && server.may_send_voice_messages(&thread, me, &server.marks.roles),
         reacts: reacts(server, &thread, me),
         slowed: server.slowed(&thread, me, &server.marks.roles),
         timed_out_until: server.my_timeout.as_ref().map(|timeout| timeout.until),

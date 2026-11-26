@@ -411,6 +411,56 @@ impl Application {
         })]
     }
 
+    /// Plays a recording before it's sent, from where it paused, or pauses
+    /// it while it plays; it shows as the voice message playing.
+    pub(super) fn play_recording(&mut self, room: String, path: std::path::PathBuf) -> Vec<Effect> {
+        let item = chat::recorded_item(&path);
+        let playback = &mut self.state.voice_message;
+        if let Some(playing) = playback
+            .as_mut()
+            .filter(|playing| playing.item == item && playing.playing)
+        {
+            playing.playing = false;
+            return vec![Effect::Backend(Command::PauseVoiceMessage)];
+        }
+        let paused = playback
+            .as_ref()
+            .filter(|paused| paused.item == item && paused.error.is_none())
+            .map(|paused| (paused.position_ms, paused.duration_ms));
+        *playback = Some(chat::VoicePlayback {
+            room: room.clone(),
+            item: item.clone(),
+            index: 0,
+            duration_ms: paused.and_then(|(_, duration)| duration),
+            loading: paused.is_none(),
+            playing: true,
+            position_ms: paused.map_or(0, |(position, _)| position),
+            error: None,
+        });
+        vec![Effect::Backend(Command::PlayVoiceMessage {
+            room,
+            item,
+            index: 0,
+            speakers: self.state.voice.speaker.clone(),
+            tuning: self.state.voice_tuning,
+        })]
+    }
+
+    /// Stops a recording playing before it's sent, as it's sent or thrown
+    /// away.
+    pub(super) fn stop_recording(&mut self) -> Vec<Effect> {
+        let recorded = self
+            .state
+            .voice_message
+            .as_ref()
+            .is_some_and(|playing| playing.item.starts_with(chat::RECORDED));
+        if !recorded {
+            return vec![];
+        }
+        self.state.voice_message = None;
+        vec![Effect::Backend(Command::PauseVoiceMessage)]
+    }
+
     /// Moves a voice message `fraction` of the way through, from 0 to 1, as
     /// its waveform is clicked or dragged: the one playing or paused goes on
     /// from there as it was, and another waits there paused in its place, as

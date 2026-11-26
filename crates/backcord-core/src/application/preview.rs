@@ -212,6 +212,7 @@ pub(super) fn preview_room(id: &str, name: &str, direct: bool, members: u64) -> 
         nameplate: None,
         style: None,
         upload_limit: 50 * 1024 * 1024,
+        voice_messages: false,
         presence: None,
         activity: None,
         activities: Default::default(),

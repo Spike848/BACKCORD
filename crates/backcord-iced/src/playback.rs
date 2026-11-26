@@ -151,7 +151,7 @@ pub fn voice_time(ms: u64) -> String {
 }
 
 /// The loudest of each of [`BARS`] stretches of a waveform, from 0 to 1.
-fn bars(waveform: &[u8]) -> impl Iterator<Item = f32> + '_ {
+pub(crate) fn bars(waveform: &[u8]) -> impl Iterator<Item = f32> + '_ {
     (0..BARS).map(move |bar| {
         let start = bar * waveform.len() / BARS;
         let end = ((bar + 1) * waveform.len() / BARS).max(start + 1);

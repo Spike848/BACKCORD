@@ -452,6 +452,7 @@ mod tests {
         Upload {
             filename: name.into(),
             uploaded_filename: format!("uploads/{name}"),
+            voice: None,
         }
     }
 

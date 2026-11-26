@@ -406,6 +406,7 @@ impl Application {
             .map(|file| chat::OutgoingFile {
                 path: file.path.clone(),
                 spoiler: file.spoiler,
+                voice: None,
             })
             .collect();
         self.sent_files = files.iter().map(|file| file.path.clone()).collect();
@@ -439,6 +440,51 @@ impl Application {
                 },
             }));
         }
+        effects
+    }
+
+    /// Sends a voice message in `room`, where this account may: its
+    /// recording alone, as a reply when the composer holds one, which it
+    /// then leaves. What's written stays.
+    pub(super) fn send_voice_message(
+        &mut self,
+        room: String,
+        path: std::path::PathBuf,
+        clip: chat::VoiceClip,
+    ) -> Vec<Effect> {
+        let allowed = self
+            .state
+            .rooms
+            .iter()
+            .any(|known| known.id == room && known.voice_messages);
+        if self.state.preview || !allowed || !self.state.can_write_in(&room) {
+            return vec![];
+        }
+        let reply = match self.state.compose.get(&room) {
+            Some(Compose::Reply { item, ping, .. }) => Some((item.clone(), *ping)),
+            _ => None,
+        };
+        if reply.is_some() {
+            self.state.compose.remove(&room);
+        }
+        let mut effects = self.stop_recording();
+        if self.state.selected.as_ref() == Some(&room) {
+            effects.extend(self.jump_to_present());
+        }
+        effects.push(Effect::Backend(Command::Send {
+            room,
+            body: String::new(),
+            options: chat::SendOptions {
+                quiet_reply: reply.as_ref().is_some_and(|(_, ping)| !ping),
+                silent: false,
+            },
+            reply: reply.map(|(item, _)| item),
+            files: vec![chat::OutgoingFile {
+                path,
+                spoiler: false,
+                voice: Some(clip),
+            }],
+        }));
         effects
     }
 

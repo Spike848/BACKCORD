@@ -48,6 +48,8 @@ pub mod permission {
     pub const MANAGE_MESSAGES: u64 = 1 << 13;
     pub const VIEW_CHANNEL: u64 = 1 << 10;
     pub const SEND_MESSAGES: u64 = 1 << 11;
+    pub const ATTACH_FILES: u64 = 1 << 15;
+    pub const SEND_VOICE_MESSAGES: u64 = 1 << 46;
     pub const READ_MESSAGE_HISTORY: u64 = 1 << 16;
     pub const MENTION_EVERYONE: u64 = 1 << 17;
     pub const VIEW_GUILD_ANALYTICS: u64 = 1 << 19;
@@ -855,6 +857,15 @@ impl Server {
     /// connecting to it.
     pub fn may_send(&self, channel: &Channel, user: &str, roles: &[String]) -> bool {
         self.roles.is_empty() || self.channel_permissions(channel, user, roles) & SEND_MESSAGES != 0
+    }
+
+    /// Whether `user`, holding `roles`, may send voice messages in
+    /// `channel`, which takes Attach Files and Send Voice Messages both, as
+    /// Discord asks.
+    pub fn may_send_voice_messages(&self, channel: &Channel, user: &str, roles: &[String]) -> bool {
+        use permission::{ATTACH_FILES, SEND_VOICE_MESSAGES};
+        let needed = ATTACH_FILES | SEND_VOICE_MESSAGES;
+        self.roles.is_empty() || self.channel_permissions(channel, user, roles) & needed == needed
     }
 
     /// Whether `user`, holding `roles`, waits out `channel`'s slowmode

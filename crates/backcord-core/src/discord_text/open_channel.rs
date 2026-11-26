@@ -38,6 +38,7 @@ pub(super) struct PendingFile {
     name: String,
     size: u64,
     spoiler: bool,
+    voice: Option<crate::chat::VoiceClip>,
 }
 
 /// Messages loaded with no gap between them, and what's known of what's
@@ -749,21 +750,28 @@ impl OpenChannel {
         }
         let files = files
             .into_iter()
-            .map(|OutgoingFile { path, spoiler }| {
-                let metadata =
-                    std::fs::metadata(&path).map_err(|_| "BACKCORD could not read a file.")?;
-                let name = path
-                    .file_name()
-                    .map(|name| name.to_string_lossy().into_owned())
-                    .filter(|_| metadata.is_file())
-                    .ok_or("Choose a file to send.")?;
-                Ok(PendingFile {
-                    path,
-                    name,
-                    size: metadata.len(),
-                    spoiler,
-                })
-            })
+            .map(
+                |OutgoingFile {
+                     path,
+                     spoiler,
+                     voice,
+                 }| {
+                    let metadata =
+                        std::fs::metadata(&path).map_err(|_| "BACKCORD could not read a file.")?;
+                    let name = path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                        .filter(|_| metadata.is_file())
+                        .ok_or("Choose a file to send.")?;
+                    Ok(PendingFile {
+                        path,
+                        name,
+                        size: metadata.len(),
+                        spoiler,
+                        voice,
+                    })
+                },
+            )
             .collect::<Result<Vec<_>, &'static str>>()?;
         let reply = match reply {
             Some(item) => Some(
@@ -821,6 +829,11 @@ impl OpenChannel {
             .iter()
             .map(|file| (file.path.clone(), file.name.clone(), file.spoiler))
             .collect();
+        // A voice message is its recording alone.
+        let voice = match pending.files.as_slice() {
+            [file] => file.voice.clone(),
+            _ => None,
+        };
         let ticket = self.tickets;
         self.tickets += 1;
         let turn = self.turn.clone();
@@ -841,6 +854,19 @@ impl OpenChannel {
                     ping_reply: !options.quiet_reply,
                     silent: options.silent,
                 };
+                if let (Some(voice), Some((_, recording))) = (voice, read.pop()) {
+                    let clip = backcord_discord::api::VoiceClip {
+                        duration_secs: voice.duration_ms as f32 / 1000.0,
+                        waveform: {
+                            use base64::Engine;
+                            base64::engine::general_purpose::STANDARD.encode(&voice.waveform)
+                        },
+                    };
+                    return discord
+                        .send_voice_message(&guild, &channel, sending, recording, clip)
+                        .await
+                        .map_err(|error| error.to_string());
+                }
                 discord
                     .send(&guild, &channel, &body, sending, read)
                     .await
