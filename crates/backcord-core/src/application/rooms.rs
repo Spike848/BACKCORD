@@ -1246,6 +1246,7 @@ impl Application {
         let mut effects = self.show_lists_only();
         effects.extend(self.follow_into_voice());
         effects.extend(self.unmute_myself());
+        effects.extend(self.leave_group_calls());
         effects
     }
 

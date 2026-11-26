@@ -980,7 +980,9 @@ fn dm_room(snapshot: &Snapshot, dm: &Conversation, premium: u8, me: &str) -> Cha
             .filter(|person| person.user_id != me)
             .map(voice_person)
             .collect(),
-        incoming: dm.ringing.iter().any(|person| person.user_id == me),
+        // Anti Group Call: a group's call never rings.
+        incoming: dm.ringing.iter().any(|person| person.user_id == me)
+            && !(dm.person.is_none() && crate::extras::anti_group_call()),
         avatar: dm.avatar.clone(),
         decoration: dm.decoration.clone(),
         nameplate: dm.nameplate.clone().map(|plate| Arc::new(plate.into())),

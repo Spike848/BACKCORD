@@ -281,6 +281,42 @@ impl Application {
         effects
     }
 
+    /// Anti Group Call: a Discord group DM with a call going on, which a
+    /// ringing call is too, is left at once: its call, if this account is in
+    /// it here, then the group itself, silently, as Leave Group's dialog can.
+    /// Each group once; a ring doesn't show, as `discord.rs` leaves it out.
+    pub(super) fn leave_group_calls(&mut self) -> Vec<Effect> {
+        if !self.state.anti_group_call || !self.state.discord_online {
+            return vec![];
+        }
+        let groups: Vec<String> = self
+            .state
+            .rooms
+            .iter()
+            .filter(|room| {
+                room.network == Network::Discord
+                    && room.direct
+                    && room.person.is_none()
+                    && !room.request
+                    && !room.people.is_empty()
+                    && !self.groups_left.contains(&room.id)
+            })
+            .map(|room| room.id.clone())
+            .collect();
+        let mut effects = vec![];
+        for room in groups {
+            if self.state.voice.active() && self.state.voice.room.as_ref() == Some(&room) {
+                effects.extend(self.voice_command(voice::Command::Leave));
+            }
+            tracing::info!("Anti Group Call: leaving a group DM with a call");
+            self.groups_left.insert(room.clone());
+            effects.push(Effect::Backend(Command::Discord(
+                DiscordCommand::LeaveGroup { room, silent: true },
+            )));
+        }
+        effects
+    }
+
     /// Follows `user` into voice, or stops with none; joins where they are
     /// now at once.
     pub(super) fn follow_voice(&mut self, user: Option<String>) -> Vec<Effect> {

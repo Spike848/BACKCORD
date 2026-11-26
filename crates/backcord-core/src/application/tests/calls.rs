@@ -1163,3 +1163,96 @@ fn follow_joins_the_channel_the_person_goes_to_once() {
     assert!(app.state.following.is_none());
     assert!(joins(&app.follow_into_voice()).is_empty(), "stopped");
 }
+
+/// `connected()`, with its DM a Discord group DM and Discord online.
+fn discord_group() -> Application {
+    let mut app = connected();
+    let group = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == "dm")
+        .unwrap();
+    group.network = Network::Discord;
+    group.person = None;
+    app.state.discord_online = true;
+    app
+}
+
+/// Someone is in the call of the room `id`.
+fn call_in(app: &mut Application, id: &str) {
+    let room = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == id)
+        .unwrap();
+    room.people = vec![chat::VoicePerson {
+        id: "bob".into(),
+        name: "Bob".into(),
+        ..Default::default()
+    }];
+}
+
+fn groups_left(effects: &[Effect]) -> Vec<(&str, bool)> {
+    effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::Backend(Command::Discord(DiscordCommand::LeaveGroup { room, silent })) => {
+                Some((room.as_str(), *silent))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn anti_group_call_leaves_a_group_with_a_call_once_silently() {
+    let mut app = discord_group();
+    assert!(
+        groups_left(&app.dispatch(Action::AntiGroupCall(true))).is_empty(),
+        "no call"
+    );
+    call_in(&mut app, "dm");
+    assert_eq!(groups_left(&app.leave_group_calls()), [("dm", true)]);
+    assert!(groups_left(&app.leave_group_calls()).is_empty(), "once");
+}
+
+#[test]
+fn anti_group_call_is_off_by_default_and_spares_one_to_one_dms() {
+    let mut app = discord_group();
+    call_in(&mut app, "dm");
+    assert!(groups_left(&app.leave_group_calls()).is_empty(), "off");
+    let dm = app
+        .state
+        .rooms
+        .iter_mut()
+        .map(Arc::make_mut)
+        .find(|room| room.id == "dm")
+        .unwrap();
+    dm.person = Some("bob".into());
+    assert!(groups_left(&app.dispatch(Action::AntiGroupCall(true))).is_empty());
+}
+
+#[test]
+fn anti_group_call_leaves_the_call_this_account_is_in_first() {
+    let mut app = discord_group();
+    app.apply(call(Phase::Connected, "dm", vec![]));
+    call_in(&mut app, "dm");
+    let effects = app.dispatch(Action::AntiGroupCall(true));
+    let left_call = effects.iter().position(|effect| {
+        matches!(
+            effect,
+            Effect::Backend(Command::Voice(voice::Command::Leave))
+        )
+    });
+    let left_group = effects.iter().position(|effect| {
+        matches!(
+            effect,
+            Effect::Backend(Command::Discord(DiscordCommand::LeaveGroup { .. }))
+        )
+    });
+    assert!(left_call.is_some() && left_call < left_group);
+}

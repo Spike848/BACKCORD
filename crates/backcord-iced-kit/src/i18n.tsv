@@ -4027,3 +4027,5 @@ Auto Unmute	Auto-smuta
 When a server mutes or deafens you in a voice channel where you may mute and deafen members, undoes it at once.	Quando un server ti silenzia o ti toglie l'audio in un canale vocale dove puoi silenziare e togliere l'audio ai membri, lo annulla subito.
 Anti Nickname Change	Anti-cambio nickname
 When someone else changes your nickname in a server where you may change your own, sets it back at once. A change you make on another device is set back too.	Quando qualcun altro cambia il tuo nickname in un server dove puoi cambiarlo tu, lo rimette subito com'era. Viene annullato anche un cambio fatto da un altro tuo dispositivo.
+Anti Group Call	Anti chiamata di gruppo
+Group DM calls don't ring you. When a call starts in a group DM, you leave the call and the group at once, without a message saying you left. Turn it off to call a group yourself.	Le chiamate nei gruppi DM non ti squillano. Quando parte una chiamata in un gruppo DM, esci subito dalla chiamata e dal gruppo, senza il messaggio che dice che sei uscito. Disattivala per chiamare tu un gruppo.

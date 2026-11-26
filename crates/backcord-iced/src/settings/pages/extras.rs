@@ -201,6 +201,7 @@ impl<'a> Page<'a> {
         let follow = prefs.follow_voice.unwrap_or(true);
         let auto_unmute = prefs.auto_unmute.unwrap_or(false);
         let keep_nickname = prefs.keep_nickname.unwrap_or(false);
+        let anti_group_call = prefs.anti_group_call.unwrap_or(false);
         let message_links = prefs.message_link_previews.unwrap_or(true);
         let hidden = prefs.show_hidden_channels;
         let relationships = prefs.relationship_notifier.unwrap_or(true);
@@ -240,6 +241,13 @@ impl<'a> Page<'a> {
                 tr("When someone else changes your nickname in a server where you may change your own, sets it back at once. A change you make on another device is set back too."),
                 keep_nickname,
                 Pref::KeepNickname(!keep_nickname),
+                None,
+            ),
+            self.plugin(
+                tr("Anti Group Call"),
+                tr("Group DM calls don't ring you. When a call starts in a group DM, you leave the call and the group at once, without a message saying you left. Turn it off to call a group yourself."),
+                anti_group_call,
+                Pref::AntiGroupCall(!anti_group_call),
                 None,
             ),
             self.plugin(

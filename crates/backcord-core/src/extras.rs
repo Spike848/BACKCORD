@@ -36,6 +36,18 @@ thread_local! {
     static TEST_FAKE_NITRO: std::cell::Cell<FakeNitro> = const { std::cell::Cell::new(FakeNitro::OFF) };
 }
 
+/// Anti Group Call: a Discord group DM's call doesn't ring this account
+/// (see [`crate::application::Action::AntiGroupCall`], which sets this).
+static ANTI_GROUP_CALL: AtomicBool = AtomicBool::new(false);
+
+pub fn set_anti_group_call(on: bool) {
+    ANTI_GROUP_CALL.store(on, Ordering::Relaxed);
+}
+
+pub fn anti_group_call() -> bool {
+    !cfg!(test) && ANTI_GROUP_CALL.load(Ordering::Relaxed)
+}
+
 /// Anti Nickname Change: someone else's change to this account's nickname
 /// in a server, where it may change its own, is set back; see
 /// `backcord_discord::service::set_keep_nickname`.

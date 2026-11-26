@@ -686,6 +686,8 @@ pub struct AppState {
     pub anti_disconnect: bool,
     /// Auto Unmute is on; see [`Action::AutoUnmute`].
     pub auto_unmute: bool,
+    /// Anti Group Call is on; see [`Action::AntiGroupCall`].
+    pub anti_group_call: bool,
     /// The Discord user Follow follows into voice; see
     /// [`Action::FollowVoice`].
     pub following: Option<String>,
@@ -2679,6 +2681,9 @@ pub enum Action {
     /// Auto Unmute: a server mute or deafen of this account, in a Discord
     /// voice channel where it may mute or deafen members, is undone at once.
     AutoUnmute(bool),
+    /// Anti Group Call: a Discord group DM's calls don't ring, and a call
+    /// going on in one leaves it, and the group with it, silently.
+    AntiGroupCall(bool),
     /// Follow: joins the voice channels this Discord user goes to, in
     /// servers this account shares with them, until it's none.
     FollowVoice(Option<String>),
@@ -2915,6 +2920,8 @@ pub struct Application {
     /// The voice channel, server mute and server deafen Auto Unmute last
     /// saw this account with, so it acts once on each change.
     unmute_seen: Option<(String, bool, bool)>,
+    /// The group DMs Anti Group Call left, so it leaves each once.
+    groups_left: HashSet<String>,
     /// The call this account is in got connected: one that ends with an
     /// error after that was dropped, not one that failed to join.
     voice_was_connected: bool,
@@ -4986,6 +4993,13 @@ impl Application {
                 self.unmute_seen = None;
                 self.unmute_myself()
             }
+            Action::AntiGroupCall(on) => {
+                self.state.anti_group_call = on;
+                #[cfg(not(test))]
+                crate::extras::set_anti_group_call(on);
+                self.groups_left.clear();
+                self.leave_group_calls()
+            }
             Action::FollowVoice(user) => self.follow_voice(user),
             Action::MoveServer {
                 moved,
@@ -5208,6 +5222,7 @@ impl Application {
                 // One the call kept Follow from joining.
                 effects.extend(self.follow_into_voice());
                 effects.extend(self.unmute_myself());
+                effects.extend(self.leave_group_calls());
                 return effects;
             }
             Event::Connected {

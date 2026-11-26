@@ -241,6 +241,8 @@ pub struct Prefs {
     pub auto_unmute: Option<bool>,
     /// Anti Nickname Change (off unless turned on).
     pub keep_nickname: Option<bool>,
+    /// Anti Group Call (off unless turned on).
+    pub anti_group_call: Option<bool>,
     /// Message Link Previews: a card of each Discord message a message
     /// links to under it (on unless turned off).
     pub message_link_previews: Option<bool>,
@@ -530,6 +532,7 @@ impl Layout {
             Action::HideNameplates(!self.prefs.nameplates.unwrap_or(true)),
             Action::AntiDisconnect(self.prefs.anti_disconnect.unwrap_or(false)),
             Action::AutoUnmute(self.prefs.auto_unmute.unwrap_or(false)),
+            Action::AntiGroupCall(self.prefs.anti_group_call.unwrap_or(false)),
             Action::HideMessageLinks(!self.prefs.message_link_previews.unwrap_or(true)),
             Action::SpoofBadges(self.prefs.badge_spoofer()),
         ]

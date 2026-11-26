@@ -426,6 +426,16 @@ Declining posts `POST /channels/{id}/call/stop-ringing` with this account,
 which leaves the call to the others. The DM's own call shows the same choice
 above its messages when it's open.
 
+With Anti Group Call on (`Action::AntiGroupCall`, an Extra Feature, off by
+default), a group DM's call never rings this account: `discord.rs` leaves
+its `incoming` off, so no card, ring or notification shows. A group DM with
+a call going on, which a ringing call is too, is left at once
+(`Application::leave_group_calls`, after each list and voice change): its
+call first, if this account is in it here, then the group, silently, as
+Leave Group's dialog can, so the others see no message that it left. It
+leaves each group once. It leaves too a group whose call this account
+starts or joins, so calling a group takes turning it off.
+
 While this account is in a DM's call, the call's stage shows above the DM's
 messages, taking less than half the conversation, more while watching a
 stream. Without it, a DM with a call going on shows who is in it and a button
