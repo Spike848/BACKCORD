@@ -34,27 +34,12 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.6.0
+## Novità della 1.6.1
 
-- **Modalità stanza** (in Impostazioni → funzioni aggiuntive, spenta di
-  default): un pulsante in chiamata apre un quadrante dove trascini gli avatar
-  delle persone a sinistra, a destra, davanti o dietro, e senti la loro voce da
-  quel punto nello spazio. Sotto, uno slider aggiunge il riverbero di una
-  stanza. Posizioni e riverbero restano salvati. Rende al meglio con le cuffie.
-- **Timeout dalla chat**: il tasto destro sul nome taggato di una persona apre
-  il suo menu, con Timeout o Rimuovi timeout, Espelli e Banna se hai i permessi.
-- **Barra della chiamata adattabile**: restringendo la finestra i tasti si
-  stringono invece di rompersi, e la barra non viene più schiacciata dai
-  riquadri delle persone.
-- **Persone in vocale sulla lista server più fedeli**: passando sopra un
-  server, BACKCORD si iscrive ai suoi aggiornamenti e vede subito chi entra ed
-  esce; un server che torna dopo un'interruzione non mostra più chi era uscito.
-- **Bot sempre visibili in chiamata**, anche quando sono in vocale in più
-  server insieme.
-- **Sfocatura del tema** anche sul selettore di qualità della stream e sui
-  profili con i colori Nitro.
-- L'avatar in basso a sinistra resta tondo anche con gli avatar squadrati, così
-  combacia con l'anello che si accende quando parli.
+- **Trascinare le persone in vocale**: premendo su qualcuno in un canale vocale
+  e muovendo il mouse di lato o in diagonale, ora parte il trascinamento verso
+  un altro canale invece della selezione a riquadro. Vale anche per canali e
+  DM; il riquadro parte ancora dallo spazio vuoto della lista.
 
 ## Cosa fa
 
