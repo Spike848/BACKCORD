@@ -34,19 +34,34 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.6.3
+## Novità della 1.6.4
 
-- **La tua voce non rientra più nella stream a schermo intero**: se un
-  programma suona in un dispositivo che finisce nel microfono (per esempio
-  Adobe Audition o un'app di effetti che manda la voce in un cavo virtuale come
-  VB-Cable), BACKCORD lo lascia fuori dalla stream e cattura gli altri
-  programmi uno per uno. Chi guarda non sente più la tua voce due volte.
-- **Compatibile con Voicemeeter, Wave Link e SteelSeries Sonar**: il loro mix
-  non finisce più nella stream, così non rientrano né la tua voce né l'audio
-  della chiamata. Giochi, browser e gli altri programmi si sentono come prima.
-- **Il cursore si vede in stream**: condividendo lo schermo o una finestra su
-  Windows il cursore del mouse compare nella stream quando è visibile, e
-  sparisce quando un gioco o un video lo nasconde.
+- **Trova una conversazione**: il nuovo tasto sopra Amici (e Ctrl+K) cerca le
+  persone anche nei server in comune, come Discord, con foto profilo, nome e
+  tag del server; trova anche chi ha un nome con lettere decorate (es. 𝖊𝖒𝖆) o
+  si cerca per username. La barra in alto ora si chiama "Trova dm".
+- **Ctrl+R riavvia BACKCORD** quando la finestra è attiva.
+- **Effetti sul tuo microfono**, in Voce e video e nel menu rapido del
+  microfono: allargamento stereo con intensità, panning sinistra/destra,
+  profondità in bit e frequenza di campionamento (per le voci "da vecchio
+  videogioco") e intonazione in semitoni. Lo stereo lo sente chi usa BACKCORD
+  o l'app desktop di Discord; da browser e telefono Discord lo riduce a mono.
+- **Test microfono nel menu rapido**, sulla riga del livello di ingresso: ti
+  senti come ti sentono gli altri, effetti compresi.
+- **Soppressione del rumore Estrema**: va oltre Massima nelle stanze rumorose,
+  con DeepFilterNet e con RNNoise.
+- **Stream**: col tasto destro su chi è in diretta puoi silenziare la sua
+  stream; quando vai in diretta puoi scegliere di non condividere l'audio,
+  anche a diretta in corso.
+- **Silenzia e rendi sordo sul server da chat e lista membri**: col tasto
+  destro su una menzione o su un membro, se hai il permesso. Se la persona non
+  è in vocale, il comando parte appena entra.
+- **Telecamere**: riempiono il riquadro senza bande nere, e una telecamera che
+  non arriva rientrando in vocale viene richiesta di nuovo da sola.
+- **Più veloce e leggero**: risposte di Discord compresse, gateway in zstd come
+  l'app desktop, avatar e icone in WebP, connessione tenuta aperta, meno
+  latenza sul gateway, immagini rimpicciolite più nitide e colori del video più
+  puliti. Su Windows l'errore 10055 non interrompe più chiamate e stream.
 
 ## Cosa fa
 
