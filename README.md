@@ -34,17 +34,19 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.6.2
+## Novità della 1.6.3
 
-- **Banner del profilo con il colore del tema**: un profilo con un tema e
-  senza immagine banner ora mostra il banner nel colore del tema, come su
-  Discord, invece del vecchio colore banner (spesso bianco).
-- **Trascinamento classico nella lista**: premendo su qualcuno in un canale
-  vocale, su una DM o su un canale e muovendo il mouse, parte il trascinamento
-  in qualsiasi direzione.
-- **Selezione a riquadro solo con Ctrl**: nella lista di canali e DM il
-  riquadro che seleziona più persone in vocale o più DM parte solo tenendo
-  premuto Ctrl.
+- **La tua voce non rientra più nella stream a schermo intero**: se un
+  programma suona in un dispositivo che finisce nel microfono (per esempio
+  Adobe Audition o un'app di effetti che manda la voce in un cavo virtuale come
+  VB-Cable), BACKCORD lo lascia fuori dalla stream e cattura gli altri
+  programmi uno per uno. Chi guarda non sente più la tua voce due volte.
+- **Compatibile con Voicemeeter, Wave Link e SteelSeries Sonar**: il loro mix
+  non finisce più nella stream, così non rientrano né la tua voce né l'audio
+  della chiamata. Giochi, browser e gli altri programmi si sentono come prima.
+- **Il cursore si vede in stream**: condividendo lo schermo o una finestra su
+  Windows il cursore del mouse compare nella stream quando è visibile, e
+  sparisce quando un gioco o un video lo nasconde.
 
 ## Cosa fa
 

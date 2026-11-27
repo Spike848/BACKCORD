@@ -223,7 +223,17 @@ as plain Opus RTP on the stream's audio SSRC, DAVE-encrypted, with sender
 reports, and op 5 marks them as shared sound (speaking flag 2). Nothing is
 sent while no application plays. On Windows, WASAPI's process loopback hears
 everything but BACKCORD's own process tree as one stream, from Windows 10's 2004
-update on; it can't leave other Discord clients out. Other systems share
+update on. While an application plays into a microphone, it hears each other
+application's tree in a stream of its own instead, leaving that one out, along
+with BACKCORD and other Discord clients: an output counts as playing into a
+microphone when it isn't the default one and its sound card records too, as a
+virtual cable's input (VB-Cable) does into the output BACKCORD records, and a
+mixer that plays the microphone and the call on to the speakers (Voicemeeter,
+Elgato Wave Link, SteelSeries Sonar) counts by its name. Otherwise viewers
+heard the streamer's voice, sent through Adobe Audition or Voicemeeter into
+the microphone BACKCORD records, a second time in the stream. Every second it
+lists the outputs' audio sessions again and follows the applications that
+start and stop. Other systems share
 video only for now, and so does the test pattern. Two ignored tests check the capture against the
 machine's sound server with a quiet tone: another process's is heard, and
 BACKCORD's own is not.

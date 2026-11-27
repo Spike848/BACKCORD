@@ -151,7 +151,9 @@ Real Windows needs checking for: the window list's contents and titles,
 sharing a window that's minimized, moved to another screen or closed while
 shared, screens on mixed-DPI setups, Windows Graphics Capture's yellow
 border, process loopback hearing other applications and leaving out BACKCORD's
-own voices, AMF on an AMD card in a whole BACKCORD (AV1 on an RX 7000 or
+own voices and what plays into a microphone (a virtual cable, Voicemeeter),
+the cursor that libwebrtc's DesktopAndCursorComposer draws into screen and
+window shares (once, and in the right place on a second screen), AMF on an AMD card in a whole BACKCORD (AV1 on an RX 7000 or
 newer), and the worker's start-up time from a
 packaged build.
 
