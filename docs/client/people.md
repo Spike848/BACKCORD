@@ -45,9 +45,10 @@ member list, the DMs, and the lists still to come build on it.
 - Ctrl and a click on members, or on people in a voice channel's list,
   picks several of one server (`picks.rs`; the core's
   `application/picks.rs` holds them in `AppState.picked`): their rows
-  stay lit, a second Ctrl click lets one go (a box dragged from the
-  sidebar list's blank space picks everyone in voice it touches, adding to
-  those picked with Ctrl held), and a plain click, or a right
+  stay lit, a second Ctrl click lets one go (a box dragged with Ctrl held,
+  from anywhere on the sidebar list, picks everyone in voice it touches,
+  adding to those picked; without Ctrl a press on someone drags them), and
+  a plain click, or a right
   click on someone not picked, ends the picking. A right click on one of
   two or more picked opens their menu: "N people picked", then what every
   one's own menu offers that acts on each alike (Mention, the friend,

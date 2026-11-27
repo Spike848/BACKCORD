@@ -278,13 +278,21 @@ impl<'a> super::View<'a> {
                     SideRow::Room(room) => room.row_height(),
                     _ => HEADING,
                 };
-                Drags::new(inset)
+                let drags = Drags::new(inset)
                     .click(click)
                     .head(head)
-                    .drag(move |grab| Message::Arrange(crate::arrange::Event::Start(place, grab)))
                     .dropped(Message::Arrange(crate::arrange::Event::Drop))
-                    .tracking(self.s.dragging(), move |on| over(Some(place), on))
-                    .into()
+                    .tracking(self.s.dragging(), move |on| over(Some(place), on));
+                // With Ctrl held a press starts the list's selection box.
+                if self.cx.modifiers.control() {
+                    drags.into()
+                } else {
+                    drags
+                        .drag(move |grab| {
+                            Message::Arrange(crate::arrange::Event::Start(place, grab))
+                        })
+                        .into()
+                }
             }
             None if onto.is_some() => Drags::new(inset)
                 .tracking(moving, move |on| over(None, on))

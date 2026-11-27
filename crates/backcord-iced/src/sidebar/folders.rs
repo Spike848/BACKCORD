@@ -143,13 +143,19 @@ impl<'a> super::View<'a> {
         match row {
             SideRow::Room(room) => {
                 let id = room.id.clone();
-                Drags::new(inset)
+                let drags = Drags::new(inset)
                     .click(Message::Side(Event::Select(room.id.clone())))
                     .head(DM_ROW)
-                    .drag(move |_| Message::Arrange(crate::arrange::Event::TakeDm(id.clone())))
                     .dropped(Message::Arrange(crate::arrange::Event::Drop))
-                    .tracking(dragging, onto(DmTarget::Room(room.id.clone())))
-                    .into()
+                    .tracking(dragging, onto(DmTarget::Room(room.id.clone())));
+                // With Ctrl held a press starts the list's selection box.
+                if self.cx.modifiers.control() {
+                    drags.into()
+                } else {
+                    drags
+                        .drag(move |_| Message::Arrange(crate::arrange::Event::TakeDm(id.clone())))
+                        .into()
+                }
             }
             SideRow::DmFolder { id, .. } => Drags::new(inset)
                 .click(Message::Side(Event::ToggleFolder(id.clone())))

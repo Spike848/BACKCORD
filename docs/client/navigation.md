@@ -156,9 +156,9 @@ keeping the open DM; its menu renames it, in a field in its place (Enter
 keeps the name), or deletes it, its DMs staying. A DM's menu offers New
 folder after Pin while it's in none, and Remove from folder while it's in
 one. A DM is in one place at a time: pinned, in one folder, or loose.
-A box dragged from the sidebar list's blank space (`widgets::marquee`)
-picks every DM it touches, as it grows; with Ctrl held it adds to those
-picked already. Ctrl and a click picks a DM, outlined in the accent, or lets it go; a click
+A box dragged with Ctrl held, from anywhere on the sidebar list
+(`widgets::marquee`), picks every DM it touches, as it grows, adding to
+those picked already; without Ctrl a press drags, as below. Ctrl and a click picks a DM, outlined in the accent, or lets it go; a click
 without Ctrl, or a right click on one not picked, ends the picking. A
 right click on one of several picked opens their menu: how many, then Mark
 as read, Pin, Unpin, New folder and Remove from folder, as they fit. A DM

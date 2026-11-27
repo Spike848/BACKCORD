@@ -577,12 +577,16 @@ impl<'a> View<'a> {
             .on_scroll(|viewport| Message::Side(Event::Scrolled(viewport)))
             .height(Length::Fill)
             .style(scrollbar(theme));
-        // A box dragged from the list's blank space picks the DMs and the
-        // people in voice it touches, as Ctrl and a click does.
+        // A box dragged with Ctrl held, from anywhere on the list, picks
+        // the DMs and the people in voice it touches, as Ctrl and a click
+        // does; without Ctrl a press drags people, DMs and channels.
+        let control = self.cx.modifiers.control();
         let list =
             backcord_iced_kit::widgets::marquee::Marquee::new(list, theme.accent, |area, done| {
                 Message::Side(Event::Boxed(area, done))
-            });
+            })
+            .enabled(control)
+            .forced(control);
         // What's dragged follows the pointer, faint, over the list;
         // someone dragged from a voice channel, below it. Always a stack,
         // the list its first layer, so the list keeps where it's scrolled

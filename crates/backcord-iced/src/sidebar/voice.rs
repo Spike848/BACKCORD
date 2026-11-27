@@ -244,15 +244,18 @@ impl<'a> super::View<'a> {
         // A click opens their card; pressed and moved, they're dragged
         // toward another voice channel, where their menu's Move to offers
         // one.
-        let drags = Drags::new(menu)
+        // With Ctrl held a press starts the list's selection box instead.
+        let mut drags = Drags::new(menu)
             .click(Message::Call(crate::call::Event::Click(
                 room.clone(),
                 user.clone(),
             )))
-            .drag(move |_| {
-                Message::Arrange(crate::arrange::Event::Take(room.clone(), user.clone()))
-            })
             .dropped(Message::Arrange(crate::arrange::Event::Drop));
+        if !self.cx.modifiers.control() {
+            drags = drags.drag(move |_| {
+                Message::Arrange(crate::arrange::Event::Take(room.clone(), user.clone()))
+            });
+        }
         if !person.elsewhere {
             return drags.into();
         }

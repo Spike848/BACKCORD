@@ -25,6 +25,9 @@ pub struct Marquee<'a, M> {
     /// A press starts a box even where the list took it (Ctrl held over
     /// rows that pick on a press).
     forced: bool,
+    /// Whether a press may start a box at all; a box already started goes
+    /// on until it's let go.
+    enabled: bool,
 }
 
 impl<'a, M> Marquee<'a, M> {
@@ -39,6 +42,7 @@ impl<'a, M> Marquee<'a, M> {
             on_change: Box::new(on_change),
             ink,
             forced: false,
+            enabled: true,
         }
     }
 
@@ -46,6 +50,14 @@ impl<'a, M> Marquee<'a, M> {
     #[must_use]
     pub fn forced(mut self, forced: bool) -> Self {
         self.forced = forced;
+        self
+    }
+
+    /// Whether a press may start a box (only with Ctrl held, say), the
+    /// list's own drags taking the presses otherwise.
+    #[must_use]
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 }
@@ -184,7 +196,8 @@ impl<M> Widget<M, Theme, Renderer> for Marquee<'_, M> {
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 *held = Held::default();
-                if (self.forced || !shell.is_event_captured())
+                if self.enabled
+                    && (self.forced || !shell.is_event_captured())
                     && let Some(at) = cursor.position_over(bounds)
                 {
                     *held = Held {
