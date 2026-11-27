@@ -34,16 +34,17 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.6.1
+## Novità della 1.6.2
 
+- **Banner del profilo con il colore del tema**: un profilo con un tema e
+  senza immagine banner ora mostra il banner nel colore del tema, come su
+  Discord, invece del vecchio colore banner (spesso bianco).
 - **Trascinamento classico nella lista**: premendo su qualcuno in un canale
-  vocale, su una DM o su un canale e muovendo il mouse, parte di nuovo il
-  trascinamento (sposti la persona in un altro canale, la DM in una cartella,
-  riordini i canali), in qualsiasi direzione.
+  vocale, su una DM o su un canale e muovendo il mouse, parte il trascinamento
+  in qualsiasi direzione.
 - **Selezione a riquadro solo con Ctrl**: nella lista di canali e DM il
   riquadro che seleziona più persone in vocale o più DM parte solo tenendo
-  premuto Ctrl, da qualsiasi punto della lista, e aggiunge a quelle già
-  selezionate.
+  premuto Ctrl.
 
 ## Cosa fa
 
