@@ -63,8 +63,10 @@ member list, the DMs, and the lists still to come build on it.
   each time the core's view of it changes (its theme's inks, the status's
   bubble, activities, the bio laid out, the mutual line, the tabs). The
   card (`body.rs`) shows the banner (moving
-  ones play; with no banner, accent or theme, the avatar's dominant colour,
-  as the core's `dominant_colour` works it out), the avatar on its ring with its decoration and presence, the
+  ones play; with a theme and no banner picture, the theme's first colour,
+  whatever banner colour was kept; with no banner, accent or theme, the
+  avatar's dominant colour, as the core's `dominant_colour` works it out),
+  the avatar on its ring with its decoration and presence, the
   status's bubble, Add Friend or Friends and More over it, the
   name drawn once in its style (on the card, a click on it opens the full
   profile, as the avatar does), the username, pronouns and server tag,

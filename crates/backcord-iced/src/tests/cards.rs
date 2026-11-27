@@ -256,6 +256,52 @@ fn a_profile_without_a_banner_takes_its_avatars_colour() {
     );
 }
 
+/// A themed profile with no banner picture: the banner takes the theme's
+/// first colour, as Discord's does, not a banner colour kept from before.
+#[test]
+fn a_themed_profile_without_a_banner_takes_its_themes_colour() {
+    let (mut app, _folder) = preview();
+    let user = app
+        .client
+        .state()
+        .members
+        .iter()
+        .flatten()
+        .flat_map(|members| members.iter())
+        .find(|member| member.name == "Riley")
+        .map(|member| member.id.clone())
+        .expect("Riley in the preview");
+    let _ = app.open_card(user, Point::new(500.0, 200.0));
+    let set = |app: &mut crate::app::App, banner: Option<&str>| {
+        let view = app
+            .client
+            .app
+            .state
+            .profile
+            .as_mut()
+            .map(std::sync::Arc::make_mut)
+            .expect("open");
+        view.profile.banner = banner.map(str::to_owned);
+        view.profile.accent = Some(0xFF_FF_FF);
+        view.profile.theme = Some([0x10_10_10, 0x20_20_20]);
+        let _ = app.sync();
+    };
+    set(&mut app, None);
+    let shown = app.profiles.shown.as_ref().expect("shown");
+    assert_eq!(
+        crate::profile::banner_ground(app.ctx(), shown),
+        Some(0x10_10_10),
+        "the theme's first colour, not the white banner colour"
+    );
+    set(&mut app, Some("banner:picture"));
+    let shown = app.profiles.shown.as_ref().expect("shown");
+    assert_eq!(
+        crate::profile::banner_ground(app.ctx(), shown),
+        Some(0xFF_FF_FF),
+        "behind a banner picture, the banner colour as before"
+    );
+}
+
 #[test]
 fn an_emoji_in_a_messages_text_opens_its_card_until_escape() {
     let (mut app, _folder) = preview();

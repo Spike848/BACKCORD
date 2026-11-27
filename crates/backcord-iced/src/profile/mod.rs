@@ -741,11 +741,17 @@ pub fn profile_panel_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Me
     )
 }
 
-/// The colour behind a banner: the accent, else, with no banner and
-/// no theme, the avatar's dominant colour once it has arrived, as
-/// Discord tints it.
+/// The colour behind a banner: with a theme and no banner picture, the
+/// theme's first colour, so the banner runs into the card as on Discord;
+/// else the accent, else, with no banner and no theme, the avatar's
+/// dominant colour once it has arrived, as Discord tints it.
 pub(crate) fn banner_ground(ctx: crate::ctx::Ctx<'_>, shown: &Shown) -> Option<u32> {
     let profile = shown.look.profile();
+    if profile.banner.is_none()
+        && let Some([primary, _]) = profile.theme
+    {
+        return Some(primary);
+    }
     if shown.look.accent.is_some() || profile.banner.is_some() || profile.theme.is_some() {
         return shown.look.accent;
     }
