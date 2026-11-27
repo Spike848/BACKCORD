@@ -19,6 +19,7 @@
 #include "modules/desktop_capture/desktop_capture_options.h"
 
 #ifdef _WIN64
+#include "modules/desktop_capture/desktop_and_cursor_composer.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -161,6 +162,17 @@ std::unique_ptr<DesktopCapturer> new_desktop_capturer(
   // prefer_cursor_embedded indicate that the capturer should try to include the
   // cursor in the frame
   webrtc_options.set_prefer_cursor_embedded(options.include_cursor);
+#ifdef _WIN64
+  // On Windows the DirectX capturer, which a screen falls back to, never
+  // draws the cursor, so a composer draws it, as Chrome does, wherever it
+  // shows. The capturers then leave it out, so it never shows twice.
+  bool compose_cursor = options.include_cursor &&
+                        (options.source_type == SourceType::Screen ||
+                         options.source_type == SourceType::Window);
+  if (compose_cursor) {
+    webrtc_options.set_prefer_cursor_embedded(false);
+  }
+#endif /* _WIN64 */
 
   std::unique_ptr<webrtc::DesktopCapturer> capturer = nullptr;
   switch (options.source_type) {
@@ -180,6 +192,12 @@ std::unique_ptr<DesktopCapturer> new_desktop_capturer(
   if (!capturer) {
     return nullptr;
   }
+#ifdef _WIN64
+  if (compose_cursor) {
+    capturer = std::make_unique<webrtc::DesktopAndCursorComposer>(
+        std::move(capturer), webrtc_options);
+  }
+#endif /* _WIN64 */
   auto made = std::make_unique<DesktopCapturer>(std::move(capturer));
   made->lists_windows = options.source_type == SourceType::Window;
   return made;

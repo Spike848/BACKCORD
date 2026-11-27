@@ -586,16 +586,19 @@ impl Input {
 #[cfg(feature = "discord")]
 pub use others::others;
 
-/// Other applications' sound, through process loopback: one stream of
-/// everything the system plays but BACKCORD's own processes, from Windows 10's
-/// 2004 update on, or, sharing a window, of its application's processes
-/// alone. It can't leave out other applications, so `skip` has no effect
-/// here.
+/// Other applications' sound, through process loopback, from Windows 10's
+/// 2004 update on: one stream of everything the system plays but BACKCORD's own
+/// processes, or, sharing a window, of its application's processes alone.
+/// While an application plays into a microphone, as one running effects on
+/// the user's voice plays it into the virtual cable BACKCORD records, a stream
+/// of everything would carry that voice too: each other application is then
+/// heard on its own, those `skip` picks left out.
 #[cfg(feature = "discord")]
 mod others {
     use std::{
+        collections::{HashMap, HashSet},
         sync::{
-            Arc,
+            Arc, Mutex,
             atomic::{AtomicBool, Ordering},
             mpsc,
         },
@@ -604,22 +607,24 @@ mod others {
 
     use windows::{
         Win32::{
-            Foundation::WAIT_TIMEOUT,
+            Foundation::{PROPERTYKEY, S_OK, WAIT_TIMEOUT},
             Media::Audio::{
                 AUDCLNT_STREAMFLAGS_LOOPBACK, AUDIOCLIENT_ACTIVATION_PARAMS,
                 AUDIOCLIENT_ACTIVATION_PARAMS_0, AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
                 AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS, ActivateAudioInterfaceAsync,
-                IActivateAudioInterfaceAsyncOperation, IActivateAudioInterfaceCompletionHandler,
-                IActivateAudioInterfaceCompletionHandler_Impl,
-                PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE,
+                AudioSessionStateExpired, IActivateAudioInterfaceAsyncOperation,
+                IActivateAudioInterfaceCompletionHandler,
+                IActivateAudioInterfaceCompletionHandler_Impl, IAudioSessionControl2,
+                IAudioSessionManager2, PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE,
                 PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE,
-                VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK,
+                VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, eCommunications,
             },
             System::{
                 Com::{
-                    BLOB,
+                    BLOB, STGM_READ,
                     StructuredStorage::{
                         PROPVARIANT, PROPVARIANT_0, PROPVARIANT_0_0, PROPVARIANT_0_0_0,
+                        PropVariantClear, PropVariantToBSTR,
                     },
                 },
                 Diagnostics::ToolHelp::{
@@ -640,59 +645,64 @@ mod others {
     /// How often the capture thread looks for `stop` while nothing plays.
     const STOP_CHECK_MS: u32 = 100;
 
+    /// How often the streams follow the applications that start and stop
+    /// playing.
+    const FOLLOW: Duration = Duration::from_secs(1);
+
+    /// Where the streams hand what they hear, one at a time.
+    type Shared = Arc<Mutex<Hear>>;
+
     pub fn others(
-        _skip: fn(&str) -> bool,
+        skip: fn(&str) -> bool,
         window: Option<u64>,
-        mut heard: Hear,
+        heard: Hear,
         stop: Arc<AtomicBool>,
     ) -> Result<JoinHandle<()>> {
+        let heard: Shared = Arc::new(Mutex::new(heard));
+        // A window's application alone.
+        if let Some(process) = window.and_then(window_process) {
+            tracing::debug!(?window, process, "hearing the shared window's application");
+            return capture(0, process, true, heard, stop)
+                .context("Windows won't share other applications' sound");
+        }
+        let own = backcord_process();
         let (opened, opening) = mpsc::channel();
         let thread = std::thread::Builder::new()
-            .name("backcord-stream-hear".into())
+            .name("backcord-stream-follow".into())
             .spawn(move || {
                 com();
-                let format = Format {
-                    rate: RATE,
-                    channels: 2,
-                    float: true,
+                let mut streams = Streams {
+                    heard,
+                    running: HashMap::new(),
+                    refused: HashSet::new(),
                 };
-                // A window's application alone, else all but BACKCORD.
-                let only = window.and_then(window_process);
-                tracing::debug!(?window, process = ?only, "hearing the stream's sound");
-                let stream = match only {
-                    Some(process) => activate(process, true),
-                    None => activate(backcord_process(), false),
-                }
-                .and_then(|client| {
-                    Stream::initialize(client, format, LISTENING, AUDCLNT_STREAMFLAGS_LOOPBACK)
-                })
-                .and_then(|mut stream| {
-                    // SAFETY: an initialized client.
-                    let capture = unsafe { stream.client.GetService::<IAudioCaptureClient>() }?;
-                    stream.start()?;
-                    Ok((stream, capture))
-                });
-                let (stream, capture) = match stream {
-                    Ok(stream) => {
-                        let _ = opened.send(Ok(()));
-                        stream
-                    }
-                    Err(error) => {
+                let mut last = plan(own, skip);
+                tracing::debug!(plan = ?last, "hearing the stream's sound");
+                match (streams.follow(&last), &last) {
+                    (Err(error), Plan::AllBut(_)) => {
                         let _ = opened.send(Err(error));
                         return;
                     }
-                };
-                heard(Heard::Started {
-                    source: 0,
-                    process: None,
-                });
-                if let Err(error) = hear(&stream, &capture, &mut *heard, &stop) {
-                    tracing::warn!(
-                        error = format!("{error:#}"),
-                        "stopped hearing other applications"
-                    );
+                    _ => {
+                        let _ = opened.send(Ok(()));
+                    }
                 }
-                heard(Heard::Stopped { source: 0 });
+                let mut waited = Duration::ZERO;
+                while !stop.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(STOP_CHECK_MS as u64));
+                    waited += Duration::from_millis(STOP_CHECK_MS as u64);
+                    if waited < FOLLOW {
+                        continue;
+                    }
+                    waited = Duration::ZERO;
+                    let next = plan(own, skip);
+                    if next != last {
+                        tracing::debug!(plan = ?next, "the stream's sound changes applications");
+                        last = next;
+                    }
+                    let _ = streams.follow(&last);
+                }
+                streams.stop();
             })
             .context("could not start hearing other applications")?;
         match opening.recv() {
@@ -708,8 +718,383 @@ mod others {
         }
     }
 
+    /// Which processes the stream hears.
+    #[derive(Debug, PartialEq, Eq)]
+    enum Plan {
+        /// Everything but this process's tree, BACKCORD's, in one stream.
+        AllBut(u32),
+        /// These processes' trees, each in a stream of its own: what's left
+        /// once those playing into a microphone are left out.
+        Only(Vec<u32>),
+    }
+
+    /// What to hear now. Everything but BACKCORD, unless an application plays
+    /// into a microphone, as one that runs effects on a voice plays it into a
+    /// virtual cable that BACKCORD records, or a mixer such as Voicemeeter
+    /// plays: the stream would carry that voice a second time, so then it
+    /// hears every other application on its own.
+    fn plan(own: u32, skip: fn(&str) -> bool) -> Plan {
+        let playing = match playing() {
+            Ok(playing) => playing,
+            Err(error) => {
+                tracing::debug!(error = format!("{error:#}"), "could not list what plays");
+                return Plan::AllBut(own);
+            }
+        };
+        choose(own, &playing, &processes(), skip)
+    }
+
+    /// [`plan`]'s choice, from each process playing with whether it plays
+    /// into a microphone, and each running process's parent and name.
+    fn choose(
+        own: u32,
+        playing: &[(u32, bool)],
+        processes: &HashMap<u32, (u32, String)>,
+        skip: fn(&str) -> bool,
+    ) -> Plan {
+        let alive = |process: u32| process != 0 && processes.contains_key(&process);
+        let ours = |process: u32| ancestry(processes, process).any(|up| up == own);
+        let mixer = |process: u32| {
+            processes
+                .get(&process)
+                .is_some_and(|(_, name)| is_mixer(name))
+        };
+        let feeding: HashSet<u32> = playing
+            .iter()
+            .filter(|&&(process, feeds)| {
+                (feeds || mixer(process)) && alive(process) && !ours(process)
+            })
+            .map(|&(process, _)| process)
+            .collect();
+        if feeding.is_empty() {
+            return Plan::AllBut(own);
+        }
+        // A tree holding BACKCORD or one playing into a microphone would
+        // bring its sound along.
+        let blocked: HashSet<u32> = feeding
+            .iter()
+            .chain([&own])
+            .flat_map(|&process| ancestry(processes, process))
+            .collect();
+        let mut wanted: Vec<u32> = playing
+            .iter()
+            .map(|&(process, _)| process)
+            .filter(|&process| alive(process) && !blocked.contains(&process) && !ours(process))
+            .filter(|process| !processes.get(process).is_some_and(|(_, name)| skip(name)))
+            .collect();
+        wanted.sort_unstable();
+        wanted.dedup();
+        let heard: HashSet<u32> = wanted.iter().copied().collect();
+        // One whose ancestor is heard already plays in that tree.
+        wanted.retain(|&process| {
+            !ancestry(processes, process)
+                .skip(1)
+                .any(|up| heard.contains(&up))
+        });
+        Plan::Only(wanted)
+    }
+
+    /// Whether a program, by its name, mixes sound for other applications: as
+    /// Voicemeeter plays the microphone and the call it receives from BACKCORD on
+    /// to the speakers. The stream hears each application on its own, so
+    /// hearing the mix too would carry the voice, the call and the rest twice.
+    fn is_mixer(name: &str) -> bool {
+        let name = name.to_lowercase();
+        name.contains("voicemeeter")
+            || name.contains("wavelink")
+            || (name.contains("steelseries") && name.contains("sonar"))
+    }
+
+    /// A process, then its parent, its parent's parent and so on.
+    fn ancestry(
+        processes: &HashMap<u32, (u32, String)>,
+        process: u32,
+    ) -> impl Iterator<Item = u32> + '_ {
+        let mut next = Some(process);
+        let mut steps = 0;
+        std::iter::from_fn(move || {
+            let current = next.take()?;
+            steps += 1;
+            if steps < 64 {
+                next = processes
+                    .get(&current)
+                    .map(|&(parent, _)| parent)
+                    .filter(|&parent| parent != 0 && parent != current);
+            }
+            Some(current)
+        })
+    }
+
+    /// The streams hearing, by source: 0 for everything but BACKCORD, else
+    /// the process heard.
+    struct Streams {
+        heard: Shared,
+        running: HashMap<u32, (Arc<AtomicBool>, JoinHandle<()>)>,
+        /// Sources Windows wouldn't share or that ended, not asked again
+        /// while the plan keeps them.
+        refused: HashSet<u32>,
+    }
+
+    impl Streams {
+        /// Hears what `plan` says, ending the streams it no longer wants.
+        /// The last error from a stream that wouldn't open.
+        fn follow(&mut self, plan: &Plan) -> Result<()> {
+            let wanted: Vec<(u32, u32, bool)> = match plan {
+                Plan::AllBut(own) => vec![(0, *own, false)],
+                Plan::Only(processes) => processes
+                    .iter()
+                    .map(|&process| (process, process, true))
+                    .collect(),
+            };
+            let sources: HashSet<u32> = wanted.iter().map(|&(source, ..)| source).collect();
+            self.refused.retain(|source| sources.contains(source));
+            let ended: Vec<u32> = self
+                .running
+                .iter()
+                .filter(|(source, (_, thread))| !sources.contains(source) || thread.is_finished())
+                .map(|(&source, _)| source)
+                .collect();
+            for source in ended {
+                if let Some((stop, thread)) = self.running.remove(&source) {
+                    if sources.contains(&source) {
+                        self.refused.insert(source);
+                    }
+                    stop.store(true, Ordering::Relaxed);
+                    let _ = thread.join();
+                }
+            }
+            let mut failed = Ok(());
+            for (source, process, include) in wanted {
+                if self.running.contains_key(&source) || self.refused.contains(&source) {
+                    continue;
+                }
+                let stop = Arc::new(AtomicBool::new(false));
+                match capture(source, process, include, self.heard.clone(), stop.clone()) {
+                    Ok(thread) => {
+                        self.running.insert(source, (stop, thread));
+                    }
+                    Err(error) => {
+                        tracing::debug!(
+                            error = format!("{error:#}"),
+                            process,
+                            "could not hear an application"
+                        );
+                        self.refused.insert(source);
+                        failed = Err(error);
+                    }
+                }
+            }
+            failed
+        }
+
+        fn stop(&mut self) {
+            for (stop, _) in self.running.values() {
+                stop.store(true, Ordering::Relaxed);
+            }
+            for (_, (_, thread)) in self.running.drain() {
+                let _ = thread.join();
+            }
+        }
+    }
+
+    /// Hears `process`'s tree when `include`, else everything but it, as
+    /// `source`, on a thread of its own until `stop`. Returns once it hears.
+    fn capture(
+        source: u32,
+        process: u32,
+        include: bool,
+        heard: Shared,
+        stop: Arc<AtomicBool>,
+    ) -> Result<JoinHandle<()>> {
+        let (opened, opening) = mpsc::channel();
+        let thread = std::thread::Builder::new()
+            .name("backcord-stream-hear".into())
+            .spawn(move || {
+                com();
+                let format = Format {
+                    rate: RATE,
+                    channels: 2,
+                    float: true,
+                };
+                let stream = activate(process, include)
+                    .and_then(|client| {
+                        Stream::initialize(client, format, LISTENING, AUDCLNT_STREAMFLAGS_LOOPBACK)
+                    })
+                    .and_then(|mut stream| {
+                        // SAFETY: an initialized client.
+                        let capture = unsafe { stream.client.GetService::<IAudioCaptureClient>() }?;
+                        stream.start()?;
+                        Ok((stream, capture))
+                    });
+                let (stream, capture) = match stream {
+                    Ok(stream) => {
+                        let _ = opened.send(Ok(()));
+                        stream
+                    }
+                    Err(error) => {
+                        let _ = opened.send(Err(error));
+                        return;
+                    }
+                };
+                let mut tell = |event: Heard<'_>| {
+                    let mut heard = heard
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    (*heard)(event)
+                };
+                tell(Heard::Started {
+                    source,
+                    process: include.then_some(process),
+                });
+                if let Err(error) = hear(source, &stream, &capture, &mut tell, &stop) {
+                    tracing::warn!(
+                        error = format!("{error:#}"),
+                        process,
+                        "stopped hearing other applications"
+                    );
+                }
+                tell(Heard::Stopped { source });
+            })
+            .context("could not start hearing other applications")?;
+        match opening.recv() {
+            Ok(Ok(())) => Ok(thread),
+            Ok(Err(error)) => {
+                let _ = thread.join();
+                Err(error)
+            }
+            Err(_) => {
+                let _ = thread.join();
+                Err(anyhow!("could not hear other applications"))
+            }
+        }
+    }
+
+    /// Each process with sound on an output, and whether that output plays
+    /// into a microphone: one on a device that records too, as a virtual
+    /// cable's input does into its output, and not the default output, as a
+    /// headset's speakers are.
+    fn playing() -> Result<Vec<(u32, bool)>> {
+        // SAFETY: plain COM calls on this thread's apartment.
+        unsafe {
+            let enumerator: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+                    .context("no audio device service")?;
+            let defaults: HashSet<String> = [eConsole, eCommunications]
+                .into_iter()
+                .filter_map(|role| enumerator.GetDefaultAudioEndpoint(eRender, role).ok())
+                .filter_map(|device| endpoint_id(&device))
+                .collect();
+            let recording: HashSet<String> = endpoints(&enumerator, eCapture)?
+                .iter()
+                .filter_map(adapter)
+                .collect();
+            let mut playing = Vec::new();
+            for device in endpoints(&enumerator, eRender)? {
+                let feeds = !endpoint_id(&device).is_some_and(|id| defaults.contains(&id))
+                    && adapter(&device).is_some_and(|adapter| recording.contains(&adapter));
+                let Ok(manager) = device.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) else {
+                    continue;
+                };
+                let Ok(sessions) = manager.GetSessionEnumerator() else {
+                    continue;
+                };
+                for index in 0..sessions.GetCount().unwrap_or(0) {
+                    let Ok(session) = sessions.GetSession(index) else {
+                        continue;
+                    };
+                    if session
+                        .GetState()
+                        .is_ok_and(|state| state == AudioSessionStateExpired)
+                    {
+                        continue;
+                    }
+                    let Ok(session) = session.cast::<IAudioSessionControl2>() else {
+                        continue;
+                    };
+                    if session.IsSystemSoundsSession() == S_OK {
+                        continue;
+                    }
+                    if let Ok(process) = session.GetProcessId() {
+                        playing.push((process, feeds));
+                    }
+                }
+            }
+            Ok(playing)
+        }
+    }
+
+    /// The connected endpoints that play, or record.
+    fn endpoints(enumerator: &IMMDeviceEnumerator, flow: EDataFlow) -> Result<Vec<IMMDevice>> {
+        // SAFETY: plain COM calls.
+        unsafe {
+            let collection = enumerator.EnumAudioEndpoints(flow, DEVICE_STATE_ACTIVE)?;
+            Ok((0..collection.GetCount()?)
+                .filter_map(|index| collection.Item(index).ok())
+                .collect())
+        }
+    }
+
+    fn endpoint_id(device: &IMMDevice) -> Option<String> {
+        // SAFETY: GetId lends a string the caller frees.
+        unsafe {
+            let name = device.GetId().ok()?;
+            let id = name.to_string().ok();
+            windows::Win32::System::Com::CoTaskMemFree(Some(name.0 as *const _));
+            id
+        }
+    }
+
+    /// The name of the sound card an endpoint belongs to, which its playing
+    /// and recording endpoints share.
+    fn adapter(device: &IMMDevice) -> Option<String> {
+        // PKEY_DeviceInterface_FriendlyName.
+        const ADAPTER: PROPERTYKEY = PROPERTYKEY {
+            fmtid: windows::core::GUID::from_u128(0x026e516e_b814_414b_83cd_856d6fef4822),
+            pid: 2,
+        };
+        // SAFETY: plain COM calls; the value is cleared once read.
+        unsafe {
+            let store = device.OpenPropertyStore(STGM_READ).ok()?;
+            let mut value = store.GetValue(&ADAPTER).ok()?;
+            let name = PropVariantToBSTR(&value).ok().map(|name| name.to_string());
+            let _ = PropVariantClear(&mut value);
+            name.filter(|name| !name.is_empty())
+        }
+    }
+
+    /// Every running process's parent and program name, without ".exe".
+    fn processes() -> HashMap<u32, (u32, String)> {
+        let mut processes = HashMap::new();
+        // SAFETY: a snapshot this function owns, and entries sized as asked.
+        unsafe {
+            let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else {
+                return processes;
+            };
+            let mut entry = PROCESSENTRY32W {
+                dwSize: size_of::<PROCESSENTRY32W>() as u32,
+                ..Default::default()
+            };
+            let mut found = Process32FirstW(snapshot, &mut entry).is_ok();
+            while found {
+                let length = entry.szExeFile.iter().position(|&unit| unit == 0);
+                let name = String::from_utf16_lossy(&entry.szExeFile[..length.unwrap_or(260)]);
+                let name = match name.len().checked_sub(4) {
+                    Some(stem) if name[stem..].eq_ignore_ascii_case(".exe") => {
+                        name[..stem].to_string()
+                    }
+                    _ => name,
+                };
+                processes.insert(entry.th32ProcessID, (entry.th32ParentProcessID, name));
+                found = Process32NextW(snapshot, &mut entry).is_ok();
+            }
+            let _ = CloseHandle(snapshot);
+        }
+        processes
+    }
+
     /// Passes on what the stream hears until `stop`.
     fn hear(
+        source: u32,
         stream: &Stream,
         capture: &IAudioCaptureClient,
         heard: &mut dyn FnMut(Heard<'_>),
@@ -759,7 +1144,7 @@ mod others {
                             );
                             into
                         };
-                        heard(Heard::Samples { source: 0, samples });
+                        heard(Heard::Samples { source, samples });
                     }
                     capture.ReleaseBuffer(count)?;
                 }
