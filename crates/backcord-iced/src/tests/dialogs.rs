@@ -129,7 +129,7 @@ fn the_quick_switcher_finds_a_place_and_goes_there() {
     assert!(app.client.state().switcher.is_some());
     assert!(shows(
         &app,
-        "Start a search with @ for people, # for text channels, ! for voice channels or * for servers."
+        "Protip: start searches with @ # ! * to narrow results."
     ));
     let _ = app.update(Message::Switcher(SwitcherEvent::Search("gen".into())));
     assert!(shows(&app, "general"));
@@ -143,6 +143,7 @@ fn the_quick_switcher_finds_a_place_and_goes_there() {
     let first = match &app.client.state().switcher_places()[0] {
         backcord_core::application::Place::Room(room) => room.id.clone(),
         backcord_core::application::Place::Server(server) => server.id.clone(),
+        backcord_core::application::Place::Person(person) => person.id.clone(),
     };
     press(&mut app, key::Named::Enter);
     let state = app.client.state();

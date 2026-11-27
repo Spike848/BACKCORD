@@ -108,6 +108,21 @@ pub fn close_popup(app: &mut App) {
     app.call.share_listing = None;
     app.call.listing = false;
     app.call.meter = None;
+    stop_mic_test(app);
+}
+
+/// Ends the input menu's mic test, if it runs: the call it deafened hears
+/// again.
+pub fn stop_mic_test(app: &mut App) {
+    if app.call.mic_test.take().is_none() {
+        return;
+    }
+    if std::mem::take(&mut app.call.mic_test_deafened) && app.client.state().voice.deafened {
+        app.client
+            .dispatch(backcord_core::application::Action::Voice(
+                backcord_core::voice::Command::Deafen(false),
+            ));
+    }
 }
 
 /// The popup open from a control, above it.

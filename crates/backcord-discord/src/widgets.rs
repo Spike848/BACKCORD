@@ -281,7 +281,7 @@ mod tests {
                 .icon
                 .as_deref()
                 .unwrap()
-                .contains("/app-icons/10/ic.png")
+                .contains("/app-icons/10/ic.webp")
         );
         assert_eq!(
             games[1].icon.as_deref(),

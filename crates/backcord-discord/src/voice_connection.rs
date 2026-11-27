@@ -156,6 +156,57 @@ pub(crate) async fn receive(ws: &mut Socket, seq: &mut Option<u64>) -> Result<In
     }
 }
 
+/// Sends a datagram, or drops it as if lost on the way when the system
+/// can't take it now. Windows refuses a send with WSAENOBUFS (10055) while
+/// its buffers are full, as a burst of a stream's frame can fill them, and
+/// a connected UDP socket reports an earlier ICMP "port unreachable" as
+/// WSAECONNRESET (10054) on the next call. Neither ends the connection:
+/// retransmissions, error correction and keyframes repair a lost packet, as
+/// they do one lost on the network.
+pub(crate) async fn send(udp: &UdpSocket, packet: &[u8]) -> std::io::Result<()> {
+    match udp.send(packet).await {
+        Ok(_) => Ok(()),
+        Err(error) if passing(&error) => {
+            tracing::debug!(error = %error, size = packet.len(), "a datagram was dropped");
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// What a receive gave: the datagram's length, none for a passing failure
+/// ([`send`]'s), or the error that ends the connection.
+pub(crate) fn received(result: std::io::Result<usize>) -> std::io::Result<Option<usize>> {
+    match result {
+        Ok(length) => Ok(Some(length)),
+        Err(error) if passing(&error) => {
+            tracing::debug!(error = %error, "a receive failed and goes on");
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// A socket failure that passes: buffers full or an ICMP error from earlier.
+fn passing(error: &std::io::Error) -> bool {
+    use std::io::ErrorKind;
+    // ENOBUFS: WSAENOBUFS on Windows, 105 on Linux, 55 on macOS.
+    const NO_BUFFERS: i32 = if cfg!(windows) {
+        10055
+    } else if cfg!(target_os = "macos") {
+        55
+    } else {
+        105
+    };
+    matches!(
+        error.kind(),
+        ErrorKind::WouldBlock
+            | ErrorKind::Interrupted
+            | ErrorKind::ConnectionReset
+            | ErrorKind::ConnectionRefused
+    ) || error.raw_os_error() == Some(NO_BUFFERS)
+}
+
 /// DAVE's JSON ops, and who's connected, as the voice model knows them.
 /// Its parser for a whole message wants `op` first and nothing after `d`,
 /// which version 8's `seq` breaks, so only the data goes through it.
@@ -562,6 +613,24 @@ fn announced(op: u64, data: &Value) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn full_buffers_and_icmp_errors_drop_a_datagram_but_keep_the_call() {
+        let no_buffers = if cfg!(windows) {
+            10055
+        } else if cfg!(target_os = "macos") {
+            55
+        } else {
+            105
+        };
+        let full = std::io::Error::from_raw_os_error(no_buffers);
+        assert_eq!(received(Err(full)).unwrap(), None);
+        let reset = std::io::Error::from(std::io::ErrorKind::ConnectionReset);
+        assert_eq!(received(Err(reset)).unwrap(), None);
+        assert_eq!(received(Ok(12)).unwrap(), Some(12));
+        let gone = std::io::Error::from(std::io::ErrorKind::NotConnected);
+        assert!(received(Err(gone)).is_err(), "other failures still end it");
+    }
 
     #[test]
     fn plain_websockets_only_on_this_machine() {

@@ -18,7 +18,8 @@ use crate::{
     controls::{self, Kind, action, lights, placed},
     ctx::{Ctx, Cx, Focus, Request},
     dialog::dialog,
-    fonts::{BOLD, MEDIUM},
+    elide::elide,
+    fonts::{BOLD, MEDIUM, SEMIBOLD},
     form,
     pictures::Icon,
     style::{rounded, scrollbar},
@@ -41,6 +42,8 @@ const DURATIONS: [&str; 7] = [
 pub enum Event {
     /// Ctrl+K: the switcher opens, or closes.
     Toggle,
+    /// Find a conversation, above Friends: the switcher for people alone.
+    FindConversation,
     Search(String),
     /// Up or Down, Tab or Shift+Tab: the place Enter goes to.
     Step(i32),
@@ -75,8 +78,8 @@ pub struct Quick {
     /// The place Enter goes to.
     pub chosen: usize,
     pub places: Vec<Found>,
-    /// The search and the room lists they were found for.
-    made_for: Option<(String, u64)>,
+    /// The search, the room lists and the people found they were made for.
+    made_for: Option<(String, u64, u64)>,
     /// How far down the list is scrolled.
     pub offset: f32,
 }
@@ -91,6 +94,11 @@ pub struct Found {
     pub unread: bool,
     pub mentions: u64,
     pub face: Face,
+    /// What follows the name, fainter: a person's username, a channel's
+    /// category.
+    pub detail: String,
+    /// The server tag a person wears, and its badge's address.
+    pub tag: Option<(String, Option<String>)>,
 }
 
 /// What a found place shows before its name.
@@ -114,6 +122,13 @@ impl Quick {
                     return operation::focus(SWITCHER);
                 }
                 cx.request(Request::Focus(Focus::Default));
+            }
+            Event::FindConversation => {
+                *self = Quick::default();
+                cx.dispatch(Action::FindConversation);
+                if cx.state().switcher.is_some() {
+                    return operation::focus(SWITCHER);
+                }
             }
             Event::Search(query) => {
                 self.chosen = 0;
@@ -201,7 +216,7 @@ impl Quick {
             }
             return;
         };
-        let made_for = (query.clone(), state.list_changes);
+        let made_for = (query.clone(), state.list_changes, state.switcher_found);
         if self.made_for.as_ref() == Some(&made_for) {
             return;
         }
@@ -223,8 +238,28 @@ impl Quick {
                 Place::Room(room) => Found {
                     id: room.id.clone(),
                     name: room.name.clone(),
+                    // As Discord's: a DM by the username, a channel by its
+                    // category, and its server at the end.
+                    detail: if room.direct {
+                        room.person
+                            .as_deref()
+                            .and_then(|user| {
+                                let found = state
+                                    .switcher_people
+                                    .iter()
+                                    .find(|person| person.id == user);
+                                found
+                                    .and_then(|person| person.username.clone())
+                                    .or_else(|| {
+                                        state.person(user).and_then(|person| person.username)
+                                    })
+                            })
+                            .unwrap_or_default()
+                    } else {
+                        room.category.clone()
+                    },
                     place: if room.direct {
-                        backcord_iced_kit::i18n::tr("Direct message").to_owned()
+                        String::new()
                     } else {
                         servers.get(room.id.as_str()).map_or_else(
                             || backcord_iced_kit::i18n::tr("Channel").to_owned(),
@@ -238,14 +273,41 @@ impl Quick {
                     } else {
                         Face::Icon(crate::sidebar::room_icon(room))
                     },
+                    tag: None,
                 },
                 Place::Server(server) => Found {
                     id: server.id.clone(),
                     name: server.name.clone(),
+                    detail: String::new(),
                     place: backcord_iced_kit::i18n::tr("Server").to_owned(),
                     unread: false,
                     mentions: 0,
                     face: Face::Avatar(server.icon.clone()),
+                    tag: None,
+                },
+                // Someone without a DM listed: where they were found.
+                Place::Person(person) => Found {
+                    id: format!(
+                        "{}{}",
+                        backcord_core::application::SWITCHER_PERSON,
+                        person.id
+                    ),
+                    name: person.name.clone(),
+                    detail: person.username.clone().unwrap_or_default(),
+                    place: match (&person.server, person.friend) {
+                        (_, true) => backcord_iced_kit::i18n::tr("Discord friend").to_owned(),
+                        (Some(server), false) => server.clone(),
+                        (None, false) => backcord_iced_kit::i18n::tr("On Discord").to_owned(),
+                    },
+                    unread: false,
+                    mentions: 0,
+                    face: Face::Avatar(person.avatar.clone()),
+                    tag: state.cosmetics.tag(person.tag.as_ref()).map(|tag| {
+                        (
+                            tag.text.to_string(),
+                            tag.badge.as_deref().map(str::to_owned),
+                        )
+                    }),
                 },
             })
             .collect();
@@ -355,9 +417,11 @@ impl<'a> View<'a> {
                 .style(scrollbar(theme)),
         );
         body = body.push(
-            text(backcord_iced_kit::i18n::tr("Start a search with @ for people, # for text channels, ! for voice channels or * for servers."))
-                .size(12)
-                .color(theme.muted),
+            text(backcord_iced_kit::i18n::tr(
+                "Protip: start searches with @ # ! * to narrow results.",
+            ))
+            .size(12)
+            .color(theme.muted),
         );
         let width = 570.0_f32.min(self.cx.look.window.width - 48.0);
         Some(dialog(theme, body.into(), width, message(Event::Close)))
@@ -385,21 +449,46 @@ impl<'a> View<'a> {
         } else {
             theme.secondary
         };
-        let mut line = row![
-            container(face).width(24).center_x(24),
-            text(name)
+        // The name, cut to its room, its server tag after it; and where it
+        // is, cut to the rest: nothing passes the row.
+        let mut named = row![
+            elide(name)
                 .size(16)
                 .font(if unread { BOLD } else { MEDIUM })
                 .color(ink)
-                .wrapping(text::Wrapping::None),
-            text(where_)
-                .size(13)
-                .color(theme.muted)
-                .wrapping(text::Wrapping::None)
-                .width(Length::Fill),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center);
+        if let Some((letters, badge)) = &found.tag {
+            named = named.push(self.cx.tag_chip(
+                letters,
+                badge.as_deref(),
+                crate::looks::Chip {
+                    size: 12.0,
+                    font: SEMIBOLD,
+                    height: 16.0,
+                    pad: 4.0,
+                    radius: 4.0,
+                    fill: crate::style::CHIP,
+                    ink: theme.text,
+                },
+                1.0,
+            ));
+        }
+        if !found.detail.is_empty() {
+            named = named.push(elide(found.detail.as_str()).size(13).color(theme.muted));
+        }
+        let mut line = row![
+            container(face).width(24).center_x(24),
+            container(named).width(Length::FillPortion(3)),
         ]
         .spacing(10)
         .align_y(Alignment::Center);
+        if !where_.is_empty() {
+            line = line.push(
+                container(elide(where_).size(13).color(theme.muted)).width(Length::FillPortion(1)),
+            );
+        }
         if mentions > 0 {
             line = line.push(controls::count_pill(
                 theme,

@@ -19,8 +19,12 @@ pub(crate) async fn connect(
     request: impl IntoClientRequest + Unpin,
 ) -> tungstenite::Result<(WebSocketStream<MaybeTlsStream<TcpStream>>, Response)> {
     let connector = Connector::Rustls(config().map_err(TlsError::Rustls)?);
+    // Nagle's algorithm off, as browsers and Discord's client have it: a
+    // small message (a heartbeat, a speaking flag) leaves at once, not held
+    // until the server acknowledges the last, which Windows' delayed
+    // acknowledgements can make wait up to 200 ms and showed as ping.
     if !crate::net::custom() {
-        return connect_async_tls_with_config(request, None, false, Some(connector)).await;
+        return connect_async_tls_with_config(request, None, true, Some(connector)).await;
     }
     let request = request.into_client_request()?;
     let host = request

@@ -41,7 +41,7 @@ fn a_roles_menu_shows_their_pictures_and_emoji_where_the_server_may() {
         boosted[0]
             .0
             .as_deref()
-            .is_some_and(|url| url.contains("/role-icons/20/abc.png"))
+            .is_some_and(|url| url.contains("/role-icons/20/abc.webp"))
     );
     assert_eq!(boosted[1], (None, Some("🔥".to_owned())));
     assert_eq!(looks(&app(0)), [(None, None), (None, None)], "not boosted");

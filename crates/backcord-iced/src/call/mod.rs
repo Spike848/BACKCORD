@@ -98,6 +98,10 @@ pub struct Call {
     /// The microphone's level while the input menu shows it, read as
     /// its meter is drawn.
     pub meter: Option<InputMeter>,
+    /// The input menu's mic test: the microphone played back as a call
+    /// sends it, and whether the test deafened the call, to undeafen.
+    pub mic_test: Option<backcord_core::discord_audio::GateMeter>,
+    pub mic_test_deafened: bool,
     /// A call ringing this account, while it rings.
     pub ringer: Option<backcord_core::ring::Ringer>,
     /// Since when the call has been connected, by its room, and the
@@ -200,6 +204,22 @@ pub enum Event {
     /// A device menu's volume, the microphone's or the speakers', and
     /// whether it's the drag's last.
     DeviceVolume(bool, u32, bool),
+    /// The input menu's mic test, started or stopped.
+    MicTest,
+    /// The microphone menu's stereo widener, on or off.
+    MicWide(bool),
+    /// The microphone menu's panning slider, and whether it's let go of.
+    MicPan(u32, bool),
+    /// The microphone menu's widener intensity, and whether it's let go of.
+    MicWidth(u32, bool),
+    /// The microphone menu's bit depth, and whether it's let go of.
+    MicBits(u32, bool),
+    /// Streams share the computer's sound, or the picture alone.
+    StreamSound(bool),
+    /// The microphone menu's pitch, and whether it's let go of.
+    MicPitch(u32, bool),
+    /// The microphone menu's sample rate, and whether it's let go of.
+    MicRate(u32, bool),
     Suppressor(backcord_core::noise::Suppressor),
     /// A soundboard sound played for everyone, heard here first, or starred.
     Play(String),
@@ -372,6 +392,62 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         }
         Event::DeviceVolume(input, value, done) => {
             crate::call::popups::device::device_volume(app, input, value, done);
+            return Task::none();
+        }
+        Event::MicTest => {
+            if app.call.mic_test.is_some() {
+                crate::call::popups::stop_mic_test(app);
+            } else {
+                // As Voice's test: a call going on is deafened while it
+                // plays, so its sound doesn't mix in.
+                let voice = &app.client.state().voice;
+                let deafen = voice.active() && !voice.deafened;
+                app.call.mic_test = Some(backcord_core::discord_audio::GateMeter::start(
+                    voice.microphone.as_deref(),
+                    voice.speaker.as_deref(),
+                    true,
+                ));
+                app.call.mic_test_deafened = deafen;
+                if deafen {
+                    app.client.dispatch(Action::Voice(Command::Deafen(true)));
+                }
+            }
+            return Task::none();
+        }
+        Event::MicWide(on) => {
+            let root = app.client.root().to_owned();
+            crate::settings::voice::microphone_wide(&mut app.layout.voice, &root, on);
+            return Task::none();
+        }
+        Event::MicPitch(value, done) => {
+            let root = app.client.root().to_owned();
+            crate::settings::voice::microphone_pitch(&mut app.layout.voice, &root, value, done);
+            return Task::none();
+        }
+        Event::StreamSound(on) => {
+            app.layout.voice.stream_without_sound = !on;
+            backcord_core::volume::set_share_stream_sound(on);
+            crate::layout::store(app.client.root(), "stream_without_sound", !on);
+            return Task::none();
+        }
+        Event::MicRate(value, done) => {
+            let root = app.client.root().to_owned();
+            crate::settings::voice::microphone_rate(&mut app.layout.voice, &root, value, done);
+            return Task::none();
+        }
+        Event::MicBits(value, done) => {
+            let root = app.client.root().to_owned();
+            crate::settings::voice::microphone_bits(&mut app.layout.voice, &root, value, done);
+            return Task::none();
+        }
+        Event::MicWidth(value, done) => {
+            let root = app.client.root().to_owned();
+            crate::settings::voice::microphone_width(&mut app.layout.voice, &root, value, done);
+            return Task::none();
+        }
+        Event::MicPan(value, done) => {
+            let root = app.client.root().to_owned();
+            crate::settings::voice::microphone_pan(&mut app.layout.voice, &root, value, done);
             return Task::none();
         }
         Event::Suppressor(suppressor) => {

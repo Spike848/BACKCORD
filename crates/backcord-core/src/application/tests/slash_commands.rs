@@ -114,7 +114,7 @@ fn typing_a_slash_offers_commands_that_fit_the_channel() {
         first
             .icon
             .as_deref()
-            .is_some_and(|icon| icon.contains("/app-icons/500/abc.png"))
+            .is_some_and(|icon| icon.contains("/app-icons/500/abc.webp"))
     );
     // Typing narrows them, without asking again.
     assert_eq!(fetches(&app.dispatch(Action::SetDraft("/e".into()))), 0);

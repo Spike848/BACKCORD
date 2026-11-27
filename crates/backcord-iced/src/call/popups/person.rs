@@ -191,6 +191,26 @@ pub(in crate::call) fn open_voice_menu(
             row
         })
         .collect();
+    // While they're live, their stream's sound can be muted from here too,
+    // under muting their voice.
+    let mut rows = rows;
+    if live && !local {
+        let under = rows
+            .iter()
+            .position(|row| row.act == MenuAct::Person(MenuChoice::LocalMute))
+            .map_or(rows.len(), |at| at + 1);
+        rows.insert(
+            under,
+            MenuRow {
+                key: person.clone(),
+                check: Check::Box(backcord_core::volume::stream_muted(&person)),
+                ..MenuRow::plain(
+                    MenuAct::MuteStream,
+                    backcord_iced_kit::i18n::tr("Mute Stream"),
+                )
+            },
+        );
+    }
     if rows.is_empty() && volumes.is_none() {
         return Task::none();
     }

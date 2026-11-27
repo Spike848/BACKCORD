@@ -130,6 +130,8 @@ pub enum Event {
     Zoom(keyboard::Key, key::Physical),
     /// Ctrl and the wheel.
     ZoomStep(zoom::Step),
+    /// Ctrl+R: BACKCORD starts again, as Discord's client reloads.
+    Restart,
 }
 
 impl App {
@@ -258,6 +260,10 @@ impl App {
             }
             Event::Zoom(key, physical) => self.zoom_key(&key, physical).unwrap_or_else(Task::none),
             Event::ZoomStep(step) => self.zoom_step(step),
+            Event::Restart => {
+                crate::exit_for(crate::Exit::Restart);
+                self.quit()
+            }
         }
     }
 

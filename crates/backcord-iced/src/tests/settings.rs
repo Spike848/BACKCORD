@@ -1039,6 +1039,70 @@ fn the_voice_compressor_starts_off_and_is_kept() {
     );
 }
 
+/// The stereo widener and the panning under echo reduction: off and in
+/// the middle as they start, kept once set.
+#[test]
+fn the_stereo_widener_and_panning_start_off_and_centred_and_are_kept() {
+    let (mut app, folder) = preview();
+    let _volumes = crate::layout::tests::hold_volumes();
+    open(&mut app, Section::Voice);
+    assert!(!app.layout.voice.microphone_wide, "off unless set");
+    assert_eq!(app.layout.voice.microphone_pan, None, "in the middle");
+    let voice = |event| Message::Settings(Event::Voice(event));
+    let _ = app.update(voice(VoiceEvent::MicWide(true)));
+    assert!(
+        crate::layout::Layout::read(folder.path())
+            .voice
+            .microphone_wide
+    );
+    // Dragged three steps left, then let go.
+    let _ = app.update(voice(VoiceEvent::MicPan(7, false)));
+    assert_eq!(app.layout.voice.microphone_pan, Some(-30));
+    let _ = app.update(voice(VoiceEvent::MicPan(7, true)));
+    assert_eq!(
+        crate::layout::Layout::read(folder.path())
+            .voice
+            .microphone_pan,
+        Some(-30)
+    );
+    let _ = app.update(voice(VoiceEvent::MicPan(10, true)));
+    assert_eq!(
+        crate::layout::Layout::read(folder.path())
+            .voice
+            .microphone_pan,
+        None
+    );
+    // The intensity: three quarters unless set, in 5% steps, kept.
+    assert_eq!(app.layout.voice.microphone_width, None);
+    let _ = app.update(voice(VoiceEvent::MicWidth(18, true)));
+    assert_eq!(
+        crate::layout::Layout::read(folder.path())
+            .voice
+            .microphone_width,
+        Some(90)
+    );
+    // The bit depth: 32 bit float unless set; the slider's 0 is 1 bit.
+    assert_eq!(app.layout.voice.microphone_bits, None);
+    let _ = app.update(voice(VoiceEvent::MicBits(7, true)));
+    assert_eq!(
+        crate::layout::Layout::read(folder.path())
+            .voice
+            .microphone_bits,
+        Some(8)
+    );
+    let _ = app.update(voice(VoiceEvent::MicBits(31, true)));
+    assert_eq!(app.layout.voice.microphone_bits, None, "32 bit float");
+    // The sample rate: 48 kHz unless set; 8 kHz kept.
+    assert_eq!(app.layout.voice.microphone_rate, None);
+    let _ = app.update(voice(VoiceEvent::MicRate(3, true)));
+    assert_eq!(
+        crate::layout::Layout::read(folder.path())
+            .voice
+            .microphone_rate,
+        Some(8_000)
+    );
+}
+
 /// The high-pass and the gate on others' voices: off as they start, the
 /// gate in dB as it's dragged, both kept.
 #[test]

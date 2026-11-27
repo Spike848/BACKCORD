@@ -697,13 +697,18 @@ impl GateMeter {
                 .spawn(move || {
                     let result = (|| -> Result<()> {
                         crate::audio_io::raise_thread_priority("mic-test");
+                        // In stereo, so the test plays the microphone widened
+                        // and panned as a call sends it.
                         let mut output = crate::audio_io::Output::<i16>::open(
                             speaker.as_deref(),
                             "BACKCORD microphone test",
                             SAMPLE_RATE,
-                            1,
+                            2,
                             Some(Duration::from_millis(30)),
                         )?;
+                        let mut spatial = backcord_discord::spatial::Spatial::new();
+                        let mut stereo = vec![0f32; BLOCK * 2];
+                        let mut out = vec![0i16; BLOCK * 2];
                         while !worker.stop.load(Ordering::Relaxed) {
                             match receive.recv_timeout(Duration::from_millis(50)) {
                                 Ok(mut block) => {
@@ -711,12 +716,18 @@ impl GateMeter {
                                         break;
                                     }
                                     let volume = crate::volume::speakers();
-                                    for sample in &mut block {
-                                        *sample = (f32::from(*sample) * volume)
-                                            .clamp(-32768.0, 32767.0)
+                                    for (pair, sample) in stereo.chunks_exact_mut(2).zip(&mut block)
+                                    {
+                                        let sample = f32::from(*sample) / 32768.0;
+                                        pair[0] = sample;
+                                        pair[1] = sample;
+                                    }
+                                    spatial.process(&mut stereo);
+                                    for (out, sample) in out.iter_mut().zip(&stereo) {
+                                        *out = (sample * 32768.0 * volume).clamp(-32768.0, 32767.0)
                                             as i16;
                                     }
-                                    output.write(&block)?;
+                                    output.write(&out)?;
                                 }
                                 Err(RecvTimeoutError::Timeout) => continue,
                                 Err(RecvTimeoutError::Disconnected) => break,
@@ -967,6 +978,10 @@ struct Processing {
     /// sent.
     sent: Vec<[f32; BLOCK]>,
     sent_by: [usize; PAIR],
+    /// The microphone's own pitch, as Voice's Pitch sets it: the shifter
+    /// works on stereo, so each block goes through it doubled.
+    pitch: crate::pitch::Shifter,
+    doubled: Vec<i16>,
 }
 
 impl Processing {
@@ -991,6 +1006,8 @@ impl Processing {
             samples: [[0.0; BLOCK]; PAIR],
             sent: Vec::with_capacity(BEFORE_OPENING + PAIR),
             sent_by: [0; PAIR],
+            pitch: crate::pitch::Shifter::default(),
+            doubled: vec![0; BLOCK * 2],
         }
     }
 
@@ -1060,6 +1077,7 @@ impl Processing {
             self.denoiser = Denoiser::new(chosen, crate::noise::limit());
         }
         self.denoiser.limit(crate::noise::limit());
+        self.denoiser.maximum = crate::noise::maximum();
         for (samples, block) in self.samples.iter_mut().zip(blocks.iter()) {
             for (value, sample) in samples.iter_mut().zip(block) {
                 *value = f32::from(*sample);
@@ -1097,6 +1115,20 @@ impl Processing {
         }
         for block in blocks.iter_mut() {
             self.cancel_echo(block);
+        }
+        // Then the pitch, before the gate and the volume hear the voice.
+        let semitones = crate::volume::microphone_pitch();
+        if semitones != 0.0 {
+            for block in blocks.iter_mut() {
+                for (pair, sample) in self.doubled.chunks_exact_mut(2).zip(block.iter()) {
+                    pair[0] = *sample;
+                    pair[1] = *sample;
+                }
+                self.pitch.process(&mut self.doubled, semitones);
+                for (sample, pair) in block.iter_mut().zip(self.doubled.chunks_exact(2)) {
+                    *sample = pair[0];
+                }
+            }
         }
         for (samples, block) in self.samples.iter_mut().zip(blocks.iter()) {
             for (value, sample) in samples.iter_mut().zip(block) {

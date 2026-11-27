@@ -2246,7 +2246,7 @@ mod tests {
         let lounge = &snapshot.voice["11"];
         assert_eq!(lounge.len(), 1);
         assert_eq!(lounge[0].name, "Annie");
-        assert!(lounge[0].avatar.ends_with("/avatars/2/abc.png?size=128"));
+        assert!(lounge[0].avatar.ends_with("/avatars/2/abc.webp?size=128"));
         assert!(lounge[0].muted);
 
         tracker.apply(
@@ -2276,7 +2276,7 @@ mod tests {
             server
                 .icon
                 .as_ref()
-                .is_some_and(|icon| icon.contains("/icons/10/ghi.png"))
+                .is_some_and(|icon| icon.contains("/icons/10/ghi.webp"))
         );
         assert_eq!(server.voice_channels.len(), 2, "the channels stay");
     }
@@ -2751,7 +2751,7 @@ mod tests {
         let snapshot = tracker.snapshot();
         let call = &snapshot.voice["20"];
         assert_eq!((call[0].name.as_str(), call[0].muted), ("Ann", true));
-        assert!(call[0].avatar.ends_with("/avatars/2/abc.png?size=128"));
+        assert!(call[0].avatar.ends_with("/avatars/2/abc.webp?size=128"));
         let ringing: Vec<_> = snapshot.conversations[0]
             .ringing
             .iter()
@@ -3246,14 +3246,14 @@ mod tests {
             ann.avatar
                 .as_deref()
                 .unwrap()
-                .ends_with("/avatars/2/abc.png?size=128")
+                .ends_with("/avatars/2/abc.webp?size=128")
         );
         assert!(
             dm("22")
                 .avatar
                 .as_deref()
                 .unwrap()
-                .contains("/channel-icons/22/def.png")
+                .contains("/channel-icons/22/def.webp")
         );
         assert_eq!(dm("21").avatar, None);
 

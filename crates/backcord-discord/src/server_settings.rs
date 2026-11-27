@@ -507,7 +507,7 @@ mod tests {
                 .icon
                 .as_deref()
                 .unwrap()
-                .contains("/role-icons/2/abc.png")
+                .contains("/role-icons/2/abc.webp")
         );
     }
 
@@ -519,7 +519,12 @@ mod tests {
         );
         assert_eq!(profile.name, "Crew");
         assert_eq!(profile.description, "");
-        assert!(profile.icon.unwrap().ends_with("/icons/1/abc.png?size=128"));
+        assert!(
+            profile
+                .icon
+                .unwrap()
+                .ends_with("/icons/1/abc.webp?size=128")
+        );
     }
 
     #[test]
@@ -545,7 +550,7 @@ mod tests {
                 .banner
                 .as_deref()
                 .unwrap()
-                .ends_with("/banners/1/b.png?size=600")
+                .ends_with("/banners/1/b.webp?size=600")
         );
         assert!(settings.progress_bar && settings.has("BANNER"));
         let update = parse_guild(&json!({"id": "1", "premium_tier": 1, "afk_timeout": 60}));

@@ -245,6 +245,24 @@ pub fn fit(width: u32, height: u32, (max_width, max_height): (u32, u32)) -> (u32
     )
 }
 
+/// The size a `width` by `height` picture takes to cover `bounds`, keeping
+/// its shape, never larger than it is, at even sizes: what passes the
+/// bounds is cut where it shows.
+pub fn covering(width: u32, height: u32, (max_width, max_height): (u32, u32)) -> (u32, u32) {
+    let scale = f64::min(
+        1.0,
+        f64::max(
+            f64::from(max_width) / f64::from(width.max(1)),
+            f64::from(max_height) / f64::from(height.max(1)),
+        ),
+    );
+    let even = |value: f64| ((value as u32) & !1).max(2);
+    (
+        even(f64::from(width) * scale),
+        even(f64::from(height) * scale),
+    )
+}
+
 /// How a picture turns to stand upright: quarter turns clockwise, then a
 /// flip left to right, as a phone's camera says of each frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -375,6 +393,9 @@ struct Shared {
     shown_at: AtomicU64,
     /// Whether it shows large, as the call's focused tile.
     large: AtomicBool,
+    /// Whether it fills where it shows, cut to its shape, rather than
+    /// fitting inside it whole.
+    cover: AtomicBool,
     buffers: Mutex<Buffers>,
     /// Told whenever the size shown changes, or whether it's large, for a
     /// sender to match.
@@ -455,6 +476,16 @@ impl Feed {
         }
     }
 
+    /// The UI fills where the feed shows with it, cut to that shape, as
+    /// Discord's client shows cameras, or fits it inside whole.
+    pub fn show_covering(&self, cover: bool) {
+        if self.0.cover.swap(cover, Ordering::Relaxed) != cover
+            && let Some(shown) = &self.0.shown
+        {
+            shown.notify_one();
+        }
+    }
+
     /// Whether the UI shows the feed large.
     pub fn shown_large(&self) -> bool {
         self.0.large.load(Ordering::Relaxed)
@@ -467,9 +498,17 @@ impl Feed {
     }
 
     /// The size a `width` by `height` picture is made at for this feed:
-    /// fitted inside where it shows. None while it isn't on screen.
+    /// fitted inside where it shows, or covering it ([`Self::show_covering`]).
+    /// None while it isn't on screen.
     pub fn size_for(&self, width: u32, height: u32) -> Option<(u32, u32)> {
-        self.shown_at().map(|bounds| fit(width, height, bounds))
+        let cover = self.0.cover.load(Ordering::Relaxed);
+        self.shown_at().map(|bounds| {
+            if cover {
+                covering(width, height, bounds)
+            } else {
+                fit(width, height, bounds)
+            }
+        })
     }
 
     /// Makes the next frame, `width` by `height` RGBA pixels, with `fill`.
@@ -590,6 +629,20 @@ impl Feed {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_covering_picture_fills_its_bounds_but_never_grows() {
+        // An upright camera in a wide tile: as wide as the tile, cut top
+        // and bottom.
+        assert_eq!(covering(720, 1280, (600, 338)), (600, 1066));
+        assert_eq!(covering(1280, 720, (300, 300)), (532, 300));
+        assert_eq!(covering(640, 360, (1920, 1080)), (640, 360), "never larger");
+        let feed = Feed::new();
+        feed.show_at(Some((600, 338)));
+        assert_eq!(feed.size_for(720, 1280), Some((190, 338)));
+        feed.show_covering(true);
+        assert_eq!(feed.size_for(720, 1280), Some((600, 1066)));
+    }
 
     fn first(buffer: &dyn FrameBuffer) -> u8 {
         (buffer as &dyn Any)

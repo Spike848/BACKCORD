@@ -267,6 +267,22 @@ pub struct Person {
     pub friend: bool,
 }
 
+/// Someone a search for people found: a friend, someone known already, or
+/// a member of a server in common.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FoundPerson {
+    pub id: String,
+    pub name: String,
+    pub username: Option<String>,
+    pub avatar: String,
+    pub friend: bool,
+    /// A server they share with this account, by name, where the search
+    /// found them.
+    pub server: Option<String>,
+    /// The server tag they wear beside their name.
+    pub tag: Option<crate::message::Tag>,
+}
+
 /// A page of a channel's list of threads, in the order Discord gave it:
 /// each has [`ready::Channel::thread`], and its access set, and those this
 /// account may not see are left out.
@@ -851,6 +867,11 @@ enum Request {
         guild: String,
         query: String,
         reply: oneshot::Sender<Vec<String>>,
+    },
+    /// Looks for people in every server.
+    SearchPeople {
+        query: String,
+        reply: member_search::PeopleFound,
     },
     MarkRead {
         guild: String,
@@ -4722,6 +4743,76 @@ impl Discord {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
+    /// People whose names start with `query`, as Discord's quick switcher
+    /// finds them: friends, those known already, and the members of every
+    /// server in common that match, whom Discord is asked for, with a
+    /// server each shares with this account.
+    pub async fn search_people(&self, query: &str) -> Result<Vec<FoundPerson>> {
+        let (reply, mut found) = tokio::sync::mpsc::unbounded_channel();
+        self.requests
+            .send(Request::SearchPeople {
+                query: query.into(),
+                reply,
+            })
+            .map_err(|_| anyhow!("Discord is offline."))?;
+        let mut members: Vec<(String, String)> = Vec::new();
+        let deadline = tokio::time::Instant::now() + SEARCH_TIMEOUT;
+        while let Ok(Some(chunk)) = tokio::time::timeout_at(deadline, found.recv()).await {
+            members.extend(chunk);
+        }
+        let mut people: Vec<FoundPerson> = self
+            .find_people(query)
+            .into_iter()
+            .map(|person| FoundPerson {
+                username: self.username(&person.id),
+                tag: self.server_tag(&person.id),
+                id: person.id,
+                name: person.name,
+                avatar: person.avatar,
+                friend: person.friend,
+                server: None,
+            })
+            .collect();
+        let snapshot = self.snapshots.borrow().clone();
+        let me = snapshot.user_id.clone().unwrap_or_default();
+        let server_name = |guild: &str| {
+            snapshot
+                .servers
+                .iter()
+                .find(|marked| marked.server.id == guild)
+                .map(|marked| marked.server.name.clone())
+        };
+        for (guild, user) in members {
+            if user == me {
+                continue;
+            }
+            if let Some(person) = people.iter_mut().find(|person| person.id == user) {
+                if person.server.is_none() {
+                    person.server = server_name(&guild);
+                }
+                continue;
+            }
+            let names = self.read_names();
+            let name = names
+                .user_name(&user)
+                .or_else(|| names.name(&guild, &user))
+                .unwrap_or("Discord user")
+                .to_owned();
+            let avatar = names.avatar(None, &user);
+            drop(names);
+            people.push(FoundPerson {
+                username: self.username(&user),
+                tag: self.server_tag(&user),
+                name,
+                avatar,
+                friend: false,
+                server: server_name(&guild),
+                id: user,
+            });
+        }
+        Ok(people)
+    }
+
     /// People to start a DM with whose names start with `query`, friends first; with
     /// an empty query, the friends alone.
     pub fn find_people(&self, query: &str) -> Vec<Person> {
@@ -4738,16 +4829,26 @@ impl Discord {
             let (name, query) = (name.to_lowercase(), query.to_lowercase());
             name.starts_with(&query) || name.split_whitespace().any(|word| word.starts_with(&query))
         };
+        // By their name or their username, as Discord's searches.
         let mut people: Vec<Person> = snapshot
             .friends
             .iter()
             .map(|id| person(id, true))
-            .filter(|person| matches(&person.name))
+            .filter(|person| {
+                matches(&person.name) || names.username(&person.id).is_some_and(matches)
+            })
             .collect();
         people.sort_by_key(|person| person.name.to_lowercase());
         if !query.is_empty() {
-            for id in names.find_users(query) {
-                if id != me && !snapshot.friends.contains(&id) {
+            for id in names
+                .find_users(query)
+                .into_iter()
+                .chain(names.find_usernames(query))
+            {
+                if id != me
+                    && !snapshot.friends.contains(&id)
+                    && !people.iter().any(|known| known.id == id)
+                {
                     people.push(person(&id, false));
                 }
             }

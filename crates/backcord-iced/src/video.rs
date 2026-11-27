@@ -228,8 +228,9 @@ pub fn install() {
 mod yuv {
     use std::ffi::c_int;
 
-    /// libyuv's `FilterMode`.
-    pub const BILINEAR: c_int = 2;
+    /// libyuv's `FilterMode`: averages every pixel a smaller picture
+    /// covers, and is bilinear for a larger one.
+    pub const BOX: c_int = 3;
 
     unsafe extern "C" {
         /// Scales a 4-byte-per-pixel picture, writing only `clip` of the
@@ -320,7 +321,7 @@ fn draw(draw: &mut iced_tiny_skia::video::Draw<'_>) -> bool {
                 inner_y,
                 clip_width as _,
                 clip_height as _,
-                yuv::BILINEAR,
+                yuv::BOX,
             );
             yuv::ABGRToARGB(
                 target.add(at),
@@ -598,6 +599,9 @@ pub struct Video {
     /// The window's pixels to the app's units (the display's scale times
     /// the zoom), which frames are made in.
     scale: f32,
+    /// Fills its tile, cut to its shape, as Discord's client shows
+    /// cameras; else fits inside whole, with bars beside.
+    cover: bool,
 }
 
 impl Video {
@@ -609,7 +613,16 @@ impl Video {
             ground,
             corners: None,
             scale: 1.0,
+            cover: false,
         }
+    }
+
+    /// Fills the tile rather than fitting inside it: what passes the tile
+    /// is cut, and no bars show. Its feed is made covering to match
+    /// (`Feed::show_covering`).
+    pub fn cover(mut self, cover: bool) -> Self {
+        self.cover = cover;
+        self
     }
 
     /// Drawn in a window of `scale` pixels to the unit, which its frame
@@ -788,16 +801,21 @@ impl<M> Widget<M, Theme, Renderer> for Video {
         _style: &renderer::Style,
         layout: Layout<'_>,
         _cursor: mouse::Cursor,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) {
         use iced::advanced::{Renderer as _, image::Renderer as _};
         let zoom = tree.state.downcast_ref::<Zoom>();
         self.shared.zoom(&self.key, zoom.level > 1.0);
         let tile = layout.bounds();
+        // What of the tile shows: a card or a scrolled list around it may
+        // cut it, and nothing it draws, the black bars included, goes past.
+        let Some(shown) = tile.intersection(viewport) else {
+            return;
+        };
         let Some((handle, size)) = self.shared.frame(&self.key) else {
             renderer.fill_quad(
                 renderer::Quad {
-                    bounds: tile,
+                    bounds: shown,
                     ..Default::default()
                 },
                 self.ground,
@@ -810,11 +828,15 @@ impl<M> Widget<M, Theme, Renderer> for Video {
         let pixels = self.scale;
         let (tile_width, tile_height) = (tile.width * pixels, tile.height * pixels);
         let (width, height) = (size.0.max(1) as f32, size.1.max(1) as f32);
-        let mut scale = (tile_width / width).min(tile_height / height);
+        let mut scale = if self.cover {
+            (tile_width / width).max(tile_height / height)
+        } else {
+            (tile_width / width).min(tile_height / height)
+        };
         // The core makes a camera's frame at the tile's size, rounded down
         // to even sides: up to two pixels short, it's drawn one to one, in
         // the middle, not stretched by a fraction.
-        if scale > 1.0 && tile_width - width <= 2.0 && tile_height - height <= 2.0 {
+        if scale > 1.0 && (tile_width - width).abs() <= 2.0 && (tile_height - height).abs() <= 2.0 {
             scale = 1.0;
         }
         // Whole pixels: the frame was made at a whole size, so one to one
@@ -828,9 +850,10 @@ impl<M> Widget<M, Theme, Renderer> for Video {
         );
         // Zoomed by the wheel: the picture grows round the tile's middle,
         // shifted by the drag, and never leaves the tile bare inside it.
-        let mut clip = picture;
+        let cut = self.cover || zoom.level > 1.0;
+        let mut clip = picture.intersection(&shown).unwrap_or_default();
         let picture = if zoom.level > 1.0 {
-            clip = tile;
+            clip = shown;
             let (width, height) = (picture.width * zoom.level, picture.height * zoom.level);
             let reach = |size: f32, tile: f32| ((size - tile).max(0.0)) / 2.0;
             let (reach_x, reach_y) = (reach(width, tile.width), reach(height, tile.height));
@@ -870,6 +893,12 @@ impl<M> Widget<M, Theme, Renderer> for Video {
                 ),
             ),
         ];
+        // Each cut to what shows: zoomed past the tile's height, the side
+        // bars would reach above and below it.
+        let bars = bars
+            .into_iter()
+            .filter(|bar| bar.width >= 0.5 && bar.height >= 0.5)
+            .filter_map(|bar| bar.intersection(&shown));
         for bar in bars {
             if bar.width >= 0.5 && bar.height >= 0.5 {
                 renderer.fill_quad(
@@ -881,9 +910,9 @@ impl<M> Widget<M, Theme, Renderer> for Video {
                 );
             }
         }
-        // Zoomed, the picture is cut at its tile.
-        if zoom.level > 1.0 {
-            renderer.start_layer(tile);
+        // Covering or zoomed, the picture is cut at its tile.
+        if cut {
+            renderer.start_layer(shown);
         }
         renderer.draw_image(
             raster::Image {
@@ -897,7 +926,7 @@ impl<M> Widget<M, Theme, Renderer> for Video {
             picture,
             clip,
         );
-        if zoom.level > 1.0 {
+        if cut {
             renderer.end_layer();
         }
         if let Some((radius, behind)) = self.corners {

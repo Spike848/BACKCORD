@@ -28,6 +28,9 @@ fn a_member_below_gets_every_choice_in_discords_order() {
             Ignore,
             Block,
             Roles,
+            // Out of voice: waiting for them to join.
+            ServerMute,
+            ServerDeafen,
             Timeout,
             Kick,
             Ban,
@@ -39,8 +42,20 @@ fn a_member_below_gets_every_choice_in_discords_order() {
 #[test]
 fn nobody_acts_on_those_above_them_or_the_owner() {
     let app = staff();
+    // Server mute and deafen go by the permission alone, as in voice.
     let personal = [
-        Profile, Mention, Message, Call, AddNote, AddFriend, Ignore, Block, Roles, CopyId,
+        Profile,
+        Mention,
+        Message,
+        Call,
+        AddNote,
+        AddFriend,
+        Ignore,
+        Block,
+        Roles,
+        ServerMute,
+        ServerDeafen,
+        CopyId,
     ];
     assert_eq!(app.person_choices("3"), personal, "Cara, a Lead");
     assert_eq!(app.person_choices("99"), personal, "Owen, the owner");
@@ -467,6 +482,8 @@ fn invite_to_server_lists_where_one_may_invite_but_the_server_theyre_shown_in() 
             Ignore,
             Block,
             Roles,
+            ServerMute,
+            ServerDeafen,
             Timeout,
             Kick,
             Ban,
@@ -806,4 +823,28 @@ fn auto_unmute_gives_up_after_five_times_in_a_minute() {
         undid += undone(&app.unmute_myself()).len();
     }
     assert_eq!(undid, 5);
+}
+
+/// A server mute for someone out of voice waits, ticked, and goes when they
+/// join a voice channel of the server.
+#[test]
+fn a_server_mute_out_of_voice_waits_for_them_to_join() {
+    let mut app = staff();
+    app.state.discord_online = true;
+    // Dave, in Lounge, is muted at once, from #general's member list.
+    assert_eq!(
+        app.change_member(GENERAL.into(), "4".into(), MemberChange::ServerMute(true))
+            .len(),
+        1
+    );
+    // Cara, out of voice, waits.
+    let effects = app.change_member(GENERAL.into(), "3".into(), MemberChange::ServerMute(true));
+    assert!(
+        effects.is_empty(),
+        "nothing sent while they're out of voice"
+    );
+    assert_eq!(app.pending_voice_change(GENERAL, "3", false), Some(true));
+    assert_eq!(app.pending_voice_change(GENERAL, "3", true), None);
+    assert!(app.send_pending_voice().is_empty(), "still out of voice");
+    assert_eq!(app.state.pending_server_voice.len(), 1);
 }

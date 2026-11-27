@@ -43,23 +43,20 @@ impl<'a> super::View<'a> {
             None => {
                 let (ground, ink, hint, selection) =
                     (theme.field, theme.text, theme.muted, theme.selection);
-                text_input(
-                    backcord_iced_kit::i18n::tr("Find a conversation"),
-                    &self.s.filter,
-                )
-                .id(FILTER)
-                .on_input(|filter| Message::Side(Event::Filter(filter)))
-                .size(13)
-                .padding([8, 10])
-                .style(move |_, _| text_input::Style {
-                    background: ground.into(),
-                    border: crate::style::round(6),
-                    icon: ink,
-                    placeholder: hint,
-                    value: ink,
-                    selection,
-                })
-                .into()
+                text_input(backcord_iced_kit::i18n::tr("Find DMs"), &self.s.filter)
+                    .id(FILTER)
+                    .on_input(|filter| Message::Side(Event::Filter(filter)))
+                    .size(13)
+                    .padding([8, 10])
+                    .style(move |_, _| text_input::Style {
+                        background: ground.into(),
+                        border: crate::style::round(6),
+                        icon: ink,
+                        placeholder: hint,
+                        value: ink,
+                        selection,
+                    })
+                    .into()
             }
             Some(_) => {
                 let mut line = row![self.server_name_button()].spacing(INSET);

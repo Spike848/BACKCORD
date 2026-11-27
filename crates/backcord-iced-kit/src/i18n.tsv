@@ -4138,3 +4138,26 @@ R	D
 Nobody else is in the call.	Non c'è nessun altro in chiamata.
 Reverb	Riverbero
 Put everyone back ahead	Rimetti tutti davanti
+Find DMs	Trova dm
+Protip: start searches with @ # ! * to narrow results.	Suggerimento: inizia la ricerca con @ # ! * per restringere i risultati.
+Stereo widener	Allargamento stereo
+Makes your microphone sound wide in the others' headphones, filling the space between their ears, whatever your microphone is. A call going on switches straight away.	Fa sentire il tuo microfono ampio nelle cuffie degli altri, riempiendo lo spazio tra le loro orecchie, qualunque microfono tu abbia. Una chiamata in corso cambia subito.
+Panning	Panning
+Moves your voice between the others' ears: all the way left, they hear you in the left ear alone; in the middle, in both, as usual.	Sposta la tua voce tra le orecchie degli altri: tutto a sinistra ti sentono solo nell'orecchio sinistro; al centro in entrambe, come sempre.
+Centre	Centro
+Left {}%	Sinistra {}%
+Right {}%	Destra {}%
+Sounds wide in the others' headphones.	Ti fa sentire ampio nelle cuffie degli altri.
+Mic test	Test microfono
+Intensity	Intensità
+Bit depth	Profondità in bit
+32 bit float	32 bit float
+Sample rate	Frequenza di campionamento
+Rounds your voice to fewer bits, and samples it down, before it's sent: together, low, they give old games' voices. At 32 bit float and 48 kHz it goes out as it is.	Arrotonda la tua voce a meno bit e ne abbassa il campionamento prima di inviarla: entrambi bassi danno le voci dei vecchi giochi. A 32 bit float e 48 kHz esce così com'è.
+Extreme	Estrema
+Extreme goes further than Full for loud rooms: DeepFilterNet also turns down what it isn't sure is your voice, RNNoise turns down all it hears between your words. Your voice can sound a little thinner. Full takes out the most noise the network alone can, but can cut off giggles and breathy laughs. Medium and Light leave a little of the room's sound in, which can sound more natural, and let a little more noise through.	Estrema va oltre Massima per le stanze rumorose: DeepFilterNet abbassa anche ciò che non è sicuro sia la tua voce, RNNoise abbassa tutto ciò che sente tra una parola e l'altra. La voce può risultare un po' più sottile. Massima toglie tutto il rumore che la rete da sola riesce a togliere, ma può tagliare risatine e risate soffiate. Media e Minima lasciano un po' del suono della stanza, che può suonare più naturale, e lasciano passare un po' più di rumore.
+Mute Stream	Silenzia stream
+Share sound	Condividi audio
+Others hear your computer's sound with the stream	Gli altri sentono l'audio del computer con lo stream
+Sound on	Audio sì
+Sound off	Audio no

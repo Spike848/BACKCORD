@@ -231,7 +231,7 @@ mod tests {
                 .icon
                 .as_ref()
                 .unwrap()
-                .contains("/icons/10/hash.png")
+                .contains("/icons/10/hash.webp")
         );
         assert_eq!((preview.members, preview.online), (Some(42), Some(7)));
         assert!(!preview.voice());

@@ -35,6 +35,181 @@ use crate::{
     video::Video,
 };
 
+/// The pan slider's middle: each of its steps is 10%.
+pub(crate) const PAN_MIDDLE: u32 = 10;
+
+/// Widens the microphone or not, and keeps it: Voice's switch and the
+/// microphone's menu in a call both set it.
+pub(crate) fn microphone_wide(voice: &mut crate::layout::Voice, root: &std::path::Path, on: bool) {
+    voice.microphone_wide = on;
+    backcord_core::volume::set_microphone_wide(on);
+    crate::layout::store(root, "microphone_wide", on);
+}
+
+/// Pans the microphone to the pan slider's `value`, kept as it's let go
+/// of (`done`): Voice's slider and the microphone's menu both set it.
+pub(crate) fn microphone_pan(
+    voice: &mut crate::layout::Voice,
+    root: &std::path::Path,
+    value: u32,
+    done: bool,
+) {
+    let percent = pan_percent(value);
+    voice.microphone_pan = (percent != 0).then_some(percent);
+    backcord_core::volume::set_microphone_pan(f32::from(percent) / 100.0);
+    if done {
+        crate::layout::store(root, "microphone_pan", voice.microphone_pan);
+    }
+}
+
+/// The widener's intensity unless set, in percent.
+pub(crate) const DEFAULT_WIDTH: u8 = 75;
+/// The intensity slider's steps, each 5%.
+pub(crate) const WIDTH_STEPS: u32 = 20;
+
+/// Sets how wide the widener makes the microphone from its slider's
+/// `value`, kept as it's let go of (`done`).
+pub(crate) fn microphone_width(
+    voice: &mut crate::layout::Voice,
+    root: &std::path::Path,
+    value: u32,
+    done: bool,
+) {
+    let percent = (value.min(WIDTH_STEPS) * 5) as u8;
+    voice.microphone_width = (percent != DEFAULT_WIDTH).then_some(percent);
+    backcord_core::volume::set_microphone_width(f32::from(percent) / 100.0);
+    if done {
+        crate::layout::store(root, "microphone_width", voice.microphone_width);
+    }
+}
+
+/// The widener's intensity, in percent, and its slider's value.
+pub(crate) fn width_value(voice: &crate::layout::Voice) -> (u8, u32) {
+    let percent = voice.microphone_width.unwrap_or(DEFAULT_WIDTH).min(100);
+    (percent, u32::from(percent) / 5)
+}
+
+/// The bit depth's slider goes from 1 bit to 32 bit float, as it is.
+pub(crate) const FLOAT_BITS: u8 = 32;
+
+/// Sets the bit depth from its slider's `value`, 0 for 1 bit, kept as it's
+/// let go of (`done`).
+pub(crate) fn microphone_bits(
+    voice: &mut crate::layout::Voice,
+    root: &std::path::Path,
+    value: u32,
+    done: bool,
+) {
+    let bits = (value.min(u32::from(FLOAT_BITS) - 1) + 1) as u8;
+    voice.microphone_bits = (bits != FLOAT_BITS).then_some(bits);
+    backcord_core::volume::set_microphone_bits(u32::from(bits));
+    if done {
+        crate::layout::store(root, "microphone_bits", voice.microphone_bits);
+    }
+}
+
+/// The bit depth's slider: its value, its top, and what it says.
+pub(crate) fn bits_slider(voice: &crate::layout::Voice) -> (u32, u32, String) {
+    let bits = voice
+        .microphone_bits
+        .unwrap_or(FLOAT_BITS)
+        .clamp(1, FLOAT_BITS);
+    let shown = if bits == FLOAT_BITS {
+        backcord_iced_kit::i18n::tr("32 bit float").to_owned()
+    } else {
+        format!("{bits} bit")
+    };
+    (u32::from(bits) - 1, u32::from(FLOAT_BITS) - 1, shown)
+}
+
+/// The sample rate slider's stops, lowest first: the last is as it is.
+pub(crate) const RATES: [u32; 10] = [
+    2_000, 4_000, 6_000, 8_000, 11_025, 16_000, 22_050, 24_000, 32_000, 48_000,
+];
+pub(crate) const FULL_RATE: u32 = 48_000;
+
+/// Sets the sample rate from its slider's `value`, an index into
+/// [`RATES`], kept as it's let go of (`done`).
+pub(crate) fn microphone_rate(
+    voice: &mut crate::layout::Voice,
+    root: &std::path::Path,
+    value: u32,
+    done: bool,
+) {
+    let rate = RATES[(value as usize).min(RATES.len() - 1)];
+    voice.microphone_rate = (rate != FULL_RATE).then_some(rate);
+    backcord_core::volume::set_microphone_sample_rate(rate);
+    if done {
+        crate::layout::store(root, "microphone_rate", voice.microphone_rate);
+    }
+}
+
+/// The sample rate's slider: its value, its top, and what it says.
+pub(crate) fn rate_slider(voice: &crate::layout::Voice) -> (u32, u32, String) {
+    let rate = voice.microphone_rate.unwrap_or(FULL_RATE);
+    let index = RATES
+        .iter()
+        .position(|&stop| stop >= rate)
+        .unwrap_or(RATES.len() - 1);
+    let shown = RATES[index];
+    let shown = if shown.is_multiple_of(1_000) {
+        format!("{} kHz", shown / 1_000)
+    } else {
+        format!("{:.1} kHz", shown as f32 / 1_000.0)
+    };
+    (index as u32, (RATES.len() - 1) as u32, shown)
+}
+
+/// Sets the microphone's pitch from its slider's `value`, a semitone a
+/// step from [`PITCH_OFF`](crate::call::popups::person::PITCH_OFF), kept
+/// as it's let go of (`done`): as someone's Pitch, for this account.
+pub(crate) fn microphone_pitch(
+    voice: &mut crate::layout::Voice,
+    root: &std::path::Path,
+    value: u32,
+    done: bool,
+) {
+    use crate::call::popups::person::PITCH_OFF;
+    let semitones = (value.min(2 * PITCH_OFF) as i32 - PITCH_OFF as i32) as i8;
+    voice.microphone_pitch = (semitones != 0).then_some(semitones);
+    backcord_core::volume::set_microphone_pitch(f32::from(semitones));
+    if done {
+        crate::layout::store(root, "microphone_pitch", voice.microphone_pitch);
+    }
+}
+
+/// The microphone's pitch slider: its value, its top, and what it says.
+pub(crate) fn pitch_slider(voice: &crate::layout::Voice) -> (u32, u32, String) {
+    use crate::call::popups::person::PITCH_OFF;
+    let semitones =
+        i32::from(voice.microphone_pitch.unwrap_or(0)).clamp(-(PITCH_OFF as i32), PITCH_OFF as i32);
+    let shown = if semitones == 0 {
+        backcord_iced_kit::i18n::tr("Off").to_owned()
+    } else {
+        format!("{semitones:+}")
+    };
+    ((PITCH_OFF as i32 + semitones) as u32, 2 * PITCH_OFF, shown)
+}
+
+/// The pan's percent, -100 to 100, for its slider's value.
+fn pan_percent(value: u32) -> i8 {
+    ((i64::from(value.min(PAN_MIDDLE * 2)) - i64::from(PAN_MIDDLE)) * 10) as i8
+}
+
+/// The pan slider's value for its percent.
+pub(crate) fn pan_value(percent: i8) -> u32 {
+    (i64::from(PAN_MIDDLE) + i64::from(percent.clamp(-100, 100)) / 10) as u32
+}
+
+/// What the pan slider says: the middle, or how far to a side.
+pub(crate) fn pan_shown(percent: i8) -> String {
+    match percent {
+        0 => backcord_iced_kit::i18n::tr("Centre").to_owned(),
+        p if p < 0 => backcord_iced_kit::i18n::t(format!("Left {}%", -i16::from(p))),
+        p => backcord_iced_kit::i18n::t(format!("Right {p}%")),
+    }
+}
+
 /// The camera's preview: its key among the window's video sources, and the
 /// size it's filmed at.
 pub const CAMERA_TEST: &str = "camera:settings";
@@ -47,7 +222,12 @@ const SUPPRESSORS: [Suppressor; 3] = [
     Suppressor::RNNoise,
     Suppressor::Off,
 ];
-const STRENGTHS: [Strength; 3] = [Strength::Full, Strength::Medium, Strength::Light];
+const STRENGTHS: [Strength; 4] = [
+    Strength::Max,
+    Strength::Full,
+    Strength::Medium,
+    Strength::Light,
+];
 
 /// What Voice runs while it shows.
 #[derive(Default)]
@@ -83,6 +263,21 @@ pub enum Event {
     Volume(bool, u32, bool),
     /// The echo reduction chosen: off, normal or strong.
     Echo(usize),
+    /// The microphone widened, or not.
+    MicWide(bool),
+    /// The pan's slider: 0 the left ear, [`PAN_MIDDLE`] the middle, twice
+    /// that the right; and whether it's let go of.
+    MicPan(u32, bool),
+    /// The widener's intensity slider, in 5% steps; and whether it's let go of.
+    MicWidth(u32, bool),
+    /// The bit depth's slider, 0 for 1 bit; and whether it's let go of.
+    MicBits(u32, bool),
+    /// The sample rate's slider, an index into [`RATES`]; and whether it's
+    /// let go of.
+    MicRate(u32, bool),
+    /// The microphone's pitch slider, a semitone a step; and whether it's
+    /// let go of.
+    MicPitch(u32, bool),
     Studio(bool),
     Noise(usize),
     Strength(usize),
@@ -290,6 +485,27 @@ impl Settings {
                 backcord_core::volume::set_voice_compressor(on);
                 crate::layout::store(&root, "voice_compressor", on);
             }
+            Event::MicWide(on) => microphone_wide(voice, &root, on),
+            Event::MicPan(value, done) => {
+                microphone_pan(voice, &root, value, done);
+                return;
+            }
+            Event::MicWidth(value, done) => {
+                microphone_width(voice, &root, value, done);
+                return;
+            }
+            Event::MicBits(value, done) => {
+                microphone_bits(voice, &root, value, done);
+                return;
+            }
+            Event::MicRate(value, done) => {
+                microphone_rate(voice, &root, value, done);
+                return;
+            }
+            Event::MicPitch(value, done) => {
+                microphone_pitch(voice, &root, value, done);
+                return;
+            }
             Event::Echo(level) => {
                 let level = level.min(2) as u8;
                 voice.echo_reduction = Some(level);
@@ -309,7 +525,7 @@ impl Settings {
                 cx.request(Request::Changed(Shown::Noise));
             }
             Event::Strength(index) => {
-                voice.noise_strength = STRENGTHS[index.min(2)];
+                voice.noise_strength = STRENGTHS[index.min(STRENGTHS.len() - 1)];
                 backcord_core::noise::set_strength(voice.noise_strength);
                 crate::layout::store(&root, "noise_strength", voice.noise_strength);
             }
@@ -743,15 +959,15 @@ impl<'a> Page<'a> {
             let strength = STRENGTHS
                 .iter()
                 .position(|kind| *kind == voice.noise_strength)
-                .unwrap_or(1);
+                .unwrap_or(2);
             parts.push(form::group([
                 form::heading(theme, backcord_iced_kit::i18n::tr("NOISE SUPPRESSION STRENGTH")),
-                choices(theme, &[backcord_iced_kit::i18n::tr("Full"), backcord_iced_kit::i18n::tr("Medium"), backcord_iced_kit::i18n::tr("Light")], strength, |index| {
+                choices(theme, &[backcord_iced_kit::i18n::tr("Extreme"), backcord_iced_kit::i18n::tr("Full"), backcord_iced_kit::i18n::tr("Medium"), backcord_iced_kit::i18n::tr("Light")], strength, |index| {
                     voice_message(Event::Strength(index))
                 }),
                 form::note(
                     theme,
-                    backcord_iced_kit::i18n::tr("Full takes out the most noise, but can cut off giggles and breathy laughs. Medium and Light leave a little of the room's sound in, which can sound more natural, and let a little more noise through."),
+                    backcord_iced_kit::i18n::tr("Extreme goes further than Full for loud rooms: DeepFilterNet also turns down what it isn't sure is your voice, RNNoise turns down all it hears between your words. Your voice can sound a little thinner. Full takes out the most noise the network alone can, but can cut off giggles and breathy laughs. Medium and Light leave a little of the room's sound in, which can sound more natural, and let a little more noise through."),
                 ),
             ]));
         }
@@ -771,6 +987,98 @@ impl<'a> Page<'a> {
             form::note(
                 theme,
                 backcord_iced_kit::i18n::tr("Keeps what your speakers play from going back out through your microphone, so others don't hear themselves. Strong also turns your microphone down while only that echo reaches it; your own voice still goes through. With headphones you can turn it off. A call going on switches straight away."),
+            ),
+        ]));
+        // Under echo reduction: where the others hear you.
+        let wide = voice.microphone_wide;
+        parts.push(
+            switch(
+                backcord_iced_kit::i18n::tr("Stereo widener"),
+                wide,
+                Some(voice_message(Event::MicWide(!wide))),
+            )
+            .description(backcord_iced_kit::i18n::tr("Makes your microphone sound wide in the others' headphones, filling the space between their ears, whatever your microphone is. A call going on switches straight away."))
+            .view(self.cx.look),
+        );
+        if wide {
+            let (percent, value) = width_value(voice);
+            parts.push(
+                slider(
+                    backcord_iced_kit::i18n::tr("Intensity"),
+                    value,
+                    WIDTH_STEPS,
+                    |value| voice_message(Event::MicWidth(value, false)),
+                )
+                .step(1)
+                .mark(false)
+                .shown(format!("{percent}%"))
+                .on_release(voice_message(Event::MicWidth(value, true)))
+                .view(theme),
+            );
+        }
+        let pan = voice.microphone_pan.unwrap_or(0);
+        let pan_value = pan_value(pan);
+        parts.push(form::group([
+            slider(
+                backcord_iced_kit::i18n::tr("Panning"),
+                pan_value,
+                PAN_MIDDLE * 2,
+                |value| voice_message(Event::MicPan(value, false)),
+            )
+            .step(1)
+            .mark(false)
+            .shown(pan_shown(pan))
+            .on_release(voice_message(Event::MicPan(pan_value, true)))
+            .view(theme),
+            form::note(
+                theme,
+                backcord_iced_kit::i18n::tr("Moves your voice between the others' ears: all the way left, they hear you in the left ear alone; in the middle, in both, as usual."),
+            ),
+        ]));
+        let (bits, top, shown) = bits_slider(voice);
+        parts.push(form::group([
+            slider(
+                backcord_iced_kit::i18n::tr("Bit depth"),
+                bits,
+                top,
+                |value| voice_message(Event::MicBits(value, false)),
+            )
+            .step(1)
+            .mark(false)
+            .shown(shown)
+            .on_release(voice_message(Event::MicBits(bits, true)))
+            .view(theme),
+            {
+                let (rate, top, shown) = rate_slider(voice);
+                slider(
+                    backcord_iced_kit::i18n::tr("Sample rate"),
+                    rate,
+                    top,
+                    |value| voice_message(Event::MicRate(value, false)),
+                )
+                .step(1)
+                .mark(false)
+                .shown(shown)
+                .on_release(voice_message(Event::MicRate(rate, true)))
+                .view(theme)
+            },
+            {
+                let (pitch, top, shown) = pitch_slider(voice);
+                slider(
+                    backcord_iced_kit::i18n::tr("Voice pitch (semitones)"),
+                    pitch,
+                    top,
+                    |value| voice_message(Event::MicPitch(value, false)),
+                )
+                .step(1)
+                .mark(false)
+                .shown(shown)
+                .on_release(voice_message(Event::MicPitch(pitch, true)))
+                .view(theme)
+            },
+            form::note(
+                theme,
+                backcord_iced_kit::i18n::tr("Rounds your voice to fewer bits, and samples it down, before it's sent: together, low, they give old games' voices. At 32 bit float and 48 kHz it goes out as it is."),
             ),
         ]));
         parts

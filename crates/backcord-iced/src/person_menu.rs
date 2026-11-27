@@ -175,12 +175,18 @@ fn voice_ticks(
     user: &str,
 ) -> impl Fn(MenuChoice) -> Option<bool> + use<> {
     let voice = &core.state.voice;
-    let listed = core
-        .member_place(user)
-        .and_then(|place| core.voice_person(place, user));
-    let (server_muted, server_deafened) = listed.map_or((false, false), |person| {
-        (person.server_muted, person.server_deafened)
-    });
+    let place = core.member_place(user);
+    let listed = place.and_then(|place| core.voice_person_in_server(place, user));
+    // Out of voice, what waits for them to join.
+    let waiting = |deafen| {
+        place
+            .and_then(|place| core.pending_voice_change(place, user, deafen))
+            .unwrap_or(false)
+    };
+    let (server_muted, server_deafened) = listed
+        .map_or((waiting(false), waiting(true)), |person| {
+            (person.server_muted, person.server_deafened)
+        });
     let (muted, deafened) = (voice.muted, voice.deafened);
     let followed = core.state.following.as_deref() == Some(user);
     let user = user.to_owned();

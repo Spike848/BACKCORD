@@ -53,6 +53,7 @@ const SET_BITRATE: c_int = 4002;
 const SET_COMPLEXITY: c_int = 4010;
 const SET_BANDWIDTH: c_int = 4008;
 const SET_SIGNAL: c_int = 4024;
+const SET_FORCE_CHANNELS: c_int = 4022;
 const SET_INBAND_FEC: c_int = 4012;
 const SET_PACKET_LOSS_PERC: c_int = 4014;
 
@@ -118,6 +119,14 @@ impl Encoder {
             }
         }
         Ok(encoder)
+    }
+
+    /// Keeps both channels apart at any bitrate, or lets Opus fold them
+    /// into one when it judges them alike enough.
+    pub fn force_stereo(&mut self, on: bool) {
+        let channels = if on { 2 } else { AUTO };
+        // SAFETY: a request that takes one int, as libopus's macros pass it.
+        unsafe { opus_encoder_ctl(self.raw.as_ptr(), SET_FORCE_CHANNELS, channels) };
     }
 
     /// Tunes the encoder for the highest quality, or back to how a call

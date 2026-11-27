@@ -25,6 +25,11 @@ pub enum Suppressor {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Strength {
+    /// Takes out all the noise it can and then some: DeepFilterNet's
+    /// post-filter turns down what it's unsure of; RNNoise's leftover is
+    /// turned down outside speech. The
+    /// cleanest in noisy rooms, at the cost of a slightly thinner voice.
+    Max,
     /// Takes out all the noise it can, and with it high-pitched giggles and
     /// breathy laughs, which DeepFilterNet takes for noise.
     Full,
@@ -39,7 +44,7 @@ impl Strength {
     /// The attenuation limit, in dB.
     const fn limit(self) -> f32 {
         match self {
-            Strength::Full => FULL,
+            Strength::Max | Strength::Full => FULL,
             Strength::Medium => 30.0,
             Strength::Light => 20.0,
         }
@@ -58,6 +63,12 @@ static SUPPRESSOR: AtomicU8 = AtomicU8::new(0);
 static LIMIT: AtomicU32 = AtomicU32::new(Strength::Medium.limit().to_bits());
 static SENSITIVITY: AtomicU32 = AtomicU32::new(DEFAULT_SENSITIVITY.to_bits());
 static DECLICK: AtomicBool = AtomicBool::new(true);
+/// Whether the strength is [`Strength::Max`].
+static MAXIMUM: AtomicBool = AtomicBool::new(false);
+/// DeepFilterNet's post-filter at Max: libDF's own default is 0.02; higher
+/// turns down more of what the network is unsure is speech.
+#[cfg(feature = "discord")]
+const POST_FILTER: f32 = 0.05;
 /// How far the microphone's echo is taken out: 0 not at all, 1 WebRTC's
 /// echo canceller, 2 that and what it leaves turned down.
 static ECHO: AtomicU8 = AtomicU8::new(2);
@@ -91,6 +102,12 @@ pub fn chosen() -> Suppressor {
 /// takes it at its next block.
 pub fn set_strength(strength: Strength) {
     set_limit(strength.limit());
+    MAXIMUM.store(strength == Strength::Max, Ordering::Relaxed);
+}
+
+#[cfg(feature = "discord")]
+pub(crate) fn maximum() -> bool {
+    MAXIMUM.load(Ordering::Relaxed)
 }
 
 /// Limits how far the suppressor turns noise down, in dB, by mixing some of
@@ -170,6 +187,13 @@ mod denoise {
     const GAINS_UP_TO: f32 = 35.0;
     /// RNNoise's probability from which a block counts as speech.
     const SPEECH_PROBABILITY: f32 = 0.6;
+    /// At Extreme: RNNoise's probability below which its output is down the
+    /// whole way, how far that is (30 dB), and how fast it moves, a sample
+    /// at a time (5 ms up, 150 ms down).
+    const DUCK_FROM: f32 = 0.2;
+    const DUCK_FLOOR: f32 = 0.031_6;
+    const DUCK_UP: f32 = 1.0 / (0.005 * 48_000.0);
+    const DUCK_DOWN: f32 = 1.0 / (0.15 * 48_000.0);
 
     /// Takes out a microphone's noise, a pair of blocks at a time, and tells
     /// which blocks are speech.
@@ -190,6 +214,15 @@ mod denoise {
         declicker: Option<crate::declick::Declicker>,
         /// How many blocks in a row DeepFilterNet took for noise alone.
         noise: u32,
+        /// At Max: whether DeepFilterNet's post-filter is on, and RNNoise's
+        /// second pass.
+        post_filter: bool,
+        /// At Extreme, RNNoise's leftover turned down outside speech: the
+        /// gain it's at.
+        duck: f32,
+        /// Whether to run at [`Strength::Max`](super::Strength::Max), as
+        /// the strength chosen says.
+        pub(crate) maximum: bool,
     }
 
     /// What becomes of the blocks the denoiser puts out.
@@ -242,6 +275,9 @@ mod denoise {
                 previous: vec![0.0; BLOCK],
                 declicker: None,
                 noise: 0,
+                post_filter: false,
+                duck: 1.0,
+                maximum: false,
             };
             denoiser.limit(limit);
             denoiser
@@ -289,8 +325,13 @@ mod denoise {
             sent: Sent,
             lightly: bool,
         ) -> [bool; PAIR] {
+            let maximum = self.maximum;
             match &mut self.network {
                 Network::DeepFilterNet(network) => {
+                    if maximum != self.post_filter {
+                        self.post_filter = maximum;
+                        network.set_pf_beta(if maximum { super::POST_FILTER } else { 0.0 });
+                    }
                     if super::declick() {
                         let declicker = self.declicker.get_or_insert_with(|| {
                             crate::declick::Declicker::new(DEEP_FILTER_NET_LAG)
@@ -348,6 +389,26 @@ mod denoise {
                     let noisy = &mut self.noisy[..BLOCK];
                     noisy.copy_from_slice(block);
                     let probability = network.process_frame(block, noisy);
+                    // At Max, what RNNoise leaves outside speech, which it
+                    // takes little of, comes down by up to DUCK dB as its
+                    // speech estimate falls: back up in 5 ms as speech
+                    // starts, down over 150 ms after it.
+                    if maximum {
+                        let target = ((probability - DUCK_FROM) / (SPEECH_PROBABILITY - DUCK_FROM))
+                            .clamp(0.0, 1.0);
+                        let target = DUCK_FLOOR + (1.0 - DUCK_FLOOR) * target;
+                        for sample in block.iter_mut() {
+                            let rate = if target > self.duck {
+                                DUCK_UP
+                            } else {
+                                DUCK_DOWN
+                            };
+                            self.duck += (target - self.duck) * rate;
+                            *sample *= self.duck;
+                        }
+                    } else {
+                        self.duck = 1.0;
+                    }
                     if self.mix > 0.0 {
                         for (sample, noisy) in block.iter_mut().zip(&self.previous) {
                             *sample += (noisy - *sample) * self.mix;
@@ -386,6 +447,7 @@ mod tests {
     /// What's left of 2 s of steady noise after a denoiser, in dB below it.
     fn turned_down(suppressor: Suppressor, strength: Strength) -> f32 {
         let mut denoiser = Denoiser::new(suppressor, strength.limit());
+        denoiser.maximum = strength == Strength::Max;
         let (mut seed, mut before, mut after) = (1u32, 0.0, 0.0);
         for index in 0..100 {
             let mut pair = [[0.0; BLOCK]; PAIR];
@@ -433,6 +495,23 @@ mod tests {
             );
         }
         assert_eq!(turned_down(Suppressor::Off, Strength::Full), 0.0);
+    }
+
+    /// Max takes out at least as much as Full, RNNoise clearly more.
+    #[test]
+    fn max_takes_out_more_than_full() {
+        for suppressor in [Suppressor::DeepFilterNet, Suppressor::RNNoise] {
+            let full = turned_down(suppressor, Strength::Full);
+            let max = turned_down(suppressor, Strength::Max);
+            eprintln!("{suppressor:?}: full {full} dB, max {max} dB");
+            // DeepFilterNet already silences steady noise at Full; its
+            // post-filter acts on what's left under speech.
+            if suppressor == Suppressor::DeepFilterNet {
+                assert!(max >= full, "full {full} dB, max {max} dB");
+            } else {
+                assert!(max > full + 1.0, "full {full} dB, max {max} dB");
+            }
+        }
     }
 
     /// Run lightly, as when the microphone falls behind, DeepFilterNet

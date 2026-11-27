@@ -18,6 +18,8 @@ use crate::{
 /// Discord serves pictures in powers of two; this covers the 80px avatar in a
 /// call. Larger ones would cost memory for every person shown.
 const PICTURE_SIZE: u32 = 128;
+// Avatars, icons and banners come as WebP, as Discord's client asks for
+// them: the same picture in a fraction of a PNG's bytes.
 
 const GUILD_TEXT: u64 = 0;
 const DM: u64 = 1;
@@ -687,7 +689,7 @@ pub fn private_channel(channel: &Value) -> Option<Private> {
             .map(str::to_owned),
         icon: channel["icon"].as_str().map(|hash| {
             format!(
-                "{}/channel-icons/{id}/{hash}.png?size={PICTURE_SIZE}",
+                "{}/channel-icons/{id}/{hash}.webp?size={PICTURE_SIZE}",
                 cdn()
             )
         }),
@@ -1966,14 +1968,14 @@ pub fn is_asset_svg(url: &str) -> bool {
 }
 
 pub fn server_icon(guild: &str, hash: &str) -> String {
-    format!("{}/icons/{guild}/{hash}.png?size={PICTURE_SIZE}", cdn())
+    format!("{}/icons/{guild}/{hash}.webp?size={PICTURE_SIZE}", cdn())
 }
 
 /// A user's avatar. Without one, Discord shows one of its default avatars,
 /// picked from the account's id.
 pub fn avatar(user: &str, hash: Option<&str>) -> String {
     match hash {
-        Some(hash) => format!("{}/avatars/{user}/{hash}.png?size={PICTURE_SIZE}", cdn()),
+        Some(hash) => format!("{}/avatars/{user}/{hash}.webp?size={PICTURE_SIZE}", cdn()),
         None => {
             let index = user.parse::<u64>().map_or(0, |id| (id >> 22) % 6);
             format!("{}/embed/avatars/{index}.png", cdn())
@@ -1983,23 +1985,23 @@ pub fn avatar(user: &str, hash: Option<&str>) -> String {
 
 /// A role's picture, at twice the size a member list draws it.
 pub fn role_icon(role: &str, hash: &str) -> String {
-    format!("{}/role-icons/{role}/{hash}.png?size=64", cdn())
+    format!("{}/role-icons/{role}/{hash}.webp?size=64", cdn())
 }
 
 /// A profile or server banner, at the profile card's widest.
 pub fn banner(user: &str, hash: &str) -> String {
-    format!("{}/banners/{user}/{hash}.png?size=600", cdn())
+    format!("{}/banners/{user}/{hash}.webp?size=600", cdn())
 }
 
 /// A server's invite background, at the width its settings show it.
 pub fn splash(guild: &str, hash: &str) -> String {
-    format!("{}/splashes/{guild}/{hash}.png?size=600", cdn())
+    format!("{}/splashes/{guild}/{hash}.webp?size=600", cdn())
 }
 
 /// An application's icon, as authorizing it shows it.
 pub fn application_icon(application: &str, hash: &str) -> String {
     format!(
-        "{}/app-icons/{application}/{hash}.png?size={PICTURE_SIZE}",
+        "{}/app-icons/{application}/{hash}.webp?size={PICTURE_SIZE}",
         cdn()
     )
 }
@@ -2007,7 +2009,7 @@ pub fn application_icon(application: &str, hash: &str) -> String {
 /// The banner a member set for one server.
 pub fn member_banner(guild: &str, user: &str, hash: &str) -> String {
     format!(
-        "{}/guilds/{guild}/users/{user}/banners/{hash}.png?size=600",
+        "{}/guilds/{guild}/users/{user}/banners/{hash}.webp?size=600",
         cdn()
     )
 }
@@ -2015,7 +2017,7 @@ pub fn member_banner(guild: &str, user: &str, hash: &str) -> String {
 /// The avatar a member set for one server, which Discord shows there instead.
 pub fn member_avatar(guild: &str, user: &str, hash: &str) -> String {
     format!(
-        "{}/guilds/{guild}/users/{user}/avatars/{hash}.png?size={PICTURE_SIZE}",
+        "{}/guilds/{guild}/users/{user}/avatars/{hash}.webp?size={PICTURE_SIZE}",
         cdn()
     )
 }
@@ -2112,7 +2114,7 @@ mod tests {
         assert_eq!(servers[0].name, "Test");
         assert_eq!(
             servers[0].icon.as_deref(),
-            Some("https://cdn.discordapp.com/icons/10/abc.png?size=128")
+            Some("https://cdn.discordapp.com/icons/10/abc.webp?size=128")
         );
         let names: Vec<_> = servers[0]
             .voice_channels
@@ -2151,7 +2153,7 @@ mod tests {
             server
                 .role_icon(&mine)
                 .unwrap()
-                .contains("/role-icons/20/abc.png")
+                .contains("/role-icons/20/abc.webp")
         );
     }
 
@@ -2777,7 +2779,7 @@ mod tests {
     fn falls_back_to_default_avatars() {
         assert_eq!(
             avatar("1", Some("abc")),
-            "https://cdn.discordapp.com/avatars/1/abc.png?size=128"
+            "https://cdn.discordapp.com/avatars/1/abc.webp?size=128"
         );
         // (1400000000000000200 >> 22) % 6 == 2
         assert_eq!(

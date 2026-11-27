@@ -912,6 +912,14 @@ impl App {
                 want(crate::suggest::custom_emoji(self.ctx(), id).as_deref());
             }
         }
+        // The faces and server tags' badges of what the switcher found,
+        // people found in the servers among them, whom nothing else shows.
+        for found in &self.quick.places {
+            if let crate::switcher::Face::Avatar(picture) = &found.face {
+                want(picture.as_deref());
+            }
+            want(found.tag.as_ref().and_then(|(_, badge)| badge.as_deref()));
+        }
         want(self.account.avatar.as_deref());
         for saved in &state.saved_accounts {
             want(saved.avatar.as_deref());

@@ -29,13 +29,16 @@ sha2 = "0.10"
 anyhow.workspace = true
 base64 = "0.22"
 # The gateway's zlib-stream compression, as the web client asks for it.
-flate2 = "1"
+# The gateway's zstd-stream compression, as Discord's desktop client asks.
+zstd-safe = { version = "7", default-features = false, features = ["std"] }
 futures-util.workspace = true
 # The time zone the web client names in X-Discord-Timezone; chrono
 # already builds it.
 iana-time-zone = "0.1.65"
 keyring.workspace = true
-reqwest = { version = "0.13", default-features = false, features = ["cookies", "http2", "rustls-no-provider", "socks"] }
+# gzip and deflate: Discord's API answers compressed, as it does Discord's
+# client, which asks for it; its JSON comes several times smaller.
+reqwest = { version = "0.13", default-features = false, features = ["cookies", "deflate", "gzip", "http2", "rustls-no-provider", "socks"] }
 cookie_store = { version = "0.22", features = ["serde_json"] }
 rustls.workspace = true
 # Which certificates the WebSockets trust: the same as reqwest's HTTPS.

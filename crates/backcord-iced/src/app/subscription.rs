@@ -84,6 +84,24 @@ impl App {
                 Message::Shell(crate::shell::Event::Heard(crate::desktop::Heard::Updates))
             }));
         }
+        // Ctrl+R starts BACKCORD again, as it reloads Discord's client,
+        // while the window is in front, which is what hears the keys.
+        subscriptions.push(iced::event::listen_with(|event, _, _| match event {
+            iced::Event::Keyboard(keyboard::Event::KeyPressed {
+                key,
+                physical_key,
+                modifiers,
+                repeat: false,
+                ..
+            }) if modifiers.control()
+                && !modifiers.alt()
+                && !modifiers.shift()
+                && is_letter(&key, physical_key, "r", key::Code::KeyR) =>
+            {
+                Some(Message::Shell(crate::shell::Event::Restart))
+            }
+            _ => None,
+        }));
         // Ctrl+K opens the quick switcher wherever the keys are, and Ctrl+F
         // or Ctrl+Shift+F goes to the conversation's search, as Discord's
         // binds are: Ctrl+F fills in a server channel's `in:` first.

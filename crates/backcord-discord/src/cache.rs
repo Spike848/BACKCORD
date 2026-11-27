@@ -1109,7 +1109,7 @@ fn unsigned(url: &str) -> String {
 
 /// The picture at `url`, if it was kept.
 pub(crate) async fn picture(url: &str) -> Option<Vec<u8>> {
-    let kept = picture_file(url)?;
+    let kept = kept_picture(url)?;
     tokio::task::spawn_blocking(move || {
         let data = kept.read().ok()?;
         // Shown lately, so pruning keeps it longer.
@@ -1120,9 +1120,29 @@ pub(crate) async fn picture(url: &str) -> Option<Vec<u8>> {
     .ok()?
 }
 
-/// The picture at `url` as it's kept, if it is.
+/// The picture at `url` as it's kept, if it is: for an avatar, icon or
+/// banner asked for as WebP, the PNG kept before BACKCORD asked for WebP
+/// will do, so updating doesn't download every picture again.
 pub fn kept_picture(url: &str) -> Option<KeptPicture> {
-    picture_file(url).filter(|kept| kept.file().is_file())
+    let kept = |url: &str| picture_file(url).filter(|kept| kept.file().is_file());
+    kept(url).or_else(|| kept(&as_png(url)?))
+}
+
+/// A WebP avatar's, icon's or banner's address as the PNG BACKCORD asked
+/// for until 1.6.3.
+fn as_png(url: &str) -> Option<String> {
+    let (path, query) = url.split_once(".webp?")?;
+    let kinds = [
+        "/avatars/",
+        "/icons/",
+        "/banners/",
+        "/splashes/",
+        "/role-icons/",
+        "/channel-icons/",
+        "/app-icons/",
+    ];
+    (path.starts_with(crate::ready::cdn()) && kinds.iter().any(|kind| path.contains(kind)))
+        .then(|| format!("{path}.png?{query}"))
 }
 
 /// Keeps the picture downloaded from `url`, if it's one BACKCORD keeps, and
@@ -1287,6 +1307,20 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn webp_pictures_fall_back_to_the_png_kept_before() {
+        let cdn = crate::ready::cdn();
+        assert_eq!(
+            as_png(&format!("{cdn}/avatars/1/abc.webp?size=128")),
+            Some(format!("{cdn}/avatars/1/abc.png?size=128"))
+        );
+        assert_eq!(as_png(&format!("{cdn}/emojis/1.webp?size=48")), None);
+        assert_eq!(
+            as_png("https://media.discordapp.net/x/avatars/a.webp?size=1"),
+            None
+        );
+    }
     use crate::{
         marked::{ChannelMarks, MarkedServer, ServerMarks},
         ready::{Channel, Server},
@@ -1443,7 +1477,7 @@ mod tests {
             .build()
             .unwrap();
         runtime.block_on(async {
-            let avatar = "https://cdn.discordapp.com/avatars/1/abc.png?size=128";
+            let avatar = "https://cdn.discordapp.com/avatars/1/abc.webp?size=128";
             let preview =
                 "https://media.discordapp.net/attachments/2/3/a.png?ex=1&is=2&hm=3&width=400";
             let resigned =

@@ -523,6 +523,45 @@ pub(super) fn share_menu<'a>(ctx: crate::ctx::Ctx<'a>, share: &'a Share) -> Elem
             .spacing(2)
             .width(Length::Fill),
         );
+        // The stream's sound, shared or not, beside the gear.
+        let sound = !ctx.layout.voice.stream_without_sound;
+        let (sound_lit, sound_hover) = (theme.raised, theme.hover);
+        foot = foot.push(
+            button(
+                row![
+                    ctx.look.glyph(
+                        if sound { Icon::Volume } else { Icon::VolumeOff },
+                        18,
+                        theme.secondary,
+                    ),
+                    text(if sound {
+                        tr("Sound on")
+                    } else {
+                        tr("Sound off")
+                    })
+                    .size(14)
+                    .font(SEMIBOLD)
+                    .color(theme.secondary),
+                ]
+                .spacing(6)
+                .align_y(Alignment::Center),
+            )
+            .padding([0, 12])
+            .height(40)
+            .on_press(Message::Call(Event::StreamSound(!sound)))
+            .style(move |_, status| button::Style {
+                background: Some(
+                    if controls::lights(status) {
+                        sound_hover
+                    } else {
+                        sound_lit
+                    }
+                    .into(),
+                ),
+                border: crate::style::round(8),
+                ..Default::default()
+            }),
+        );
         let gear_open = share.gear.is_some();
         let lit = if gear_open {
             theme.active
@@ -760,6 +799,15 @@ pub(super) fn live_menu<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             }))
         },
         |fps| Message::Call(Event::LiveQuality(StreamQuality { fps, ..quality })),
+    ));
+    let sound = !ctx.layout.voice.stream_without_sound;
+    rows = rows.push(crate::call::popups::popup_row(
+        ctx,
+        tr("Share sound"),
+        Some(tr("Others hear your computer's sound with the stream").into()),
+        None,
+        Check::Box(sound),
+        Some(Message::Call(Event::StreamSound(!sound))),
     ));
     rows = rows.push(crate::call::popups::popup_row(
         ctx,

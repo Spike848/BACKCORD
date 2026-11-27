@@ -1975,6 +1975,25 @@ impl Names {
         found.into_iter().map(|(_, _, id)| id).collect()
     }
 
+    /// The known users whose usernames start with `query`, any letter case,
+    /// the shortest first.
+    pub fn find_usernames(&self, query: &str) -> Vec<String> {
+        let query = query.to_lowercase();
+        let mut found: Vec<(usize, String, String)> = self
+            .usernames
+            .iter()
+            .filter_map(|(user, username)| {
+                let username: &str = username;
+                let lower = username.to_lowercase();
+                lower
+                    .starts_with(&query)
+                    .then(|| (lower.len(), lower, user.to_string()))
+            })
+            .collect();
+        found.sort();
+        found.into_iter().map(|(_, _, user)| user).collect()
+    }
+
     /// The known user whose username is `username`, any letter case, as a
     /// search's `from:` names them.
     pub fn user_called(&self, username: &str) -> Option<String> {
@@ -3115,7 +3134,7 @@ mod tests {
         assert!(
             names
                 .avatar(None, "2")
-                .ends_with("/avatars/2/abc.png?size=128")
+                .ends_with("/avatars/2/abc.webp?size=128")
         );
     }
 
@@ -3149,17 +3168,17 @@ mod tests {
         assert!(
             names
                 .avatar(None, "2")
-                .ends_with("/avatars/2/abc.png?size=128")
+                .ends_with("/avatars/2/abc.webp?size=128")
         );
         assert!(
             names
                 .avatar(Some("10"), "2")
-                .ends_with("/guilds/10/users/2/avatars/def.png?size=128")
+                .ends_with("/guilds/10/users/2/avatars/def.webp?size=128")
         );
         assert!(
             names
                 .avatar(Some("11"), "2")
-                .ends_with("/avatars/2/abc.png?size=128")
+                .ends_with("/avatars/2/abc.webp?size=128")
         );
         // A mention without the avatar keeps it; null removes it.
         names.learn_user(&json!({"id": "2", "username": "ann"}));

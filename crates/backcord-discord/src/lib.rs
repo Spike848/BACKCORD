@@ -55,6 +55,7 @@ pub mod server_settings;
 pub mod service;
 pub mod settings;
 pub mod soundboard;
+pub mod spatial;
 mod spotify;
 pub use spotify::{NowPlaying, SpotifyControl};
 pub mod stickers;

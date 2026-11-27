@@ -151,7 +151,7 @@ impl SideRow {
     /// The row's height, its gap after included.
     pub fn height(&self) -> f32 {
         GAP + match self {
-            SideRow::Screens { .. } => 9.0 + NAV_ROW + GAP + NAV_ROW + 6.0,
+            SideRow::Screens { .. } => 9.0 + NAV_ROW + GAP + NAV_ROW + GAP + NAV_ROW + 6.0,
             SideRow::DmHeading => 40.0,
             SideRow::Banner => super::BANNER - GAP,
             SideRow::Events { .. } => 6.0 + ROW,

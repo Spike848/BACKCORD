@@ -29,6 +29,18 @@ impl<'a> super::View<'a> {
                 requests,
                 badge,
             } => column![
+                // The people seen in the servers, found by some of a name.
+                self.link_row(
+                    (
+                        "screen:find",
+                        Icon::Search,
+                        backcord_iced_kit::i18n::tr("Find a conversation")
+                    ),
+                    false,
+                    "",
+                    Message::Switcher(crate::switcher::Event::FindConversation),
+                    true
+                ),
                 self.link_row(
                     (
                         "screen:friends",

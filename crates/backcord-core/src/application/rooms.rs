@@ -563,6 +563,7 @@ impl Application {
     /// Opens the quick switcher with nothing searched for, unless a dialog
     /// has the keyboard, or closes it.
     pub(super) fn toggle_switcher(&mut self) -> Vec<Effect> {
+        self.state.switcher_people.clear();
         if self.state.switcher.take().is_some() || self.state.dialog_open() {
             return vec![];
         }
@@ -575,10 +576,37 @@ impl Application {
         vec![]
     }
 
+    /// Opens the quick switcher, as Find or start a conversation does in
+    /// Discord's DMs, unless it's open already.
+    pub(super) fn find_conversation(&mut self) -> Vec<Effect> {
+        if self.state.switcher.is_some() {
+            return vec![];
+        }
+        self.toggle_switcher()
+    }
+
     /// Goes where the quick switcher found: to a server's channel shown
     /// last, or to a conversation.
     pub(super) fn switch_to(&mut self, id: String) -> Vec<Effect> {
         self.state.switcher = None;
+        self.state.switcher_people.clear();
+        // Someone found on Discord: their DM, opened if it isn't. Found in
+        // a server in common, they can be written to as from their profile
+        // there.
+        if let Some(user) = id.strip_prefix(super::place_search::SWITCHER_PERSON) {
+            if let Some(room) = self.state.dm_with(user) {
+                let room = room.id.clone();
+                return self.open(room, false);
+            }
+            if self.state.preview {
+                return vec![];
+            }
+            self.starting_dm = true;
+            return vec![Effect::Backend(Command::StartDm {
+                id: user.to_owned(),
+                discord: true,
+            })];
+        }
         if self.state.servers.iter().any(|server| server.id == id) {
             self.navigate(Navigation::Server(id))
         } else {

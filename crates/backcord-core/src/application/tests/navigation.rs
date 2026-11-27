@@ -219,6 +219,83 @@ fn the_quick_switcher_finds_places_as_discords_does() {
 }
 
 #[test]
+fn the_quick_switcher_finds_people_in_servers_in_common() {
+    use crate::chat::{Command, DiscordCommand, SwitcherPerson};
+    let mut app = connected();
+    app.state.discord_linked = true;
+    app.dispatch(Action::ToggleSwitcher);
+    let asks = |effects: &[Effect]| -> Option<String> {
+        effects.iter().find_map(|effect| match effect {
+            Effect::Backend(Command::Discord(DiscordCommand::SwitcherPeople { query })) => {
+                Some(query.clone())
+            }
+            _ => None,
+        })
+    };
+    assert_eq!(
+        asks(&app.dispatch(Action::SearchSwitcher("a".into()))).as_deref(),
+        Some("a"),
+        "from the first letter"
+    );
+    assert_eq!(
+        asks(&app.dispatch(Action::SearchSwitcher("#an".into()))),
+        None,
+        "channels"
+    );
+    assert_eq!(
+        asks(&app.dispatch(Action::SearchSwitcher("@An".into()))).as_deref(),
+        Some("an")
+    );
+    let annika = SwitcherPerson {
+        id: "77".into(),
+        name: "Annika".into(),
+        username: Some("annika".into()),
+        avatar: None,
+        friend: false,
+        server: Some("Club".into()),
+        tag: None,
+    };
+    app.apply(Event::SwitcherPeople {
+        query: "an".into(),
+        people: vec![annika.clone()],
+    });
+    let names = |app: &Application| -> Vec<String> {
+        app.state
+            .switcher_places()
+            .iter()
+            .map(|place| place.name().to_owned())
+            .collect()
+    };
+    assert_eq!(names(&app), ["Annika"]);
+    // An answer for an older search doesn't replace the people.
+    app.dispatch(Action::SearchSwitcher("@bo".into()));
+    app.apply(Event::SwitcherPeople {
+        query: "an".into(),
+        people: vec![],
+    });
+    assert_eq!(app.state.switcher_people, [annika]);
+    assert!(names(&app).is_empty());
+    // Going to them opens their DM.
+    let effects = app.dispatch(Action::SwitchTo(format!("{SWITCHER_PERSON}77")));
+    assert!(app.state.switcher.is_none());
+    assert!(effects.iter().any(|effect| matches!(
+        effect,
+        Effect::Backend(Command::StartDm { id, discord: true }) if id == "77"
+    )));
+}
+
+#[test]
+fn find_a_conversation_opens_the_quick_switcher() {
+    let mut app = connected();
+    app.dispatch(Action::FindConversation);
+    assert_eq!(app.state.switcher.as_deref(), Some(""));
+    app.dispatch(Action::SearchSwitcher("g".into()));
+    // Pressed again, it stays open, as it is.
+    app.dispatch(Action::FindConversation);
+    assert_eq!(app.state.switcher.as_deref(), Some("g"));
+}
+
+#[test]
 fn room_membership_loss_moves_selection_and_server_loss_returns_to_dms() {
     let mut app = connected();
     app.dispatch(Action::Navigate(Navigation::Server("friends".into())));

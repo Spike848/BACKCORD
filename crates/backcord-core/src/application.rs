@@ -95,7 +95,7 @@ pub use oauth::OAuthDialog;
 pub use permissions_viewer::{
     PermissionRow, PermissionSource, PermissionsGroup, PermissionsOf, PermissionsView,
 };
-pub use place_search::Place;
+pub use place_search::{Place, SWITCHER_PERSON};
 pub use places::{
     ChannelAsk, ChannelDialog, GroupChoice, GroupMemberDialog, INVITE_AGES, INVITE_USES,
     InviteDialog, InvitePerson, LeaveDialog, ListedCategory, SLOWMODES,
@@ -516,6 +516,9 @@ pub struct Inbox {
 
 #[derive(Default)]
 pub struct AppState {
+    /// Server mutes and deafens waiting for someone to join voice, by
+    /// server and user, as Discord takes them only in voice.
+    pub pending_server_voice: Vec<(String, String, crate::chat::MemberChange)>,
     /// The inbox's messages, for its tab, as Discord last gave them.
     pub inbox: Inbox,
     /// Relationship Notifier's alerts, the newest first, as the inbox's
@@ -856,6 +859,13 @@ pub struct AppState {
     pub discord_emojis: DiscordEmojiLists,
     /// What the quick switcher searches for, while it's open.
     pub switcher: Option<String>,
+    /// The people Discord found for the quick switcher's search, in every
+    /// server in common too; and how many times they came, so a list made
+    /// of them knows when it's out of date.
+    pub switcher_people: Vec<crate::chat::SwitcherPerson>,
+    pub switcher_found: u64,
+    /// The search, without what narrows it, the people were found for.
+    pub switcher_people_for: String,
     pub new_dm: Option<NewDm>,
     /// The selected DM's pinned messages, a search of it, and adding friends
     /// to it, each while it's open.
@@ -1925,6 +1935,9 @@ pub enum Action {
     /// Forward it to those chosen, with this message added.
     Forward(String),
     CloseForward,
+    /// Open the quick switcher as Find or start a conversation above
+    /// Friends does; one open stays.
+    FindConversation,
     /// Open the quick switcher, or close it if it's open.
     ToggleSwitcher,
     /// Search the places it goes to.
@@ -4223,15 +4236,12 @@ impl Application {
                 vec![]
             }
             Action::ToggleSwitcher => self.toggle_switcher(),
-            Action::SearchSwitcher(query) => {
-                if let Some(switcher) = &mut self.state.switcher {
-                    *switcher = query;
-                }
-                vec![]
-            }
+            Action::FindConversation => self.find_conversation(),
+            Action::SearchSwitcher(query) => self.search_switcher(query),
             Action::SwitchTo(id) => self.switch_to(id),
             Action::CloseSwitcher => {
                 self.state.switcher = None;
+                self.state.switcher_people.clear();
                 vec![]
             }
             Action::CancelDelete => {
@@ -5347,7 +5357,11 @@ impl Application {
                 }
             }
             #[cfg(feature = "discord")]
-            Event::Discord(snapshot) => return self.show_snapshot(snapshot),
+            Event::Discord(snapshot) => {
+                let mut effects = self.show_snapshot(snapshot);
+                effects.extend(self.send_pending_voice());
+                return effects;
+            }
             Event::Timeline { room, messages }
                 if self
                     .state
@@ -5803,6 +5817,7 @@ impl Application {
                     self.state.mention_groups = groups;
                 }
             }
+            Event::SwitcherPeople { query, people } => self.switcher_people_came(&query, people),
             Event::MemberMatches {
                 room,
                 query,

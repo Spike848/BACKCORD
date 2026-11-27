@@ -619,7 +619,7 @@ async fn send(
                     packets = packets.wrapping_add(1);
                     octets = octets.wrapping_add((packet.len() - clear) as u32);
                     connection.transport.seal(&mut packet, clear)?;
-                    connection.udp.send(&packet).await?;
+                    crate::voice_connection::send(&connection.udp, &packet).await?;
                     shared.video_bytes.fetch_add(packet.len() as u64, Ordering::Relaxed);
                     pacing.sent(std::time::Instant::now(), packet.len());
                 }
@@ -637,7 +637,7 @@ async fn send(
                         reports_sent += 1;
                     }
                     connection.transport.seal(&mut report, rtp::RTCP_CLEAR)?;
-                    connection.udp.send(&report).await?;
+                    crate::voice_connection::send(&connection.udp, &report).await?;
                 }
             }
             _ = heartbeat.tick() => connection.heartbeat().await?,
@@ -682,7 +682,7 @@ async fn send(
                 sound_octets = sound_octets.wrapping_add(payload.len() as u32);
                 let clear = rtp::rtp_clear_len(&packet).unwrap_or(packet.len());
                 connection.transport.seal(&mut packet, clear)?;
-                connection.udp.send(&packet).await?;
+                crate::voice_connection::send(&connection.udp, &packet).await?;
                 sent.sounds += 1;
                 if sound_reported.elapsed() >= SENDER_REPORTS {
                     sound_reported = Instant::now();
@@ -694,11 +694,14 @@ async fn send(
                         sound_octets,
                     );
                     connection.transport.seal(&mut report, rtp::RTCP_CLEAR)?;
-                    connection.udp.send(&report).await?;
+                    crate::voice_connection::send(&connection.udp, &report).await?;
                 }
             }
             received = connection.udp.recv(&mut datagram) => {
-                let packet = &datagram[..received?];
+                let Some(length) = crate::voice_connection::received(received)? else {
+                    continue;
+                };
+                let packet = &datagram[..length];
                 if !rtp::is_rtcp(packet) {
                     sent.rtp_back += 1;
                     continue;
@@ -743,7 +746,7 @@ async fn send(
                     };
                     let clear = rtp::rtp_clear_len(&again).unwrap_or(again.len());
                     connection.transport.seal(&mut again, clear)?;
-                    connection.udp.send(&again).await?;
+                    crate::voice_connection::send(&connection.udp, &again).await?;
                     shared.video_bytes.fetch_add(again.len() as u64, Ordering::Relaxed);
                     pacing.sent(std::time::Instant::now(), again.len());
                     shared.resent.fetch_add(1, Ordering::Relaxed);
@@ -1028,7 +1031,7 @@ async fn receive_stream(
                 });
                 let mut report = rtp::receiver_report(connection.ssrc, media, (highest, lost, fraction), (middle, delay));
                 connection.transport.seal(&mut report, rtp::RTCP_CLEAR)?;
-                connection.udp.send(&report).await?;
+                crate::voice_connection::send(&connection.udp, &report).await?;
             }
             _ = log.tick() => {
                 tracing::debug!(?received, "stream received");
@@ -1054,11 +1057,14 @@ async fn receive_stream(
                     received.keyframe_requests += 1;
                     let mut request = rtp::picture_loss(connection.ssrc, media);
                     connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
-                    connection.udp.send(&request).await?;
+                    crate::voice_connection::send(&connection.udp, &request).await?;
                 }
             }
             length = connection.udp.recv(&mut datagram) => {
-                let packet = &datagram[..length?];
+                let Some(length) = crate::voice_connection::received(length)? else {
+                    continue;
+                };
+                let packet = &datagram[..length];
                 received.packets += 1;
                 if rtp::is_rtcp(packet) {
                     received.rtcp += 1;
@@ -1170,7 +1176,7 @@ async fn receive_stream(
                 received.asked += missing.len() as u64;
                 let mut request = rtp::nack(connection.ssrc, ssrc, &missing);
                 connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
-                connection.udp.send(&request).await?;
+                crate::voice_connection::send(&connection.udp, &request).await?;
             }
         }
         // Ask for a keyframe after a loss, or when the decoder asked.
@@ -1183,7 +1189,7 @@ async fn receive_stream(
             received.keyframe_requests += 1;
             let mut request = rtp::picture_loss(connection.ssrc, media);
             connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
-            connection.udp.send(&request).await?;
+            crate::voice_connection::send(&connection.udp, &request).await?;
         }
     }
 }

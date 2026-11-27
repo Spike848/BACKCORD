@@ -172,6 +172,41 @@ pub(super) fn command(
         }
         return None;
     }
+    if let Command::Discord(DiscordCommand::SwitcherPeople { query }) = command {
+        if let Ok(discord) = discord {
+            let (discord, events) = (discord.clone(), events.clone());
+            let searches = searches.clone();
+            let search = searches.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            tokio::spawn(async move {
+                // Typing on asks for a longer name, which covers this one.
+                tokio::time::sleep(SEARCH_PAUSE).await;
+                if searches.load(std::sync::atomic::Ordering::Relaxed) != search {
+                    return;
+                }
+                let people = match discord.search_people(&query).await {
+                    Ok(people) => people,
+                    Err(error) => {
+                        tracing::debug!(%error, "could not search Discord for people");
+                        return;
+                    }
+                };
+                let people = people
+                    .into_iter()
+                    .map(|person| crate::chat::SwitcherPerson {
+                        id: person.id,
+                        name: person.name,
+                        username: person.username,
+                        avatar: Some(person.avatar),
+                        friend: person.friend,
+                        server: person.server,
+                        tag: crate::discord::server_tag(person.tag),
+                    })
+                    .collect();
+                let _ = events.send(Event::SwitcherPeople { query, people });
+            });
+        }
+        return None;
+    }
     if let Command::Discord(DiscordCommand::ActivityFeed) = command {
         match discord {
             Ok(discord) => {

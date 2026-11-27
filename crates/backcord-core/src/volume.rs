@@ -318,6 +318,74 @@ pub fn effects_bypassed(person: &str) -> bool {
     EFFECTS_BYPASSED.read().unwrap().contains(person)
 }
 
+/// Widens the microphone in Discord calls, so it fills the listeners'
+/// ears; off unless set.
+pub fn set_microphone_wide(on: bool) {
+    #[cfg(feature = "discord")]
+    backcord_discord::spatial::set_wide(on);
+    let _ = on;
+}
+
+/// How wide the widener makes the microphone, 0 to 1.
+pub fn set_microphone_width(width: f32) {
+    #[cfg(feature = "discord")]
+    backcord_discord::spatial::set_width(width);
+    let _ = width;
+}
+
+/// The bit depth the microphone goes out at in Discord calls, 1 to 31, or
+/// 32 for floats, as it is.
+pub fn set_microphone_bits(bits: u32) {
+    #[cfg(feature = "discord")]
+    backcord_discord::spatial::set_bits(bits);
+    let _ = bits;
+}
+
+/// The rate the microphone's sampled down to in Discord calls, in Hz;
+/// 48 000 leaves it as it is.
+pub fn set_microphone_sample_rate(rate: u32) {
+    #[cfg(feature = "discord")]
+    backcord_discord::spatial::set_sample_rate(rate);
+    let _ = rate;
+}
+
+static MICROPHONE_PITCH: AtomicU32 = AtomicU32::new(0);
+
+/// Raises or lowers the microphone in Discord calls, in semitones, as
+/// someone's Pitch does to their voice; 0 leaves it as it is.
+pub fn set_microphone_pitch(semitones: f32) {
+    let semitones = if semitones.is_finite() {
+        semitones.clamp(-crate::pitch::MOST, crate::pitch::MOST)
+    } else {
+        0.0
+    };
+    MICROPHONE_PITCH.store(semitones.to_bits(), Ordering::Relaxed);
+}
+
+pub fn microphone_pitch() -> f32 {
+    f32::from_bits(MICROPHONE_PITCH.load(Ordering::Relaxed))
+}
+
+static STREAM_SOUND: AtomicBool = AtomicBool::new(true);
+
+/// Shares the computer's sound with this account's stream, or the picture
+/// alone; a stream going on starts or stops its sound at its next frame.
+pub fn set_share_stream_sound(on: bool) {
+    STREAM_SOUND.store(on, Ordering::Relaxed);
+}
+
+pub fn share_stream_sound() -> bool {
+    STREAM_SOUND.load(Ordering::Relaxed)
+}
+
+/// Places the microphone in Discord calls between the listeners' ears,
+/// from -1 (the left alone) to 1 (the right); 0, the middle, unless set.
+pub fn set_microphone_pan(pan: f32) {
+    #[cfg(feature = "discord")]
+    backcord_discord::spatial::set_pan(pan);
+    let _ = pan;
+}
+
 pub fn set_voice_compressor(on: bool) {
     VOICE_COMPRESSOR.store(on, Ordering::Relaxed);
 }

@@ -213,7 +213,7 @@ impl Sending {
             self.packets = self.packets.wrapping_add(1);
             self.octets = self.octets.wrapping_add((packet.len() - clear) as u32);
             connection.transport.seal(&mut packet, clear)?;
-            connection.udp.send(&packet).await?;
+            crate::voice_connection::send(&connection.udp, &packet).await?;
         }
         if self.reported.elapsed() >= SENDER_REPORTS {
             self.reported = Instant::now();
@@ -225,7 +225,7 @@ impl Sending {
                 self.octets,
             );
             connection.transport.seal(&mut report, rtp::RTCP_CLEAR)?;
-            connection.udp.send(&report).await?;
+            crate::voice_connection::send(&connection.udp, &report).await?;
         }
         Ok(())
     }
@@ -249,7 +249,7 @@ impl Sending {
             };
             let clear = rtp::rtp_clear_len(&again).unwrap_or(again.len());
             connection.transport.seal(&mut again, clear)?;
-            connection.udp.send(&again).await?;
+            crate::voice_connection::send(&connection.udp, &again).await?;
         }
         Ok(())
     }
@@ -280,6 +280,8 @@ struct Incoming {
     /// No keyframe has come since it was asked for: a sender sends one
     /// only when asked, so it's asked for again until one comes.
     awaiting_key: bool,
+    /// When it was last asked for with op 15 while nothing of it came.
+    wanted_at: Instant,
     /// What came and what became of it since the last report.
     counts: Counts,
 }
@@ -299,6 +301,10 @@ struct Counts {
 const REPORT_EVERY: Duration = Duration::from_secs(5);
 /// While the first keyframe hasn't come, how often it's asked for.
 const FIRST_KEYFRAME_EVERY: Duration = Duration::from_secs(1);
+/// A camera asked for that sends nothing at all for this long is asked for
+/// again with op 15, as one asked for the moment it started, or the
+/// moment this account came back to the call, can go unheard.
+const WANT_AGAIN: Duration = Duration::from_secs(4);
 
 /// Everyone else's cameras: who films on which SSRC, what BACKCORD asked for,
 /// and the frames on their way.
@@ -366,6 +372,7 @@ impl Receiving {
                 orientation: Orientation::default(),
                 wanted: false,
                 awaiting_key: false,
+                wanted_at: Instant::now(),
                 counts: Counts::default(),
             },
         );
@@ -410,6 +417,9 @@ impl Receiving {
                 incoming.awaiting_key = true;
                 newly.push(ssrc);
             }
+            if wanted {
+                incoming.wanted_at = Instant::now();
+            }
             incoming.wanted = wanted;
         }
         asked.insert("pixelCounts".into(), Value::Object(pixels));
@@ -423,7 +433,7 @@ impl Receiving {
             }
             let mut request = rtp::picture_loss(connection.ssrc, ssrc);
             connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
-            connection.udp.send(&request).await?;
+            crate::voice_connection::send(&connection.udp, &request).await?;
         }
         Ok(())
     }
@@ -496,8 +506,24 @@ impl Receiving {
                 );
             }
         }
+        let mut want_again = false;
         for (&ssrc, incoming) in &mut self.incoming {
             let Some(assembler) = incoming.assembler.as_mut() else {
+                // Asked for, and nothing of it came yet: the keyframe it
+                // starts from is asked for again until something comes, as
+                // the first request can go unheard, the server learning of
+                // what's wanted only after it; and after a while, the
+                // camera itself.
+                if incoming.wanted && incoming.awaiting_key {
+                    if incoming.asked.elapsed() >= FIRST_KEYFRAME_EVERY {
+                        incoming.asked = Instant::now();
+                        incoming.counts.keyframes_asked += 1;
+                        let mut request = rtp::picture_loss(connection.ssrc, ssrc);
+                        connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
+                        crate::voice_connection::send(&connection.udp, &request).await?;
+                    }
+                    want_again |= incoming.wanted_at.elapsed() >= WANT_AGAIN;
+                }
                 continue;
             };
             let codec = assembler.codec();
@@ -546,7 +572,7 @@ impl Receiving {
             if !missing.is_empty() {
                 let mut request = rtp::nack(connection.ssrc, ssrc, &missing);
                 connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
-                connection.udp.send(&request).await?;
+                crate::voice_connection::send(&connection.udp, &request).await?;
             }
             // Until the first keyframe comes, it's asked for again.
             let first = incoming.wanted
@@ -557,8 +583,12 @@ impl Receiving {
                 incoming.counts.keyframes_asked += 1;
                 let mut request = rtp::picture_loss(connection.ssrc, ssrc);
                 connection.transport.seal(&mut request, rtp::RTCP_CLEAR)?;
-                connection.udp.send(&request).await?;
+                crate::voice_connection::send(&connection.udp, &request).await?;
             }
+        }
+        if want_again {
+            tracing::info!("a camera asked for sent nothing: asking for it again");
+            self.ask(connection).await?;
         }
         Ok(())
     }

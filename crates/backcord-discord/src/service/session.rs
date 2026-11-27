@@ -599,6 +599,16 @@ impl Session<'_> {
                 query,
                 reply,
             } => self.searches.start(gateway, &guild, &query, reply).await,
+            Request::SearchPeople { query, reply } => {
+                let guilds: Vec<String> = self
+                    .tracker
+                    .servers
+                    .iter()
+                    .map(|server| server.id.clone())
+                    .filter(|guild| !gateway.members_held(guild))
+                    .collect();
+                self.searches.people(gateway, &guilds, &query, reply).await
+            }
             Request::Members {
                 guild,
                 users,

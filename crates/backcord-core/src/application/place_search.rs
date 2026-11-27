@@ -12,7 +12,7 @@
 use std::{cell::OnceCell, collections::HashMap, sync::Arc};
 
 use super::{AppState, Application, Effect, PlacesUsed};
-use crate::chat::{ChatRoom, ChatServer, Command, DiscordCommand, PlaceUses};
+use crate::chat::{ChatRoom, ChatServer, Command, DiscordCommand, PlaceUses, SwitcherPerson};
 use crate::discord;
 use crate::network::Network;
 
@@ -23,6 +23,12 @@ const VISITED: usize = 8;
 const VISITED_KEPT: usize = 16;
 /// The most places the quick switcher lists for a search.
 const FOUND: usize = 50;
+/// What a person's id starts with among the quick switcher's places, as
+/// [`Action::SwitchTo`](super::Action::SwitchTo) is given it.
+pub const SWITCHER_PERSON: &str = "discord-person:";
+/// The fewest letters a search for people looks across servers for: from
+/// the first, as Discord's quick switcher.
+const PEOPLE_FROM: usize = 1;
 /// The most used places that count, and the uses of each kept.
 const FREQUENT: usize = 100;
 const SAMPLES: usize = 10;
@@ -162,6 +168,13 @@ pub(super) fn rank_emojis(used: Vec<(String, PlaceUses)>, now: u64) -> Vec<Strin
     ranked.into_iter().map(|(name, _)| name).collect()
 }
 
+/// `text` as a search compares it: its letters in their plain form, so a
+/// name written in fancy letters, such as 𝖊𝖒𝖆, matches `ema`; in lower case.
+fn fold(text: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    text.nfkc().flat_map(char::to_lowercase).collect()
+}
+
 /// How well `name` matches `query`, both in lower case, as Discord's search
 /// scores a channel or group: the whole name, its start, within it, each
 /// word within it, its letters in order. A channel's dashes match spaces.
@@ -212,11 +225,13 @@ fn in_order(name: &str, query: &str) -> bool {
         .all(|wanted| letters.any(|letter| letter == wanted))
 }
 
-/// A place the quick switcher goes to: a conversation, or a server.
+/// A place the quick switcher goes to: a conversation, a server, or
+/// someone on Discord without a DM listed, whose DM opens.
 #[derive(Clone, Copy)]
 pub enum Place<'a> {
     Room(&'a ChatRoom),
     Server(&'a ChatServer),
+    Person(&'a SwitcherPerson),
 }
 
 impl Place<'_> {
@@ -224,6 +239,7 @@ impl Place<'_> {
         match self {
             Place::Room(room) => &room.name,
             Place::Server(server) => &server.name,
+            Place::Person(person) => &person.name,
         }
     }
 }
@@ -348,7 +364,7 @@ impl<'a> Ranking<'a> {
         if !wanted {
             return 0.0;
         }
-        let name = room.name.to_lowercase();
+        let name = fold(&room.name);
         let boost = self.boost(channel(room));
         match person {
             Some(person) => {
@@ -359,7 +375,18 @@ impl<'a> Ranking<'a> {
                     .iter()
                     .any(|friend| friend == person);
                 let boost = boost + if friend { 0.2 } else { 0.0 } + 0.1;
-                f64::from(person_score(&name, query)) * boost
+                // Their username counts as their name does, as Discord's:
+                // the search for people knows it.
+                let username = self
+                    .state
+                    .switcher_people
+                    .iter()
+                    .find(|found| found.id == person)
+                    .and_then(|found| found.username.as_deref())
+                    .map(fold)
+                    .unwrap_or_default();
+                let score = person_score(&name, query).max(person_score(&username, query));
+                f64::from(score) * boost
             }
             None if room.direct => f64::from(name_score(&name, query)) * boost,
             None => {
@@ -393,6 +420,25 @@ impl<'a> Ranking<'a> {
         }
     }
 
+    /// How well someone found on Discord matches `query`, in lower case: by
+    /// their name or username, or found in a server by a nickname. A
+    /// little below a DM with them as good, which is listed first.
+    /// `found_for`: the people were found for this very search, so those
+    /// matching by a nickname alone still count.
+    fn person(&self, person: &SwitcherPerson, only: Only, query: &str, found_for: bool) -> f64 {
+        if !matches!(only, Only::Everything | Only::People) {
+            return 0.0;
+        }
+        let username = person.username.as_deref().unwrap_or_default();
+        let score =
+            person_score(&fold(&person.name), query).max(person_score(&fold(username), query));
+        let score = match score {
+            0 if found_for && person.server.is_some() => 5,
+            score => score,
+        };
+        f64::from(score) * if person.friend { 1.2 } else { 1.0 }
+    }
+
     /// How well a server matches `query`, in lower case.
     fn server(&self, server: &ChatServer, query: &str) -> f64 {
         let score = name_score(&server.name.to_lowercase(), query);
@@ -417,6 +463,39 @@ fn found<T>(scored: impl Iterator<Item = (f64, T)>, name: impl Fn(&T) -> &str) -
 }
 
 impl Application {
+    /// The quick switcher's search: and with enough of a name for someone,
+    /// Discord is asked for them, in every server in common too.
+    pub(super) fn search_switcher(&mut self, query: String) -> Vec<Effect> {
+        let Some(switcher) = &mut self.state.switcher else {
+            return vec![];
+        };
+        *switcher = query;
+        let (only, name) = self.state.switcher_search();
+        let people =
+            matches!(only, Only::Everything | Only::People) && name.chars().count() >= PEOPLE_FROM;
+        if !people || !self.state.discord_linked || self.state.preview {
+            return vec![];
+        }
+        vec![Effect::Backend(Command::Discord(
+            DiscordCommand::SwitcherPeople { query: name },
+        ))]
+    }
+
+    /// People found for the quick switcher, while its search still holds
+    /// what they were found for.
+    pub(super) fn switcher_people_came(&mut self, query: &str, people: Vec<SwitcherPerson>) {
+        if self.state.switcher.is_none() {
+            return;
+        }
+        let (_, name) = self.state.switcher_search();
+        if !name.starts_with(&query.to_lowercase()) {
+            return;
+        }
+        self.state.switcher_people = people;
+        self.state.switcher_people_for = query.to_lowercase();
+        self.state.switcher_found += 1;
+    }
+
     /// Asks for Discord's counts of the places this account uses, the first
     /// time they rank places.
     pub(super) fn ask_places_used(&mut self) -> Vec<Effect> {
@@ -430,6 +509,19 @@ impl Application {
 }
 
 impl AppState {
+    /// What the switcher's search looks for, and the name in it, in lower
+    /// case.
+    fn switcher_search(&self) -> (Only, String) {
+        let lower = self
+            .switcher
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .to_lowercase();
+        let (only, name) = Only::of(&lower, true);
+        (only, name.to_owned())
+    }
+
     /// Where the message being forwarded may go, in the order its dialog
     /// lists them.
     pub fn forward_places(&self) -> Vec<&ChatRoom> {
@@ -479,7 +571,7 @@ impl AppState {
             !room.locked && room.category != discord::REQUESTS && room.category != discord::SPAM
         });
         let ranking = Ranking::new(self);
-        let query = query.trim().to_lowercase();
+        let query = fold(query.trim());
         if query.is_empty() {
             let open = self.selected.as_deref();
             let places = places.filter(|room| Some(room.id.as_str()) != open);
@@ -496,7 +588,24 @@ impl AppState {
             .iter()
             .filter(|_| matches!(only, Only::Everything | Only::Servers))
             .map(|server| (ranking.server(server, query), Place::Server(server)));
-        let mut found = found(rooms.chain(servers), Place::name);
+        // Those found on Discord, but those with a DM listed, which is.
+        let has_dm = |user: &str| {
+            self.rooms
+                .iter()
+                .any(|room| room.direct && room.person.as_deref() == Some(user))
+        };
+        let people = self
+            .switcher_people
+            .iter()
+            .filter(|person| !has_dm(&person.id))
+            .map(|person| {
+                let found_for = query == self.switcher_people_for;
+                (
+                    ranking.person(person, only, query, found_for),
+                    Place::Person(person),
+                )
+            });
+        let mut found = found(rooms.chain(servers).chain(people), Place::name);
         found.truncate(FOUND);
         found
     }
@@ -552,6 +661,33 @@ mod tests {
     }
 
     #[test]
+    fn people_in_servers_in_common_rank_by_name_and_where_found() {
+        let state = AppState::default();
+        let ranking = Ranking::new(&state);
+        let person =
+            |name: &str, username: Option<&str>, server: Option<&str>, friend| SwitcherPerson {
+                id: "1".into(),
+                name: name.into(),
+                username: username.map(Into::into),
+                avatar: None,
+                friend,
+                server: server.map(Into::into),
+                tag: None,
+            };
+        let ann = person("Ann", Some("annie"), Some("Club"), false);
+        assert_eq!(ranking.person(&ann, Only::Everything, "an", true), 10.0);
+        assert_eq!(ranking.person(&ann, Only::People, "annie", true), 10.0);
+        // Found by a nickname in the server: listed still, lower; but not
+        // for another search, while its own is on the way.
+        assert_eq!(ranking.person(&ann, Only::Everything, "zed", true), 5.0);
+        assert_eq!(ranking.person(&ann, Only::Everything, "zedd", false), 0.0);
+        assert_eq!(ranking.person(&ann, Only::Servers, "an", true), 0.0);
+        let friend = person("Bob", None, None, true);
+        assert_eq!(ranking.person(&friend, Only::Everything, "bo", true), 12.0);
+        assert_eq!(ranking.person(&friend, Only::Everything, "zz", true), 0.0);
+    }
+
+    #[test]
     fn names_score_as_discords_search_does() {
         assert_eq!(name_score("general", "general"), 10);
         assert_eq!(name_score("general-chat", "general chat"), 10);
@@ -563,5 +699,8 @@ mod tests {
         assert_eq!(person_score("bob", "bo"), 10);
         assert_eq!(person_score("bob", "bb"), 1);
         assert_eq!(person_score("bob", "x"), 0);
+        // Fancy letters match plain ones.
+        assert_eq!(person_score(&fold("𝖊𝖒𝖆"), "ema"), 10);
+        assert_eq!(fold("Ｅｍａ"), "ema");
     }
 }

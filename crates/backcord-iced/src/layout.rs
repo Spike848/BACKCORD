@@ -424,6 +424,24 @@ pub struct Voice {
     pub echo_reduction: Option<u8>,
     /// Discord calls send the microphone untouched at 320 kbit/s.
     pub studio_voice: bool,
+    /// Discord calls send the microphone widened; off unless set.
+    pub microphone_wide: bool,
+    /// How wide the widener makes it, in percent; three quarters unless set.
+    pub microphone_width: Option<u8>,
+    /// Where the microphone sounds in the listeners' ears, in percent from
+    /// -100 (the left alone) to 100 (the right); the middle unless set.
+    pub microphone_pan: Option<i8>,
+    /// The bit depth Discord calls send the microphone at, 1 to 32 (float);
+    /// 32 unless set.
+    pub microphone_bits: Option<u8>,
+    /// Streams go out without the computer's sound; with it unless set.
+    pub stream_without_sound: bool,
+    /// The microphone's pitch in Discord calls, in semitones; as it is
+    /// unless set.
+    pub microphone_pitch: Option<i8>,
+    /// The rate Discord calls sample the microphone down to, in Hz; 48 000
+    /// unless set.
+    pub microphone_rate: Option<u32>,
     /// The quietest speech Discord calls send, in dBFS.
     pub input_sensitivity: Option<i32>,
     /// Push to talk, its keybind and its release delay in ms.
@@ -577,6 +595,27 @@ impl Voice {
         backcord_core::volume::set_speakers(gain(self.speaker_volume));
         backcord_core::volume::set_voice_limit(f32::from(self.voice_limit.unwrap_or(0)));
         backcord_core::volume::set_voice_compressor(self.voice_compressor);
+        backcord_core::volume::set_microphone_wide(self.microphone_wide);
+        backcord_core::volume::set_share_stream_sound(!self.stream_without_sound);
+        backcord_core::volume::set_microphone_pitch(f32::from(self.microphone_pitch.unwrap_or(0)));
+        backcord_core::volume::set_microphone_width(
+            f32::from(
+                self.microphone_width
+                    .unwrap_or(crate::settings::voice::DEFAULT_WIDTH)
+                    .min(100),
+            ) / 100.0,
+        );
+        backcord_core::volume::set_microphone_bits(u32::from(
+            self.microphone_bits
+                .unwrap_or(crate::settings::voice::FLOAT_BITS),
+        ));
+        backcord_core::volume::set_microphone_sample_rate(
+            self.microphone_rate
+                .unwrap_or(crate::settings::voice::FULL_RATE),
+        );
+        backcord_core::volume::set_microphone_pan(
+            f32::from(self.microphone_pan.unwrap_or(0).clamp(-100, 100)) / 100.0,
+        );
         backcord_core::volume::set_voice_high_pass(self.voice_high_pass);
         backcord_core::volume::set_voice_gate(f32::from(self.voice_gate.unwrap_or(0)));
     }

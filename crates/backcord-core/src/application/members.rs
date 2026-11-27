@@ -193,6 +193,75 @@ impl Application {
     }
 
     /// Someone in the voice channel `place`, as its list shows them.
+    /// Someone in any voice channel of `place`'s server, as its room lists
+    /// them: their menu from a mention or the member list mutes them there.
+    #[cfg(feature = "discord")]
+    pub fn voice_person_in_server(
+        &self,
+        place: &str,
+        user: &str,
+    ) -> Option<&crate::chat::VoicePerson> {
+        let (server, _, _) = self.discord_place(place)?;
+        let guild = server.id.as_str();
+        self.state
+            .rooms
+            .iter()
+            .filter(|room| room.voice)
+            .filter(|room| discord::parse_room(&room.id).is_some_and(|(of, _)| of == guild))
+            .flat_map(|room| &room.people)
+            .find(|person| person.id == user)
+    }
+
+    /// A server mute or deafen waiting for someone to join a voice channel
+    /// of `place`'s server, as Discord takes them only there: whether it
+    /// mutes (or deafens) them, if one waits.
+    #[cfg(feature = "discord")]
+    pub fn pending_voice_change(&self, place: &str, user: &str, deafen: bool) -> Option<bool> {
+        let (server, _, _) = self.discord_place(place)?;
+        let guild = discord::server_id(&server.id);
+        self.state
+            .pending_server_voice
+            .iter()
+            .rev()
+            .find_map(|(of, who, change)| match change {
+                MemberChange::ServerMute(on) if !deafen && of == &guild && who == user => Some(*on),
+                MemberChange::ServerDeafen(on) if deafen && of == &guild && who == user => {
+                    Some(*on)
+                }
+                _ => None,
+            })
+    }
+
+    /// Sends the server mutes and deafens that waited for someone now in a
+    /// voice channel of their server.
+    #[cfg(feature = "discord")]
+    pub(super) fn send_pending_voice(&mut self) -> Vec<Effect> {
+        if self.state.pending_server_voice.is_empty() || !self.state.discord_online {
+            return vec![];
+        }
+        let waiting = std::mem::take(&mut self.state.pending_server_voice);
+        let mut effects = Vec::new();
+        for (guild, user, change) in waiting {
+            let joined = self.state.rooms.iter().any(|room| {
+                room.voice
+                    && discord::parse_room(&room.id)
+                        .is_some_and(|(of, _)| discord::parse_server(&guild) == Some(of))
+                    && room.people.iter().any(|person| person.id == user)
+            });
+            if joined {
+                tracing::info!(%user, ?change, "they joined voice: the server mute or deafen goes");
+                effects.push(Effect::Backend(Command::Discord(DiscordCommand::Member {
+                    server: guild,
+                    user,
+                    change,
+                })));
+            } else {
+                self.state.pending_server_voice.push((guild, user, change));
+            }
+        }
+        effects
+    }
+
     pub fn voice_person(&self, place: &str, user: &str) -> Option<&crate::chat::VoicePerson> {
         self.state
             .rooms
@@ -324,16 +393,19 @@ impl Application {
         if in_voice && !self.move_targets(place, user).is_empty() {
             choices.push(MenuChoice::MoveTo);
         }
-        if in_voice {
+        // Server mute and deafen wherever they are in the server's voice,
+        // or, while they're in none, for when they join one: Discord takes
+        // them only in voice.
+        if in_voice || !me {
             if self.may(place, Permission::MuteMembers) {
                 choices.push(MenuChoice::ServerMute);
             }
             if self.may(place, Permission::DeafenMembers) {
                 choices.push(MenuChoice::ServerDeafen);
             }
-            if !me && self.may(place, Permission::MoveMembers) {
-                choices.push(MenuChoice::Disconnect);
-            }
+        }
+        if in_voice && !me && self.may(place, Permission::MoveMembers) {
+            choices.push(MenuChoice::Disconnect);
         }
         if self.may_moderate(place, user, Permission::Moderate) && !self.is_admin(place, user) {
             choices.push(if self.timed_out(place, user) {
@@ -625,7 +697,7 @@ impl Application {
     /// deafens, moves or disconnects them in voice, when this account may;
     /// Discord's GUILD_MEMBER_UPDATE or VOICE_STATE_UPDATE shows it.
     pub(super) fn change_member(
-        &self,
+        &mut self,
         place: String,
         user: String,
         change: MemberChange,
@@ -638,14 +710,8 @@ impl Application {
                     self.may_moderate(&place, &user, Permission::Moderate)
                         && self.timed_out(&place, &user)
                 }
-                MemberChange::ServerMute(_) => {
-                    self.voice_person(&place, &user).is_some()
-                        && self.may(&place, Permission::MuteMembers)
-                }
-                MemberChange::ServerDeafen(_) => {
-                    self.voice_person(&place, &user).is_some()
-                        && self.may(&place, Permission::DeafenMembers)
-                }
+                MemberChange::ServerMute(_) => self.may(&place, Permission::MuteMembers),
+                MemberChange::ServerDeafen(_) => self.may(&place, Permission::DeafenMembers),
                 MemberChange::Move(None) => {
                     self.voice_person(&place, &user).is_some()
                         && self.state.relation(&user) != Relation::Me
@@ -665,6 +731,28 @@ impl Application {
                 .discord_place(&place)
                 .filter(|_| allowed && self.state.discord_online)
                 .map(|(server, _, _)| discord::server_id(&server.id));
+            // Out of voice, a mute or deafen waits for them to join, the
+            // latest of each kind kept.
+            let voice = matches!(
+                change,
+                MemberChange::ServerMute(_) | MemberChange::ServerDeafen(_)
+            );
+            if let Some(server) = server.clone()
+                && voice
+                && self.voice_person_in_server(&place, &user).is_none()
+            {
+                let deafen = matches!(change, MemberChange::ServerDeafen(_));
+                self.state
+                    .pending_server_voice
+                    .retain(|(of, who, waiting)| {
+                        !(of == &server
+                            && who == &user
+                            && matches!(waiting, MemberChange::ServerDeafen(_)) == deafen)
+                    });
+                tracing::info!(%user, ?change, "not in voice: waiting for them to join");
+                self.state.pending_server_voice.push((server, user, change));
+                return vec![];
+            }
             if let Some(server) = server {
                 return vec![Effect::Backend(Command::Discord(DiscordCommand::Member {
                     server,

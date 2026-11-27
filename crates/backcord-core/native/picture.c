@@ -20,7 +20,8 @@ struct backcord_picture {
 };
 
 /* Scales `picture` into `scratch`, an I420 buffer of `width` by `height`,
- * unless it's that size already, and converts it to RGBA in `rgba`, whose
+ * unless it's that size already (averaging every pixel it covers, so a
+ * picture shown smaller stays sharp rather than aliased), and converts it to RGBA in `rgba`, whose
  * rows are `stride` bytes apart. */
 void backcord_i420_to_rgba(const struct backcord_picture *picture, unsigned char *scratch,
                        unsigned char *rgba, int stride, int width, int height, int bt709) {
@@ -32,7 +33,7 @@ void backcord_i420_to_rgba(const struct backcord_picture *picture, unsigned char
     unsigned char *su = sy + (size_t)width * height;
     unsigned char *sv = su + (size_t)chroma * ((height + 1) / 2);
     I420Scale(y, y_stride, u, u_stride, v, v_stride, picture->width, picture->height, sy,
-              width, su, chroma, sv, chroma, width, height, kFilterBilinear);
+              width, su, chroma, sv, chroma, width, height, kFilterBox);
     y = sy;
     u = su;
     v = sv;
@@ -40,11 +41,13 @@ void backcord_i420_to_rgba(const struct backcord_picture *picture, unsigned char
     u_stride = chroma;
     v_stride = chroma;
   }
-  /* libyuv's ABGR is R, G, B, A in memory; H420 is BT.709's I420. */
-  if (bt709)
-    H420ToABGR(y, y_stride, u, u_stride, v, v_stride, rgba, stride, width, height);
-  else
-    I420ToABGR(y, y_stride, u, u_stride, v, v_stride, rgba, stride, width, height);
+  /* libyuv's ABGR is R, G, B, A in memory: its ARGB with U and V swapped.
+   * The colours are interpolated between chroma samples, as a GPU shows
+   * them, rather than repeated over each 2x2 block, which leaves coloured
+   * text and edges blocky. */
+  I420ToARGBMatrixFilter(y, y_stride, v, v_stride, u, u_stride, rgba, stride,
+                         bt709 ? &kYvuH709Constants : &kYvuI601Constants, width, height,
+                         kFilterBilinear);
 }
 
 /* BT.709's luma of a pixel, B, G, R in memory, in the limited range. */

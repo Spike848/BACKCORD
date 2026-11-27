@@ -95,7 +95,13 @@ fn main() -> Result<()> {
 
     #[cfg(all(windows, feature = "desktop"))]
     match data_directory(&arguments) {
-        Some(directory) if !has_console() => logging::init_to_file(&directory.join("backcord.log")),
+        // Always to the file: a start from Explorer or a shortcut can
+        // still be handed a standard output nobody reads.
+        // A console started from still gets what BACKCORD prints.
+        Some(directory) => {
+            has_console();
+            logging::init_to_file(&directory.join("backcord.log"));
+        }
         _ => logging::init(),
     }
     #[cfg(not(all(windows, feature = "desktop")))]

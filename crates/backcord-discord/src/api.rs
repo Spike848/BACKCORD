@@ -347,6 +347,11 @@ impl Api {
             // request opens a new one rather than waiting on a lost one.
             .http2_keep_alive_interval(std::time::Duration::from_secs(10))
             .http2_keep_alive_timeout(std::time::Duration::from_secs(10))
+            // Kept open, and pinged, while nothing is asked, as a browser
+            // keeps its connection to Discord: the next channel opened after
+            // a quiet spell doesn't wait for a new TCP and TLS handshake.
+            .http2_keep_alive_while_idle(true)
+            .pool_idle_timeout(std::time::Duration::from_secs(300))
             .build()
             .context("could not set up HTTPS")?;
         let base = match client::test_server() {
@@ -2606,7 +2611,12 @@ impl Api {
     }
 
     /// Sends a request for a file as [`Self::get_file`] does.
+    /// Files come as they are, never compressed on the way as the API's
+    /// answers are: their size and byte ranges are the file's own, which
+    /// limits and resumed downloads count on, and pictures and videos are
+    /// compressed already.
     async fn send_file(&self, request: RequestBuilder) -> Result<Response> {
+        let request = request.header(header::ACCEPT_ENCODING, "identity");
         let response = tokio::time::timeout(self.stall, request.send())
             .await
             .map_err(|_| Stalled)?

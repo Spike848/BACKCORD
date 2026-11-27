@@ -325,6 +325,12 @@ fn codecs() -> Value {
 /// The call's audio and video, kept across moves and reconnections.
 struct Media {
     encoder: opus::Encoder,
+    /// The microphone widened and panned, as Voice's settings set it.
+    spatial: crate::spatial::Spatial,
+    /// Whether the encoder's held to stereo, as widening or panning wants;
+    /// and whether the last packet sent was stereo, to say when it changes.
+    stereo: bool,
+    sent_stereo: Option<bool>,
     /// Whether the encoder is tuned for studio mode.
     studio: bool,
     /// One frame of the microphone, in both channels, and its Opus packet.
@@ -472,6 +478,9 @@ impl Media {
     fn new(video: VideoOut, stats: Arc<CallStats>) -> Result<Self> {
         Ok(Self {
             encoder: opus::Encoder::new(2, opus::Application::Audio, BITRATE)?,
+            spatial: crate::spatial::Spatial::new(),
+            stereo: false,
+            sent_stereo: None,
             studio: false,
             pcm: vec![0.0; FRAME * 2],
             packet: vec![0; 1500],
@@ -614,7 +623,7 @@ impl Media {
                     _ = keepalive.tick() => {
                         let mut packet = [0u8; 8];
                         packet[..4].copy_from_slice(&connection.ssrc.to_be_bytes());
-                        connection.udp.send(&packet).await?;
+                        crate::voice_connection::send(&connection.udp, &packet).await?;
                     }
                     message = receive(&mut connection.ws, &mut connection.seq) => {
                         let handled = connection.handle(message?).await?;
@@ -634,7 +643,9 @@ impl Media {
                         }
                     }
                     length = connection.udp.recv(&mut datagram) => {
-                        self.receive(connection, &datagram[..length?]).await?;
+                        if let Some(length) = crate::voice_connection::received(length)? {
+                            self.receive(connection, &datagram[..length]).await?;
+                        }
                     }
                 }
             }
@@ -789,8 +800,27 @@ impl Media {
                 self.encoder
                     .tune(studio, if studio { STUDIO_BITRATE } else { BITRATE });
             }
+            // Widened or panned, the ears must stay apart all the way to
+            // the listeners: Opus would otherwise fold a quiet side into one.
+            let stereo = crate::spatial::wide() || crate::spatial::pan() != 0.0;
+            if stereo != self.stereo {
+                self.stereo = stereo;
+                self.encoder.force_stereo(stereo);
+            }
+            self.spatial.process(&mut self.pcm);
             let length = self.encoder.encode_float(&self.pcm, &mut self.packet)?;
             let opus = &self.packet[..length];
+            // The packet's first byte says whether it's stereo.
+            let sent_stereo = opus.first().is_some_and(|toc| toc & 0x04 != 0);
+            if self.sent_stereo != Some(sent_stereo) {
+                self.sent_stereo = Some(sent_stereo);
+                tracing::info!(
+                    stereo = sent_stereo,
+                    widened = crate::spatial::wide(),
+                    pan = crate::spatial::pan(),
+                    "the microphone goes out"
+                );
+            }
             if let Some(payload) = connection.dave.encrypt_opus(opus) {
                 self.transmit(connection, &payload, marker).await?;
             }
@@ -830,7 +860,7 @@ impl Media {
         self.sequence = self.sequence.wrapping_add(1);
         let clear = rtp::rtp_clear_len(&packet).unwrap_or(packet.len());
         connection.transport.seal(&mut packet, clear)?;
-        connection.udp.send(&packet).await?;
+        crate::voice_connection::send(&connection.udp, &packet).await?;
         Ok(())
     }
 

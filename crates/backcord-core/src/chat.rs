@@ -1431,6 +1431,23 @@ pub struct Contact {
     pub discord: bool,
 }
 
+/// Someone the quick switcher found on Discord: a friend, someone known
+/// already, or a member of a server in common.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SwitcherPerson {
+    /// Their Discord user id.
+    pub id: String,
+    pub name: String,
+    pub username: Option<String>,
+    /// The address of their avatar; see [`DiscordCommand::Pictures`].
+    pub avatar: Option<String>,
+    pub friend: bool,
+    /// A server they share with this account, by name.
+    pub server: Option<String>,
+    /// The server tag they wear beside their name.
+    pub tag: Option<ServerTag>,
+}
+
 /// A role or group a message can mention, such as a Discord role or @everyone.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MentionGroup {
@@ -3274,6 +3291,12 @@ pub enum DiscordCommand {
     /// listed; they arrive as [`Event::MemberMatches`]. Only Discord servers need it.
     SearchMembers {
         room: String,
+        query: String,
+    },
+    /// Look for people whose names start with `query` for the quick
+    /// switcher, in every server in common too, as Discord's does; they
+    /// arrive as [`Event::SwitcherPeople`].
+    SwitcherPeople {
         query: String,
     },
     /// Accept a Discord message request, or ignore it.
@@ -5294,6 +5317,11 @@ pub enum Event {
         room: String,
         query: String,
         members: Vec<ChatMember>,
+    },
+    /// The people found for the quick switcher's search.
+    SwitcherPeople {
+        query: String,
+        people: Vec<SwitcherPerson>,
     },
     /// Who else is typing in a room now, by name.
     Typing {

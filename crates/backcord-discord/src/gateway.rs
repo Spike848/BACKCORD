@@ -38,9 +38,9 @@ use tokio_tungstenite::{
 use crate::{client, event::Event, member_list, websocket};
 
 const URL: &str = "wss://gateway.discord.gg";
-/// What the web client asks of the gateway: JSON, compressed as one zlib
-/// stream for the whole connection.
-const QUERY: &str = "/?encoding=json&v=9&compress=zlib-stream";
+/// What Discord's desktop client asks of the gateway: JSON, compressed as
+/// one zstd stream for the whole connection ([`Decompressor`]).
+const QUERY: &str = "/?encoding=json&v=9&compress=zstd-stream";
 /// The capability bits the web client sends, as used by mautrix-discord.
 const CAPABILITIES: u64 = 1734653;
 
@@ -317,7 +317,7 @@ impl Gateway {
     ) -> Result<(Self, Value)> {
         let mut connection = Connection {
             socket: open(url).await?,
-            inflater: Inflater::default(),
+            inflater: Decompressor::default(),
             sequence: None,
             interval: Duration::from_secs(40),
             next_heartbeat: Instant::now(),
@@ -534,6 +534,30 @@ impl Gateway {
         .await
     }
 
+    /// Asks for up to `limit` members of each of `guild_ids` whose names
+    /// start with `query`, as Discord's quick switcher looks for people in
+    /// every server in common; each server's arrive as a GUILD_MEMBERS_CHUNK
+    /// carrying `nonce`.
+    pub async fn search_members_in(
+        &mut self,
+        guild_ids: &[String],
+        query: &str,
+        limit: u64,
+        nonce: &str,
+    ) -> Result<()> {
+        self.send(
+            REQUEST_GUILD_MEMBERS,
+            json!({
+                "guild_id": guild_ids,
+                "query": query,
+                "limit": limit,
+                "presences": false,
+                "nonce": nonce,
+            }),
+        )
+        .await
+    }
+
     /// The next dispatched event; an error ends the session.
     pub async fn next(&mut self) -> Result<Dispatch> {
         let dispatch = match self.events.recv().await {
@@ -612,7 +636,7 @@ impl Limiter {
 /// One connection to the gateway, and the session it carries on.
 struct Connection {
     socket: Socket,
-    inflater: Inflater,
+    inflater: Decompressor,
     sequence: Option<u64>,
     interval: Duration,
     next_heartbeat: Instant,
@@ -826,7 +850,7 @@ impl Connection {
         // Dropping the old connection without a close frame keeps the
         // session; a normal close would end it.
         self.socket = open(url).await?;
-        self.inflater = Inflater::default();
+        self.inflater = Decompressor::default();
         self.limiter.sent.clear();
         self.greeted().await?;
         let resume = json!({
@@ -871,87 +895,82 @@ impl Connection {
     }
 }
 
-/// The gateway's zlib-stream compression: one zlib stream through the whole
-/// connection, each payload ending with a sync flush, so a payload may come
-/// in more than one message.
-struct Inflater {
-    zlib: flate2::Decompress,
-    /// A payload's start, until its last message comes.
-    partial: Vec<u8>,
-    inflated: Vec<u8>,
+/// The gateway's zstd-stream compression, as Discord's desktop client asks
+/// for it: one zstd stream through the whole connection, flushed after each
+/// payload, so each message decompresses to the rest of a payload. A
+/// payload is whole once it reads as JSON; one that stops short waits for
+/// the next message. zstd decompresses faster than zlib and Discord's
+/// payloads come smaller.
+struct Decompressor {
+    zstd: zstd_safe::DCtx<'static>,
+    decompressed: Vec<u8>,
 }
 
-/// The end of each payload: zlib's sync flush marker.
-const FLUSHED: [u8; 4] = [0x00, 0x00, 0xff, 0xff];
-/// The most one payload may inflate to. READY is the largest, a few MiB on
-/// an account in many servers.
+/// The most one payload may decompress to. READY is the largest, a few MiB
+/// on an account in many servers.
 const MAX_PAYLOAD: usize = 256 << 20;
 /// Buffers larger than this go after the payload that needed them, rather
 /// than staying for the connection's life.
 const KEPT_BUFFER: usize = 256 << 10;
 
-impl Default for Inflater {
+impl Default for Decompressor {
     fn default() -> Self {
         Self {
-            zlib: flate2::Decompress::new(true),
-            partial: Vec::new(),
-            inflated: Vec::new(),
+            zstd: zstd_safe::DCtx::create(),
+            decompressed: Vec::new(),
         }
     }
 }
 
-impl Inflater {
+impl Decompressor {
     /// Takes the next message, returning the payload it completes.
     fn push(&mut self, data: &[u8]) -> Result<Option<Value>> {
-        let compressed = if self.partial.is_empty() && data.ends_with(&FLUSHED) {
-            data
-        } else {
-            if self.partial.len() + data.len() > MAX_PAYLOAD {
-                bail!("Discord's gateway sent too much at once");
+        let mut input = zstd_safe::InBuffer::around(data);
+        loop {
+            let out = &mut self.decompressed;
+            if out.len() == out.capacity() {
+                if out.len() >= MAX_PAYLOAD {
+                    self.decompressed = Vec::new();
+                    bail!("Discord's gateway sent too much at once");
+                }
+                out.reserve((data.len() * 8).clamp(16 << 10, MAX_PAYLOAD - out.len()));
             }
-            self.partial.extend_from_slice(data);
-            if !self.partial.ends_with(&FLUSHED) {
-                return Ok(None);
+            let at = out.len();
+            let mut output = zstd_safe::OutBuffer::around_pos(out, at);
+            let result = self.zstd.decompress_stream(&mut output, &mut input);
+            let full = output.pos() == output.capacity();
+            if let Err(code) = result {
+                self.decompressed = Vec::new();
+                bail!(
+                    "could not decompress what Discord's gateway sent: {}",
+                    zstd_safe::get_error_name(code)
+                );
             }
-            &self.partial
+            // Done once the input is used up and zstd had room to spare,
+            // so nothing it holds is still to come out.
+            if input.pos() == data.len() && !full {
+                break;
+            }
+        }
+        // A payload is an object: one cut short ends elsewhere, and isn't
+        // read again and again as each message of a large one comes.
+        if self.decompressed.trim_ascii_end().last() != Some(&b'}') {
+            return Ok(None);
+        }
+        let payload = match serde_json::from_slice(&self.decompressed) {
+            Ok(payload) => payload,
+            // A payload that goes on in the next message.
+            Err(error) if error.is_eof() => return Ok(None),
+            Err(error) => {
+                self.decompressed.clear();
+                return Err(error).context("could not understand Discord's gateway");
+            }
         };
-        let inflated = inflate(&mut self.zlib, compressed, &mut self.inflated);
-        let payload = inflated.and_then(|()| {
-            serde_json::from_slice(&self.inflated).context("could not understand Discord's gateway")
-        });
-        self.partial.clear();
-        self.inflated.clear();
-        for buffer in [&mut self.partial, &mut self.inflated] {
-            if buffer.capacity() > KEPT_BUFFER {
-                *buffer = Vec::new();
-            }
+        self.decompressed.clear();
+        if self.decompressed.capacity() > KEPT_BUFFER {
+            self.decompressed = Vec::new();
         }
-        payload.map(Some)
-    }
-}
-
-/// Inflates all of `compressed` into `out`.
-fn inflate(zlib: &mut flate2::Decompress, mut compressed: &[u8], out: &mut Vec<u8>) -> Result<()> {
-    loop {
-        if out.len() == out.capacity() {
-            if out.len() >= MAX_PAYLOAD {
-                bail!("Discord's gateway sent too much at once");
-            }
-            out.reserve((compressed.len() * 4).clamp(16 << 10, MAX_PAYLOAD - out.len()));
-        }
-        let (read, written) = (zlib.total_in(), out.len());
-        zlib.decompress_vec(compressed, out, flate2::FlushDecompress::Sync)
-            .context("could not inflate what Discord's gateway sent")?;
-        let used = (zlib.total_in() - read) as usize;
-        compressed = &compressed[used..];
-        let room = out.len() < out.capacity();
-        // Done once the input is used up and zlib had room to spare.
-        if compressed.is_empty() && room {
-            return Ok(());
-        }
-        if used == 0 && out.len() == written && room {
-            bail!("Discord's gateway sent a compressed stream that stopped");
-        }
+        Ok(Some(payload))
     }
 }
 
@@ -1032,7 +1051,7 @@ mod tests {
         let (socket, _peer) = tokio::join!(open(&discord.url), discord.accept(SLOW_HEARTBEAT));
         let mut connection = Connection {
             socket: socket.unwrap(),
-            inflater: Inflater::default(),
+            inflater: Decompressor::default(),
             sequence: None,
             interval: SLOW_HEARTBEAT,
             next_heartbeat: Instant::now(),
@@ -1481,32 +1500,56 @@ mod tests {
         assert!(held.elapsed() >= presence_window() / 2);
     }
 
-    /// Compresses payloads as Discord's gateway does, sharing one stream.
-    fn deflated(zlib: &mut flate2::Compress, payload: &Value) -> Vec<u8> {
+    /// Compresses payloads as Discord's gateway does: one zstd stream,
+    /// flushed after each.
+    fn compressed(zstd: &mut zstd_safe::CCtx<'_>, payload: &Value) -> Vec<u8> {
         let input = payload.to_string();
         let mut out = Vec::with_capacity(input.len() + 64);
-        zlib.compress_vec(input.as_bytes(), &mut out, flate2::FlushCompress::Sync)
-            .unwrap();
-        assert!(out.ends_with(&FLUSHED));
-        out
+        let mut source = zstd_safe::InBuffer::around(input.as_bytes());
+        loop {
+            out.reserve(16 << 10);
+            let at = out.len();
+            let mut output = zstd_safe::OutBuffer::around_pos(&mut out, at);
+            let left = zstd
+                .compress_stream2(
+                    &mut output,
+                    &mut source,
+                    zstd_safe::zstd_sys::ZSTD_EndDirective::ZSTD_e_flush,
+                )
+                .unwrap();
+            if left == 0 {
+                return out;
+            }
+        }
     }
 
     #[test]
-    fn inflates_payloads_sharing_one_stream() {
-        let mut zlib = flate2::Compress::new(flate2::Compression::default(), true);
-        let mut inflater = Inflater::default();
+    fn decompresses_payloads_sharing_one_stream() {
+        let mut zstd = zstd_safe::CCtx::create();
+        let mut decompressor = Decompressor::default();
         let hello = json!({"op": HELLO, "d": {"heartbeat_interval": 41250}});
-        let first = deflated(&mut zlib, &hello);
-        assert_eq!(inflater.push(&first).unwrap(), Some(hello));
+        let first = compressed(&mut zstd, &hello);
+        assert_eq!(decompressor.push(&first).unwrap(), Some(hello));
 
         // A large payload, split across messages, refers back to the first.
-        let ready = json!({"op": DISPATCH, "t": "READY", "d": {"guilds": vec!["heartbeat_interval"; 20_000]}});
-        let second = deflated(&mut zlib, &ready);
+        let ready = json!({"op": DISPATCH, "t": "READY", "d": {"guilds": vec!["heartbeat_interval"; 200_000]}});
+        let second = compressed(&mut zstd, &ready);
         let (start, end) = second.split_at(second.len() / 2);
-        assert_eq!(inflater.push(start).unwrap(), None);
-        assert_eq!(inflater.push(end).unwrap(), Some(ready));
-        assert_eq!(inflater.inflated.capacity(), 0, "a large buffer stays");
+        assert_eq!(decompressor.push(start).unwrap(), None);
+        assert_eq!(decompressor.push(end).unwrap(), Some(ready));
+        assert_eq!(
+            decompressor.decompressed.capacity(),
+            0,
+            "a large buffer goes"
+        );
 
-        assert!(inflater.push(b"not zlib\x00\x00\xff\xff").is_err());
+        // The stream goes on after it.
+        let ack = json!({"op": 11, "d": null});
+        assert_eq!(
+            decompressor.push(&compressed(&mut zstd, &ack)).unwrap(),
+            Some(ack)
+        );
+
+        assert!(decompressor.push(b"not zstd at all").is_err());
     }
 }

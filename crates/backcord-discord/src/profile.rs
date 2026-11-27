@@ -800,14 +800,14 @@ mod tests {
         assert!(
             profile
                 .avatar
-                .ends_with("/avatars/1400000000000000200/abc.png?size=128")
+                .ends_with("/avatars/1400000000000000200/abc.webp?size=128")
         );
         assert!(
             profile
                 .banner
                 .as_deref()
                 .unwrap()
-                .ends_with("/guilds/10/users/1400000000000000200/banners/ghi.png?size=600")
+                .ends_with("/guilds/10/users/1400000000000000200/banners/ghi.webp?size=600")
         );
         assert_eq!(profile.accent, Some(255));
         assert_eq!(
@@ -845,7 +845,7 @@ mod tests {
             own.banner
                 .as_deref()
                 .unwrap()
-                .ends_with("/guilds/10/users/1400000000000000200/banners/ghi.png?size=600")
+                .ends_with("/guilds/10/users/1400000000000000200/banners/ghi.webp?size=600")
         );
         assert_eq!(own.fallback.name, "Ann");
         assert_eq!(own.fallback.pronouns.as_deref(), Some("she/her"));
@@ -860,13 +860,13 @@ mod tests {
             main.avatar
                 .as_deref()
                 .unwrap()
-                .contains("/avatars/1400000000000000200/abc.png")
+                .contains("/avatars/1400000000000000200/abc.webp")
         );
         assert!(
             main.banner
                 .as_deref()
                 .unwrap()
-                .ends_with("/banners/1400000000000000200/def.png?size=600")
+                .ends_with("/banners/1400000000000000200/def.webp?size=600")
         );
         assert_eq!(
             main.accent,
@@ -884,7 +884,7 @@ mod tests {
                 .banner
                 .as_deref()
                 .unwrap()
-                .ends_with("/banners/1400000000000000200/def.png?size=600")
+                .ends_with("/banners/1400000000000000200/def.webp?size=600")
         );
         assert_eq!(profile.accent, Some(16_711_680));
     }

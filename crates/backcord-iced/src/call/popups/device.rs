@@ -216,6 +216,88 @@ pub(super) fn device_menu<'a>(ctx: crate::ctx::Ctx<'a>, input: bool) -> Element<
     menu = menu
         .push(separator(theme))
         .push(container(slider.view(theme)).padding([4, 8]));
+    // Under the microphone's volume, where the others hear it, as Voice's
+    // settings set it too.
+    if input && ctx.state.discord_user.is_some() {
+        // The microphone's pitch, right under its volume, as someone's
+        // menu has theirs.
+        let (pitch, top, shown) = crate::settings::voice::pitch_slider(&ctx.layout.voice);
+        let pitching = controls::slider(
+            backcord_iced_kit::i18n::tr("Voice pitch (semitones)"),
+            pitch,
+            top,
+            |value| Message::Call(Event::MicPitch(value, false)),
+        )
+        .step(1)
+        .mark(false)
+        .shown(shown)
+        .on_release(Message::Call(Event::MicPitch(pitch, true)));
+        menu = menu.push(container(pitching.view(theme)).padding([4, 8]));
+    }
+    if input && ctx.state.discord_user.is_some() {
+        use crate::settings::voice::{PAN_MIDDLE, pan_shown, pan_value};
+        let wide = ctx.layout.voice.microphone_wide;
+        let pan = ctx.layout.voice.microphone_pan.unwrap_or(0);
+        let value = pan_value(pan);
+        let panning = controls::slider(
+            backcord_iced_kit::i18n::tr("Panning"),
+            value,
+            PAN_MIDDLE * 2,
+            |value| Message::Call(Event::MicPan(value, false)),
+        )
+        .step(1)
+        .mark(false)
+        .shown(pan_shown(pan))
+        .on_release(Message::Call(Event::MicPan(value, true)));
+        menu = menu.push(crate::call::popups::popup_row(
+            ctx,
+            backcord_iced_kit::i18n::tr("Stereo widener"),
+            Some(backcord_iced_kit::i18n::tr("Sounds wide in the others' headphones.").into()),
+            None,
+            Check::Box(wide),
+            Some(Message::Call(Event::MicWide(!wide))),
+        ));
+        if wide {
+            use crate::settings::voice::{WIDTH_STEPS, width_value};
+            let (percent, value) = width_value(&ctx.layout.voice);
+            let intensity = controls::slider(
+                backcord_iced_kit::i18n::tr("Intensity"),
+                value,
+                WIDTH_STEPS,
+                |value| Message::Call(Event::MicWidth(value, false)),
+            )
+            .step(1)
+            .mark(false)
+            .shown(format!("{percent}%"))
+            .on_release(Message::Call(Event::MicWidth(value, true)));
+            menu = menu.push(container(intensity.view(theme)).padding([4, 8]));
+        }
+        menu = menu.push(container(panning.view(theme)).padding([4, 8]));
+        let (bits, top, shown) = crate::settings::voice::bits_slider(&ctx.layout.voice);
+        let depth = controls::slider(
+            backcord_iced_kit::i18n::tr("Bit depth"),
+            bits,
+            top,
+            |value| Message::Call(Event::MicBits(value, false)),
+        )
+        .step(1)
+        .mark(false)
+        .shown(shown)
+        .on_release(Message::Call(Event::MicBits(bits, true)));
+        menu = menu.push(container(depth.view(theme)).padding([4, 8]));
+        let (rate, top, shown) = crate::settings::voice::rate_slider(&ctx.layout.voice);
+        let sampling = controls::slider(
+            backcord_iced_kit::i18n::tr("Sample rate"),
+            rate,
+            top,
+            |value| Message::Call(Event::MicRate(value, false)),
+        )
+        .step(1)
+        .mark(false)
+        .shown(shown)
+        .on_release(Message::Call(Event::MicRate(rate, true)));
+        menu = menu.push(container(sampling.view(theme)).padding([4, 8]));
+    }
     // Discord's voice state says muted or deafened, the call still sending
     // and playing.
     if ctx.state.discord_user.is_some() {
@@ -327,11 +409,34 @@ pub(super) fn input_level<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> 
     } else {
         None
     };
+    // The mic test beside the heading, as Voice's settings have it: the
+    // microphone played back as calls send it, widened and panned too.
+    let testing = ctx.call.mic_test.is_some();
+    let test = controls::action(
+        theme,
+        if testing {
+            backcord_iced_kit::i18n::tr("Stop testing")
+        } else {
+            backcord_iced_kit::i18n::tr("Mic test")
+        },
+        if testing {
+            controls::Kind::Primary
+        } else {
+            controls::Kind::Plain
+        },
+        Some(Message::Call(Event::MicTest)),
+    )
+    .small();
     let mut level = column![
-        text(backcord_iced_kit::i18n::tr("INPUT LEVEL"))
-            .size(12)
-            .font(BOLD)
-            .color(theme.muted),
+        row![
+            text(backcord_iced_kit::i18n::tr("INPUT LEVEL"))
+                .size(12)
+                .font(BOLD)
+                .color(theme.muted)
+                .width(Length::Fill),
+            test,
+        ]
+        .align_y(Alignment::Center),
         segments
     ]
     .spacing(8)

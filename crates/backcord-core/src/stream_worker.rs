@@ -64,10 +64,16 @@ pub const SHARE_HEIGHT: u32 = 1080;
 const PREVIEW_EVERY: Duration = Duration::from_millis(33);
 pub const PREVIEW_WIDTH: u32 = 1280;
 pub const PREVIEW_HEIGHT: u32 = 720;
-/// The largest picture shown of someone else's stream; larger ones are
-/// scaled down to it.
+/// The largest picture shown of a video file; larger ones are scaled down
+/// to it.
 pub const WATCH_WIDTH: u32 = 1920;
 pub const WATCH_HEIGHT: u32 = 1080;
+/// The largest picture shown of someone else's stream: 4K, so a stream of
+/// 1440p, an ultrawide screen or a Nitro stream at the source's size shows
+/// at its own size, as in Discord's client, rather than scaled down to
+/// 1080p and back up to the window.
+pub const STREAM_WIDTH: u32 = 3840;
+pub const STREAM_HEIGHT: u32 = 2160;
 /// The largest preview Discord shows of a stream, and how often its client
 /// sends a new one.
 const THUMBNAIL_WIDTH: u32 = 512;
@@ -696,7 +702,7 @@ impl Sink {
         if let Some(server) = self.server.take() {
             let (offers, encoder) = self.offers(width, height)?;
             let sender = StreamSender::start(server, width, height, self.fps, offers)?;
-            let sound = if self.sound {
+            let sound = if self.sound && crate::volume::share_stream_sound() {
                 stream_audio::Capture::start(sender.sound(), self.window)
                     .inspect_err(|error| {
                         tracing::warn!(error = format!("{error:#}"), "sharing without sound");
@@ -711,6 +717,22 @@ impl Sink {
                 _sound: sound,
                 measured: (Instant::now(), 0),
             });
+        }
+        // The sound shared or not, as asked while the stream goes on. One
+        // that couldn't start isn't tried again every frame.
+        if let Some(video) = self.video.as_mut() {
+            let wanted = self.sound && crate::volume::share_stream_sound();
+            if wanted != video._sound.is_some() {
+                video._sound = None;
+                if wanted {
+                    video._sound = stream_audio::Capture::start(video.sender.sound(), self.window)
+                        .inspect_err(|error| {
+                            tracing::warn!(error = format!("{error:#}"), "sharing without sound");
+                        })
+                        .ok();
+                    self.sound = video._sound.is_some();
+                }
+            }
         }
         let Some(video) = self.video.as_ref() else {
             return Ok(());
@@ -1810,12 +1832,12 @@ impl Worker {
         deafened: bool,
         volume: f32,
     ) -> Result<(Self, Frames, mpsc::UnboundedReceiver<Report>)> {
-        let frames = Frames::create(WATCH_WIDTH, WATCH_HEIGHT)?;
+        let frames = Frames::create(STREAM_WIDTH, STREAM_HEIGHT)?;
         let job = Job::Watch {
             server: server.clone(),
             frames: frames.path().context("the video frames file has no name")?,
-            width: WATCH_WIDTH,
-            height: WATCH_HEIGHT,
+            width: STREAM_WIDTH,
+            height: STREAM_HEIGHT,
             speakers,
             deafened,
             volume,

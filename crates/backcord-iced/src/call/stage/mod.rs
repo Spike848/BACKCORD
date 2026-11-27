@@ -244,6 +244,7 @@ pub fn place_videos(app: &mut App) {
                 .then(|| shown_at(tiles[place], app.call.scrolled, height, scale))
                 .flatten()
         };
+        feed.show_covering(true);
         feed.show_at(at);
         feed.show_large(shown && !in_corner && focused == Some(place));
         if at.is_some() {
@@ -321,7 +322,12 @@ pub fn frame<'a>(
     corners: Option<(u32, u32)>,
 ) -> Option<Element<'a, Message>> {
     app.video.has(key).then(|| {
-        let video = Video::new(&app.video, key, Color::BLACK).scale(app.device_scale());
+        // Cameras fill their tiles, as in Discord's client; a screen shows
+        // whole, nothing of it cut.
+        let camera = key != OWN_SCREEN && !key.starts_with("stream:") && !key.starts_with("clip:");
+        let video = Video::new(&app.video, key, Color::BLACK)
+            .scale(app.device_scale())
+            .cover(camera);
         let video = match corners {
             // As Appearance's corner roundness says, as the tile's own are.
             Some((radius, behind)) => video.corners(
