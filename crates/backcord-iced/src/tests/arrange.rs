@@ -291,3 +291,33 @@ fn one_of_several_picked_dragged_takes_them_all() {
     assert!(app.sidebar.moving_person.is_none());
     assert!(app.client.state().picked.is_empty(), "the picking ends");
 }
+
+/// Pressed on someone in voice and moved sideways first, as a drag toward
+/// another channel often starts, they're dragged: the selection box over
+/// the list doesn't take the move.
+#[test]
+fn someone_dragged_sideways_is_dragged_not_boxed() {
+    let (mut app, _folder) = voice_server(&["30"]);
+    interact(&mut app, |ui| {
+        let dave = ui
+            .find("Dave")
+            .expect("Dave under the Lounge")
+            .visible_bounds()
+            .expect("in view");
+        let from = Point::new(dave.center_x(), dave.center_y());
+        ui.point_at(from);
+        ui.simulate([iced::Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        ))]);
+        for step in 1..=4 {
+            let to = Point::new(from.x + 3.0 * step as f32, from.y + 1.0);
+            ui.point_at(to);
+            ui.simulate([iced::Event::Mouse(mouse::Event::CursorMoved {
+                position: to,
+            })]);
+        }
+    });
+    assert!(app.sidebar.moving_person.is_some(), "Dave is dragged");
+    assert!(app.sidebar.boxing.is_none(), "no selection box");
+    assert!(app.client.state().picked.is_empty(), "nobody picked");
+}

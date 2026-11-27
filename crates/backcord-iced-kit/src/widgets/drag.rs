@@ -294,7 +294,7 @@ impl<'a, M: Clone + 'a> From<Splitter<'a, M>> for Element<'a, M> {
 /// drag.
 const DRAG_START: f32 = 4.0;
 
-/// Its child, which a press and a move of [`DRAG_START`] px up or down
+/// Its child, which a press and a move of [`DRAG_START`] px any way
 /// starts dragging (`drag`, with how far down the row it was pressed),
 /// and a press let go on it without a drag clicks (`click`): a channel's
 /// or a category's row in the sidebar. While a drag is on (`tracking`), it
@@ -392,7 +392,9 @@ impl<M: Clone> Hooks<M> for Drags<'_, M> {
         if let (Some(from), Some(position), Some(drag)) =
             (state.pressed, moved_to(event, at.cursor), &self.drag)
             && !state.moved
-            && (position.y - from.y).abs() > DRAG_START
+            // Any way, as a selection box over the list counts it: a press
+            // moved sideways first is the row's drag, not a box's start.
+            && (position.x - from.x).abs().max((position.y - from.y).abs()) > DRAG_START
         {
             state.moved = true;
             shell.publish(drag(from.y - bounds.y));
