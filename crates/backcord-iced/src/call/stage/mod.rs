@@ -124,7 +124,8 @@ pub fn stage_size(app: &App) -> Size {
         };
         return Size::new(app.window.width - chat, app.window.height);
     }
-    let below_header = app.window.height - header::HEIGHT - 1.0;
+    // The banners show under the header too.
+    let below_header = app.window.height - header::HEIGHT - 1.0 - crate::banners::height(app.ctx());
     let (right, height) = if voice_chat_shown(app) {
         (app.window.width - voice_chat_width(app), below_header)
     } else if voice_panel(app) {
@@ -522,7 +523,14 @@ pub fn call_panel(app: &App) -> Element<'_, Message> {
     } else {
         stage_view(app)
     };
-    column![line, stage, call_controls(app)].into()
+    // The controls whole at the bottom whatever's over the stage: should
+    // it come out taller than the room left, its foot is cut, not them.
+    column![
+        line,
+        container(stage).height(Length::Fill).clip(true),
+        call_controls(app)
+    ]
+    .into()
 }
 
 /// What the line over the stage, or a channel's Join, says of the call.
@@ -958,7 +966,7 @@ pub fn stream_viewers<'a>(
 /// While this account shares its screen, the button that sends the
 /// stream blurred whole, to hide what's on it, and sharp again, the stream
 /// going on: amber with its words while it blurs, so it's never forgotten.
-pub fn blur_button(app: &App) -> Option<Element<'_, Message>> {
+pub fn blur_button(app: &App, compact: bool) -> Option<Element<'_, Message>> {
     let theme = &app.theme;
     let blurred = app.client.state().voice.sharing.as_ref()?.blurred;
     let amber = crate::style::hex(0x00F0_B232);
@@ -975,12 +983,13 @@ pub fn blur_button(app: &App) -> Option<Element<'_, Message>> {
             theme.text,
         )
     };
-    let face = row![
-        app.look().glyph(icon, 20, ink),
-        text(words).size(14).font(crate::fonts::BOLD).color(ink),
-    ]
-    .spacing(8)
-    .align_y(Alignment::Center);
+    // Narrow, its glyph alone, as the others'.
+    let mut face = row![app.look().glyph(icon, 20, ink)]
+        .spacing(8)
+        .align_y(Alignment::Center);
+    if !compact {
+        face = face.push(text(words).size(14).font(crate::fonts::BOLD).color(ink));
+    }
     let (ground, lit) = if blurred {
         (amber, faded(amber, 0.85))
     } else {
@@ -1013,7 +1022,7 @@ pub fn full_screen_buttons<'a>(app: &'a App, exit: Element<'a, Message>) -> Elem
     let theme = &app.theme;
     let voice = &app.client.state().voice;
     let mut buttons = row![].spacing(12).align_y(Alignment::Center);
-    if let Some(blur) = blur_button(app) {
+    if let Some(blur) = blur_button(app, false) {
         buttons = buttons.push(blur);
     }
     let leaving = voice.phase == voice::Phase::Leaving;
@@ -1047,6 +1056,42 @@ pub fn full_screen_buttons<'a>(app: &'a App, exit: Element<'a, Message>) -> Elem
 fn call_controls(app: &App) -> Element<'_, Message> {
     let theme = &app.theme;
     let voice = &app.client.state().voice;
+    // How tight the bar must go to fit the stage's width beside the
+    // full-screen button at its right: 0 as it is; 1 the blur's glyph
+    // alone and closer buttons; 2 the red buttons as narrow as the round
+    // ones; 3 without the full-screen button.
+    let watching = !voice.watching.is_empty();
+    let sharing = voice.sharing.is_some();
+    // Room mode's square, while it's on.
+    let room = app.layout.prefs.room_mode.unwrap_or(false);
+    let rounds = 2
+        + usize::from(room)
+        + usize::from(voice.soundboard.is_some())
+        + usize::from(voice.can_film)
+        + usize::from(can_share(app.ctx()) || sharing)
+        + usize::from(watching);
+    let wides = 1 + usize::from(watching);
+    let theatre = theatre_room(app);
+    let space = stage_size(app).width;
+    let needs = |tight: u8| {
+        let gap = if tight >= 1 { 8.0 } else { 12.0 };
+        let wide = if tight >= 2 { ROUND } else { 76.0 };
+        let blur = match (sharing, tight >= 1) {
+            (false, _) => 0.0,
+            (true, true) => ROUND,
+            (true, false) => 170.0,
+        };
+        let count = rounds + wides + usize::from(sharing);
+        let side = if theatre && tight < 3 {
+            2.0 * (ROUND + 16.0)
+        } else {
+            0.0
+        };
+        rounds as f32 * ROUND + wides as f32 * wide + blur + gap * (count - 1) as f32 + 32.0 + side
+    };
+    let tight = (0..3u8).find(|tight| needs(*tight) <= space).unwrap_or(3);
+    let gap = if tight >= 1 { 8.0 } else { 12.0 };
+    let wide = if tight >= 2 { ROUND } else { 76.0 };
     let ready = voice_ready(voice);
     let when = |message: Message| ready.then_some(message);
     let alert = faded(theme.danger, 0.18);
@@ -1079,7 +1124,7 @@ fn call_controls(app: &App) -> Element<'_, Message> {
             when(Message::Call(Event::Deafen)),
         ),
     ]
-    .spacing(12)
+    .spacing(gap)
     .align_y(Alignment::Center);
     if voice.soundboard.is_some() {
         controls = controls.push(app.ctx().spot(controls::round_button(
@@ -1114,7 +1159,6 @@ fn call_controls(app: &App) -> Element<'_, Message> {
         );
         controls = controls.push(app.ctx().spot(camera));
     }
-    let sharing = voice.sharing.is_some();
     if can_share(app.ctx()) || sharing {
         // While live, it opens the stream's menu, as Discord's.
         let share = controls::round_button(
@@ -1138,9 +1182,21 @@ fn call_controls(app: &App) -> Element<'_, Message> {
         );
         controls = controls.push(app.ctx().spot(share));
     }
+    if room {
+        controls = controls.push(app.ctx().spot(controls::round_button(
+            face(Icon::Users),
+            backcord_iced_kit::i18n::tr("Room mode"),
+            if app.call.popup == Some(Popup::Room) {
+                faded(theme.accent, 0.3)
+            } else {
+                theme.raised
+            },
+            theme,
+            Some(Message::Call(Event::Open(Popup::Room))),
+        )));
+    }
     // Watching someone's stream: full screen, and stopping, as Discord's
     // bar has them.
-    let watching = !voice.watching.is_empty();
     if watching {
         controls = controls.push(controls::round_button(
             face(Icon::Maximize),
@@ -1159,7 +1215,7 @@ fn call_controls(app: &App) -> Element<'_, Message> {
                 .glyph(Icon::ScreenShareOff, ROUND_GLYPH, theme.on_danger)
                 .boxed(Length::Fill),
         )
-        .width(76)
+        .width(wide)
         .height(ROUND)
         .padding(0)
         .on_press(Message::Call(Event::StopWatching(None)))
@@ -1178,7 +1234,7 @@ fn call_controls(app: &App) -> Element<'_, Message> {
             .glyph(Icon::PhoneOff, ROUND_GLYPH, theme.on_danger)
             .boxed(Length::Fill),
     )
-    .width(76)
+    .width(wide)
     .height(ROUND)
     .padding(0)
     .on_press_maybe((!leaving).then_some(Message::Call(Event::Leave)))
@@ -1194,7 +1250,7 @@ fn call_controls(app: &App) -> Element<'_, Message> {
     )
     .gap(6);
     // Blurring the stream, beside leaving, while sharing.
-    if let Some(blur) = blur_button(app) {
+    if let Some(blur) = blur_button(app, tight >= 1) {
         controls = controls.push(blur);
     }
     let bar = container(controls.push(leave))
@@ -1208,7 +1264,7 @@ fn call_controls(app: &App) -> Element<'_, Message> {
         .height(CONTROLS_HEIGHT);
     // A voice channel's call goes over the whole screen from its bottom
     // right.
-    if !theatre_room(app) {
+    if !theatre || tight >= 3 {
         return bar.into();
     }
     stack![

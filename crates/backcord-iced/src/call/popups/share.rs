@@ -641,11 +641,15 @@ fn gear_menu<'a>(
             ));
         }
     }
-    container(rows)
-        .padding(6)
-        .width(GEAR_WIDTH)
-        .style(menu_panel(theme))
-        .into()
+    // The frosted window under its see-through ground, as the menus'.
+    backcord_iced_kit::widgets::frost::Frost::new(
+        [8.0; 4],
+        container(rows)
+            .padding(6)
+            .width(GEAR_WIDTH)
+            .style(menu_panel(theme)),
+    )
+    .into()
 }
 
 /// A screen, window or device in the share window: its picture (or its

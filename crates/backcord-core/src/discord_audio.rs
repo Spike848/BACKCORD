@@ -46,6 +46,8 @@ pub struct Hearing {
     effects: Mutex<VoiceEffects>,
     /// Each voice's pitch shifter, while their pitch is changed.
     pitched: Mutex<Pitched>,
+    /// Room mode's places and reverb, while it's on.
+    room: Mutex<crate::room::Room>,
     ended: UnboundedSender<String>,
 }
 
@@ -70,6 +72,7 @@ impl Hearing {
             sounds: Mutex::default(),
             effects: Mutex::default(),
             pitched: Mutex::default(),
+            room: Mutex::default(),
             ended,
         }
     }
@@ -162,6 +165,30 @@ impl Listener for Hearing {
                 (*user, samples)
             })
             .collect();
+        // Room mode: each voice from where it was put.
+        let mut room = self.room.lock().unwrap();
+        let room_on = crate::room::on();
+        let placed: Vec<(u64, Vec<i16>)> = if room_on {
+            let placed = voices
+                .iter()
+                .filter_map(|(user, samples)| Some((*user, room.place(*user, samples)?)))
+                .collect();
+            room.end_frame();
+            placed
+        } else {
+            room.clear();
+            Vec::new()
+        };
+        let voices: Vec<(u64, &[i16])> = voices
+            .iter()
+            .map(|(user, samples)| {
+                let samples = placed
+                    .iter()
+                    .find(|(placed, _)| placed == user)
+                    .map_or(*samples, |(_, samples)| samples.as_slice());
+                (*user, samples)
+            })
+            .collect();
         let voices = voices.as_slice();
         let mut frame = spare_frame();
         let mut sounds = self.sounds.lock().unwrap();
@@ -178,6 +205,10 @@ impl Listener for Hearing {
             crate::volume::speakers(),
             &mut frame,
         );
+        if room_on {
+            room.reverberate(&mut frame, crate::room::reverb());
+        }
+        drop(room);
         drop(sounds);
         drop(effects);
         drop(pitched);

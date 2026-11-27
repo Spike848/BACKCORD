@@ -34,37 +34,27 @@ dell'account resta nel Gestore credenziali di Windows e la cache su disco è
 cifrata.
 
 
-## Novità della 1.5.9
+## Novità della 1.6.0
 
-- **Blur della stream**: in chiamata, vicino al tasto per uscire, un pulsante
-  ben visibile sfoca tutta la tua stream per nascondere dati sensibili. Si
-  accende e si spegne senza fermare la stream; parte spento.
-- **Schermo intero pulito**: a schermo intero il pannello vocale non si
-  sovrappone più alla stream; restano solo blur, esci e riduci.
-- **Limite di qualità ricevuta**: accanto al tasto della fotocamera scegli la
-  risoluzione (da 4K a 144p) e i frame al secondo (60, 30, 15) massimi che
-  ricevi da fotocamere e stream, per risparmiare rete e CPU.
-- **Selezione dei messaggi**: trascina un riquadro sui messaggi (o Ctrl+clic);
-  col tasto destro cancelli solo i tuoi oppure tutti, se hai il permesso.
-- **Selezione dei server**: Ctrl+clic o un riquadro sulla lista dei server; col
-  tasto destro li segni come letti, li silenzi o li riattivi tutti insieme.
-- **Selezioni più affidabili**: trascinare non lascia più un utente "a
-  mezz'aria", e un clic in un altro punto dello schermo annulla qualsiasi
-  selezione.
-- **Persone in vocale sulla lista server**: la scheda che appare passando sopra
-  un server mostra chi c'è davvero, anche nei canali silenziati, e non tiene
-  più chi è passato a un altro server.
-- **GIF e sticker in un solo pulsante** nella barra di scrittura.
-- **Sfocatura del tema ovunque**: selettore emoji, GIF e sticker, pannello di
-  formattazione, e nella modifica profilo i selettori di tag server, targhetta,
-  effetto, cornice e badge.
-- **Voce e video**: modalità d'ingresso, modalità studio, riduzione del rumore
-  e dell'eco ora stanno sotto il microfono, accanto agli altoparlanti.
-- **Stream senza "could not start the stream worker"**: se il processo
-  separato della stream non può partire, la stream gira dentro BACKCORD invece
-  di chiudersi subito.
-- Corretti: le icone dei tag server in vocale che non si caricavano finché non
-  aprivi il profilo, e il testo di "Crea sondaggio" che usciva dai bordi.
+- **Modalità stanza** (in Impostazioni → funzioni aggiuntive, spenta di
+  default): un pulsante in chiamata apre un quadrante dove trascini gli avatar
+  delle persone a sinistra, a destra, davanti o dietro, e senti la loro voce da
+  quel punto nello spazio. Sotto, uno slider aggiunge il riverbero di una
+  stanza. Posizioni e riverbero restano salvati. Rende al meglio con le cuffie.
+- **Timeout dalla chat**: il tasto destro sul nome taggato di una persona apre
+  il suo menu, con Timeout o Rimuovi timeout, Espelli e Banna se hai i permessi.
+- **Barra della chiamata adattabile**: restringendo la finestra i tasti si
+  stringono invece di rompersi, e la barra non viene più schiacciata dai
+  riquadri delle persone.
+- **Persone in vocale sulla lista server più fedeli**: passando sopra un
+  server, BACKCORD si iscrive ai suoi aggiornamenti e vede subito chi entra ed
+  esce; un server che torna dopo un'interruzione non mostra più chi era uscito.
+- **Bot sempre visibili in chiamata**, anche quando sono in vocale in più
+  server insieme.
+- **Sfocatura del tema** anche sul selettore di qualità della stream e sui
+  profili con i colori Nitro.
+- L'avatar in basso a sinistra resta tondo anche con gli avatar squadrati, così
+  combacia con l'anello che si accende quando parli.
 
 ## Cosa fa
 

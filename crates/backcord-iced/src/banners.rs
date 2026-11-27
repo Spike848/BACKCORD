@@ -35,6 +35,23 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> impl Iterator<Item = Element<'a, Me
     .flatten()
 }
 
+/// How tall the lines `view` shows are together, about: the preview's
+/// note is a line of 14 px text, the others a line of 15 px beside their
+/// button. The call's stage leaves them room.
+pub fn height(ctx: crate::ctx::Ctx<'_>) -> f32 {
+    let preview = if ctx.state.preview { 34.0 } else { 0.0 };
+    let others = [
+        gpu_banner(ctx).is_some(),
+        crate::signin::verify_banner(ctx).is_some(),
+        update_banner(ctx).is_some(),
+        notice_banner(ctx).is_some(),
+    ]
+    .into_iter()
+    .filter(|shown| *shown)
+    .count();
+    preview + others as f32 * 42.0
+}
+
 /// That the GPU failed to start, so BACKCORD draws on the CPU, until
 /// dismissed.
 pub fn gpu_banner<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {

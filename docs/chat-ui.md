@@ -182,6 +182,9 @@ errors make it taller than the minimum window. SSO and OAuth are still pending.
   `crates/backcord-iced/src/menus.rs`; see
   [Discord](discord/messages.md#mark-unread-and-message-links)). View Reactions appears once a message has reactions,
   Copy selection while text is selected, and Edit on your own messages only.
+  A right click on someone's mention opens their own menu instead, as on
+  their name, with Time out or Remove timeout, Kick and Ban where this
+  account may.
   Delete appears on your own messages, and on anyone's for a Discord moderator
   with Manage Messages. Until you have reacted, the most used reactions are 👍,
   ❤️, 😂 and 🎉. BACKCORD counts the reactions you add, not the ones you remove,

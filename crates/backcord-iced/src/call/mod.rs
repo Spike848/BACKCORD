@@ -114,6 +114,8 @@ pub struct Call {
     /// whether the desktop had it so already, in which case leaving keeps
     /// it so.
     pub screen: Option<(iced::window::Id, bool)>,
+    /// Whose face is held on room mode's square, by Discord user id.
+    pub room_drag: Option<String>,
 }
 
 /// What opens from a control, above it.
@@ -130,6 +132,8 @@ pub enum Popup {
     /// What the dock's limit button opens: the quality and frame rate
     /// received from cameras and streams.
     Limit,
+    /// Room mode's square, from its button while it's on.
+    Room,
     Soundboard,
     /// The connection's details, from the signal.
     Link,
@@ -183,6 +187,8 @@ pub enum Event {
     CameraQuality(backcord_core::voice::CameraQuality),
     /// This account's stream sent blurred whole, or sharp again.
     BlurStream(bool),
+    /// On room mode's square.
+    Room(popups::room::RoomEvent),
     /// The limit on the cameras and streams received, from its menu.
     ReceiveLimit(backcord_core::voice::ReceiveLimit),
     /// The camera to film with, by id, from its menu.
@@ -330,6 +336,10 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             return Task::none();
         }
         Event::Open(popup) => return crate::call::popups::open_popup(app, popup),
+        Event::Room(event) => {
+            crate::call::popups::room::room_event(app, event);
+            return Task::none();
+        }
         Event::Close => {
             crate::call::popups::close_popup(app);
             return Task::none();

@@ -3359,6 +3359,10 @@ pub enum DiscordCommand {
     },
     /// The list of threads closed: forget what it found.
     CloseThreads,
+    /// A Discord server pointed at, by its id: hear of its calls live.
+    PeekServer {
+        server: String,
+    },
     /// A Discord forum, by its room id, shows: hear of its posts as they
     /// come.
     ViewForum {

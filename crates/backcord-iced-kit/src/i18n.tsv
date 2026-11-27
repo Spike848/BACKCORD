@@ -4128,3 +4128,13 @@ Blur the whole stream for those watching, without stopping it	Sfoca l'intera str
 Delete my messages ({})	Elimina i miei messaggi ({})
 Delete all ({})	Elimina tutti ({})
 {} servers picked	{} server selezionati
+Room mode	Modalità stanza
+Hear the people in a call from where you put them around you: a button in the call opens a square where you drag their faces left, right, ahead or behind, with a room's reverb under it. Works best with headphones.	Senti le persone in chiamata dal punto in cui le metti attorno a te: un pulsante nella chiamata apre un quadrante dove trascini i loro avatar a sinistra, a destra, davanti o dietro, con sotto il riverbero della stanza. Rende al meglio con le cuffie.
+ROOM MODE	MODALITÀ STANZA
+Ahead	Davanti
+Behind	Dietro
+L	S
+R	D
+Nobody else is in the call.	Non c'è nessun altro in chiamata.
+Reverb	Riverbero
+Put everyone back ahead	Rimetti tutti davanti

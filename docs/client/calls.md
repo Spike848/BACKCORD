@@ -34,10 +34,14 @@ The call's views and what they do are in `call/`.
 - The controls under the stage, in this order: mute and
   deafen (each with its device menu), the camera (its menu, from this button
   and the one under the call alike: the camera, its quality, on or off), Go Live, the soundboard,
+  Room mode's square while that's on (see [settings](settings.md)), and
   while sharing "Blur stream" (`Command::BlurStream`: the worker blurs each
   frame whole, scaled down and back up, before its preview and the
   encoder, so viewers see it hidden while the stream goes on; amber with
   "Stream blurred" while on, off each time sharing starts), and leave.
+  A narrow stage takes them in (`call_controls`): the blur button its
+  glyph alone and the buttons closer, then the red ones round, then the
+  full-screen button at the right gone.
   Over the call full screen (the theatre and the large tile alike) the
   same blur button, leave and exit sit at the bottom right, and the
   Dynamic Island hides, so nothing covers the stream's top.

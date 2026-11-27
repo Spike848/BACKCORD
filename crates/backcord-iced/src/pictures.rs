@@ -483,6 +483,8 @@ pub struct Face<'a> {
     pub play: bool,
     /// The presence dot, the ring's colour, and where the dot goes.
     pub dot: Option<(Presence, u32, Point)>,
+    /// Round whatever the roundness of avatars says.
+    pub round: bool,
 }
 
 impl<'a> Face<'a> {
@@ -498,7 +500,15 @@ impl<'a> Face<'a> {
             decoration: None,
             play: false,
             dot: None,
+            round: false,
         }
+    }
+
+    /// Kept round whatever the roundness of avatars says.
+    #[must_use]
+    pub fn round(mut self) -> Self {
+        self.round = true;
+        self
     }
 
     pub fn key(self, key: Option<&'a str>) -> Self {
@@ -890,10 +900,11 @@ impl<'a> crate::ctx::Ctx<'a> {
             decoration,
             play,
             dot,
+            round,
         } = face;
         // Under a decoration, drawn for a round avatar, it stays round
         // whatever the roundness of avatars says.
-        let radius = if decoration.is_some() {
+        let radius = if decoration.is_some() || round {
             backcord_iced_kit::renderer::ALWAYS_ROUND
         } else {
             size / 2.0

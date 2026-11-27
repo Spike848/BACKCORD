@@ -127,7 +127,7 @@ it.
 Extra Features (`pages/extras.rs`), under its own group at the foot of the
 column, has a card for each feature, its switch with what it does and its
 own choices under it while it's on, each kept in `layout.json`. All of
-them but Anti-Disconnect, Auto Unmute, Anti Nickname Change, Anti Group Call, Auto Delete, Fake Nitro and Badge Spoofer start on, Message Logger with Log my own
+them but Anti-Disconnect, Auto Unmute, Anti Nickname Change, Anti Group Call, Room mode, Auto Delete, Fake Nitro and Badge Spoofer start on, Message Logger with Log my own
 messages, Silent Typing (not sharing this account's typing) and No Push To
 Talk included, and Stream Proof's button sits in the header bar, with
 Local Blur and Auto Stream Proof on:
@@ -146,6 +146,12 @@ Local Blur and Auto Stream Proof on:
   Change (`keep_nickname`, off by default): see
   [people](../discord/people.md#anti-nickname-change). Anti Group Call
   (`anti_group_call`, off by default): see [DM calls](../discord/voice.md#dm-calls).
+  Room mode (`room_mode`, off by default) adds a button to the call's
+  controls: its popup (`call::popups::room`) is a square with this account
+  at its middle and the others' faces dragged anywhere on it, kept in
+  `room_places`, and a Reverb slider (`room_reverb`). `backcord_core::room`
+  pans each voice with the far ear a little later, muffles and quietens the
+  back and the distance, and adds a Freeverb-like room over the call.
   Auto Delete (`auto_delete`, off by default, and `auto_delete_after`, the
   place of its dialog's time, 5 minutes unless chosen): see
   [messages](../discord/messages.md#auto-delete).

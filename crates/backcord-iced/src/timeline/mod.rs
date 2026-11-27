@@ -468,6 +468,19 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 .take()
                 .filter(|(_, at)| *at == pressed)
                 .map(|(link, _)| link);
+            // A person's mention: their menu, as a right click on their
+            // name, with Time out or Remove timeout where this account may.
+            if let Some(user) = link
+                .as_deref()
+                .and_then(|link| link.strip_prefix("backcord:user/"))
+            {
+                return crate::person_menu::open_person_menu(
+                    app,
+                    user,
+                    at,
+                    crate::person_menu::CONTEXT_MENU,
+                );
+            }
             match row_of(app, &item) {
                 Some(row) => {
                     let task = crate::menus::open_menu(app, row, at);

@@ -23,6 +23,7 @@ pub mod device;
 pub mod limit;
 pub mod person;
 pub mod quality;
+pub mod room;
 pub mod share;
 pub mod soundboard;
 use device::DEVICE_WIDTH;
@@ -83,6 +84,10 @@ pub(super) fn open_popup(app: &mut App, popup: Popup) -> Task<Message> {
             return Task::none();
         }
         Popup::Live | Popup::Limit => app.call.popup = Some(popup),
+        Popup::Room => {
+            room::place_newcomers(app);
+            app.call.popup = Some(popup);
+        }
         Popup::Camera => {
             app.client
                 .dispatch(backcord_core::application::Action::Voice(Command::Devices));
@@ -138,6 +143,7 @@ pub fn call_popup_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Messa
             crate::call::popups::limit::limit_menu(ctx),
             limit::LIMIT_WIDTH,
         ),
+        Popup::Room => (room::room_menu(ctx), room::ROOM_WIDTH),
         Popup::Soundboard => (
             crate::call::popups::soundboard::soundboard(ctx),
             SOUNDBOARD_WIDTH + crate::call::popups::soundboard::BOARD_RAIL,

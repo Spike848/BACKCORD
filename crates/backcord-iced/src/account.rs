@@ -228,7 +228,9 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         .cosmetics
         .decoration(state.account_decoration.as_deref());
     let face = ctx.face(
+        // Round as the ring lit while speaking, whatever avatars' corners.
         Face::new(account.avatar.as_deref(), &account.name, AVATAR)
+            .round()
             .decoration(decoration, pointed)
             .dot(
                 account

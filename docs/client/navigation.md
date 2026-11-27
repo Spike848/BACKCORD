@@ -31,7 +31,11 @@ them, and so does the card list the people of muted channels and Stages
 don't count on the speaker; the faces it shows are fetched as the server
 is pointed at. Someone seen joining voice in one server leaves whatever
 other server's channel they were listed in, which a large server that
-isn't subscribed may never have said.
+isn't subscribed may never have said; a bot stays in each. A server
+pointed at is subscribed to as one opened is (`Action::PeekServer`, op 37
+once a session), so its calls' comings and goings arrive live rather than
+as Discord's occasional sums (PASSIVE_UPDATE), and a server back from an
+outage shows its calls as its GUILD_CREATE says, not as they were.
 Ctrl and a click picks a server, ringed in the accent, or lets it go, and
 a box dragged from the rail's margins (or anywhere with Ctrl) picks every
 server it touches. A right click on one of several picked opens their

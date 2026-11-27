@@ -195,6 +195,8 @@ fn refuse(request: Request, shared: &mut Shared) {
             shared.viewing = channel.clone().map(|channel| (guild.clone(), channel));
             shared.lists.view_offline(&shared.snapshots, guild, channel);
         }
+        // Pointed at again once connected.
+        Request::Peek { .. } => {}
         Request::Beside { guild, thread } => {
             shared.beside = thread.map(|thread| (guild, thread));
         }
@@ -480,6 +482,7 @@ impl Session<'_> {
                 self.shared.beside = thread.map(|thread| (guild, thread));
                 Ok(())
             }
+            Request::Peek { guild } => self.shared.lists.peek(gateway, guild).await,
             Request::View { guild, channel } => {
                 self.shared.viewing = channel.clone().map(|channel| (guild.clone(), channel));
                 let threads = self.tracker.view(&guild, channel.as_deref());

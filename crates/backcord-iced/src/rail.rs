@@ -938,10 +938,15 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             return app.ask();
         }
         Event::Point(id, entered) => {
-            crate::app::point(&mut app.pointed.rail, id, entered);
+            crate::app::point(&mut app.pointed.rail, id.clone(), entered);
             // The faces of the voice card it shows come as it's pointed
-            // at, wherever it is on the rail.
-            return if entered { app.ask() } else { Task::none() };
+            // at, wherever it is on the rail, and Discord sends who comes
+            // and goes in its calls live from then on.
+            if !entered {
+                return Task::none();
+            }
+            app.client.dispatch(Action::PeekServer(id));
+            return Task::batch([app.sync(), app.ask()]);
         }
         Event::Home => app
             .client

@@ -100,6 +100,7 @@ pub enum Pref {
     AutoUnmute(bool),
     KeepNickname(bool),
     AntiGroupCall(bool),
+    RoomMode(bool),
     AutoDelete(bool),
     /// How long after sending Auto Delete deletes, by its place in its
     /// dialog's times.
@@ -536,6 +537,11 @@ impl Settings {
                 prefs.keep_nickname = Some(on);
                 backcord_core::extras::set_keep_nickname(on);
                 cx.keep("keep_nickname", on);
+            }
+            Pref::RoomMode(on) => {
+                prefs.room_mode = Some(on);
+                backcord_core::room::set_on(on);
+                cx.keep("room_mode", on);
             }
             Pref::AntiGroupCall(on) => {
                 prefs.anti_group_call = Some(on);

@@ -236,6 +236,7 @@ impl<'a> Page<'a> {
         let auto_unmute = prefs.auto_unmute.unwrap_or(false);
         let keep_nickname = prefs.keep_nickname.unwrap_or(false);
         let anti_group_call = prefs.anti_group_call.unwrap_or(false);
+        let room_mode = prefs.room_mode.unwrap_or(false);
         let auto_delete = prefs.auto_delete.unwrap_or(false);
         let message_links = prefs.message_link_previews.unwrap_or(true);
         let hidden = prefs.show_hidden_channels;
@@ -283,6 +284,13 @@ impl<'a> Page<'a> {
                 tr("Group DM calls don't ring you. When a call starts in a group DM, you leave the call and the group at once, without a message saying you left. Turn it off to call a group yourself."),
                 anti_group_call,
                 Pref::AntiGroupCall(!anti_group_call),
+                None,
+            ),
+            self.plugin(
+                tr("Room mode"),
+                tr("Hear the people in a call from where you put them around you: a button in the call opens a square where you drag their faces left, right, ahead or behind, with a room's reverb under it. Works best with headphones."),
+                room_mode,
+                Pref::RoomMode(!room_mode),
                 None,
             ),
             self.plugin(

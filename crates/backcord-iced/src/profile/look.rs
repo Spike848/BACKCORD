@@ -495,13 +495,19 @@ impl Inks {
             let base = if black { Color::BLACK } else { Color::WHITE };
             Color { a, ..base }
         };
-        let start = wash(primary);
+        // As see-through as BACKCORD's own ground over the window, so a
+        // themed card frosts as a plain one does.
+        let seen = |color: Color| Color {
+            a: color.a * plain.a,
+            ..color
+        };
+        let start = seen(wash(primary));
         Self {
             themed: true,
             light,
             primary,
             start,
-            end: wash(secondary),
+            end: seen(wash(secondary)),
             ink: alpha(light, 0.96),
             ink2: alpha(light, 0.88),
             ink3: alpha(light, 0.76),

@@ -891,6 +891,12 @@ pub(super) fn command(
         }
         return None;
     }
+    if let Command::Discord(DiscordCommand::PeekServer { server }) = &command {
+        if let (Ok(discord), Some(guild)) = (discord, discord::parse_server(server)) {
+            discord.peek(guild);
+        }
+        return None;
+    }
     if let Command::Discord(DiscordCommand::ViewForum { room }) = &command {
         if let (Ok(discord), Some((guild, forum))) = (discord, discord::parse_room(room)) {
             // Its posts come with the server's threads; it has no member list.

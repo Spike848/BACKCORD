@@ -84,6 +84,7 @@ pub mod recorder;
 pub mod relationship_alerts;
 #[cfg(feature = "discord")]
 pub mod ring;
+pub mod room;
 pub mod runtime;
 pub mod search_words;
 #[cfg(feature = "matrix")]

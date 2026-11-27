@@ -284,6 +284,9 @@ pub struct Prefs {
     pub keep_nickname: Option<bool>,
     /// Anti Group Call (off unless turned on).
     pub anti_group_call: Option<bool>,
+    /// Room mode (off unless turned on): people heard from where they're
+    /// put around this account, `backcord_core::room`.
+    pub room_mode: Option<bool>,
     /// Auto Delete (off unless turned on), and how long after sending, by
     /// its place in the dialog's times (5 minutes unless chosen).
     pub auto_delete: Option<bool>,
@@ -460,6 +463,10 @@ pub struct Voice {
     /// button: lines and frames a second, 0 (the default) for none.
     pub receive_height: u32,
     pub receive_fps: u32,
+    /// Room mode's places, by Discord user id (left -1 to right 1, front -1
+    /// to back 1), and its reverb, 0 to 100.
+    pub room_places: std::collections::BTreeMap<String, (f32, f32)>,
+    pub room_reverb: Option<u8>,
     /// BACKCORD's sounds: how loud as a slider's percentage, each one's own
     /// volume where it isn't 100%, the presets made of files chosen in
     /// place of Discord's, and the preset playing (none: Discord's).
@@ -521,6 +528,10 @@ impl Voice {
         for (person, semitones) in &self.pitches {
             volume::set_pitch(person, *semitones);
         }
+        for (person, (x, y)) in &self.room_places {
+            backcord_core::room::set_place(person, *x, *y);
+        }
+        backcord_core::room::set_reverb(f32::from(self.room_reverb.unwrap_or(0).min(100)) / 100.0);
         for (person, gain) in &self.volumes {
             volume::set(volume::Kind::Voice, person, *gain);
         }

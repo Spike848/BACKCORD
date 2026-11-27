@@ -481,6 +481,9 @@ impl Tracker {
                     known.unavailable = true;
                     return true;
                 }
+                // Its calls as they are now: those it had before it went
+                // out may have left meanwhile.
+                self.voice.retain(|(guild, _), _| *guild != server.id);
                 for state in data["voice_states"].as_array().into_iter().flatten() {
                     self.voice_state(&server.id, state);
                 }
@@ -1241,7 +1244,10 @@ impl Tracker {
                 // Someone is in one server's voice at a time: one seen
                 // joining here has left wherever else they were, which a
                 // server not subscribed to may never have said.
-                if guild != PRIVATE {
+                // A bot, though, is in a call in each server it's asked to.
+                let bot = state["member"]["user"]["bot"].as_bool() == Some(true)
+                    || user.parse().is_ok_and(crate::message::known_bot);
+                if guild != PRIVATE && !bot {
                     self.voice.retain(|(server, who), _| {
                         who != user || server == guild || server == PRIVATE
                     });
@@ -2609,6 +2615,47 @@ mod tests {
             "gone from the last server"
         );
         assert_eq!(snapshot.voice["21"].len(), 1);
+    }
+
+    #[test]
+    fn a_bot_stays_in_voice_in_every_server() {
+        let ready = json!({"session_id": "here", "user": {"id": "1", "username": "me"}});
+        let mut tracker = Tracker::from_ready("1".into(), &ready, Default::default());
+        let bot = |guild: &str, channel: &str| {
+            json!({"guild_id": guild, "user_id": "7", "channel_id": channel,
+                   "session_id": "bot", "member": {"user": {"id": "7", "username": "dj", "bot": true}}})
+        };
+        tracker.apply(&Event::VoiceStateUpdate, &bot("10", "11"));
+        tracker.apply(&Event::VoiceStateUpdate, &bot("20", "21"));
+        let snapshot = tracker.snapshot();
+        assert_eq!(snapshot.voice["11"].len(), 1, "still in the first server");
+        assert_eq!(snapshot.voice["21"].len(), 1);
+    }
+
+    #[test]
+    fn a_server_back_shows_its_calls_as_they_are_now() {
+        let ready = json!({"session_id": "here", "user": {"id": "1", "username": "me"}});
+        let mut tracker = Tracker::from_ready("1".into(), &ready, Default::default());
+        tracker.apply(
+            &Event::ReadySupplemental,
+            &json!({"guilds": [{"id": "10", "voice_states": [
+                {"user_id": "2", "channel_id": "11", "session_id": "theirs"},
+            ]}]}),
+        );
+        // Back from an outage, with someone else in the call now.
+        tracker.apply(
+            &Event::GuildCreate,
+            &json!({"id": "10", "name": "Friends", "properties": {"name": "Friends"},
+                    "channels": [], "roles": [], "voice_states": [
+                {"user_id": "3", "channel_id": "11", "session_id": "new"},
+            ]}),
+        );
+        let snapshot = tracker.snapshot();
+        let ids: Vec<&str> = snapshot.voice["11"]
+            .iter()
+            .map(|member| member.user_id.as_str())
+            .collect();
+        assert_eq!(ids, ["3"]);
     }
 
     #[test]

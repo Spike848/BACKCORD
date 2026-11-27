@@ -803,6 +803,10 @@ impl std::fmt::Debug for VoiceServer {
 }
 
 enum Request {
+    /// A server pointed at on the rail, by its id.
+    Peek {
+        guild: String,
+    },
     /// A thread about to open, from its channel object, for the tracker to
     /// know and list: in place of the channel on screen, or beside it.
     OpenThread {
@@ -1236,6 +1240,15 @@ impl Discord {
             .person
             .clone()?;
         self.read_names().is_bot(&person).then_some(person)
+    }
+
+    /// A server pointed at, not on screen: Discord is asked to send its
+    /// calls' comings and goings live, as for one opened, which a large
+    /// server otherwise only sums up now and then.
+    pub fn peek(&self, guild: &str) {
+        let _ = self.requests.send(Request::Peek {
+            guild: guild.into(),
+        });
     }
 
     /// Tells Discord a server's channel is on screen, so its messages arrive

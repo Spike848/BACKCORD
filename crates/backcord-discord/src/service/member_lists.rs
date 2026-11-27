@@ -157,6 +157,18 @@ impl MemberLists {
         gateway.request_channel_info(guild).await
     }
 
+    /// A server pointed at on the rail: subscribed to as one opened is, so
+    /// its calls' comings and goings arrive live rather than summed up now
+    /// and then (PASSIVE_UPDATE), or not at all. Once a session, and again
+    /// in the next with those opened.
+    pub(super) async fn peek(&mut self, gateway: &mut Gateway, guild: String) -> Result<()> {
+        if !self.viewing.insert(guild.clone()) {
+            return Ok(());
+        }
+        tracing::debug!(guild, "subscribing to a server pointed at");
+        gateway.subscribe(&guild, None).await
+    }
+
     /// Asks for the voice statuses and call times of every server with a
     /// call going, as a session starts, so each shows them as it opens; at
     /// most [`BUSY_ASKED`], which the gateway's queue sends within

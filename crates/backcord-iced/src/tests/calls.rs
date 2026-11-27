@@ -838,3 +838,38 @@ fn the_device_menus_fake_mute_and_deafen() {
     let _ = crate::call::update(&mut app, Event::Fake(false, false));
     assert_eq!(backcord_core::discord::fake_voice(), (false, false));
 }
+
+/// Room mode: its button shows once it's on; its square puts those not
+/// placed in a row ahead, a face dragged is heard from where it's let go,
+/// and both are kept.
+#[test]
+fn room_mode_places_people_where_they_are_dragged() {
+    use crate::call::popups::room::RoomEvent;
+    let (mut app, _folder, _room) = in_call();
+    super::change(&mut app, |state| {
+        let mut bob = state.voice.participants[0].clone();
+        bob.id = "preview-room-bob".into();
+        bob.person = "room-bob".into();
+        bob.user = "Bob".into();
+        bob.local = false;
+        state.voice.participants.push(bob);
+    });
+    app.layout.prefs.room_mode = Some(true);
+    let _ = crate::call::update(&mut app, Event::Open(Popup::Room));
+    assert_eq!(app.call.popup, Some(Popup::Room));
+    let (x, y) = app.layout.voice.room_places["room-bob"];
+    assert!(x.abs() < 0.01 && y < 0.0, "alone, ahead in the middle");
+    // Dragged to the square's left edge, halfway down.
+    let _ = crate::call::update(&mut app, Event::Room(RoomEvent::Take("room-bob".into())));
+    let _ = crate::call::update(
+        &mut app,
+        Event::Room(RoomEvent::Move(Point::new(0.0, 124.0))),
+    );
+    let _ = crate::call::update(&mut app, Event::Room(RoomEvent::Drop));
+    let (x, y) = backcord_core::room::place("room-bob");
+    assert!((x + 1.0).abs() < 0.01 && y.abs() < 0.01, "{x}, {y}");
+    let (kept, _) = app.layout.voice.room_places["room-bob"];
+    assert!((kept + 1.0).abs() < 0.01, "kept where it was let go");
+    let _ = crate::call::update(&mut app, Event::Room(RoomEvent::Reverb(40, true)));
+    assert!((backcord_core::room::reverb() - 0.4).abs() < 0.01);
+}

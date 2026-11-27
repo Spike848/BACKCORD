@@ -596,6 +596,30 @@ fn a_menus_keys_pass_over_greyed_rows_and_clicks_on_them_do_nothing() {
     assert!(app.win.menu.is_some(), "a greyed row keeps the menu open");
 }
 
+/// A right click on someone's mention in a message opens their menu, with
+/// their moderation (Time out, Kick, Ban) where this account may.
+#[test]
+fn a_right_click_on_a_mention_opens_the_persons_menu() {
+    let (mut app, _folder) = super::preview();
+    app.client.app = member_server(&["30"]);
+    app.client.app.state.selected = Some("discord:10:11".into());
+    let _ = app.sync();
+    app.timeline.pressed_link = Some(("backcord:user/6".into(), app.pressed.get()));
+    let _ = app.update(Message::Timeline(crate::timeline::Event::RowMenu(
+        "any".into(),
+        Point::new(300.0, 200.0),
+    )));
+    let menu = app.win.menu.as_ref().expect("a menu");
+    assert_eq!(menu.place.as_deref(), Some("6"));
+    let shown = rows(&app);
+    // The member's moderation as from their name; this server's roles give
+    // kicking and banning.
+    assert!(
+        shown.iter().any(|row| row.0.starts_with("Kick")),
+        "{shown:?}"
+    );
+}
+
 /// Ctrl and a click pick several in the member list, lit as selected; a
 /// right click on one of them opens the menu of them all, without what's
 /// about one person, and its Kick asks once and kicks each.

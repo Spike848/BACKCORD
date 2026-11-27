@@ -1743,6 +1743,9 @@ pub enum Relation {
 }
 
 pub enum Action {
+    /// A server pointed at on the rail: Discord is told to send its calls'
+    /// comings and goings live, so its voice card shows who's there now.
+    PeekServer(String),
     UseButton {
         item: String,
         custom_id: String,
@@ -4016,6 +4019,21 @@ impl Application {
             Action::OpenModalSelect(index) => self.open_modal_select(index),
             Action::ToggleSelect(index) => self.toggle_select(index),
             Action::SearchSelect(query) => self.search_select(query),
+            Action::PeekServer(server) => {
+                if self.state.preview
+                    || !self
+                        .state
+                        .servers
+                        .iter()
+                        .any(|known| known.id == server && known.discord && !known.unavailable)
+                {
+                    Vec::new()
+                } else {
+                    vec![Effect::Backend(Command::Discord(
+                        DiscordCommand::PeekServer { server },
+                    ))]
+                }
+            }
             Action::SubmitSelect => self.submit_select(),
             Action::CloseSelect => self.close_select(),
             Action::SetModalField { index, value } => self.set_modal_field(index, value),
