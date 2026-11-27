@@ -36,10 +36,14 @@ cifrata.
 
 ## Novità della 1.6.1
 
-- **Trascinare le persone in vocale**: premendo su qualcuno in un canale vocale
-  e muovendo il mouse di lato o in diagonale, ora parte il trascinamento verso
-  un altro canale invece della selezione a riquadro. Vale anche per canali e
-  DM; il riquadro parte ancora dallo spazio vuoto della lista.
+- **Trascinamento classico nella lista**: premendo su qualcuno in un canale
+  vocale, su una DM o su un canale e muovendo il mouse, parte di nuovo il
+  trascinamento (sposti la persona in un altro canale, la DM in una cartella,
+  riordini i canali), in qualsiasi direzione.
+- **Selezione a riquadro solo con Ctrl**: nella lista di canali e DM il
+  riquadro che seleziona più persone in vocale o più DM parte solo tenendo
+  premuto Ctrl, da qualsiasi punto della lista, e aggiunge a quelle già
+  selezionate.
 
 ## Cosa fa
 
