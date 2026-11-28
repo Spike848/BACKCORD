@@ -65,6 +65,7 @@ fn bits(permission: Permission) -> u64 {
         Permission::UseExternalEmojis => permission::USE_EXTERNAL_EMOJIS,
         Permission::UseExternalStickers => permission::USE_EXTERNAL_STICKERS,
         Permission::CreateEvents => permission::CREATE_EVENTS,
+        Permission::ManageEvents => permission::MANAGE_EVENTS,
     }
 }
 
@@ -228,6 +229,26 @@ impl Application {
             let settings = &server.marks.notifications;
             let now = crate::clock::now_ms();
             let server_level = settings.level.unwrap_or(server.default_level);
+            // A thread's are its own, from this account's thread member;
+            // without a level of its own it notifies as its channel does.
+            if let Some(known) = channel.and_then(|channel| server.server.channel(channel))
+                && let Some(thread) = known.thread.as_ref()
+            {
+                let inherited = known
+                    .parent
+                    .as_deref()
+                    .map(|parent| discord::room_id(&server.id, parent))
+                    .and_then(|parent| self.notifications(&parent))
+                    .map_or(level(server_level), |parent| {
+                        parent.level.unwrap_or(parent.inherited)
+                    });
+                return Some(Notifications {
+                    muted: thread.mute.active(now),
+                    muted_until: thread.mute.until.filter(|_| thread.mute.active(now)),
+                    level: thread.level.map(level),
+                    inherited,
+                });
+            }
             return Some(match channel {
                 Some(channel) => {
                     let own = settings.of(channel);
@@ -314,6 +335,23 @@ impl Application {
             .filter(|(guild, _)| *guild != discord::DM_GUILD)
             .map(|_| false)
             .or_else(|| discord::parse_server(&place).map(|_| true));
+        // A thread's go to its thread member, while this account is in it,
+        // which has no default to follow, nor a server's switches.
+        if let Some((joined, _)) = self.thread_state(&place) {
+            let ours = matches!(
+                change,
+                NotificationChange::Mute(_) | NotificationChange::Level(Some(_))
+            );
+            if !(joined && ours && self.state.discord_online) {
+                return vec![];
+            }
+            return vec![Effect::Backend(Command::Discord(
+                DiscordCommand::ThreadNotifications {
+                    room: place,
+                    change,
+                },
+            ))];
+        }
         match known {
             Some(server) if self.state.discord_online && (server || !server_only) => {
                 vec![Effect::Backend(Command::Discord(

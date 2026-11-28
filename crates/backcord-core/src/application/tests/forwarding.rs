@@ -2,6 +2,36 @@
 
 use super::*;
 
+/// Several messages forward together, in the timeline's order, the note
+/// after the last; those that can't be forwarded are left out.
+#[test]
+fn several_messages_forward_together_in_order() {
+    let mut app = Application::default();
+    app.dispatch(Action::Preview);
+    let picked: Vec<_> = app
+        .state
+        .messages
+        .iter()
+        .filter(|message| message.can_forward && !message.body.is_empty())
+        .take(2)
+        .map(|message| (message.item.clone(), message.body.clone()))
+        .collect();
+    assert_eq!(picked.len(), 2, "the preview has two to forward");
+    let items: Vec<_> = picked.iter().map(|(item, _)| item.clone()).collect();
+    app.dispatch(Action::StartForwardMany(
+        [items.clone(), vec!["nowhere".into()]].concat(),
+    ));
+    assert_eq!(app.state.forwarding.as_ref().unwrap().items, items);
+    app.dispatch(Action::ChooseForward("games".into()));
+    app.dispatch(Action::Forward("both".into()));
+    let [.., first, second, note] = app.state.messages.as_slice() else {
+        panic!("no forwards");
+    };
+    assert!(first.forwarded && first.body == picked[0].1);
+    assert!(second.forwarded && second.body == picked[1].1);
+    assert_eq!(note.body, "both");
+}
+
 #[test]
 fn forwarding_sends_a_message_to_the_conversations_chosen() {
     let mut app = Application::default();
@@ -70,11 +100,11 @@ fn forwarding_sends_a_message_to_the_conversations_chosen() {
         .map(|effect| match effect {
             Effect::Backend(Command::Forward {
                 room,
-                item,
+                items,
                 target,
                 note,
                 silent: false,
-            }) if room == "dm" && item == "e:$bob" && note.as_deref() == Some("look") => {
+            }) if room == "dm" && items == &["e:$bob"] && note.as_deref() == Some("look") => {
                 target.as_str()
             }
             _ => panic!("not a forward"),

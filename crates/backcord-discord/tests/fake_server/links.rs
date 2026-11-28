@@ -299,6 +299,210 @@ async fn marks_interest_in_a_scheduled_event() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn lists_makes_and_changes_scheduled_events() {
+    use backcord_discord::{ready::EVENT_EXTERNAL, scheduled_event::EventForm};
+
+    let Fixture {
+        _fake,
+        discord,
+        server,
+        guild,
+        lounge,
+        ..
+    } = Fixture::start("lists_makes_and_changes_scheduled_events").await;
+    let events_of = |snapshot: &Snapshot| {
+        snapshot
+            .servers
+            .iter()
+            .find(|known| known.id == guild)
+            .map(|known| known.events.clone())
+            .unwrap_or_default()
+    };
+
+    // The list, as the Events dialog asks for it, gives the counts.
+    discord.load_events(&guild).await.unwrap();
+    let snapshot = snapshot_where(&discord, |snapshot| {
+        events_of(snapshot).first().is_some_and(|event| event.interested == 7)
+    })
+    .await;
+    let listed = events_of(&snapshot);
+    assert_eq!(listed[0].channel.as_deref(), Some(lounge.as_str()));
+    assert_eq!(listed[0].creator.as_deref(), Some("Bob"));
+    assert!(!listed[0].mine);
+    let interested = discord
+        .event_users(&guild, "1400000000000000901")
+        .await
+        .unwrap();
+    assert_eq!(interested.len(), 1);
+
+    // Being interested comes back as USER_ADD.
+    discord
+        .set_event_interest(&guild, "1400000000000000901", true)
+        .await
+        .unwrap();
+    snapshot_where(&discord, |snapshot| {
+        events_of(snapshot)
+            .first()
+            .is_some_and(|event| event.mine && event.interested == 8)
+    })
+    .await;
+
+    // An event somewhere else, made as the form sends it.
+    let form = EventForm {
+        kind: EVENT_EXTERNAL,
+        location: Some("The park".into()),
+        name: "Picnic".into(),
+        description: "Bring food".into(),
+        start: "2030-06-01T10:00:00Z".into(),
+        end: Some("2030-06-01T12:00:00Z".into()),
+        image: Some("data:image/png;base64,iVBORw0KGgo=".into()),
+        ..EventForm::default()
+    };
+    discord.save_event(&guild, None, &form.body()).await.unwrap();
+    let snapshot = snapshot_where(&discord, |snapshot| {
+        events_of(snapshot)
+            .iter()
+            .any(|event| event.name == "Picnic" && event.mine)
+    })
+    .await;
+    let picnic = events_of(&snapshot)
+        .iter()
+        .find(|event| event.name == "Picnic")
+        .cloned()
+        .unwrap();
+    assert_eq!(picnic.location.as_deref(), Some("The park"));
+    assert!(picnic.cover.is_some());
+    assert_eq!(picnic.interested, 1, "Discord subscribes the one who made it");
+
+    // Renamed, started, then ended, which takes it off the list.
+    let renamed = EventForm {
+        name: "Picnic!".into(),
+        image: None,
+        ..form
+    };
+    discord
+        .save_event(&guild, Some(&picnic.id), &renamed.body())
+        .await
+        .unwrap();
+    snapshot_where(&discord, |snapshot| {
+        events_of(snapshot)
+            .iter()
+            .any(|event| event.name == "Picnic!" && event.interested == 1)
+    })
+    .await;
+    let status = |status: u8| serde_json::json!({ "status": status });
+    discord
+        .save_event(&guild, Some(&picnic.id), &status(3))
+        .await
+        .expect_err("a scheduled event can't end before it starts");
+    discord
+        .save_event(&guild, Some(&picnic.id), &status(2))
+        .await
+        .unwrap();
+    snapshot_where(&discord, |snapshot| {
+        events_of(snapshot)
+            .iter()
+            .any(|event| event.id == picnic.id && event.status == 2)
+    })
+    .await;
+    discord
+        .save_event(&guild, Some(&picnic.id), &status(3))
+        .await
+        .unwrap();
+    snapshot_where(&discord, |snapshot| {
+        !events_of(snapshot).iter().any(|event| event.id == picnic.id)
+    })
+    .await;
+
+    // Another, in the Lounge, deleted.
+    let voice = EventForm {
+        kind: backcord_discord::ready::EVENT_VOICE,
+        channel: Some(lounge.clone()),
+        name: "Movie".into(),
+        start: "2030-06-02T20:00:00Z".into(),
+        ..EventForm::default()
+    };
+    discord.save_event(&guild, None, &voice.body()).await.unwrap();
+    let snapshot = snapshot_where(&discord, |snapshot| {
+        events_of(snapshot).iter().any(|event| event.name == "Movie")
+    })
+    .await;
+    let movie = events_of(&snapshot)
+        .iter()
+        .find(|event| event.name == "Movie")
+        .cloned()
+        .unwrap();
+    discord.delete_event(&guild, &movie.id).await.unwrap();
+    snapshot_where(&discord, |snapshot| {
+        !events_of(snapshot).iter().any(|event| event.id == movie.id)
+    })
+    .await;
+
+    let writes: serde_json::Value =
+        serde_json::from_str(&control(server, "GET", "/_control/event-writes", "")).unwrap();
+    let writes = writes.as_array().unwrap();
+    let first = &writes[0]["body"];
+    assert_eq!(writes[0]["method"], "POST");
+    assert_eq!(
+        (first["entity_type"].as_u64(), first["privacy_level"].as_u64()),
+        (Some(3), Some(2))
+    );
+    assert_eq!(first["entity_metadata"]["location"], "The park");
+    assert!(first["image"].as_str().unwrap().starts_with("data:image/png;base64,"));
+    assert!(writes[1]["body"].get("image").is_none(), "an edit keeps the cover");
+    assert_eq!(writes.last().unwrap()["method"], "DELETE");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn makes_servers_from_nothing_and_from_a_template() {
+    let Fixture {
+        _fake,
+        discord,
+        server,
+        ..
+    } = Fixture::start("makes_servers_from_nothing_and_from_a_template").await;
+
+    let made = discord
+        .create_server("Alice's server", Some("data:image/png;base64,iVBORw0KGgo="), None)
+        .await
+        .unwrap();
+    let snapshot = snapshot_where(&discord, |snapshot| {
+        snapshot.servers.iter().any(|known| known.id == made)
+    })
+    .await;
+    let listed = snapshot.servers.iter().find(|known| known.id == made).unwrap();
+    assert_eq!(listed.name, "Alice's server");
+    assert!(discord.create_server("A", None, None).await.is_err(), "too short");
+
+    let unknown = discord.guild_template("nope").await;
+    assert!(unknown.is_err());
+    let template = discord.guild_template("hgM48av5Q69A").await.unwrap();
+    assert_eq!(template.name, "Friends & Family");
+    assert!(template.channels.iter().any(|(kind, name)| *kind == 2 && name == "Lounge"));
+    let from_template = discord
+        .create_server("Family", None, Some(&template.code))
+        .await
+        .unwrap();
+    snapshot_where(&discord, |snapshot| {
+        snapshot.servers.iter().any(|known| known.id == from_template)
+    })
+    .await;
+
+    let bodies: serde_json::Value =
+        serde_json::from_str(&control(server, "GET", "/_control/servers-made", "")).unwrap();
+    let bodies = bodies.as_array().unwrap();
+    assert_eq!(bodies.len(), 2);
+    let first = &bodies[0]["body"];
+    assert_eq!(first["guild_template_code"], "2TffvPucqHkN");
+    assert_eq!(first["channels"], serde_json::json!([]));
+    assert!(first["icon"].as_str().unwrap().starts_with("data:image/png"));
+    assert_eq!(bodies[1]["template"], "hgM48av5Q69A");
+    assert_eq!(bodies[1]["body"]["name"], "Family");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
 async fn makes_invites() {
     let Fixture {
         _fake,

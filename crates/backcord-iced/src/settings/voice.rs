@@ -287,7 +287,12 @@ pub enum Event {
     /// whether it's let go of.
     VoiceLimit(u32, bool),
     VoiceCompressor(bool),
+    /// The compressor's choice: 0 off, then Light, Medium and Strong.
+    VoiceCompressorPreset(usize),
     VoiceHighPass(bool),
+    /// The high-pass's choice: 0 off, then each of
+    /// [`HIGH_PASS_CUTOFFS`](backcord_core::voice_filters::HIGH_PASS_CUTOFFS).
+    VoiceHighPassCut(usize),
     /// The gate's slider: 0 for off, then -70 dB up to -20, and whether
     /// it's let go of.
     VoiceGate(u32, bool),
@@ -467,6 +472,23 @@ impl Settings {
                 }
                 return;
             }
+            Event::VoiceHighPassCut(index) => {
+                use backcord_core::voice_filters::HIGH_PASS_CUTOFFS;
+                let on = index > 0;
+                voice.voice_high_pass = on;
+                backcord_core::volume::set_voice_high_pass(on);
+                crate::layout::store(&root, "voice_high_pass", on);
+                if on {
+                    let hz = HIGH_PASS_CUTOFFS[(index - 1).min(HIGH_PASS_CUTOFFS.len() - 1)];
+                    voice.voice_high_pass_cutoff = (hz != 100).then_some(hz);
+                    backcord_core::volume::set_voice_high_pass_cutoff(f32::from(hz));
+                    crate::layout::store(
+                        &root,
+                        "voice_high_pass_cutoff",
+                        voice.voice_high_pass_cutoff,
+                    );
+                }
+            }
             Event::VoiceHighPass(on) => {
                 voice.voice_high_pass = on;
                 backcord_core::volume::set_voice_high_pass(on);
@@ -479,6 +501,24 @@ impl Settings {
                     crate::layout::store(&root, "voice_gate", voice.voice_gate);
                 }
                 return;
+            }
+            Event::VoiceCompressorPreset(index) => {
+                let on = index > 0;
+                voice.voice_compressor = on;
+                backcord_core::volume::set_voice_compressor(on);
+                crate::layout::store(&root, "voice_compressor", on);
+                if on {
+                    let preset = (index - 1).min(2);
+                    voice.voice_compressor_preset = (preset != 1).then_some(preset as u8);
+                    backcord_core::volume::set_voice_compressor_preset(
+                        backcord_core::voice_compressor::Preset::ALL[preset],
+                    );
+                    crate::layout::store(
+                        &root,
+                        "voice_compressor_preset",
+                        voice.voice_compressor_preset,
+                    );
+                }
             }
             Event::VoiceCompressor(on) => {
                 voice.voice_compressor = on;
@@ -636,8 +676,20 @@ impl<'a> Page<'a> {
         } else {
             backcord_iced_kit::i18n::tr("Off").to_owned()
         };
-        let compressor = voice.voice_compressor;
-        let high_pass = voice.voice_high_pass;
+        let compressor = if voice.voice_compressor {
+            1 + usize::from(voice.voice_compressor_preset.unwrap_or(1)).min(2)
+        } else {
+            0
+        };
+        let high_pass = if voice.voice_high_pass {
+            let hz = voice.voice_high_pass_cutoff.unwrap_or(100);
+            1 + backcord_core::voice_filters::HIGH_PASS_CUTOFFS
+                .iter()
+                .position(|&cut| cut == hz)
+                .unwrap_or(0)
+        } else {
+            0
+        };
         let gate_value = gate_value(voice.voice_gate);
         let gate_shown = match voice.voice_gate {
             Some(db) => format!("{db} dB"),
@@ -721,15 +773,28 @@ impl<'a> Page<'a> {
                             "Holds each person's voice under this level, so nobody plays louder however loud they send. Streams, the soundboard and other sounds aren't limited.",
                         ),
                     ),
-                    switch(
-                        backcord_iced_kit::i18n::tr("High-pass filter (100 Hz)"),
-                        high_pass,
-                        Some(voice_message(Event::VoiceHighPass(!high_pass))),
-                    )
-                    .description(backcord_iced_kit::i18n::tr(
-                        "Takes rumble, hum and breath under 100 Hz out of the others' voices.",
-                    ))
-                    .view(self.cx.look),
+                    column![
+                        form::heading(theme, backcord_iced_kit::i18n::tr("HIGH-PASS FILTER")),
+                        choices(
+                            theme,
+                            &[
+                                backcord_iced_kit::i18n::tr("Off"),
+                                "100 Hz",
+                                "150 Hz",
+                                "200 Hz",
+                            ],
+                            high_pass,
+                            |index| voice_message(Event::VoiceHighPassCut(index)),
+                        ),
+                        form::note(
+                            theme,
+                            backcord_iced_kit::i18n::tr(
+                                "Takes what's under the frequency out of the others' voices: 100 Hz rumble and hum, 150 Hz also the pops and boom of a close microphone, 200 Hz a thinner voice, like a radio.",
+                            ),
+                        ),
+                    ]
+                    .spacing(8)
+                    .into(),
                     slider(
                         backcord_iced_kit::i18n::tr("Voice gate"),
                         gate_value,
@@ -747,15 +812,28 @@ impl<'a> Page<'a> {
                             "Silences each person's voice while it stays under this level, so the noise in their pauses doesn't play.",
                         ),
                     ),
-                    switch(
-                        backcord_iced_kit::i18n::tr("Voice compressor"),
-                        compressor,
-                        Some(voice_message(Event::VoiceCompressor(!compressor))),
-                    )
-                    .description(backcord_iced_kit::i18n::tr(
-                        "Evens out each person's voice: above -30 dB it turns loud parts down 4:1, quickly, so loud and quiet people sound closer.",
-                    ))
-                    .view(self.cx.look),
+                    column![
+                        form::heading(theme, backcord_iced_kit::i18n::tr("VOICE COMPRESSOR")),
+                        choices(
+                            theme,
+                            &[
+                                backcord_iced_kit::i18n::tr("Off"),
+                                backcord_iced_kit::i18n::tr("Light"),
+                                backcord_iced_kit::i18n::tr("Medium"),
+                                backcord_iced_kit::i18n::tr("Strong"),
+                            ],
+                            compressor,
+                            |index| voice_message(Event::VoiceCompressorPreset(index)),
+                        ),
+                        form::note(
+                            theme,
+                            backcord_iced_kit::i18n::tr(
+                                "Evens out each person's voice, so loud and quiet people sound closer. Light (2:1) only smooths the peaks; Medium (4:1) brings voices close; Strong (8:1) makes everyone sound about as loud.",
+                            ),
+                        ),
+                    ]
+                    .spacing(8)
+                    .into(),
                     form::note(
                         theme,
                         backcord_iced_kit::i18n::tr(

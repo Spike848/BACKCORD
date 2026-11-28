@@ -27,6 +27,7 @@ pub mod gateway;
 pub mod gifs;
 pub mod gift;
 pub mod guild;
+pub mod guild_template;
 pub mod interactions;
 pub mod invite;
 pub mod limits;

@@ -837,6 +837,12 @@ enum Request {
         guild: String,
         thread: Option<String>,
     },
+    /// A server's events as `GET /guilds/{id}/scheduled-events` listed
+    /// them, for the tracker to keep in place of those it knew.
+    Events {
+        guild: String,
+        events: Vec<ready::ScheduledEvent>,
+    },
     Join {
         guild: String,
         channel: String,
@@ -2686,6 +2692,26 @@ impl Discord {
         self.api.unban(guild, user).await
     }
 
+    /// A server's AutoMod rules, as Discord sends them.
+    pub async fn automod_rules(&self, guild: &str) -> Result<Value> {
+        self.api.automod_rules(guild).await
+    }
+
+    /// Makes an AutoMod rule, giving it as Discord made it.
+    pub async fn create_automod_rule(&self, guild: &str, body: &Value) -> Result<Value> {
+        self.api.create_automod_rule(guild, body).await
+    }
+
+    /// Changes an AutoMod rule with `body`'s fields, giving it as it now
+    /// stands.
+    pub async fn edit_automod_rule(&self, guild: &str, rule: &str, body: &Value) -> Result<Value> {
+        self.api.modify_automod_rule(guild, rule, body).await
+    }
+
+    pub async fn delete_automod_rule(&self, guild: &str, rule: &str) -> Result<()> {
+        self.api.delete_automod_rule(guild, rule).await
+    }
+
     /// Sets whether a server's moderators need two-factor authentication,
     /// giving the server's settings as they then stand.
     pub async fn set_mfa_level(
@@ -3859,6 +3885,73 @@ impl Discord {
             .context("This event is not in that server.")
     }
 
+    /// A server's scheduled and active events, with their counts and this
+    /// account's interest, which the snapshot then keeps in place of those
+    /// GUILD_CREATE gave; the gateway's events keep them current after.
+    pub async fn load_events(&self, guild: &str) -> Result<()> {
+        let list = self.api.scheduled_events(guild).await?;
+        let own = self.api.own_scheduled_events(guild).await?;
+        let _ = self.requests.send(Request::Events {
+            guild: guild.to_owned(),
+            events: scheduled_event::listed(&list, &own),
+        });
+        Ok(())
+    }
+
+    /// Who is interested in a server's event, the first hundred.
+    pub async fn event_users(
+        &self,
+        guild: &str,
+        event: &str,
+    ) -> Result<Vec<scheduled_event::EventUser>> {
+        let answer = self.api.scheduled_event_users(guild, event).await?;
+        Ok(scheduled_event::users(&answer))
+    }
+
+    /// Makes a scheduled event, or changes the one `event` names; its
+    /// GUILD_SCHEDULED_EVENT_CREATE or _UPDATE lists it.
+    pub async fn save_event(&self, guild: &str, event: Option<&str>, body: &Value) -> Result<()> {
+        self.api.save_scheduled_event(guild, event, body).await?;
+        Ok(())
+    }
+
+    /// Deletes a scheduled event.
+    pub async fn delete_event(&self, guild: &str, event: &str) -> Result<()> {
+        self.api.delete_scheduled_event(guild, event).await
+    }
+
+    /// Makes a server from nothing, or from the template `code` names,
+    /// and answers with its id; its GUILD_CREATE lists it.
+    pub async fn create_server(
+        &self,
+        name: &str,
+        icon: Option<&str>,
+        template: Option<&str>,
+    ) -> Result<String> {
+        let made = match template {
+            Some(code) => {
+                self.api
+                    .create_guild_from_template(code, &crate::guild_template::template_body(name, icon))
+                    .await?
+            }
+            None => {
+                self.api
+                    .create_guild(&crate::guild_template::create_body(name, icon))
+                    .await?
+            }
+        };
+        made["id"]
+            .as_str()
+            .map(str::to_owned)
+            .context("Discord made the server but didn't say which.")
+    }
+
+    /// A server template's preview, by its code.
+    pub async fn guild_template(&self, code: &str) -> Result<crate::guild_template::Template> {
+        let found = self.api.guild_template(code).await?;
+        crate::guild_template::Template::parse(&found).context("That template couldn't be read.")
+    }
+
     /// Marks this account interested in a server's scheduled event, or
     /// no longer interested in it.
     pub async fn set_event_interest(
@@ -3987,6 +4080,15 @@ impl Discord {
             body["nsfw"] = json!(settings.nsfw);
         }
         self.api.edit_channel(channel, &body).await
+    }
+
+    /// Gives a forum these tags, in this order: those left out are deleted,
+    /// and new ones get ids; see [`crate::forum::tags_body`]. Snapshots show
+    /// them once Discord's CHANNEL_UPDATE comes.
+    pub async fn edit_forum_tags(&self, forum: &str, tags: &[crate::forum::TagEdit]) -> Result<()> {
+        self.api
+            .edit_channel(forum, &crate::forum::tags_body(tags))
+            .await
     }
 
     /// Moves a server's channels and categories, as dragging them in the
@@ -4482,6 +4584,16 @@ impl Discord {
     /// client.
     pub async fn join_thread(&self, thread: &str, join: bool, location: &str) -> Result<()> {
         self.api.thread_member(thread, join, location).await
+    }
+
+    /// Changes this account's notifications in a thread it's in: its mute,
+    /// or which of its messages notify. Snapshots show it once Discord's
+    /// THREAD_MEMBER_UPDATE comes.
+    pub async fn change_thread_notifications(&self, thread: &str, change: Change) -> Result<()> {
+        let body = change
+            .thread_body()
+            .ok_or_else(|| anyhow!("A thread has no such setting."))?;
+        self.api.thread_settings(thread, &body).await
     }
 
     /// Leaves a server this account doesn't own. Snapshots drop it once its

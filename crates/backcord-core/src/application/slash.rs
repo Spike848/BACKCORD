@@ -545,12 +545,9 @@ impl Application {
                 }
                 return Some(effects);
             }
-            let lower = query.to_lowercase();
-            if !self
-                .slash_commands(room, "")
-                .iter()
-                .any(|command| command.name.to_lowercase().starts_with(&lower))
-            {
+            // A word for each of a command's, as Discord's fuzzy search
+            // takes `/r a` for `/role add`, keeps the picker too.
+            if self.slash_commands(room, query).is_empty() {
                 self.state.slash.query = None;
                 self.state.slash.dismissed = false;
                 return None;

@@ -337,6 +337,16 @@ impl Tracker {
         }
     }
 
+    /// Takes a server's events as `GET /guilds/{id}/scheduled-events`
+    /// listed them; false for a server it doesn't know.
+    pub(super) fn put_events(&mut self, guild: &str, events: Vec<ready::ScheduledEvent>) -> bool {
+        let Some(server) = self.server_mut(guild) else {
+            return false;
+        };
+        server.put_events(events);
+        true
+    }
+
     /// Learns of a thread from its channel object.
     pub(super) fn put_thread(&mut self, guild: &str, thread: &Value) {
         self.unreads.learn_thread(thread);
@@ -567,8 +577,30 @@ impl Tracker {
                 ) else {
                     return false;
                 };
-                server.put_event(scheduled, *event == Event::GuildScheduledEventDelete);
+                let counted = data.get("user_count").is_some();
+                server.put_event(
+                    scheduled,
+                    *event == Event::GuildScheduledEventDelete,
+                    counted,
+                );
                 true
+            }
+            // Interest in a whole event; one occurrence's of a recurring
+            // event, with its exception id, isn't counted here.
+            Event::GuildScheduledEventUserAdd | Event::GuildScheduledEventUserRemove => {
+                if !data["guild_scheduled_event_exception_id"].is_null() {
+                    return false;
+                }
+                let me = data["user_id"].as_str() == Some(self.me.as_str());
+                let (Some(guild), Some(id)) = (
+                    data["guild_id"].as_str(),
+                    data["guild_scheduled_event_id"].as_str(),
+                ) else {
+                    return false;
+                };
+                let added = *event == Event::GuildScheduledEventUserAdd;
+                self.server_mut(guild)
+                    .is_some_and(|server| server.event_user(id, added, me))
             }
             Event::GuildEmojisUpdate => {
                 let Some(server) = data["guild_id"]
@@ -2279,6 +2311,36 @@ mod tests {
                 .is_some_and(|icon| icon.contains("/icons/10/ghi.webp"))
         );
         assert_eq!(server.voice_channels.len(), 2, "the channels stay");
+    }
+
+    #[test]
+    fn follows_who_is_interested_in_a_servers_events() {
+        let ready = json!({
+            "user": {"id": "1"},
+            "guilds": [{"id": "10", "properties": {"name": "Test"}, "channels": [],
+                "guild_scheduled_events": [{"id": "50", "guild_id": "10", "name": "Quiz",
+                    "scheduled_start_time": "2030-01-01T10:00:00+00:00", "status": 1,
+                    "entity_type": 3, "entity_metadata": {"location": "Park"}}]}],
+        });
+        let mut tracker = Tracker::from_ready("1".into(), &ready, Default::default());
+        let user = |user: &str| json!({"guild_id": "10", "guild_scheduled_event_id": "50", "user_id": user});
+        assert!(tracker.apply(&Event::GuildScheduledEventUserAdd, &user("2")));
+        assert!(tracker.apply(&Event::GuildScheduledEventUserAdd, &user("1")));
+        let event = &tracker.servers[0].events[0];
+        assert_eq!((event.interested, event.mine), (2, true));
+        assert!(tracker.apply(&Event::GuildScheduledEventUserRemove, &user("2")));
+        // One occurrence's interest isn't the event's.
+        let mut occurrence = user("3");
+        occurrence["guild_scheduled_event_exception_id"] = json!("51");
+        assert!(!tracker.apply(&Event::GuildScheduledEventUserAdd, &occurrence));
+        // The list Discord answers replaces what was known.
+        let listed = ready::ScheduledEvent {
+            interested: 9,
+            ..tracker.servers[0].events[0].clone()
+        };
+        assert!(tracker.put_events("10", vec![listed]));
+        assert_eq!(tracker.servers[0].events[0].interested, 9);
+        assert!(!tracker.put_events("11", vec![]));
     }
 
     #[test]

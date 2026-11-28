@@ -1501,6 +1501,10 @@ pub(super) fn command(
         change_group_member(command, discord, events);
         return None;
     }
+    if let Command::Discord(DiscordCommand::ForumTags { room, tags }) = command {
+        save_forum_tags(room, tags, discord, events);
+        return None;
+    }
     if let Command::Discord(
         command @ (DiscordCommand::CreateChannel { .. }
         | DiscordCommand::ChannelSettings { .. }
@@ -1521,6 +1525,7 @@ pub(super) fn command(
         | DiscordCommand::CloseDm { .. }
         | DiscordCommand::Mute { .. }
         | DiscordCommand::Notifications { .. }
+        | DiscordCommand::ThreadNotifications { .. }
         | DiscordCommand::PinChannel { .. }
         | DiscordCommand::MoveChannels { .. }
         | DiscordCommand::FollowChannel { .. }
@@ -1802,6 +1807,61 @@ fn manage_channel(
     });
 }
 
+/// Gives a forum, by its room id, these tags, telling how it went.
+fn save_forum_tags(
+    room: String,
+    tags: Vec<crate::chat::ForumTagEdit>,
+    discord: Result<&Discord, &str>,
+    events: &UnboundedSender<Event>,
+) {
+    use backcord_discord::forum::{Emoji, TagEdit};
+    let discord = match discord {
+        Ok(discord) => discord.clone(),
+        Err(why) => {
+            let _ = events.send(Event::ForumTagsSaved {
+                room,
+                result: Err(why.into()),
+            });
+            return;
+        }
+    };
+    let events = events.clone();
+    let tags: Vec<TagEdit> = tags
+        .into_iter()
+        .map(|tag| TagEdit {
+            id: tag.id,
+            name: tag.name,
+            moderated: tag.moderated,
+            emoji: match (tag.emoji_id, tag.emoji_name) {
+                (Some(id), name) => Some(Emoji::Custom {
+                    id,
+                    name: name.unwrap_or_default(),
+                }),
+                (None, Some(name)) if !name.is_empty() => Some(Emoji::Unicode(name)),
+                _ => None,
+            },
+        })
+        .collect();
+    tokio::spawn(async move {
+        let result = match discord::parse_room(&room) {
+            Some((_, channel)) => {
+                discord
+                    .stepping_up(|| discord.edit_forum_tags(channel, &tags))
+                    .await
+            }
+            None => Err(anyhow::anyhow!(NOT_DISCORD)),
+        };
+        let result = result.map_err(|error| {
+            tracing::warn!(
+                error = format!("{error:#}"),
+                "could not save a forum's tags"
+            );
+            format!("Couldn't save the tags: {error}")
+        });
+        let _ = events.send(Event::ForumTagsSaved { room, result });
+    });
+}
+
 /// Whether `muting` mutes, and for how many seconds; none for good.
 fn mute(muting: Muting) -> (bool, Option<u64>) {
     match muting {
@@ -2011,6 +2071,12 @@ fn change_person(
                     .change_notifications(guild, channel, notification_change(change))
                     .await;
                 (result, "change the notification settings")
+            }
+            DiscordCommand::ThreadNotifications { room, change } => {
+                let result = discord
+                    .change_thread_notifications(&channel(&room), notification_change(change))
+                    .await;
+                (result, "change the thread's notification settings")
             }
             DiscordCommand::PinChannel { room, flags } => {
                 let result = match discord::parse_room(&room) {

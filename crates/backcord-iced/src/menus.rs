@@ -161,6 +161,8 @@ pub enum MenuAct {
     Edit,
     Reply,
     Forward,
+    /// The messages a text selection runs through, forwarded together.
+    ForwardSelection,
     CopyText,
     CopySelection,
     EndPoll,
@@ -373,6 +375,22 @@ pub fn adds_reactions(app: &App, index: usize) -> bool {
 }
 
 /// A right click on a message: what one may do with it.
+/// The messages a text selection runs through that can be forwarded, in
+/// order: none unless it runs through more than one.
+fn selection_forwards(app: &App) -> Vec<String> {
+    let lanes = crate::timeline::lanes(app);
+    lanes
+        .selected_items()
+        .into_iter()
+        .filter(|item| {
+            app.client
+                .state()
+                .message(item)
+                .is_some_and(|message| message.can_forward && !message.deleted)
+        })
+        .collect()
+}
+
 pub fn open_menu(app: &mut App, index: usize, at: Point) -> Task<Message> {
     let Some(message) = crate::timeline::row_message(app, index).cloned() else {
         return Task::none();
@@ -441,6 +459,16 @@ pub fn open_menu(app: &mut App, index: usize, at: Point) -> Task<Message> {
             backcord_iced_kit::i18n::tr("Forward"),
             Icon::Forward,
         ));
+    }
+    let selected = selection_forwards(app);
+    if selected.len() >= 2 && crate::forward::allowed(app.client.state()) {
+        rows.push(MenuRow {
+            icon: Some(Icon::Forward),
+            ..MenuRow::plain(
+                MenuAct::ForwardSelection,
+                backcord_iced_kit::i18n::t(format!("Forward selection ({})", selected.len())),
+            )
+        });
     }
     // A message someone wrote starts a thread, or leads to its own.
     if index < crate::timeline::ASIDE
@@ -900,6 +928,10 @@ pub fn act(
         MenuAct::Forward => {
             app.client.dispatch(Action::StartForward(item));
             Task::batch([app.sync(), app.forward.open(app.client.state())])
+        }
+        MenuAct::ForwardSelection => {
+            let items = selection_forwards(app);
+            crate::forward::start_many(app, items)
         }
         MenuAct::EndPoll => {
             app.client.dispatch(Action::AskEndPoll(item));

@@ -14,8 +14,11 @@ use std::{
 };
 
 use backcord_core::{
-    application::{Action, ForumInfo, ForumPost, MenuChoice, POST_TAGS},
-    chat::{ForumTag, Permission, ShownEmoji, Topic},
+    application::{
+        Action, ForumInfo, ForumPost, ForumSort, ForumTagsInput, ForumViewChange, MenuChoice,
+        POST_TAGS,
+    },
+    chat::{ForumTag, ForumTagEdit, Permission, ShownEmoji, Topic},
     network::Network,
 };
 use iced::{
@@ -52,6 +55,10 @@ const PICTURE: f32 = 72.0;
 const SHOWN_TAGS: usize = 3;
 const NEAR_END: f32 = 200.0;
 const TAGS_MENU: f32 = 320.0;
+/// Sort & View's menu, and a gallery's tile and its picture.
+const SORT_MENU: f32 = 240.0;
+const TILE: f32 = 260.0;
+const TILE_PICTURE: f32 = 140.0;
 const GUIDELINES: f32 = 220.0;
 /// A post's bar under the header, with its line, and the bar's buttons.
 const POST_BAR: f32 = 45.0;
@@ -65,6 +72,8 @@ pub struct Post {
     pub body_known: String,
     pub query: String,
     pub tags_menu: bool,
+    /// Sort & View's menu is open.
+    pub sort_menu: bool,
     pub guidelines_hidden: bool,
     guidelines: Option<(Arc<Topic>, Body)>,
     cards: Vec<Card>,
@@ -74,6 +83,13 @@ pub struct Post {
     note: Option<String>,
     empty: bool,
     searched: bool,
+    /// The cards show as a gallery's tiles, and only those with the tags
+    /// chosen show.
+    pub(crate) gallery: bool,
+    filtered: bool,
+    /// The custom emoji pictures of the forum's tags, which the header and
+    /// Edit Tags show.
+    tag_pictures: Vec<String>,
     /// The bar under the header of a post opened in place.
     bar: Option<PostBar>,
     /// Where the bar's React to post is, as it's pressed: the picker opens
@@ -132,6 +148,17 @@ pub enum Event {
     ReactToPost,
     Follow(bool),
     CopyLink,
+    /// The header's Sort & View menu, its choices, and its tags to show
+    /// only the posts with.
+    SortMenu(bool),
+    Sort(ForumSort),
+    Gallery(bool),
+    FilterTag(String),
+    ClearTags,
+    /// Edit Tags, with Manage Channels; a tag's emoji as typed, by its
+    /// place.
+    Tags(ForumTagsInput),
+    TagEmoji(usize, String),
 }
 
 pub fn update(app: &mut App, event: Event) -> Task<Message> {
@@ -171,6 +198,46 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 return Task::none();
             };
             return crate::place_menus::choose_place(app, room, MenuChoice::CopyLink);
+        }
+        Event::SortMenu(open) => app.forum_post.sort_menu = open,
+        Event::Sort(sort) => {
+            app.forum_post.sort_menu = false;
+            app.client
+                .dispatch(Action::ForumView(ForumViewChange::Sort(sort)));
+        }
+        Event::Gallery(gallery) => {
+            app.forum_post.sort_menu = false;
+            app.client
+                .dispatch(Action::ForumView(ForumViewChange::Gallery(gallery)));
+        }
+        Event::FilterTag(tag) => app
+            .client
+            .dispatch(Action::ForumView(ForumViewChange::Tag(tag))),
+        Event::ClearTags => app
+            .client
+            .dispatch(Action::ForumView(ForumViewChange::ClearTags)),
+        Event::Tags(input) => app.client.dispatch(Action::ForumTags(input)),
+        // An emoji pasted or picked takes the tag's place; anything else
+        // typed is left out, and taking a character away clears it.
+        Event::TagEmoji(at, typed) => {
+            let typed = typed.trim();
+            let was = app
+                .client
+                .state()
+                .forum()
+                .and_then(|forum| forum.editor.as_ref())
+                .and_then(|editor| editor.tags.get(at))
+                .map(emoji_text)
+                .unwrap_or_default();
+            let emoji = if typed.is_empty() || emojis::get(typed).is_some() {
+                typed.to_owned()
+            } else if typed.chars().count() < was.chars().count() {
+                String::new()
+            } else {
+                return Task::none();
+            };
+            app.client
+                .dispatch(Action::ForumTags(ForumTagsInput::Emoji(at, emoji)));
         }
         Event::Query(query) => {
             let cleared = query.is_empty() && !app.forum_post.query.is_empty();
@@ -276,6 +343,7 @@ pub fn forum_sync(app: &mut App) {
         if app.forum_post.shown.take().is_some() {
             app.forum_post.cards = Vec::new();
             app.forum_post.query.clear();
+            app.forum_post.sort_menu = false;
         }
         return;
     };
@@ -302,7 +370,28 @@ pub fn forum_sync(app: &mut App) {
     app.forum_post.note = note;
     app.forum_post.empty = empty;
     app.forum_post.searched = posts.found.is_some();
-    let info = app.client.app.forum_info(&room).unwrap_or_default();
+    app.forum_post.gallery = posts.gallery;
+    app.forum_post.filtered = posts.filtered;
+    // A card's time is when it was made while they sort by that.
+    let info = ForumInfo {
+        by_creation: posts.by_creation,
+        ..app.client.app.forum_info(&room).unwrap_or_default()
+    };
+    let tag_pictures: Vec<String> = info
+        .tags
+        .iter()
+        .filter_map(|tag| tag.emoji.as_ref()?.picture.clone())
+        .chain(
+            forum
+                .editor
+                .iter()
+                .flat_map(|editor| &editor.tags)
+                .filter_map(|tag| tag.shown.as_ref()?.picture.clone()),
+        )
+        .collect();
+    if tag_pictures != app.forum_post.tag_pictures {
+        app.forum_post.tag_pictures = tag_pictures;
+    }
     let now = backcord_core::clock::now_ms();
     let mut hasher = std::hash::DefaultHasher::new();
     (&posts, &room, now / 60_000).hash(&mut hasher);
@@ -444,7 +533,12 @@ pub fn post_bar_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message
 /// The pictures the forum's cards show: first pictures, custom emoji of
 /// tags and reactions.
 pub fn forum_pictures(app: &App) -> Vec<&str> {
-    let mut urls = Vec::new();
+    let mut urls: Vec<&str> = app
+        .forum_post
+        .tag_pictures
+        .iter()
+        .map(String::as_str)
+        .collect();
     for card in &app.forum_post.cards {
         urls.extend(
             card.picture
@@ -519,6 +613,9 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
     if state.new_post().is_some() {
         return Some(new_post_view(ctx));
     }
+    if let Some(editor) = &forum.editor {
+        return Some(tags_editor_view(ctx, editor));
+    }
     let theme = ctx.look.theme;
     let app = &ctx.app;
     let searchable = app.may(&forum.list.room, Permission::ReadHistory);
@@ -557,6 +654,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
     if searchable || can_post {
         page = page.push(container(top).padding(Padding::new(16.0).bottom(8)));
     }
+    page = page.push(filter_row(ctx, &forum.list.room, &forum.tags));
     if let Some(note) = &ctx.forum_post.note {
         page = page.push(
             container(text(note).size(14).color(theme.muted).center())
@@ -566,6 +664,8 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
     } else if ctx.forum_post.empty {
         let words = if ctx.forum_post.searched {
             backcord_iced_kit::i18n::tr("No results found")
+        } else if ctx.forum_post.filtered {
+            backcord_iced_kit::i18n::tr("No posts match the tags chosen.")
         } else {
             backcord_iced_kit::i18n::tr("There are no posts yet.")
         };
@@ -583,8 +683,20 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
         );
     } else {
         let mut list = column![];
+        // A gallery's tiles fill rows as wide as the forum, a heading
+        // starting a row of its own.
+        let mut tiles = row![].spacing(8);
+        let mut any_tiles = false;
         for (index, card) in ctx.forum_post.cards.iter().enumerate() {
             if let Some(heading) = card.heading {
+                if any_tiles {
+                    let shown = std::mem::replace(&mut tiles, row![].spacing(8));
+                    list = list.push(
+                        container(shown.wrap().vertical_spacing(8))
+                            .padding(Padding::ZERO.left(16).right(16)),
+                    );
+                    any_tiles = false;
+                }
                 let above = if index == 0 { 8.0 } else { 32.0 };
                 list = list.push(
                     container(elide(heading).size(12).font(BOLD).color(theme.muted))
@@ -593,7 +705,18 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
                         .align_y(Alignment::End),
                 );
             }
-            list = list.push(post_card(ctx, card));
+            if ctx.forum_post.gallery {
+                tiles = tiles.push(post_tile(ctx, card));
+                any_tiles = true;
+            } else {
+                list = list.push(post_card(ctx, card));
+            }
+        }
+        if any_tiles {
+            list = list.push(
+                container(tiles.wrap().vertical_spacing(8))
+                    .padding(Padding::ZERO.left(16).right(16)),
+            );
         }
         if forum.loading() {
             list = list.push(
@@ -620,6 +743,371 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
         );
     }
     Some(page.width(Length::Fill).height(Length::Fill).into())
+}
+
+/// Under the search, as Discord's forum header has it: Sort & View, which
+/// sorts the posts and lays them out, then the forum's tags, a click
+/// showing only the posts with those chosen, Clear, and Edit Tags for
+/// those who may change them.
+fn filter_row<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    room: &str,
+    chosen: &'a [String],
+) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let app = &ctx.app;
+    let info = app.forum_info(room).unwrap_or_default();
+    let open = ctx.forum_post.sort_menu;
+    let sort = controls::action(
+        theme,
+        backcord_iced_kit::i18n::tr("Sort & View"),
+        Kind::Plain,
+        Some(Message::Forum(Event::SortMenu(!open))),
+    )
+    .icon(ctx.look.icon(Icon::ArrowsUpDown, 16, rgb(theme.text)))
+    .small();
+    let menu = open.then(|| sort_menu(ctx, ctx.forum_post.gallery));
+    let mut line = row![
+        Popover::new(sort, menu, Side::Below)
+            .width(Width::Own(SORT_MENU))
+            .gap(4.0)
+            .outside(Message::Forum(Event::SortMenu(false)))
+    ]
+    .spacing(6)
+    .align_y(Alignment::Center);
+    for tag in info.tags {
+        let lit = chosen.contains(&tag.id);
+        let mut chip = row![].spacing(4).align_y(Alignment::Center);
+        if let Some(emoji) = &tag.emoji {
+            chip = chip.push(post_emoji(ctx, emoji, 14));
+        }
+        let ink = if lit { theme.on_accent } else { theme.text };
+        chip = chip.push(text(tag.name).size(13).font(SEMIBOLD).color(ink));
+        let rest = if lit { theme.accent } else { theme.raised };
+        line = line.push(
+            button(
+                container(chip)
+                    .padding([0, 10])
+                    .height(28)
+                    .align_y(Alignment::Center),
+            )
+            .padding(0)
+            .on_press(Message::Forum(Event::FilterTag(tag.id)))
+            .style(controls::lit_style(Some(rest), theme.active, 14.0)),
+        );
+    }
+    if !chosen.is_empty() {
+        line = line.push(
+            controls::action(
+                theme,
+                backcord_iced_kit::i18n::tr("Clear"),
+                Kind::Ghost,
+                Some(Message::Forum(Event::ClearTags)),
+            )
+            .small(),
+        );
+    }
+    if app.may_edit_forum_tags(room) {
+        line = line.push(
+            controls::action(
+                theme,
+                backcord_iced_kit::i18n::tr("Edit Tags"),
+                Kind::Ghost,
+                Some(Message::Forum(Event::Tags(ForumTagsInput::Open))),
+            )
+            .icon(ctx.look.icon(Icon::Pencil, 14, rgb(theme.text)))
+            .small(),
+        );
+    }
+    container(line.wrap().vertical_spacing(6))
+        .padding(Padding::ZERO.left(16).right(16).bottom(8))
+        .into()
+}
+
+/// Sort & View's menu: Sort by Recent Activity or Creation Date, and View
+/// as a List or a Gallery, the ones that apply checked.
+fn sort_menu<'a>(ctx: crate::ctx::Ctx<'a>, gallery: bool) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let by_creation = ctx.app.forum_posts().is_some_and(|posts| posts.by_creation);
+    let heading = |words: &'static str| {
+        container(text(words).size(12).font(BOLD).color(theme.muted))
+            .padding(Padding::ZERO.left(8))
+            .height(28)
+            .align_y(Alignment::Center)
+    };
+    let choice = |words: &'static str, ticked: bool, message: Event| {
+        let mut line = row![container(text(words).size(14).color(theme.text)).width(Length::Fill)]
+            .align_y(Alignment::Center);
+        if ticked {
+            line = line.push(ctx.look.glyph(Icon::Check, 16, theme.accent));
+        }
+        button(
+            container(line)
+                .padding([0, 8])
+                .height(36)
+                .align_y(Alignment::Center),
+        )
+        .padding(0)
+        .width(Length::Fill)
+        .on_press(Message::Forum(message))
+        .style(controls::lit_style(None, theme.hover, 4.0))
+    };
+    let list = column![
+        heading(backcord_iced_kit::i18n::tr("Sort by")),
+        choice(
+            backcord_iced_kit::i18n::tr("Recent Activity"),
+            !by_creation,
+            Event::Sort(ForumSort::Activity)
+        ),
+        choice(
+            backcord_iced_kit::i18n::tr("Creation Date"),
+            by_creation,
+            Event::Sort(ForumSort::Creation)
+        ),
+        heading(backcord_iced_kit::i18n::tr("View as")),
+        choice(
+            backcord_iced_kit::i18n::tr("List"),
+            !gallery,
+            Event::Gallery(false)
+        ),
+        choice(
+            backcord_iced_kit::i18n::tr("Gallery"),
+            gallery,
+            Event::Gallery(true)
+        ),
+    ];
+    container(list.padding(6))
+        .style(controls::menu_panel(theme))
+        .into()
+}
+
+/// A post as a gallery's tile, as Discord's grid layout shows it: its
+/// first picture across the top, then its tags, title and replies.
+fn post_tile<'a>(ctx: crate::ctx::Ctx<'a>, card: &'a Card) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let ground = theme.raised;
+    let handle = card
+        .picture
+        .as_ref()
+        .filter(|(_, spoiler)| !spoiler)
+        .and_then(|(url, _)| ctx.picture(url, TILE as u32, TILE_PICTURE as u32, true));
+    let picture: Element<'a, Message> = match handle {
+        Some(handle) => Pic::new(handle, Size::new(TILE, TILE_PICTURE))
+            .radius(8.0)
+            .into(),
+        None => {
+            let mark: Element<'a, Message> = match &card.picture {
+                Some((_, true)) => text(backcord_iced_kit::i18n::tr("SPOILER"))
+                    .size(10)
+                    .font(BOLD)
+                    .color(theme.muted)
+                    .into(),
+                _ => ctx.look.glyph(Icon::Thread, 32, theme.faint).into(),
+            };
+            container(mark)
+                .center_x(TILE)
+                .center_y(TILE_PICTURE)
+                .style(move |_| rounded(ground, 8))
+                .into()
+        }
+    };
+    let mut words = column![].spacing(6).padding(Padding::new(10.0).top(8));
+    if card.pinned || !card.tags.is_empty() {
+        let mut tags = row![].spacing(6).align_y(Alignment::Center).height(20);
+        if card.pinned {
+            tags = tags.push(ctx.look.glyph(Icon::Pin, 14, theme.muted));
+        }
+        for (name, emoji) in card.tags.iter().take(2) {
+            tags = tags.push(tag_pill(ctx, name, emoji.as_ref()));
+        }
+        words = words.push(container(tags).clip(true));
+    }
+    let ink = if card.unread || card.new {
+        theme.text
+    } else {
+        theme.secondary
+    };
+    words = words.push(elide(card.name.as_str()).size(15).font(BOLD).color(ink));
+    words = words.push(
+        row![
+            ctx.look.glyph(Icon::MessageCircle, 14, theme.muted),
+            text(card.replies.to_string())
+                .size(13)
+                .font(SEMIBOLD)
+                .color(theme.muted),
+            text("•").size(13).color(theme.faint),
+            elide(card.time.as_str()).size(13).color(theme.muted),
+        ]
+        .spacing(6)
+        .height(18)
+        .align_y(Alignment::Center),
+    );
+    let (rest, lit, edge, edge_lit) = (theme.hover, theme.raised, theme.line, theme.active);
+    button(column![picture, words].width(TILE))
+        .padding(0)
+        .width(TILE)
+        .on_press(Message::Forum(Event::Open(card.room.clone())))
+        .style(crate::controls::outlined_lit_style(
+            rest, lit, edge, edge_lit, 8.0,
+        ))
+        .into()
+}
+
+/// Edit Tags, in place of the posts: each tag's emoji, name and whether
+/// only moderators give it, with Delete; Add Tag, and Save, which sends
+/// them whole.
+fn tags_editor_view<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    editor: &'a backcord_core::application::ForumTagsEditor,
+) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let saving = editor.saving;
+    let tags_input = |input: ForumTagsInput| Message::Forum(Event::Tags(input));
+    let head = crate::thread::panel_head(
+        ctx,
+        row![
+            ctx.look.glyph(Icon::Pencil, 18, theme.muted),
+            container(
+                text(backcord_iced_kit::i18n::tr("Edit Tags"))
+                    .size(15)
+                    .font(BOLD)
+                    .color(theme.text)
+            )
+            .width(Length::Fill),
+            ctx.look
+                .icon_button(
+                    Icon::X,
+                    backcord_iced_kit::i18n::tr("Close"),
+                    tags_input(ForumTagsInput::Close)
+                )
+                .below(),
+        ],
+    );
+    let mut fields = column![
+        text(backcord_iced_kit::i18n::tr(
+            "Tags help people find posts. Moderated tags can only be given by members with Manage Threads."
+        ))
+        .size(14)
+        .color(theme.secondary)
+    ]
+    .spacing(12)
+    .padding(16);
+    for (at, tag) in editor.tags.iter().enumerate() {
+        fields = fields.push(tag_row(ctx, at, tag, saving));
+    }
+    let more = editor.tags.len() < backcord_core::application::FORUM_TAGS;
+    fields = fields.push(
+        controls::action(
+            theme,
+            backcord_iced_kit::i18n::tr("Add Tag"),
+            Kind::Ghost,
+            (!saving && more).then(|| tags_input(ForumTagsInput::Add)),
+        )
+        .icon(ctx.look.icon(Icon::CirclePlus, 16, rgb(theme.text)))
+        .small(),
+    );
+    if let Some(error) = &editor.error {
+        fields = fields.push(crate::form::error(theme, backcord_iced_kit::i18n::t(error)));
+    }
+    let label = if saving {
+        backcord_iced_kit::i18n::tr("Saving...")
+    } else {
+        backcord_iced_kit::i18n::tr("Save")
+    };
+    fields = fields.push(
+        container(controls::action(
+            theme,
+            label,
+            Kind::Primary,
+            (!saving).then(|| tags_input(ForumTagsInput::Save)),
+        ))
+        .align_right(Length::Fill),
+    );
+    column![
+        head,
+        scroll_view(fields)
+            .height(Length::Fill)
+            .style(scrollbar(theme)),
+    ]
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .into()
+}
+
+/// A tag's emoji as Edit Tags writes it: a Unicode one itself, a custom
+/// one by its name between colons, which it keeps until replaced.
+fn emoji_text(tag: &ForumTagEdit) -> String {
+    match (&tag.emoji_id, &tag.emoji_name) {
+        (Some(_), Some(name)) => format!(":{name}:"),
+        (None, Some(name)) => name.clone(),
+        _ => String::new(),
+    }
+}
+
+/// A tag in Edit Tags: its emoji as a picture and as text, its name, the
+/// moderated box and Delete.
+fn tag_row<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    at: usize,
+    tag: &'a ForumTagEdit,
+    saving: bool,
+) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let face: Element<'a, Message> = match &tag.shown {
+        Some(emoji) => post_emoji(ctx, emoji, 20),
+        None => Space::new().width(20).height(20).into(),
+    };
+    let mut emoji = controls::field(
+        theme,
+        iced::widget::Id::from(format!("forum-tag-emoji-{at}")),
+        backcord_iced_kit::i18n::tr("Emoji"),
+        &emoji_text(tag),
+        false,
+        !saving,
+    )
+    .width(90);
+    let mut name = controls::field(
+        theme,
+        iced::widget::Id::from(format!("forum-tag-name-{at}")),
+        backcord_iced_kit::i18n::tr("Tag name"),
+        &tag.name,
+        false,
+        !saving,
+    )
+    .width(Length::Fill);
+    if !saving {
+        emoji = emoji.on_input(move |text| Message::Forum(Event::TagEmoji(at, text)));
+        name =
+            name.on_input(move |text| Message::Forum(Event::Tags(ForumTagsInput::Name(at, text))));
+    }
+    let moderated = button(
+        row![
+            ctx.look.checkbox(tag.moderated, false),
+            text(backcord_iced_kit::i18n::tr("Moderated"))
+                .size(13)
+                .color(theme.secondary),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    )
+    .padding([4, 6])
+    .on_press_maybe(
+        (!saving)
+            .then(|| Message::Forum(Event::Tags(ForumTagsInput::Moderated(at, !tag.moderated)))),
+    )
+    .style(controls::lit_style(None, theme.hover, 4.0));
+    let delete = ctx
+        .look
+        .icon_button(
+            Icon::Trash,
+            backcord_iced_kit::i18n::tr("Delete Tag"),
+            Message::Forum(Event::Tags(ForumTagsInput::Remove(at))),
+        )
+        .below();
+    row![face, emoji, name, moderated, delete]
+        .spacing(8)
+        .align_y(Alignment::Center)
+        .into()
 }
 
 /// A tag's or reaction's emoji: Twemoji's, or a custom one's picture.

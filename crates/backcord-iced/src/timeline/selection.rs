@@ -106,6 +106,21 @@ impl crate::timeline::Lanes<'_> {
         Some(if a <= b { (a, b) } else { (b, a) })
     }
 
+    /// The messages the selection runs through, in the timeline's order:
+    /// none unless it runs through more than one.
+    pub fn selected_items(self) -> Vec<String> {
+        let Some((from, to)) = self.marks() else {
+            return Vec::new();
+        };
+        if from.row == to.row {
+            return Vec::new();
+        }
+        (from.row..=to.row)
+            .filter_map(|row| self.row_message(row))
+            .map(|message| message.item.clone())
+            .collect()
+    }
+
     /// The part of the selection in a message's piece.
     pub fn selected(self, row: usize, part: PartNo) -> Part {
         self.marks()

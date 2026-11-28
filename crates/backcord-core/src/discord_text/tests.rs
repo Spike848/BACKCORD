@@ -2065,7 +2065,7 @@ async fn forwards_with_the_message_added_and_refuses_what_cant_go() {
     let mut forward = |item: String, target: &str, note: Option<String>| {
         let command = Command::Forward {
             room: room.clone(),
-            item,
+            items: vec![item],
             target: target.into(),
             note,
             silent: false,

@@ -33,6 +33,8 @@ permission:
 - [Safety Setup](#safety-setup), with Manage Server, under Moderation: the
   verification level, whether moderators need two-factor authentication,
   and the sensitive content filter.
+- [AutoMod](#automod), with Manage Server, under Moderation: the server's
+  AutoMod rules, making, changing, switching and deleting them.
 - [Audit Log](#audit-log), with View Audit Log, under Moderation: who did
   what in the server.
 - [Bans](#bans), with Ban Members or View Audit Log, under Moderation: the
@@ -48,8 +50,8 @@ purpose; the plan is kept outside the repository.
 
 Only the open page's settings are held, from when it opens to when it
 closes: opening a page asks Discord for it, and leaving it drops it. Each
-page but Members, Invites, Safety Setup, Audit Log and Bans, which act at
-once as Discord's do, edits a draft against what Discord sent. Once the draft differs,
+page but Members, Invites, Safety Setup, AutoMod, Audit Log and Bans, which
+act at once as Discord's do, edits a draft against what Discord sent. Once the draft differs,
 Discord's bar shows over the bottom of the page, "Careful — you have
 unsaved changes!", with Reset and Save Changes; until one is chosen,
 choosing another page, Escape and the close button shake the bar red
@@ -310,6 +312,64 @@ puts back what Discord has, with its words.
 
 On a Community server Discord's client spreads these over its own Safety
 Setup pages; BACKCORD keeps them on one, with Discord's Community wording.
+
+## AutoMod
+
+AutoMod, with Manage Server, under Moderation after Safety Setup, lists
+the server's AutoMod rules from `GET /guilds/{id}/auto-moderation/rules`
+(`application/server_settings/automod.rs`, read in
+`discord_text/automod.rs`): each row is the rule's name, its kind in
+Discord's words ("Block Custom Words" for a keyword rule, "Block Commonly
+Flagged Words", "Block Suspected Spam Content", "Block Mention Spam",
+"Block Words in Member Profile Names"), its switch, Edit and Delete. The
+switch shows at once and sends `PATCH .../rules/{rule}` with
+`{"enabled"}`, one rule at a time; a refusal puts it back and shows
+Discord's words over the list. Delete asks "Delete the rule ...? This
+can't be undone." and sends `DELETE .../rules/{rule}`. A rule of a kind
+BACKCORD doesn't set up, such as a server policy's, is listed as "Other
+rule", with its switch and Delete but no Edit.
+
+Create Rule lists the kinds the server may still add, as Discord limits
+them: 6 keyword rules and 1 of each other kind; with every kind at its
+limit it's greyed. A kind opens the rule's form in the page's place:
+
+- **Name**, up to 100 characters, which starts as the kind's words.
+- **Keywords** and **Regex patterns** (keyword and member profile rules):
+  keywords separated by commas or lines, up to 1000 of up to 60
+  characters; patterns one a line, up to 10 of up to 260. One of either
+  is needed. Repeats and blank entries are left out.
+- **Lists** (commonly flagged words): Profanity, Sexual Content and
+  Slurs, all ticked at first, at least one needed.
+- **Allowed words**: up to 100 (keyword and member profile rules) or 1000
+  (commonly flagged words), separated as keywords are.
+- **Mention limit**, 1 to 50, 20 at first, and **Mention raid
+  protection** (mention spam).
+- **Actions**: Block message, with an optional message for its author up
+  to 150 characters (not for a member's profile); Send an alert to a
+  channel, picked from the server's text channels; Time out the member for
+  60 seconds, 5 or 10 minutes, an hour, a day or a week (keyword and
+  mention spam rules only, as Discord allows); Block member interactions
+  (a member's profile). At least one is needed.
+
+Under the form, the first thing keeping it from being saved shows in red,
+and Save Rule waits for none. A new rule is sent on, with `POST
+/guilds/{id}/auto-moderation/rules`, `event_type` 2 for a member's
+profile and 1 otherwise; an edit sends `PATCH .../rules/{rule}` with the
+same fields but `trigger_type`, which Discord doesn't change. Each sends
+only the trigger metadata its kind has, and leaves out
+`exempt_channels` for a member's profile. Both go through
+[two-factor authentication](#two-factor-authentication) when Discord asks
+for it. Discord's answer replaces the rule in the list and closes the
+form; a refusal stays on the form, with Discord's field errors in words
+("Regex patterns: Invalid regex"), to try again. Escape closes Delete's
+question, then the form or the kinds.
+
+Exempt roles and channels have no control yet: an edit keeps those the
+rule has, a new rule has none, and the form says so when a rule has
+some. Actions BACKCORD doesn't know are kept as Discord sent them.
+AUTO_MODERATION_RULE_CREATE, _UPDATE and _DELETE from elsewhere aren't
+followed while the page is open; it shows what Discord answered to this
+account's own changes. The page holds the rules only while it's open.
 
 ## Audit Log
 

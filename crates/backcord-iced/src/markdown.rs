@@ -935,10 +935,9 @@ impl<'c> crate::ctx::Ctx<'c> {
     ) -> Element<'c, Message> {
         let theme = self.look.theme;
         let mut parts = column![].width(Length::Fill);
-        // Animated custom emoji play in a message's text in the timeline or
-        // the thread beside it, and in a profile's bio; elsewhere (a topic,
-        // a search's results) they show their still.
-        let plays = self.lanes.row_look(row).is_some() || row == crate::profile::body::BIO_ROW;
+        // Animated custom emoji play wherever a body shows, as in Discord:
+        // a message's text in the timeline or the thread beside it, a
+        // profile's bio, the topic, a search's results, a found card.
         for (index, part) in body.parts.iter().enumerate() {
             let number = first.saturating_add(
                 crate::piece::PartNo::try_from(index).unwrap_or(crate::piece::PartNo::MAX),
@@ -964,9 +963,7 @@ impl<'c> crate::ctx::Ctx<'c> {
                 .map(|(index, run)| {
                     let span = self.run_span(run, ink);
                     if let Some((url, _)) = &run.emoji {
-                        let playing = plays
-                            .then(|| self.playing_emoji(url, side as u32, &self.pictures.players))
-                            .flatten();
+                        let playing = self.playing_emoji(url, side as u32, &self.pictures.players);
                         if let Some(playing) = playing {
                             moving.push((index, Box::new(playing)));
                         } else if let Some(picture) =

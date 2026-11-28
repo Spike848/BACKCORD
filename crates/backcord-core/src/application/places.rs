@@ -404,6 +404,14 @@ impl Application {
                         MenuChoice::JoinThread
                     },
                 );
+                // Its own notifications, which only a thread this account
+                // is in has, after leaving it, as Discord's menu has them.
+                if joined {
+                    choices.splice(
+                        at + 1..at + 1,
+                        [MenuChoice::ChannelMute, MenuChoice::ChannelNotifications],
+                    );
+                }
             }
             return choices;
         }
@@ -432,8 +440,9 @@ impl Application {
             );
         }
         // A voice channel's status goes after its link, as in Discord's menu:
-        // Discord lets it be set from inside the channel, with Set Voice
-        // Channel Status, or by those who manage channels.
+        // Discord lets it be set with Set Voice Channel Status from inside
+        // the channel, even without Connect, and from outside only with
+        // Manage Channels as well.
         let connected_here =
             self.state.voice.active() && self.state.voice.room.as_deref() == Some(id);
         if self.state.discord_online
@@ -442,8 +451,8 @@ impl Application {
                 .rooms
                 .iter()
                 .any(|room| room.id == id && room.voice && !room.direct)
-            && (connected_here && self.may(id, Permission::SetVoiceStatus)
-                || self.may(id, Permission::ManageChannels))
+            && self.may(id, Permission::SetVoiceStatus)
+            && (connected_here || self.may(id, Permission::ManageChannels))
             && let Some(at) = choices
                 .iter()
                 .position(|choice| *choice == MenuChoice::CopyLink)

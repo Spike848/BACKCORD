@@ -1020,7 +1020,8 @@ fn the_voice_compressor_starts_off_and_is_kept() {
     let (mut app, folder) = preview();
     let _volumes = crate::layout::tests::hold_volumes();
     open(&mut app, Section::Voice);
-    assert!(shows(&app, "Voice compressor"));
+    assert!(shows(&app, "VOICE COMPRESSOR"));
+    assert!(shows(&app, "Strong"));
     assert!(!app.layout.voice.voice_compressor, "off unless set");
     let voice = |event| Message::Settings(Event::Voice(event));
     let _ = app.update(voice(VoiceEvent::VoiceCompressor(true)));
@@ -1037,6 +1038,23 @@ fn the_voice_compressor_starts_off_and_is_kept() {
             .voice
             .voice_compressor
     );
+    // The presets: Strong, kept; Medium unless set; off again.
+    let _ = app.update(voice(VoiceEvent::VoiceCompressorPreset(3)));
+    assert!(backcord_core::volume::voice_compressor());
+    assert_eq!(
+        backcord_core::volume::voice_compressor_preset(),
+        backcord_core::voice_compressor::Preset::Strong
+    );
+    let stored = crate::layout::Layout::read(folder.path()).voice;
+    assert!(stored.voice_compressor);
+    assert_eq!(stored.voice_compressor_preset, Some(2));
+    let _ = app.update(voice(VoiceEvent::VoiceCompressorPreset(2)));
+    assert_eq!(
+        backcord_core::volume::voice_compressor_preset(),
+        backcord_core::voice_compressor::Preset::Medium
+    );
+    let _ = app.update(voice(VoiceEvent::VoiceCompressorPreset(0)));
+    assert!(!backcord_core::volume::voice_compressor());
 }
 
 /// The stereo widener and the panning under echo reduction: off and in
@@ -1110,7 +1128,8 @@ fn the_high_pass_and_the_voice_gate_start_off_and_are_kept() {
     let (mut app, folder) = preview();
     let _volumes = crate::layout::tests::hold_volumes();
     open(&mut app, Section::Voice);
-    assert!(shows(&app, "High-pass filter (100 Hz)"));
+    assert!(shows(&app, "HIGH-PASS FILTER"));
+    assert!(shows(&app, "150 Hz"));
     assert!(shows(&app, "Voice gate"));
     assert!(!app.layout.voice.voice_high_pass, "off unless set");
     assert_eq!(app.layout.voice.voice_gate, None, "off unless set");
@@ -1131,6 +1150,17 @@ fn the_high_pass_and_the_voice_gate_start_off_and_are_kept() {
     let stored = crate::layout::Layout::read(folder.path()).voice;
     assert!(!stored.voice_high_pass);
     assert_eq!(stored.voice_gate, None);
+    // Its three cutoffs: 200 Hz, kept, then off again.
+    let _ = app.update(voice(VoiceEvent::VoiceHighPassCut(3)));
+    assert!(backcord_core::volume::voice_high_pass());
+    assert_eq!(backcord_core::volume::voice_high_pass_cutoff(), 200.0);
+    let stored = crate::layout::Layout::read(folder.path()).voice;
+    assert!(stored.voice_high_pass);
+    assert_eq!(stored.voice_high_pass_cutoff, Some(200));
+    let _ = app.update(voice(VoiceEvent::VoiceHighPassCut(1)));
+    assert_eq!(backcord_core::volume::voice_high_pass_cutoff(), 100.0);
+    let _ = app.update(voice(VoiceEvent::VoiceHighPassCut(0)));
+    assert!(!backcord_core::volume::voice_high_pass());
 }
 
 /// The Dynamic Island: off unless turned on, and then only with a Spotify

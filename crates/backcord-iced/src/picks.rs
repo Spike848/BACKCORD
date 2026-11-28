@@ -85,12 +85,21 @@ fn open_menu(app: &mut App, at: Point) -> Task<Message> {
         };
         let starts = crate::place_menus::group_of(choice);
         let separated = group.replace(starts).is_some_and(|last| last != starts) || rows.len() == 1;
+        // A friend request or an unfriending says how many it's for.
+        let label = match choice {
+            MenuChoice::AddFriend | MenuChoice::Unfriend => format!(
+                "{} ({})",
+                crate::place_menus::label(choice),
+                core.picked_with(choice).len()
+            ),
+            _ => crate::place_menus::label(choice).to_string(),
+        };
         let mut row = MenuRow {
             icon: Some(crate::place_menus::icon(choice)),
             danger: crate::person_menu::danger(choice),
             separated,
             check: ticked.map_or(Check::None, Check::Box),
-            ..MenuRow::plain(MenuAct::Picked(choice), crate::place_menus::label(choice))
+            ..MenuRow::plain(MenuAct::Picked(choice), label)
         };
         if choice == MenuChoice::MoveTo {
             row.submenu = core
@@ -135,6 +144,13 @@ pub fn choose(app: &mut App, choice: MenuChoice, ticked: Option<bool>) -> Task<M
             | MenuChoice::ServerMute
             | MenuChoice::ServerDeafen
     );
+    // A friend request goes only to those who aren't friends yet, nor
+    // asked already.
+    let picked = if choice == MenuChoice::AddFriend {
+        app.client.app.picked_with(MenuChoice::AddFriend)
+    } else {
+        picked
+    };
     let mut tasks = Vec::new();
     for pick in picked {
         tasks.push(match choice {

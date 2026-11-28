@@ -371,15 +371,7 @@ impl Application {
             return vec![];
         };
         let query = query.trim().to_lowercase();
-        let fits = |name: &str| {
-            let name = name.to_lowercase();
-            query.is_empty()
-                || name
-                    .split([' ', '-', '_'])
-                    .any(|word| word.starts_with(&query))
-                || name.starts_with(&query)
-        };
-        index
+        let mut found: Vec<(u8, SlashCommand)> = index
             .usable(&place)
             .filter(|command| command.kind == CHAT_INPUT)
             .flat_map(|command| {
@@ -387,22 +379,30 @@ impl Application {
                 command
                     .variants()
                     .into_iter()
-                    .filter(|variant| fits(&variant.name()))
-                    .map(|variant| SlashCommand {
-                        command: command.id.clone(),
-                        path: variant.path.iter().map(|part| (*part).to_owned()).collect(),
-                        name: variant.name(),
-                        description: variant.description.to_owned(),
-                        app: command.application_id.clone(),
-                        app_name: app.map(|app| app.name.clone()).unwrap_or_default(),
-                        app_icon: app.and_then(|app| {
-                            let icon = app.icon.as_deref()?;
-                            Some(backcord_discord::ready::application_icon(&app.id, icon))
-                        }),
+                    .filter_map(|variant| Some((command_fit(&query, &variant.name())?, variant)))
+                    .map(|(fit, variant)| {
+                        (
+                            fit,
+                            SlashCommand {
+                                command: command.id.clone(),
+                                path: variant.path.iter().map(|part| (*part).to_owned()).collect(),
+                                name: variant.name(),
+                                description: variant.description.to_owned(),
+                                app: command.application_id.clone(),
+                                app_name: app.map(|app| app.name.clone()).unwrap_or_default(),
+                                app_icon: app.and_then(|app| {
+                                    let icon = app.icon.as_deref()?;
+                                    Some(backcord_discord::ready::application_icon(&app.id, icon))
+                                }),
+                            },
+                        )
                     })
                     .collect::<Vec<_>>()
             })
-            .collect()
+            .collect();
+        // The closest first, each kind in the index's order.
+        found.sort_by_key(|(fit, _)| *fit);
+        found.into_iter().map(|(_, command)| command).collect()
     }
 
     /// Where `room` is, as far as which commands the person may use there
@@ -466,4 +466,62 @@ fn is_discord_room(room: &str) -> bool {
         let _ = room;
         false
     }
+}
+
+/// How well a command's name fits what's typed after the `/`, as Discord's
+/// fuzzy search finds them, the closest lowest: the name's start (0), a
+/// word's (1), each word typed starting the name's words in turn, so `r a`
+/// finds `role add` (2), or, from three letters on, the letters in order
+/// with some skipped, from a word's start (3). None when it doesn't fit.
+#[cfg(feature = "discord")]
+fn command_fit(query: &str, name: &str) -> Option<u8> {
+    let name = name.to_lowercase();
+    if query.is_empty() || name.starts_with(query) {
+        return Some(0);
+    }
+    let words: Vec<&str> = name
+        .split([' ', '-', '_'])
+        .filter(|word| !word.is_empty())
+        .collect();
+    if words.iter().any(|word| word.starts_with(query)) {
+        return Some(1);
+    }
+    let typed: Vec<&str> = query.split_whitespace().collect();
+    if typed.len() > 1 {
+        let mut rest = words.iter();
+        if typed
+            .iter()
+            .all(|part| rest.by_ref().any(|word| word.starts_with(part)))
+        {
+            return Some(2);
+        }
+    }
+    let letters: String = query
+        .chars()
+        .filter(|letter| !letter.is_whitespace())
+        .collect();
+    if letters.chars().count() >= 3 {
+        let first = letters.chars().next()?;
+        let joined: String = name
+            .chars()
+            .filter(|letter| !matches!(letter, ' ' | '-' | '_'))
+            .collect();
+        // From the start of a word that begins with the first letter.
+        let mut starts = 0;
+        for word in &words {
+            if word.starts_with(first) {
+                let mut wanted = letters.chars().peekable();
+                for letter in joined[starts..].chars() {
+                    if wanted.peek() == Some(&letter) {
+                        wanted.next();
+                    }
+                }
+                if wanted.peek().is_none() {
+                    return Some(3);
+                }
+            }
+            starts += word.len();
+        }
+    }
+    None
 }

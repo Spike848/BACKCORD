@@ -400,3 +400,58 @@ fn the_emoji_pickers_animated_emoji_play_in_their_cells_until_it_closes() {
     let _ = crate::picker::close_picker(&mut app);
     assert_eq!(Arc::strong_count(&party), 1, "its player went");
 }
+
+#[test]
+fn the_pointed_animated_emoji_plays_at_the_pickers_foot_too() {
+    let (mut app, _folder) = super::server::discord_server(0, |server, _| {
+        server.emojis = Arc::new(vec![ready::Emoji {
+            id: "6001".into(),
+            name: "party".into(),
+            animated: true,
+            available: true,
+        }]);
+    });
+    app.layout.prefs.animate = crate::layout::Animate::Always;
+    let party = super::animated_emoji();
+    let _ = app.update(Message::OpenPicker(Target::Composer, Tab::Emoji));
+    let urls: Vec<String> = app
+        .client
+        .app
+        .emoji_sets()
+        .into_iter()
+        .flat_map(|set| set.emoji)
+        .map(|emoji| emoji.picture)
+        .collect();
+    change(&mut app, |state| {
+        for url in urls {
+            state.pictures.insert(url, party.clone());
+        }
+    });
+    // The sizes the party plays at in the picker.
+    let sizes = |app: &App| {
+        super::redraw(app);
+        let mut sizes: Vec<(u32, u32)> = app
+            .win
+            .picker
+            .get()
+            .and_then(|picker| picker.emoji_tab())
+            .map(|tab| tab.players().keys())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|key| (key.1, key.2))
+            .collect();
+        sizes.sort_unstable();
+        sizes
+    };
+    assert_eq!(sizes(&app).len(), 1, "its cell's");
+    // Pointed at, it plays larger at the foot as well.
+    let pointed = (0..8).find(|index| {
+        let _ = app.update(Message::Picker(Event::Hover(*index)));
+        sizes(&app).len() == 2
+    });
+    assert!(pointed.is_some(), "the foot's plays: {:?}", sizes(&app));
+    assert!(sizes(&app).contains(&(26, 26)), "{:?}", sizes(&app));
+    // Held still by Animate's Never, neither has a player.
+    app.layout.prefs.animate = crate::layout::Animate::Never;
+    assert!(sizes(&app).is_empty());
+}

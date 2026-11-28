@@ -54,7 +54,7 @@ async fn lists_dms_and_notifies() {
         snapshot.conversations[2]
             .avatar
             .as_deref()
-            .is_some_and(|avatar| avatar.contains("/avatars/1400000000000000002/bob1.png"))
+            .is_some_and(|avatar| avatar.contains("/avatars/1400000000000000002/bob1.webp"))
     );
     let history = discord
         .history(PRIVATE, &dm_bob, Span::Latest)

@@ -475,6 +475,12 @@ impl Session<'_> {
                 self.publisher.changed();
                 Ok(())
             }
+            Request::Events { guild, events } => {
+                if self.tracker.put_events(&guild, events) {
+                    self.publisher.changed();
+                }
+                Ok(())
+            }
             Request::Beside { guild, thread } => {
                 if self.tracker.beside(thread.as_deref()) {
                     self.publisher.changed();

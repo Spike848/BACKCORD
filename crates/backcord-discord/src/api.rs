@@ -1423,6 +1423,15 @@ impl Api {
         self.empty(self.request(method, &path)).await
     }
 
+    /// Changes this account's settings in a thread it's in, as `body` says:
+    /// its mute or its notification flags. Discord answers with the thread
+    /// member, or 204 when nothing changed, and sends THREAD_MEMBER_UPDATE.
+    pub async fn thread_settings(&self, thread: &str, body: &Value) -> Result<()> {
+        let path = format!("/channels/{thread}/thread-members/@me/settings");
+        self.empty(with_json(self.request(Method::PATCH, &path), body))
+            .await
+    }
+
     /// Shows others that this account is typing in `channel`.
     pub async fn typing(&self, channel: &str) -> Result<()> {
         let path = format!("/channels/{channel}/typing");
@@ -1793,6 +1802,41 @@ impl Api {
     /// sends GUILD_BAN_REMOVE.
     pub async fn unban(&self, guild: &str, user: &str) -> Result<()> {
         let path = format!("/guilds/{guild}/bans/{user}");
+        self.empty(self.request(Method::DELETE, &path)).await
+    }
+
+    /// A server's AutoMod rules, as AutoMod lists them; it takes Manage
+    /// Server.
+    pub async fn automod_rules(&self, guild: &str) -> Result<Value> {
+        let path = format!("/guilds/{guild}/auto-moderation/rules");
+        self.json(self.request(Method::GET, &path)).await
+    }
+
+    /// Makes an AutoMod rule from `body`, answered with the rule, and
+    /// AUTO_MODERATION_RULE_CREATE.
+    pub async fn create_automod_rule(&self, guild: &str, body: &Value) -> Result<Value> {
+        let path = format!("/guilds/{guild}/auto-moderation/rules");
+        self.json(with_json(self.request(Method::POST, &path), body))
+            .await
+    }
+
+    /// Changes an AutoMod rule with `body`'s fields, answered with the
+    /// rule, and AUTO_MODERATION_RULE_UPDATE.
+    pub async fn modify_automod_rule(
+        &self,
+        guild: &str,
+        rule: &str,
+        body: &Value,
+    ) -> Result<Value> {
+        let path = format!("/guilds/{guild}/auto-moderation/rules/{rule}");
+        self.json(with_json(self.request(Method::PATCH, &path), body))
+            .await
+    }
+
+    /// Deletes an AutoMod rule; Discord answers 204, and
+    /// AUTO_MODERATION_RULE_DELETE.
+    pub async fn delete_automod_rule(&self, guild: &str, rule: &str) -> Result<()> {
+        let path = format!("/guilds/{guild}/auto-moderation/rules/{rule}");
         self.empty(self.request(Method::DELETE, &path)).await
     }
 
@@ -2223,6 +2267,67 @@ impl Api {
             self.request(Method::DELETE, &path)
         };
         self.empty(request).await
+    }
+
+    /// A server's scheduled and active events, with how many are
+    /// interested in each, as Discord's client asks when its Events
+    /// dialog opens.
+    pub async fn scheduled_events(&self, guild: &str) -> Result<Value> {
+        let path = format!("/guilds/{guild}/scheduled-events?with_user_count=true");
+        self.json(self.request(Method::GET, &path)).await
+    }
+
+    /// The first hundred people interested in an event, with their
+    /// server profiles, for Who's interested.
+    pub async fn scheduled_event_users(&self, guild: &str, event: &str) -> Result<Value> {
+        let path =
+            format!("/guilds/{guild}/scheduled-events/{event}/users?limit=100&with_member=true");
+        self.json(self.request(Method::GET, &path)).await
+    }
+
+    /// Makes a scheduled event, or changes the one `event` names, with
+    /// `body` as [`scheduled_event::EventForm::body`] or a status
+    /// change gives it.
+    pub async fn save_scheduled_event(
+        &self,
+        guild: &str,
+        event: Option<&str>,
+        body: &Value,
+    ) -> Result<Value> {
+        let request = match event {
+            Some(event) => self.request(
+                Method::PATCH,
+                &format!("/guilds/{guild}/scheduled-events/{event}"),
+            ),
+            None => self.request(Method::POST, &format!("/guilds/{guild}/scheduled-events")),
+        };
+        self.json(with_json(request, body)).await
+    }
+
+    /// Deletes a scheduled event.
+    pub async fn delete_scheduled_event(&self, guild: &str, event: &str) -> Result<()> {
+        let path = format!("/guilds/{guild}/scheduled-events/{event}");
+        self.empty(self.request(Method::DELETE, &path)).await
+    }
+
+    /// Makes a server, with `body` as
+    /// [`crate::guild_template::create_body`] gives it.
+    pub async fn create_guild(&self, body: &Value) -> Result<Value> {
+        self.json(with_json(self.request(Method::POST, "/guilds"), body))
+            .await
+    }
+
+    /// A server template, by its code.
+    pub async fn guild_template(&self, code: &str) -> Result<Value> {
+        let path = format!("/guilds/templates/{}", encode(code));
+        self.json(self.request(Method::GET, &path)).await
+    }
+
+    /// Makes a server from a template.
+    pub async fn create_guild_from_template(&self, code: &str, body: &Value) -> Result<Value> {
+        let path = format!("/guilds/templates/{}", encode(code));
+        self.json(with_json(self.request(Method::POST, &path), body))
+            .await
     }
 
     /// A gift code, with the subscription plan it grants, as Discord's
@@ -2798,6 +2903,9 @@ fn refusal(status: StatusCode, body: &Value) -> anyhow::Error {
         }
         (_, Some(GIFT_FRAUD_REJECTED)) => anyhow!("Discord won't let this account use this gift."),
         (_, Some(UNKNOWN_EVENT)) => anyhow!("This event doesn't exist."),
+        (_, Some(FORWARD_UNREADABLE)) => {
+            anyhow!("You can't forward a message whose content you can't read.")
+        }
         (_, Some(mfa::INVALID_MFA)) => anyhow!("That didn't work. Check it and try again."),
         (_, Some(mfa::MFA_REQUIRED)) => {
             anyhow!("Discord asks for two-factor authentication, which BACKCORD can't do here.")
@@ -2901,6 +3009,8 @@ const GIFT_SUBSCRIPTION_INCOMPATIBLE: u64 = 100023;
 const GIFT_INVOICE_OPEN: u64 = 100024;
 const INVITES_PAUSED: u64 = 40069;
 const UNKNOWN_EVENT: u64 = 10070;
+/// Forwarding a message whose content this account can't read.
+const FORWARD_UNREADABLE: u64 = 160014;
 const MISSING_PERMISSIONS: u64 = 50013;
 const INVALID_FORM_BODY: u64 = 50035;
 
@@ -3296,6 +3406,13 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "Name: Must be between 2 and 100 in length. Label: Too long."
+        );
+
+        let unreadable = json!({"code": 160014,
+            "message": "You cannot forward a message whose content you cannot read"});
+        assert_eq!(
+            refusal(StatusCode::BAD_REQUEST, &unreadable).to_string(),
+            "You can't forward a message whose content you can't read."
         );
 
         let denied = json!({"code": 50013, "message": "Missing Permissions"});

@@ -620,13 +620,27 @@ pub struct ChatServer {
 pub struct ServerEvent {
     pub id: String,
     pub name: String,
-    /// When it starts, in seconds since the epoch.
+    /// When it starts, and ends for one that says, in seconds since the
+    /// epoch.
     pub start: i64,
+    pub end: Option<i64>,
     /// Where it is, if it says.
     pub location: Option<String>,
+    /// 1 a stage channel, 2 a voice channel, 3 somewhere else.
+    pub kind: u8,
+    /// The channel it's in, by its room id.
+    pub room: Option<String>,
     /// Under way now.
     pub active: bool,
     pub interested: u64,
+    /// This account is interested.
+    pub mine: bool,
+    pub description: Option<String>,
+    /// Its cover picture's address.
+    pub cover: Option<String>,
+    /// Who made it: their Discord id, and their name when Discord gave it.
+    pub creator_id: Option<String>,
+    pub creator: Option<String>,
 }
 
 /// Where a Discord channel or category goes in its server's channel list.
@@ -710,6 +724,8 @@ pub enum Permission {
     /// Create scheduled events, as Discord's client asks before showing its
     /// Events row: managing them all isn't enough on its own.
     CreateEvents,
+    /// Change, start, end, cancel and delete anyone's scheduled events.
+    ManageEvents,
 }
 
 /// Which messages notify, in a Discord server or channel.
@@ -1611,6 +1627,19 @@ pub struct ForumTag {
     pub moderated: bool,
 }
 
+/// A forum's tag as Edit Tags changes it: an existing one by its id, or a
+/// new one without; its emoji as Discord keeps it, a custom one's id or a
+/// Unicode one, and as it shows.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ForumTagEdit {
+    pub id: Option<String>,
+    pub name: String,
+    pub moderated: bool,
+    pub emoji_id: Option<String>,
+    pub emoji_name: Option<String>,
+    pub shown: Option<ShownEmoji>,
+}
+
 /// Someone a thread's row names.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct ThreadPerson {
@@ -2346,6 +2375,15 @@ pub enum ButtonStyle {
     Premium,
 }
 
+/// A forward's original: who wrote it, once Discord says; where it is,
+/// when that's a place this account knows; and when it was written.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ForwardedFrom {
+    pub author: Option<String>,
+    pub place: Option<String>,
+    pub time: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ChatMessage {
     /// Stable row key across the local echo and its remote event.
@@ -2380,6 +2418,8 @@ pub struct ChatMessage {
     pub tag: Option<ServerTag>,
     /// Forwarded on Discord: its body, files and embeds are the original's.
     pub forwarded: bool,
+    /// Where a forward came from, as far as BACKCORD knows.
+    pub forwarded_from: Option<ForwardedFrom>,
     /// The author joined the server in the last week, which Discord marks
     /// by their name as a new member.
     pub new_member: bool,
@@ -2635,7 +2675,9 @@ pub enum Command {
     /// nobody of either, as `@silent` does.
     Forward {
         room: String,
-        item: String,
+        /// One or several, forwarded one after another in this order; the
+        /// note follows the last.
+        items: Vec<String>,
         target: String,
         note: Option<String>,
         silent: bool,
@@ -3025,6 +3067,116 @@ pub struct EventPreview {
     pub over: bool,
     /// This account is interested in the event.
     pub interested: bool,
+}
+
+/// What a server's Events dialog asks of Discord.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EventsCommand {
+    /// The server's scheduled and active events, with their counts and
+    /// this account's interest, into the server's [`ServerEvent`]s.
+    /// [`EventsAnswer::Loaded`] follows.
+    Load { guild: String },
+    /// Who is interested in an event. [`EventsAnswer::Users`] follows.
+    Users { guild: String, event: String },
+    /// Make an event, or change the one `event` names.
+    /// [`EventsAnswer::Changed`] follows, as for the rest.
+    Save {
+        guild: String,
+        event: Option<String>,
+        draft: Box<EventDraft>,
+    },
+    /// Start (2), end (3) or cancel (4) an event.
+    Status {
+        guild: String,
+        event: String,
+        status: u8,
+    },
+    Delete { guild: String, event: String },
+}
+
+/// What the event form makes or changes an event into.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct EventDraft {
+    /// 1 a stage channel, 2 a voice channel, 3 somewhere else.
+    pub kind: u8,
+    /// The channel, by its Discord id, or where it is.
+    pub channel: Option<String>,
+    pub location: Option<String>,
+    pub name: String,
+    pub description: String,
+    /// When it starts and ends, in Unix seconds.
+    pub start: i64,
+    pub end: Option<i64>,
+    /// A picture file to make its cover; none keeps the one it has.
+    pub cover: Option<String>,
+}
+
+/// What Discord answered an [`EventsCommand`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EventsAnswer {
+    Loaded {
+        guild: String,
+        result: Result<(), String>,
+    },
+    Users {
+        event: String,
+        result: Result<Vec<EventPerson>, String>,
+    },
+    /// An event made, changed or deleted, by the id it had; none for one
+    /// made.
+    Changed {
+        guild: String,
+        event: Option<String>,
+        result: Result<(), String>,
+    },
+}
+
+/// Someone interested in an event.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EventPerson {
+    pub id: String,
+    pub name: String,
+    pub avatar: String,
+}
+
+/// What making a server asks of Discord.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NewServerCommand {
+    /// Look a template up by its code. [`NewServerAnswer::Template`]
+    /// follows.
+    Template { code: String },
+    /// Make a server named `name`, with the picture file `icon`, from
+    /// nothing or from the template `template` names.
+    /// [`NewServerAnswer::Created`] follows.
+    Create {
+        name: String,
+        icon: Option<String>,
+        template: Option<String>,
+    },
+}
+
+/// What Discord answered a [`NewServerCommand`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NewServerAnswer {
+    Template {
+        code: String,
+        result: Result<TemplatePreview, String>,
+    },
+    /// The new server's Discord id.
+    Created { result: Result<String, String> },
+}
+
+/// A server template, as its preview shows it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TemplatePreview {
+    pub code: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub usage_count: u64,
+    /// Its channels in order, each with its type (4 a category, 2 voice)
+    /// and name, and its roles' names.
+    pub channels: Vec<(u8, String)>,
+    pub roles: Vec<String>,
 }
 
 /// What a Discord gift, such as Nitro, shows before it is redeemed.
@@ -3445,6 +3597,14 @@ pub enum DiscordCommand {
     /// by its server id, or a channel or category in it, by its room id.
     /// Snapshots show the change once Discord confirms it; a failure comes
     /// back as [`Event::Error`].
+    /// Change this account's notifications in a Discord thread it's in, by
+    /// its room id: its mute, or a level of its own. Snapshots show the
+    /// change once Discord confirms it; a failure comes back as
+    /// [`Event::Error`].
+    ThreadNotifications {
+        room: String,
+        change: NotificationChange,
+    },
     Notifications {
         place: String,
         change: NotificationChange,
@@ -3549,6 +3709,10 @@ pub enum DiscordCommand {
         preview: Box<EventPreview>,
         interested: bool,
     },
+    /// What a server's Events dialog asks.
+    Events(EventsCommand),
+    /// Making a server.
+    NewServer(NewServerCommand),
     /// Look up a Discord gift by its code, before offering to redeem
     /// it. [`Event::GiftResolved`] follows.
     ResolveGift {
@@ -3588,6 +3752,13 @@ pub enum DiscordCommand {
     /// dialog; [`Event::ChannelLoaded`] follows.
     ChannelSettings {
         room: String,
+    },
+    /// Give a Discord forum, by its room id, these tags, in this order:
+    /// those left out are deleted. [`Event::ForumTagsSaved`] follows, and
+    /// snapshots show them once Discord confirms it.
+    ForumTags {
+        room: String,
+        tags: Vec<ForumTagEdit>,
     },
     /// Change a Discord channel's or category's settings, or delete it;
     /// [`Event::ChannelSaved`] follows.
@@ -3912,6 +4083,12 @@ pub enum DiscordCommand {
         server: String,
         action: BansAction,
     },
+    /// Make, change or delete one of a Discord server's AutoMod rules;
+    /// [`Event::AutomodDone`] follows.
+    Automod {
+        server: String,
+        ask: AutomodAsk,
+    },
     /// A page of a Discord server's audit log; [`Event::AuditLogLoaded`]
     /// follows.
     AuditLog {
@@ -4046,6 +4223,30 @@ pub enum BansAction {
     Unban(String),
 }
 
+/// What AutoMod asks of Discord.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AutomodAsk {
+    /// Make a rule; Discord gives it its id.
+    Create(Box<AutomodRule>),
+    /// Change a rule, by its id, to this.
+    Edit(Box<AutomodRule>),
+    /// Turn a rule on or off, by its id.
+    Enable {
+        rule: String,
+        enabled: bool,
+    },
+    Delete(String),
+}
+
+/// What an [`AutomodAsk`] did, by the rule's id once it has one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AutomodDid {
+    Created,
+    Edited(String),
+    Enabled(String),
+    Deleted(String),
+}
+
 /// What Roles does at once: each but [`RoleAction::Members`] and
 /// [`RoleAction::FindMembers`] is followed by [`Event::ServerSettingsSaved`]
 /// with the roles as they then stand.
@@ -4101,6 +4302,7 @@ pub enum SettingsSection {
     Roles,
     Invites,
     Safety,
+    AutoMod,
     AuditLog,
     Bans,
 }
@@ -4128,6 +4330,8 @@ pub enum ServerSettingsPage {
     Roles(ServerRoles),
     /// The first batch of the server's bans.
     Bans(Vec<Ban>),
+    /// The server's AutoMod rules.
+    AutoMod(Vec<AutomodRule>),
     /// The audit log's newest page.
     AuditLog(AuditLog),
     /// The newest members, as Members first finds them, and how many there
@@ -4215,6 +4419,104 @@ pub struct Ban {
     /// Why, as the moderator gave it; none from a ban made while Bans was
     /// open, as in Discord's client.
     pub reason: Option<String>,
+}
+
+/// What sets off an AutoMod rule: Discord's trigger type.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AutomodKind {
+    /// Words and regex patterns in a message (1).
+    Keyword,
+    /// What Discord takes for spam (3).
+    Spam,
+    /// Discord's lists of commonly flagged words (4).
+    Preset,
+    /// Too many mentions in a message (5).
+    MentionSpam,
+    /// Words in a member's names (6), when they join or change them.
+    MemberProfile,
+    /// A trigger BACKCORD doesn't set up, such as a server policy's.
+    Other(u8),
+}
+
+impl AutomodKind {
+    /// The kinds a rule may be made of, in Discord's order.
+    pub const ALL: [Self; 5] = [
+        Self::Keyword,
+        Self::Preset,
+        Self::Spam,
+        Self::MentionSpam,
+        Self::MemberProfile,
+    ];
+
+    pub fn from_trigger(trigger: u8) -> Self {
+        match trigger {
+            1 => Self::Keyword,
+            3 => Self::Spam,
+            4 => Self::Preset,
+            5 => Self::MentionSpam,
+            6 => Self::MemberProfile,
+            other => Self::Other(other),
+        }
+    }
+
+    pub fn trigger(self) -> u8 {
+        match self {
+            Self::Keyword => 1,
+            Self::Spam => 3,
+            Self::Preset => 4,
+            Self::MentionSpam => 5,
+            Self::MemberProfile => 6,
+            Self::Other(other) => other,
+        }
+    }
+
+    /// Discord's event type: 2 for a member's profile, 1 for a message.
+    pub fn event(self) -> u8 {
+        if self == Self::MemberProfile { 2 } else { 1 }
+    }
+}
+
+/// What an AutoMod rule does when it's set off.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AutomodAction {
+    /// Block the message, saying this to its author if given (1).
+    Block { message: Option<String> },
+    /// Post an alert in a channel, by its id (2).
+    Alert { channel: String },
+    /// Time the member out (3).
+    Timeout { seconds: u32 },
+    /// Keep the member from talking in the server until their names
+    /// change (4).
+    BlockInteraction,
+    /// An action BACKCORD doesn't know, kept as Discord sent it.
+    Other {
+        kind: u8,
+        metadata: serde_json::Value,
+    },
+}
+
+/// One of a server's AutoMod rules, as AutoMod lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AutomodRule {
+    pub id: String,
+    pub name: String,
+    pub kind: AutomodKind,
+    pub enabled: bool,
+    /// What a Keyword or Member Profile rule looks for, and the words it
+    /// lets through (a Preset rule's too).
+    pub keywords: Vec<String>,
+    pub regex: Vec<String>,
+    pub allowed: Vec<String>,
+    /// A Preset rule's lists: 1 profanity, 2 sexual content, 3 slurs.
+    pub presets: Vec<u8>,
+    /// A Mention Spam rule's most mentions, and whether it also watches
+    /// for mention raids.
+    pub mention_limit: u8,
+    pub raid_protection: bool,
+    pub actions: Vec<AutomodAction>,
+    /// Role and channel ids the rule leaves alone.
+    pub exempt_roles: Vec<String>,
+    pub exempt_channels: Vec<String>,
 }
 
 /// What Roles shows: a server's roles and what they may have.
@@ -4994,6 +5296,12 @@ pub enum Event {
     /// Whether Discord made, changed or deleted the channel a dialog asked
     /// it to: the room id of one it made, or why it didn't.
     ChannelSaved(Result<Option<String>, String>),
+    /// Whether Discord took a forum's tags, by the forum's room id, or why
+    /// not.
+    ForumTagsSaved {
+        room: String,
+        result: Result<(), String>,
+    },
     /// Whether Discord took a [`DiscordCommand::ChangeOverwrites`], or why
     /// not.
     OverwritesChanged {
@@ -5159,6 +5467,13 @@ pub enum Event {
         server: String,
         stickers: Vec<ServerSticker>,
     },
+    /// What [`DiscordCommand::Automod`] did: the rule as Discord now has
+    /// it (none once deleted), or why Discord refused.
+    AutomodDone {
+        server: String,
+        did: AutomodDid,
+        result: Result<Option<Box<AutomodRule>>, String>,
+    },
     /// Whether Discord lifted a user's ban, or why not.
     Unbanned {
         server: String,
@@ -5283,6 +5598,10 @@ pub enum Event {
         interested: bool,
         result: Result<(), String>,
     },
+    /// What Discord answered [`DiscordCommand::Events`].
+    Events(EventsAnswer),
+    /// What Discord answered [`DiscordCommand::NewServer`].
+    NewServer(NewServerAnswer),
     /// What the gift [`DiscordCommand::ResolveGift`] looked up by its
     /// code shows, or why Discord showed nothing.
     GiftResolved {
@@ -6329,7 +6648,7 @@ mod tests {
         };
         let forward = |room: &String, target: &String| Command::Forward {
             room: room.clone(),
-            item: "1".into(),
+            items: vec!["1".into()],
             target: target.clone(),
             note: None,
             silent: false,

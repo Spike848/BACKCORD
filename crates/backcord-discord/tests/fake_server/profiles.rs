@@ -18,7 +18,7 @@ async fn fetches_the_profile_frame_a_profile_names() {
         .await
         .unwrap();
     let sku = dave.frame.expect("Dave equips a frame");
-    assert!(dave.banner.unwrap().contains("/a_davebanner.png?"));
+    assert!(dave.banner.unwrap().contains("/a_davebanner.webp?"));
     let bob = discord.profile(&guild, &bob, |_| {}).await.unwrap();
     assert_eq!(bob.frame, None);
     // The shop describes its layers, the back ones first, and they're kept.

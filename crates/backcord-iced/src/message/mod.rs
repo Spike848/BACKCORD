@@ -159,13 +159,29 @@ pub fn message_content<'a>(
         );
     }
     if message.forwarded {
+        // Who wrote the original and where, as far as known, after the
+        // word, as Discord's client shows the place.
+        let mut said = backcord_iced_kit::i18n::tr("Forwarded").to_owned();
+        if let Some(from) = &message.forwarded_from {
+            if let Some(author) = &from.author {
+                said.push_str(" · ");
+                said.push_str(
+                    &backcord_iced_kit::i18n::tr("from {name}").replace("{name}", author),
+                );
+            }
+            if let Some(place) = &from.place {
+                said.push_str(" · ");
+                said.push_str(place);
+            }
+            if !from.time.is_empty() {
+                said.push_str(" · ");
+                said.push_str(&from.time);
+            }
+        }
         content = content.push(
             row![
                 ctx.look.glyph(Icon::Forward, 16, theme.muted),
-                text(backcord_iced_kit::i18n::tr("Forwarded"))
-                    .size(14)
-                    .font(ITALIC)
-                    .color(theme.muted)
+                text(said).size(14).font(ITALIC).color(theme.muted)
             ]
             .spacing(4)
             .align_y(Alignment::Center),

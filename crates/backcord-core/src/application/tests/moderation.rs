@@ -89,7 +89,8 @@ fn moderation_lists_safety_setup_with_manage_server_the_log_with_its_permission_
             SettingsSection::BoostPerks,
             SettingsSection::Members,
             SettingsSection::Invites,
-            SettingsSection::Safety
+            SettingsSection::Safety,
+            SettingsSection::AutoMod
         ]
     );
 }
@@ -245,4 +246,69 @@ fn only_ban_members_revokes_a_ban() {
     app.dispatch(Action::Bans(BanInput::Open("5".into())));
     assert!(bans(&app).open_ban().is_some());
     assert!(app.dispatch(Action::Bans(BanInput::Unban)).is_empty());
+}
+
+#[test]
+fn automod_loads_with_manage_server_and_sends_each_change_at_once() {
+    use crate::chat::{AutomodAction, AutomodAsk, AutomodDid, AutomodKind, AutomodRule};
+    let mut app = granting(permission::MANAGE_GUILD);
+    let loading = open(&mut app, SettingsSection::AutoMod);
+    assert!(matches!(
+        loading.as_slice(),
+        [Effect::Backend(Command::Discord(
+            DiscordCommand::ServerSettings {
+                section: SettingsSection::AutoMod,
+                ..
+            }
+        ))]
+    ));
+    let rule = AutomodRule {
+        id: "900".into(),
+        name: "Mentions".into(),
+        kind: AutomodKind::MentionSpam,
+        enabled: true,
+        keywords: vec![],
+        regex: vec![],
+        allowed: vec![],
+        presets: vec![],
+        mention_limit: 20,
+        raid_protection: false,
+        actions: vec![AutomodAction::Block { message: None }],
+        exempt_roles: vec![],
+        exempt_channels: vec![],
+    };
+    app.apply(Event::ServerSettingsLoaded {
+        server: SERVER.into(),
+        section: SettingsSection::AutoMod,
+        result: Ok(ServerSettingsPage::AutoMod(vec![rule.clone()])),
+    });
+    assert!(settings(&app).immediate());
+    let page = |app: &Application| match &settings(app).page {
+        Some(SettingsPage::AutoMod(page)) => page.rules.clone(),
+        _ => panic!("AutoMod isn't open"),
+    };
+    let sent = app.dispatch(Action::Automod(AutomodInput::Enable("900".into())));
+    assert!(matches!(
+        sent.as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::Automod {
+            server,
+            ask: AutomodAsk::Enable { rule, enabled: false },
+        }))] if server == SERVER && rule == "900"
+    ));
+    let mut off = rule;
+    off.enabled = false;
+    app.apply(Event::AutomodDone {
+        server: SERVER.into(),
+        did: AutomodDid::Enabled("900".into()),
+        result: Ok(Some(Box::new(off.clone()))),
+    });
+    assert_eq!(page(&app), [off]);
+    // Another server's answer isn't this page's.
+    app.apply(Event::AutomodDone {
+        server: "discord:11".into(),
+        did: AutomodDid::Deleted("900".into()),
+        result: Ok(None),
+    });
+    assert_eq!(page(&app).len(), 1);
+    assert!(!settings(&app).changed());
 }

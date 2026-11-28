@@ -32,6 +32,7 @@ fn a_member_below_gets_every_choice_in_discords_order() {
             ServerMute,
             ServerDeafen,
             Timeout,
+            RemoveTimeout,
             Kick,
             Ban,
             CopyId
@@ -197,7 +198,9 @@ fn roles_and_the_end_of_a_timeout_change_straight_from_the_menu() {
         reason: String::new(),
     };
     assert_eq!(change("7", end.clone()).len(), 1);
-    assert!(change("4", end).is_empty(), "Dave isn't timed out");
+    // Discord may not have said Dave is timed out: ending it goes anyway.
+    assert_eq!(change("4", end.clone()).len(), 1);
+    assert!(change("6", end).is_empty(), "Gus is an administrator");
     assert!(
         change(
             "4",
@@ -485,6 +488,7 @@ fn invite_to_server_lists_where_one_may_invite_but_the_server_theyre_shown_in() 
             ServerMute,
             ServerDeafen,
             Timeout,
+            RemoveTimeout,
             Kick,
             Ban,
             CopyId
@@ -610,6 +614,7 @@ fn in_a_voice_channel_the_menu_adds_what_the_call_offers_in_discords_order() {
             ServerDeafen,
             Disconnect,
             Timeout,
+            RemoveTimeout,
             Kick,
             Ban,
             CopyId

@@ -40,9 +40,11 @@ use crate::{
 mod account;
 mod app_commands;
 mod audit_log;
+mod automod;
 mod channels;
 mod commands;
 mod delete_all;
+mod events;
 mod explore;
 mod export;
 mod expressions;
@@ -99,6 +101,13 @@ pub enum Done {
         room: String,
         id: String,
         result: Result<Option<DiscordReply>, String>,
+    },
+    /// Who wrote a forward's original, by its id: none when Discord
+    /// didn't say.
+    Source {
+        room: String,
+        id: String,
+        author: Option<String>,
     },
     Sent {
         room: String,

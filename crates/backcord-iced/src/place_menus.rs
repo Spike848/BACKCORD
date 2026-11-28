@@ -170,6 +170,7 @@ fn place_menu(
         .map(|settings| Notify {
             category,
             in_category: core.category_of(id).is_some(),
+            thread: is_thread(state, id),
             settings,
         });
     let person = state
@@ -296,6 +297,7 @@ pub fn open_bell(app: &mut App, at: Point) -> Task<Message> {
     let notify = Notify {
         category: false,
         in_category: core.category_of(&room).is_some(),
+        thread: is_thread(&core.state, &room),
         settings,
     };
     let mut rows = vec![notify.mute_row(app.layout.prefs.twelve_hour_clock)];
@@ -591,12 +593,29 @@ struct Notify {
     category: bool,
     /// A channel listed under a category, whose default is the category's.
     in_category: bool,
+    /// A thread, whose levels are its thread member's, with no default to
+    /// choose: the one that applies is checked.
+    thread: bool,
     settings: Notifications,
+}
+
+/// Whether a room, by its id, is a Discord thread.
+fn is_thread(state: &backcord_core::application::AppState, id: &str) -> bool {
+    state
+        .rooms
+        .iter()
+        .any(|room| room.id == id && room.parent.is_some())
 }
 
 impl Notify {
     fn kind(&self) -> &'static str {
-        if self.category { "category" } else { "channel" }
+        if self.category {
+            "category"
+        } else if self.thread {
+            "thread"
+        } else {
+            "channel"
+        }
     }
 
     /// Mute for a time, in a submenu (a click on the row itself mutes
@@ -634,6 +653,11 @@ impl Notify {
     /// The levels, the one chosen checked; following the category's or the
     /// server's says which that is.
     fn levels(&self) -> Vec<MenuRow> {
+        let chosen = if self.thread {
+            Some(self.settings.level.unwrap_or(self.settings.inherited))
+        } else {
+            self.settings.level
+        };
         [
             None,
             Some(NotifyLevel::All),
@@ -641,6 +665,7 @@ impl Notify {
             Some(NotifyLevel::Nothing),
         ]
         .into_iter()
+        .filter(|level| level.is_some() || !self.thread)
         .map(|level| {
             let label = match level {
                 None if self.in_category => backcord_iced_kit::i18n::tr("Use category default"),
@@ -651,7 +676,7 @@ impl Notify {
                 subtitle: level
                     .is_none()
                     .then(|| level_name(self.settings.inherited).into()),
-                check: if self.settings.level == level {
+                check: if chosen == level {
                     Check::Current
                 } else {
                     Check::None

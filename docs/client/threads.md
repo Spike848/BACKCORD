@@ -5,10 +5,22 @@
 A Discord forum shows in place of a channel's messages and composer
 (`forum.rs`): a search of its posts'
 titles in the header's search box (`search::search_field`, its Clear
-showing the posts again) and New Post, then its posts as cards (tags, title with NEW, who
+showing the posts again) and New Post; under them Sort & View, a
+`Popover` menu of Sort by (Recent Activity, Creation Date) and View as
+(List, Gallery), the forum's tags as pills that show only the posts with
+those lit (`filter_row`), Clear, and Edit Tags where the core says this
+account may (`Application::may_edit_forum_tags`); then its posts as cards (tags, title with NEW, who
 wrote the first message and how it starts, the top reaction or the
-forum's own, replies, how long ago, the first picture), the active ones
-first and older ones a page at a time as the list nears its end. A click
+forum's own, replies, how long ago, the first picture), or in a gallery
+as 260 px tiles in rows that wrap (`post_tile`), the active ones
+first and older ones a page at a time as the list nears its end. The
+core sorts and filters them (`ForumView`'s `sort`, `gallery` and
+`tags`), so the cards only follow `ForumPosts`. Edit Tags
+(`tags_editor_view`) shows in the list's place, as New Post does: a row
+for each tag with its emoji, a field for its emoji (only an emoji pasted
+or picked takes, and taking a character away clears it), its name, the
+Moderated box and Delete; Add Tag, and Save. The custom emoji pictures
+of the forum's tags are kept with the cards' (`forum_pictures`). A click
 opens a post beside the forum, Shift and a click in its place. New Post
 shows the form in the list's place (`new_post_view`): the title, tags from
 a menu of up to five, the forum's post guidelines folding away, and the
@@ -34,8 +46,10 @@ width is kept in `layout.json` as it's let go, and a double click on the
 edge puts it back. It opens: from a
 message's thread chip (its name, how many messages, a chevron), View
 Thread in its menu, or a listed thread opened with Shift. Its head is the
-thread's icon and name, More (the thread's own menu: Leave thread, Copy
-link and the rest, as the sidebar's), Open in full view and Close. Its
+thread's icon and name, More (the thread's own menu: Leave thread, Mute
+thread and Notification settings, Copy link and the rest, as the
+sidebar's), Open in full view and Close. A thread's notification levels
+have no default row: `place_menus::Notify` checks the one that applies. Its
 messages are the channel's timeline's rows numbered from
 `timeline::ASIDE`, so a message's look, menu, hover bar (two quick
 reactions here), spoilers and selection work the same on either side;

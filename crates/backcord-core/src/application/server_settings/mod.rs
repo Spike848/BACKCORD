@@ -9,12 +9,13 @@ use super::*;
 use crate::{
     application::profile_editor::PictureEdit,
     chat::{
-        AuditLog, AuditQuery, Ban, BansAction, GuildSettings, Permission, PickedPicture,
-        ServerPicture, ServerSettingsChange, ServerSettingsPage, SettingsSection,
+        AuditLog, AuditQuery, AutomodDid, AutomodRule, Ban, BansAction, GuildSettings, Permission,
+        PickedPicture, ServerPicture, ServerSettingsChange, ServerSettingsPage, SettingsSection,
     },
 };
 
 mod audit_log;
+mod automod;
 mod bans;
 mod boost;
 mod engagement;
@@ -33,6 +34,9 @@ use audit_log::Known;
 pub use audit_log::{
     AUDIT_ACTIONS, AUDIT_PAGE, AuditInput, AuditKind, AuditLine, AuditLogPage, AuditRow,
     Span as AuditSpan, Words as AuditWords,
+};
+pub use automod::{
+    AUTOMOD_PRESETS, AUTOMOD_TIMEOUTS, AutomodForm, AutomodInput, AutomodPage, AutomodText,
 };
 pub use bans::{BANS_BATCH, BANS_PER_PAGE, BanInput, BansPage};
 pub use boost::BoostPage;
@@ -87,6 +91,7 @@ pub enum Page {
     Roles(Box<RolesPage>),
     Invites(Box<InvitesPage>),
     Safety(SafetyPage),
+    AutoMod(Box<AutomodPage>),
     AuditLog(Box<AuditLogPage>),
     Bans(Box<BansPage>),
 }
@@ -138,6 +143,7 @@ impl ServerSettings {
             | Page::Members(_)
             | Page::Invites(_)
             | Page::Safety(_)
+            | Page::AutoMod(_)
             | Page::AuditLog(_)
             | Page::Bans(_) => None,
         }
@@ -152,6 +158,7 @@ impl ServerSettings {
                 | SettingsSection::Members
                 | SettingsSection::Invites
                 | SettingsSection::Safety
+                | SettingsSection::AutoMod
                 | SettingsSection::AuditLog
                 | SettingsSection::Bans
         )
@@ -169,6 +176,7 @@ impl ServerSettings {
             | Page::Members(_)
             | Page::Invites(_)
             | Page::Safety(_)
+            | Page::AutoMod(_)
             | Page::AuditLog(_)
             | Page::Bans(_) => None,
         }
@@ -222,7 +230,7 @@ impl Application {
         }
         // Discord's Moderation.
         if self.may(server, Permission::ManageServer) {
-            sections.push(SettingsSection::Safety);
+            sections.extend([SettingsSection::Safety, SettingsSection::AutoMod]);
         }
         if self.may(server, Permission::ViewAuditLog) {
             sections.push(SettingsSection::AuditLog);
@@ -557,6 +565,39 @@ impl Application {
             .collect()
     }
 
+    /// Something done on AutoMod.
+    pub(super) fn automod_input(&mut self, input: AutomodInput) -> Vec<Effect> {
+        let Some(settings) = self.state.server_settings.as_mut() else {
+            return vec![];
+        };
+        let server = settings.server.clone();
+        let Some(Page::AutoMod(page)) = settings.page.as_mut() else {
+            return vec![];
+        };
+        page.input(input)
+            .map(|ask| Effect::Backend(Command::Discord(DiscordCommand::Automod { server, ask })))
+            .into_iter()
+            .collect()
+    }
+
+    /// What Discord did with what AutoMod asked, for the open AutoMod.
+    pub(super) fn automod_done(
+        &mut self,
+        server: String,
+        did: AutomodDid,
+        result: Result<Option<Box<AutomodRule>>, String>,
+    ) {
+        let page = self
+            .state
+            .server_settings
+            .as_mut()
+            .filter(|settings| settings.server == server)
+            .and_then(|settings| settings.page.as_mut());
+        if let Some(Page::AutoMod(page)) = page {
+            page.done(did, result);
+        }
+    }
+
     /// The open Bans, if it's this server's.
     fn bans_page(&mut self, server: &str) -> Option<&mut BansPage> {
         let settings = self
@@ -864,6 +905,7 @@ impl Application {
                 | Page::Members(_)
                 | Page::Invites(_)
                 | Page::Safety(_)
+                | Page::AutoMod(_)
                 | Page::AuditLog(_)
                 | Page::Bans(_),
             )
@@ -951,6 +993,7 @@ impl Application {
                 | Page::Stickers(_)
                 | Page::Members(_)
                 | Page::Roles(_)
+                | Page::AutoMod(_)
                 | Page::AuditLog(_)
                 | Page::Bans(_),
             )
@@ -1049,6 +1092,9 @@ impl Page {
             }
             (SettingsSection::Bans, ServerSettingsPage::Bans(bans)) => {
                 Self::Bans(Box::new(BansPage::new(bans)))
+            }
+            (SettingsSection::AutoMod, ServerSettingsPage::AutoMod(rules)) => {
+                Self::AutoMod(Box::new(AutomodPage::new(rules)))
             }
             _ => return None,
         })

@@ -47,6 +47,12 @@ pub struct Forward {
     note: String,
 }
 
+/// Opens Forward To for several messages at once, in the timeline's order.
+pub fn start_many(app: &mut crate::app::App, items: Vec<String>) -> Task<Message> {
+    app.client.dispatch(Action::StartForwardMany(items));
+    Task::batch([app.sync(), app.forward.open(app.client.state())])
+}
+
 /// Forward shows on messages that can be forwarded: Matrix forwards only
 /// from a verified device.
 pub fn allowed(state: &AppState) -> bool {

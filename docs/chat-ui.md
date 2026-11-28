@@ -348,12 +348,16 @@ errors make it taller than the minimum window. SSO and OAuth are still pending.
   touched the window for 15 seconds and while it is minimised, and go on
   from the frame they stopped on. Settings' "Play GIFs, emoji and stickers",
   at Always, plays them unfocused, but not while minimised, and at Never
-  keeps them all still. An animated custom emoji plays in message text,
-  in its reaction, in the quick reactions over a message and in its menu,
-  in the emoji picker's grid and on its card; in a status, a bio, a
-  topic, a search's results, the picker's rail and foot and the `:`
-  suggestions it shows its first frame. Only those in view play, and an
-  emoji shown many times at one size is decoded once.
+  keeps them all still. An animated custom emoji plays wherever Markdown
+  shows it (message text, a reply's quote, an embed, a bio, the topic's
+  card, a search's results), in its reaction, in the quick reactions over a
+  message and in its menu, in the emoji picker's grid, at its foot for the
+  one pointed at, and on its card, in the `:` suggestions, in a voice
+  channel's status, on a profile's custom status and activity, and in a
+  member list's status for the row under the pointer, as Discord plays
+  them; the picker's rail shows its first frame. Only those in view play, an emoji shown many times at one
+  size is decoded once, and each one's decoder goes with the first view
+  that doesn't show it.
 - Who reacted, as in Discord's client: half a second on a reaction shows a
   tooltip, ":tada: reacted by Ann, Bo, Cy, and 2 others", naming the first
   three by their name there, once they come (`Command::Reactors`, three at a

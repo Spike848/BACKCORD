@@ -11,8 +11,58 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::chat::{ForumTag, ListedThread, PostStarter, PostStarters};
+use crate::chat::{ForumTag, ForumTagEdit, ListedThread, PostStarter, PostStarters, ShownEmoji};
 use threads::ThreadList;
+
+/// The most tags a forum has, and the longest a tag's name may be, as
+/// Discord takes them.
+pub const FORUM_TAGS: usize = 20;
+pub const FORUM_TAG_NAME: usize = 50;
+
+/// How a forum's posts are sorted, as its Sort & View menu offers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ForumSort {
+    /// By their latest message, Discord's Recent Activity.
+    Activity,
+    /// By when they were made, Discord's Creation Date.
+    Creation,
+}
+
+/// A change to how the forum on screen shows its posts, from its header.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ForumViewChange {
+    Sort(ForumSort),
+    /// As a gallery of tiles, or with false a list.
+    Gallery(bool),
+    /// Shows only posts with this tag, by id, or any other chosen; chosen
+    /// again, no longer.
+    Tag(String),
+    ClearTags,
+}
+
+/// What Edit Tags was given, for the forum on screen.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ForumTagsInput {
+    Open,
+    /// A tag's name, its emoji as Unicode text (none when empty), and
+    /// whether only moderators give it, by its place in the list.
+    Name(usize, String),
+    Emoji(usize, String),
+    Moderated(usize, bool),
+    Add,
+    Remove(usize),
+    Save,
+    Close,
+}
+
+/// The forum's tags as Edit Tags changes them, while it's open.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ForumTagsEditor {
+    pub tags: Vec<ForumTagEdit>,
+    /// Discord is taking them.
+    pub saving: bool,
+    pub error: Option<String>,
+}
 
 /// How many cards want their first messages at first, and how many more
 /// each time the list scrolls near its end: a page.
@@ -38,6 +88,13 @@ pub struct ForumView {
     /// The last message read here when it opened, a snowflake: posts made
     /// after it, which this account never opened, are new.
     read: u64,
+    /// How its header sorts and lays out its posts, where chosen, else as
+    /// the forum's defaults say; and the tags it shows only posts with.
+    pub sort: Option<ForumSort>,
+    pub gallery: Option<bool>,
+    pub tags: Vec<String>,
+    /// Edit Tags, while it's open.
+    pub editor: Option<ForumTagsEditor>,
 }
 
 /// A forum's posts as it shows them.
@@ -51,6 +108,11 @@ pub struct ForumPosts {
     /// What a search of their titles found, while one shows: `None` while
     /// it's on its way, or why it failed.
     pub found: Option<Option<Result<Vec<ForumPost>, String>>>,
+    /// They're sorted by when they were made, and show as a gallery.
+    pub by_creation: bool,
+    pub gallery: bool,
+    /// Only posts with the tags chosen show.
+    pub filtered: bool,
 }
 
 /// A post as its card shows it.
@@ -75,6 +137,8 @@ pub struct ForumInfo {
     pub require_tag: bool,
     /// The emoji a post without reactions offers.
     pub reaction: Option<chat::ShownEmoji>,
+    /// Its posts show as a gallery by default.
+    pub gallery: bool,
 }
 
 impl ForumView {
@@ -256,27 +320,43 @@ impl Application {
             new: !thread.archived && !thread.opened && created(thread) > forum.read,
             thread: thread.clone(),
         };
+        let by_creation = forum
+            .sort
+            .map_or(info.by_creation, |sort| sort == ForumSort::Creation);
+        // Only those with a tag chosen, as Discord's tag filter matches some.
+        let tagged = |thread: &&ListedThread| {
+            forum.tags.is_empty() || thread.tags.iter().any(|tag| forum.tags.contains(tag))
+        };
         let mut active: Vec<_> = sections
             .joined
             .iter()
             .chain(&sections.other)
+            .filter(tagged)
             .map(post)
             .collect();
-        let order = |post: &ForumPost| match info.by_creation {
+        let order = |post: &ForumPost| match by_creation {
             true => created(&post.thread),
             false => post.thread.last,
         };
         active.sort_by_key(|post| (!post.thread.pinned, std::cmp::Reverse(order(post))));
+        let mut older: Vec<_> = sections.older.iter().filter(tagged).map(post).collect();
+        if by_creation {
+            older.sort_by_key(|post| std::cmp::Reverse(created(&post.thread)));
+        }
         let found = forum.list.search.as_ref().map(|search| {
-            search
-                .found
-                .as_ref()
-                .map(|found| found.clone().map(|found| found.iter().map(post).collect()))
+            search.found.as_ref().map(|found| {
+                found
+                    .clone()
+                    .map(|found| found.iter().filter(tagged).map(post).collect())
+            })
         });
         Some(ForumPosts {
             active,
-            older: sections.older.iter().map(post).collect(),
+            older,
             found,
+            by_creation,
+            gallery: forum.gallery.unwrap_or(info.gallery),
+            filtered: !forum.tags.is_empty(),
         })
     }
 
@@ -294,10 +374,185 @@ impl Application {
                 by_creation: forum.by_creation,
                 require_tag: forum.require_tag,
                 reaction: forum.reaction.as_ref().map(discord::shown_emoji),
+                gallery: forum.gallery,
             });
         }
         let _ = room;
         None
+    }
+
+    /// Sorts, lays out or filters the forum's posts, as its header does;
+    /// cards that come into view ask for their first messages.
+    pub(super) fn change_forum_view(&mut self, change: ForumViewChange) -> Vec<Effect> {
+        let room = match self.state.forum() {
+            Some(forum) => forum.list.room.clone(),
+            None => return vec![],
+        };
+        let known = self.forum_info(&room).unwrap_or_default().tags;
+        let Some(forum) = self.state.forum.as_mut() else {
+            return vec![];
+        };
+        match change {
+            ForumViewChange::Sort(sort) => forum.sort = Some(sort),
+            ForumViewChange::Gallery(gallery) => forum.gallery = Some(gallery),
+            ForumViewChange::Tag(tag) => {
+                if let Some(at) = forum.tags.iter().position(|chosen| *chosen == tag) {
+                    forum.tags.remove(at);
+                } else if known.iter().any(|known| known.id == tag) {
+                    forum.tags.push(tag);
+                }
+            }
+            ForumViewChange::ClearTags => forum.tags.clear(),
+        }
+        self.ask_starters()
+    }
+
+    /// Whether this account may change a forum's tags, by its room id: with
+    /// Manage Channels there, while Discord is connected.
+    pub fn may_edit_forum_tags(&self, room: &str) -> bool {
+        self.state.discord_online
+            && !self.state.preview
+            && self.may(room, chat::Permission::ManageChannels)
+    }
+
+    /// Edit Tags for the forum on screen: opened with its tags as Discord
+    /// has them, changed, then saved whole, as Discord's client saves them.
+    pub(super) fn forum_tags_input(&mut self, input: ForumTagsInput) -> Vec<Effect> {
+        let Some(room) = self.state.forum().map(|forum| forum.list.room.clone()) else {
+            return vec![];
+        };
+        if input == ForumTagsInput::Open {
+            if !self.may_edit_forum_tags(&room) {
+                return vec![];
+            }
+            let tags = self.forum_tag_edits(&room);
+            if let Some(forum) = self.state.forum.as_mut() {
+                forum.editor = Some(ForumTagsEditor {
+                    tags,
+                    ..ForumTagsEditor::default()
+                });
+            }
+            return vec![];
+        }
+        let Some(forum) = self.state.forum.as_mut() else {
+            return vec![];
+        };
+        if input == ForumTagsInput::Close {
+            forum.editor = None;
+            return vec![];
+        }
+        let Some(editor) = forum.editor.as_mut().filter(|editor| !editor.saving) else {
+            return vec![];
+        };
+        match input {
+            ForumTagsInput::Name(at, name) => {
+                if let Some(tag) = editor.tags.get_mut(at) {
+                    tag.name = name.chars().take(FORUM_TAG_NAME).collect();
+                }
+            }
+            ForumTagsInput::Emoji(at, emoji) => {
+                if let Some(tag) = editor.tags.get_mut(at) {
+                    let emoji = emoji.trim();
+                    tag.emoji_id = None;
+                    tag.emoji_name = (!emoji.is_empty()).then(|| emoji.to_owned());
+                    tag.shown = tag.emoji_name.clone().map(|text| ShownEmoji {
+                        text,
+                        picture: None,
+                    });
+                }
+            }
+            ForumTagsInput::Moderated(at, moderated) => {
+                if let Some(tag) = editor.tags.get_mut(at) {
+                    tag.moderated = moderated;
+                }
+            }
+            ForumTagsInput::Add => {
+                if editor.tags.len() < FORUM_TAGS {
+                    editor.tags.push(ForumTagEdit::default());
+                }
+            }
+            ForumTagsInput::Remove(at) => {
+                if at < editor.tags.len() {
+                    editor.tags.remove(at);
+                }
+            }
+            ForumTagsInput::Save => {
+                let tags: Vec<ForumTagEdit> = editor
+                    .tags
+                    .iter()
+                    .map(|tag| ForumTagEdit {
+                        name: tag.name.trim().to_owned(),
+                        ..tag.clone()
+                    })
+                    .collect();
+                if tags.iter().any(|tag| tag.name.is_empty()) {
+                    editor.error = Some("Every tag needs a name.".into());
+                    return vec![];
+                }
+                editor.saving = true;
+                editor.error = None;
+                return vec![Effect::Backend(Command::Discord(
+                    DiscordCommand::ForumTags { room, tags },
+                ))];
+            }
+            ForumTagsInput::Open | ForumTagsInput::Close => {}
+        }
+        vec![]
+    }
+
+    /// Discord took the forum's tags, which close Edit Tags, or says why not.
+    pub(super) fn forum_tags_saved(&mut self, room: &str, result: Result<(), String>) {
+        let Some(forum) = self
+            .state
+            .forum
+            .as_mut()
+            .filter(|forum| forum.list.room == room)
+        else {
+            return;
+        };
+        match result {
+            Ok(()) => forum.editor = None,
+            Err(error) => {
+                if let Some(editor) = forum.editor.as_mut() {
+                    editor.saving = false;
+                    editor.error = Some(error);
+                }
+            }
+        }
+    }
+
+    /// A forum's tags, by room id, as Edit Tags starts from them.
+    fn forum_tag_edits(&self, room: &str) -> Vec<ForumTagEdit> {
+        #[cfg(feature = "discord")]
+        if let Some((server, Some(channel), _)) = self.discord_place(room)
+            && let Some(forum) = server
+                .server
+                .channel(channel)
+                .and_then(|channel| channel.forum.as_deref())
+        {
+            use backcord_discord::forum::Emoji;
+            return forum
+                .tags
+                .iter()
+                .map(|tag| {
+                    let (emoji_id, emoji_name) = match &tag.emoji {
+                        Some(Emoji::Custom { id, name }) => (Some(id.clone()), Some(name.clone())),
+                        Some(Emoji::Unicode(name)) => (None, Some(name.clone())),
+                        None => (None, None),
+                    };
+                    ForumTagEdit {
+                        id: Some(tag.id.clone()),
+                        name: tag.name.clone(),
+                        moderated: tag.moderated,
+                        emoji_id,
+                        emoji_name,
+                        shown: tag.emoji.as_ref().map(discord::shown_emoji),
+                    }
+                })
+                .collect();
+        }
+        let _ = room;
+        Vec::new()
     }
 
     /// The last message read in a forum, by room id, as a snowflake.

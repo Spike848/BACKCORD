@@ -99,6 +99,9 @@ events! {
     GuildScheduledEventCreate = "GUILD_SCHEDULED_EVENT_CREATE",
     GuildScheduledEventUpdate = "GUILD_SCHEDULED_EVENT_UPDATE",
     GuildScheduledEventDelete = "GUILD_SCHEDULED_EVENT_DELETE",
+    /// Someone became interested in a scheduled event, or stopped being.
+    GuildScheduledEventUserAdd = "GUILD_SCHEDULED_EVENT_USER_ADD",
+    GuildScheduledEventUserRemove = "GUILD_SCHEDULED_EVENT_USER_REMOVE",
     GuildStickersUpdate = "GUILD_STICKERS_UPDATE",
     ChannelCreate = "CHANNEL_CREATE",
     ChannelUpdate = "CHANNEL_UPDATE",
@@ -229,6 +232,14 @@ mod tests {
             (
                 "GUILD_SCHEDULED_EVENT_DELETE",
                 Event::GuildScheduledEventDelete,
+            ),
+            (
+                "GUILD_SCHEDULED_EVENT_USER_ADD",
+                Event::GuildScheduledEventUserAdd,
+            ),
+            (
+                "GUILD_SCHEDULED_EVENT_USER_REMOVE",
+                Event::GuildScheduledEventUserRemove,
             ),
             ("GUILD_STICKERS_UPDATE", Event::GuildStickersUpdate),
             ("CHANNEL_CREATE", Event::ChannelCreate),

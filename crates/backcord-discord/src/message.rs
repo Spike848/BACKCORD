@@ -166,6 +166,10 @@ pub struct Message {
     /// shows as its own.
     #[serde(default)]
     pub forwarded: bool,
+    /// Where a forward's original is, as its reference names it: Discord
+    /// says nothing of who wrote it.
+    #[serde(default)]
+    pub forward_source: Option<ForwardSource>,
     /// Can be forwarded, as Discord's client decides from the message
     /// alone: written, and without a poll, a call or an activity.
     #[serde(default)]
@@ -410,6 +414,14 @@ impl ThreadLink {
                 .unwrap_or(false),
         })
     }
+}
+
+/// A forward's original: its server, none for a DM, its channel and its id.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ForwardSource {
+    pub guild: Option<String>,
+    pub channel: String,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -954,6 +966,16 @@ pub fn parse(value: &Value) -> Option<Message> {
         },
         pinned: value["pinned"].as_bool().unwrap_or(false),
         forwarded,
+        forward_source: forwarded
+            .then(|| {
+                let reference = &value["message_reference"];
+                Some(ForwardSource {
+                    guild: reference["guild_id"].as_str().map(str::to_owned),
+                    channel: reference["channel_id"].as_str()?.to_owned(),
+                    message: reference["message_id"].as_str()?.to_owned(),
+                })
+            })
+            .flatten(),
         forwardable: written(kind)
             && value["flags"].as_u64().unwrap_or_default() & !FORWARDABLE_FLAGS == 0
             && [
@@ -2799,6 +2821,14 @@ mod tests {
         }))
         .unwrap();
         assert!(message.forwarded && !message.editable);
+        assert_eq!(
+            message.forward_source,
+            Some(ForwardSource {
+                guild: Some("10".into()),
+                channel: "12".into(),
+                message: "9".into(),
+            })
+        );
         assert_eq!(message.content, "look");
         assert_eq!(
             message.attachments[0].video_url.as_deref(),

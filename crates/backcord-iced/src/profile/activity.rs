@@ -114,7 +114,10 @@ pub fn activity_card_view<'a>(
                 emoji: activity.name_emoji.clone(),
                 ..Status::default()
             };
-            ctx.status_line(status, StatusInk::words(14.0, SEMIBOLD, inks.ink))
+            ctx.status_line(
+                status,
+                StatusInk::words(14.0, SEMIBOLD, inks.ink).playing(true),
+            )
         }
     };
     lines = lines.push(title);

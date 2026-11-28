@@ -4161,3 +4161,95 @@ Share sound	Condividi audio
 Others hear your computer's sound with the stream	Gli altri sentono l'audio del computer con lo stream
 Sound on	Audio sì
 Sound off	Audio no
+HIGH-PASS FILTER	FILTRO PASSA-ALTO
+Takes what's under the frequency out of the others' voices: 100 Hz rumble and hum, 150 Hz also the pops and boom of a close microphone, 200 Hz a thinner voice, like a radio.	Toglie dalle voci degli altri ciò che sta sotto la frequenza: 100 Hz rombi e ronzii, 150 Hz anche gli scoppi e il rimbombo di un microfono vicino, 200 Hz una voce più sottile, tipo radio.
+VOICE COMPRESSOR	COMPRESSORE VOCALE
+Evens out each person's voice, so loud and quiet people sound closer. Light (2:1) only smooths the peaks; Medium (4:1) brings voices close; Strong (8:1) makes everyone sound about as loud.	Uniforma la voce di ognuno, così chi parla forte e chi parla piano si sentono più vicini. Minima (2:1) smussa solo i picchi; Media (4:1) avvicina le voci; Forte (8:1) fa sentire tutti quasi allo stesso volume.
+from {name}	da {name}
+Forward ({})	Inoltra ({})
+Forward selection ({})	Inoltra selezione ({})
+You can't forward a message whose content you can't read.	Non puoi inoltrare un messaggio di cui non puoi leggere il contenuto.
+AutoMod	AutoMod
+AutoMod blocks words, spam and mention spam before moderators have to. Each change to a rule is saved at once.	AutoMod blocca parole, spam e menzioni di massa prima che debbano farlo i moderatori. Ogni modifica a una regola viene salvata subito.
+CHOOSE A RULE TYPE	SCEGLI UN TIPO DI REGOLA
+Create Rule	Crea regola
+Every kind of rule is at its limit.	Ogni tipo di regola ha raggiunto il limite.
+This server has no AutoMod rules yet.	Questo server non ha ancora regole AutoMod.
+Edit Rule	Modifica regola
+RULE NAME	NOME DELLA REGOLA
+KEYWORDS	PAROLE CHIAVE
+Separate keywords with commas or new lines. Put * at a word's start or end to match part of a word.	Separa le parole chiave con virgole o a capo. Metti * all'inizio o alla fine di una parola per trovarne una parte.
+REGEX PATTERNS	ESPRESSIONI REGOLARI
+One pattern a line, in Rust's regex syntax.	Un'espressione per riga, nella sintassi regex di Rust.
+LISTS	ELENCHI
+ALLOWED WORDS	PAROLE CONSENTITE
+Words that never set the rule off, separated with commas or new lines.	Parole che non fanno mai scattare la regola, separate da virgole o a capo.
+MENTION LIMIT	LIMITE DI MENZIONI
+The most role and user mentions a message may have, from 1 to 50.	Quante menzioni di ruoli e utenti può avere al massimo un messaggio, da 1 a 50.
+Mention raid protection	Protezione dai raid di menzioni
+Also catch members who spread mentions across many messages.	Ferma anche i membri che distribuiscono le menzioni su molti messaggi.
+Discord decides what looks like spam; there's nothing more to set.	Discord decide cosa sembra spam; non c'è altro da impostare.
+The rule's exempt roles and channels stay as they are.	I ruoli e i canali esclusi dalla regola restano come sono.
+Save Rule	Salva regola
+ACTIONS	AZIONI
+Block message	Blocca il messaggio
+What the author is told (optional)	Cosa viene detto all'autore (facoltativo)
+Send an alert to a channel	Invia un avviso in un canale
+Time out the member	Metti il membro in timeout
+Block member interactions	Blocca le interazioni del membro
+They can't talk in the server until they change their names.	Non potrà scrivere nel server finché non cambia i suoi nomi.
+Delete Rule	Elimina regola
+Block messages with words or patterns you choose. A server can have up to 6 of these.	Blocca i messaggi con parole o espressioni scelte da te. Un server può averne fino a 6.
+Block words from Discord's lists of profanity, sexual content and slurs.	Blocca le parole degli elenchi di Discord di volgarità, contenuti sessuali e insulti.
+Block messages Discord suspects are spam.	Blocca i messaggi che Discord sospetta siano spam.
+Block messages with too many role and user mentions.	Blocca i messaggi con troppe menzioni di ruoli e utenti.
+Keep members whose names have words you choose from talking in the server.	Impedisce di scrivere nel server ai membri i cui nomi contengono parole scelte da te.
+A rule set up in Discord's app.	Una regola creata nell'app di Discord.
+Block Custom Words	Blocca parole personalizzate
+Block Commonly Flagged Words	Blocca parole segnalate di frequente
+Block Suspected Spam Content	Blocca contenuti sospetti di spam
+Block Mention Spam	Blocca lo spam di menzioni
+Block Words in Member Profile Names	Blocca parole nei nomi dei profili dei membri
+Other rule	Altra regola
+Give the rule a name.	Dai un nome alla regola.
+A rule's name can be up to 100 characters.	Il nome di una regola può avere al massimo 100 caratteri.
+Add a keyword or a regex pattern.	Aggiungi una parola chiave o un'espressione regolare.
+A rule can have up to 1000 keywords.	Una regola può avere al massimo 1000 parole chiave.
+Each keyword can be up to 60 characters.	Ogni parola chiave può avere al massimo 60 caratteri.
+A rule can have up to 10 regex patterns.	Una regola può avere al massimo 10 espressioni regolari.
+Each regex pattern can be up to 260 characters.	Ogni espressione regolare può avere al massimo 260 caratteri.
+A rule can allow up to 100 words.	Una regola può consentire al massimo 100 parole.
+A rule can allow up to 1000 words.	Una regola può consentire al massimo 1000 parole.
+Each allowed word can be up to 60 characters.	Ogni parola consentita può avere al massimo 60 caratteri.
+Choose at least one list.	Scegli almeno un elenco.
+The mention limit is from 1 to 50.	Il limite di menzioni va da 1 a 50.
+The custom message can be up to 150 characters.	Il messaggio personalizzato può avere al massimo 150 caratteri.
+Choose a channel for the alerts.	Scegli un canale per gli avvisi.
+Choose at least one action.	Scegli almeno un'azione.
+60 seconds	60 secondi
+10 minutes	10 minuti
+Profanity	Volgarità
+Sexual Content	Contenuti sessuali
+Slurs	Insulti
+Couldn't save the rule: {}	Impossibile salvare la regola: {}
+Couldn't turn the rule on or off: {}	Impossibile attivare o disattivare la regola: {}
+Couldn't delete the rule: {}	Impossibile eliminare la regola: {}
+Delete the rule {}? This can't be undone.	Eliminare la regola {}? Non si può annullare.
+Sort & View	Ordina e visualizza
+Recent Activity	Attività recente
+Creation Date	Data di creazione
+View as	Visualizza come
+List	Elenco
+Gallery	Galleria
+Clear	Cancella
+Edit Tags	Modifica tag
+No posts match the tags chosen.	Nessun post ha i tag scelti.
+Tags help people find posts. Moderated tags can only be given by members with Manage Threads.	I tag aiutano a trovare i post. I tag moderati possono essere assegnati solo dai membri con il permesso Gestisci thread.
+Add Tag	Aggiungi tag
+Tag name	Nome del tag
+Moderated	Moderato
+Delete Tag	Elimina tag
+Every tag needs a name.	Ogni tag ha bisogno di un nome.
+Couldn't save the tags: {}	Impossibile salvare i tag: {}
+change the thread's notification settings	cambiare le impostazioni delle notifiche del thread
+A thread has no such setting.	Un thread non ha questa impostazione.

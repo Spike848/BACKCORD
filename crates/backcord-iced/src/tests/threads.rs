@@ -445,6 +445,52 @@ fn a_forum_post_opened_in_place_has_its_bar_under_the_header() {
 }
 
 #[test]
+fn a_joined_threads_menu_offers_its_own_notifications() {
+    use backcord_core::chat::{Command, DiscordCommand, NotificationChange, NotifyLevel};
+    let (mut app, _folder) = forum_post_open();
+    let room = "discord:10:45";
+    let _ =
+        crate::place_menus::open_place_menu(&mut app, room, iced::Point::new(100.0, 100.0), false);
+    let menu = app.win.menu.as_ref().expect("the thread's menu");
+    let labels: Vec<String> = menu.rows.iter().map(|row| row.label.to_string()).collect();
+    for label in ["Leave thread", "Mute thread", "Notification settings"] {
+        assert!(labels.contains(&label.to_owned()), "{label}: {labels:?}");
+    }
+    // Its levels have no default to follow: the one that applies, its
+    // channel's, is checked.
+    let at = labels
+        .iter()
+        .position(|label| label == "Notification settings")
+        .unwrap();
+    let levels: Vec<(String, crate::controls::Check)> = menu.rows[at]
+        .submenu
+        .iter()
+        .map(|row| (row.label.to_string(), row.check))
+        .collect();
+    assert_eq!(
+        levels,
+        [
+            ("All messages".into(), crate::controls::Check::None),
+            ("Only @mentions".into(), crate::controls::Check::Current),
+            ("Nothing".into(), crate::controls::Check::None),
+        ]
+    );
+    app.client.sent.clear();
+    let _ = app.update(crate::app::Message::Menu(crate::menus::Event::Choose(at)));
+    let _ = app.update(crate::app::Message::Menu(crate::menus::Event::SubChoose(2)));
+    assert!(
+        app.client.sent.iter().any(|command| matches!(
+            command,
+            Command::Discord(DiscordCommand::ThreadNotifications {
+                room: sent,
+                change: NotificationChange::Level(Some(NotifyLevel::Nothing)),
+            }) if sent == room
+        )),
+        "Nothing goes to the thread's member"
+    );
+}
+
+#[test]
 fn a_forum_posts_bar_waits_for_its_first_message_to_react_and_a_channel_has_none() {
     let (mut app, _folder) = forum_post_open();
     change(&mut app, |state| {
@@ -481,4 +527,127 @@ fn a_forums_row_counts_its_posts_mentions_and_the_server_counts_them_once() {
         .expect("the server's tile");
     // The fixture's #general has a mention of its own.
     assert_eq!(server.badge, "3", "the post's mentions count once");
+}
+
+#[test]
+fn a_forums_header_sorts_filters_lays_out_and_edits_its_tags() {
+    use backcord_core::{
+        application::{Action, ForumSort, Navigation},
+        backcord_discord::ready,
+    };
+    let (mut app, _folder) = super::server::discord_server(
+        ready::permission::READ_MESSAGE_HISTORY | ready::permission::MANAGE_CHANNELS,
+        |server, _| {
+            let forum = ready::server(&serde_json::json!({
+                "id": "10", "owner_id": "99", "properties": {"name": "Test"},
+                "roles": [{"id": "10", "name": "@everyone", "position": 0, "permissions": "0"}],
+                "channels": [{"id": "15", "type": 15, "name": "ideas", "position": 2,
+                              "available_tags": [
+                                  {"id": "7", "name": "Bug", "emoji_id": null, "emoji_name": "🐛"},
+                                  {"id": "8", "name": "Idea", "emoji_id": null, "emoji_name": null},
+                              ]}],
+                "threads": [
+                    {"id": "45", "type": 11, "name": "Dark mode", "parent_id": "15",
+                     "guild_id": "10", "last_message_id": "45", "message_count": 1,
+                     "applied_tags": ["8"], "thread_metadata": {"archived": false, "locked": false}},
+                    {"id": "46", "type": 11, "name": "Crash on start", "parent_id": "15",
+                     "guild_id": "10", "last_message_id": "46", "message_count": 1,
+                     "applied_tags": ["7"], "thread_metadata": {"archived": false, "locked": false}},
+                ],
+            }))
+            .expect("the forum");
+            server.text_channels.extend(forum.text_channels);
+            server.threads.extend(forum.threads);
+        },
+    );
+    app.client
+        .dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.client
+        .dispatch(Action::SelectRoom("discord:10:15".into()));
+    let _ = app.sync();
+    for words in [
+        "Sort & View",
+        "Bug",
+        "Idea",
+        "Edit Tags",
+        "Dark mode",
+        "Crash on start",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
+    // A tag shows only the posts with it, and Clear all of them again.
+    interact(&mut app, |ui| {
+        ui.click("Bug").expect("the Bug tag");
+    });
+    assert_eq!(
+        app.client.state().forum().map(|forum| forum.tags.clone()),
+        Some(vec!["7".to_owned()])
+    );
+    // The posts' threads list in the sidebar too, so the core says which show.
+    let shown = |app: &crate::app::App| -> Vec<String> {
+        app.client
+            .app
+            .forum_posts()
+            .map(|posts| {
+                posts
+                    .active
+                    .iter()
+                    .map(|post| post.thread.name.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    assert_eq!(
+        shown(&app),
+        ["Crash on start"],
+        "a post without the tag goes"
+    );
+    interact(&mut app, |ui| {
+        ui.click("Clear").expect("Clear");
+    });
+    assert_eq!(shown(&app).len(), 2);
+    // Sort & View sorts by when they were made, then lays them out as tiles.
+    interact(&mut app, |ui| {
+        ui.click("Sort & View").expect("Sort & View");
+    });
+    for words in ["Recent Activity", "Creation Date", "List", "Gallery"] {
+        assert!(shows(&app, words), "{words}");
+    }
+    interact(&mut app, |ui| {
+        ui.click("Creation Date").expect("Creation Date");
+    });
+    assert_eq!(
+        app.client.state().forum().and_then(|forum| forum.sort),
+        Some(ForumSort::Creation)
+    );
+    assert!(!app.forum_post.sort_menu, "a choice closes the menu");
+    interact(&mut app, |ui| {
+        ui.click("Sort & View").expect("Sort & View");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Gallery").expect("Gallery");
+    });
+    assert!(app.forum_post.gallery);
+    // Edit Tags shows the forum's in place of its posts.
+    interact(&mut app, |ui| {
+        ui.click("Edit Tags").expect("Edit Tags");
+    });
+    assert!(shows(&app, "Add Tag"));
+    assert!(!shows(&app, "Sort & View"), "in place of the posts");
+    let editor = app
+        .client
+        .state()
+        .forum()
+        .and_then(|forum| forum.editor.clone());
+    assert_eq!(editor.map(|editor| editor.tags.len()), Some(2));
+    interact(&mut app, |ui| {
+        ui.click("Add Tag").expect("Add Tag");
+    });
+    let tags = app
+        .client
+        .state()
+        .forum()
+        .and_then(|forum| forum.editor.as_ref())
+        .map_or(0, |editor| editor.tags.len());
+    assert_eq!(tags, 3);
 }

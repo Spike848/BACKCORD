@@ -376,6 +376,11 @@ pub(crate) fn media_menu(app: &mut App, item: String, index: usize, video: bool)
         });
         return iced::widget::operation::focus(crate::app::NOBODY);
     }
+    // A picture or video of one of several messages picked opens the
+    // menu of them all, as a click on their text does.
+    if let Some(task) = crate::timeline::picks::open_if_picked(app, &item, at) {
+        return task;
+    }
     // In the timeline, or the thread beside, the message's own rows
     // come first.
     let Some(row) = crate::timeline::row_of(app, &item) else {

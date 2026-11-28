@@ -119,6 +119,14 @@ fn typing_a_slash_offers_commands_that_fit_the_channel() {
     // Typing narrows them, without asking again.
     assert_eq!(fetches(&app.dispatch(Action::SetDraft("/e".into()))), 0);
     assert_eq!(names(&app), ["echo"]);
+    // As Discord's fuzzy search: a word typed for each of the name's, and
+    // from three letters on, some skipped.
+    app.dispatch(Action::SetDraft("/c s".into()));
+    assert_eq!(names(&app), ["config set"]);
+    app.dispatch(Action::SetDraft("/cfgs".into()));
+    assert_eq!(names(&app), ["config set"]);
+    app.dispatch(Action::SetDraft("/ec".into()));
+    assert_eq!(names(&app), ["echo"]);
     // Escape closes the picker until the `/` goes.
     app.dispatch(Action::CloseCommand(false));
     assert!(app.command_rows().is_empty());
@@ -192,8 +200,9 @@ fn a_command_with_missing_required_options_does_not_send() {
     assert_eq!(errors(&app), [None, None]);
     assert_eq!(runs(app.dispatch(Action::Send)), 0);
     assert_eq!(errors(&app), [Some("Required".into()), None]);
-    // The composer writes the focused option; Tab moves on.
-    app.dispatch(Action::SetDraft("hi".into()));
+    // The composer writes the focused option, lines and all (Shift+Enter),
+    // as Discord takes them; Tab moves on.
+    app.dispatch(Action::SetDraft("hi\nthere".into()));
     app.dispatch(Action::FocusCommandOption(1));
     assert_eq!(app.state.draft(), "");
     app.dispatch(Action::SetDraft("9".into()));
@@ -203,7 +212,7 @@ fn a_command_with_missing_required_options_does_not_send() {
     assert_eq!(errors(&app), [None, Some("Must be a whole number".into())]);
     // Back on the first option, its text is there to change.
     app.dispatch(Action::FocusCommandOption(0));
-    assert_eq!(app.state.draft(), "hi");
+    assert_eq!(app.state.draft(), "hi\nthere");
     app.dispatch(Action::FocusCommandOption(1));
     app.dispatch(Action::SetDraft("3".into()));
     let Some(Effect::Backend(Command::Discord(DiscordCommand::RunCommand(run)))) =
@@ -214,7 +223,7 @@ fn a_command_with_missing_required_options_does_not_send() {
     assert_eq!(
         run.options,
         serde_json::json!([
-            {"type": 3, "name": "text", "value": "hi"},
+            {"type": 3, "name": "text", "value": "hi\nthere"},
             {"type": 4, "name": "times", "value": 3}
         ])
     );

@@ -22,6 +22,9 @@ pub enum Route {
     Authorize { query: String },
     /// A gift, such as Nitro, by its code.
     Gift { code: String },
+    /// A server template, by its code: `discord.new/{code}`, or
+    /// `/template/{code}` on Discord's web hosts.
+    Template { code: String },
     /// A server's scheduled event, by the server and the event. A link to
     /// one occurrence of a recurring event names the whole series.
     Event { guild: String, event: String },
@@ -46,7 +49,7 @@ pub enum Route {
 /// This takes Discord's web links, `discord://-/...` app links, and the
 /// same paths under `backcord://` for a caller handing a link to BACKCORD.
 /// It deliberately leaves pages BACKCORD has no screen for, such as the
-/// shop and server templates, for their own handling or the browser.
+/// shop, for their own handling or the browser.
 pub fn parse(link: &str) -> Option<Route> {
     parse_written(link).map(|(route, _)| route)
 }
@@ -96,6 +99,12 @@ fn route(url: &Url) -> Option<Route> {
                     _ => None,
                 };
             }
+            if host == "discord.new" {
+                return match segments.as_slice() {
+                    [code] => template(code),
+                    _ => None,
+                };
+            }
             if !web_host(url) {
                 return None;
             }
@@ -139,6 +148,7 @@ fn from_segments(segments: &[&str]) -> Option<Route> {
     match segments {
         ["invite", code] => invite(code),
         ["gifts", code] => gift(code),
+        ["template", code] => template(code),
         // Discord's client adds the occurrence of a recurring event as a
         // third id; BACKCORD shows the series.
         ["events", guild, event, occurrence @ ..]
@@ -181,6 +191,12 @@ fn from_segments(segments: &[&str]) -> Option<Route> {
 fn invite(code: &str) -> Option<Route> {
     let code = code.strip_suffix('.').unwrap_or(code);
     crate::invite::valid(code).then(|| Route::Invite {
+        code: code.to_owned(),
+    })
+}
+
+fn template(code: &str) -> Option<Route> {
+    crate::guild_template::code(code).then(|| Route::Template {
         code: code.to_owned(),
     })
 }
@@ -342,6 +358,24 @@ mod tests {
     }
 
     #[test]
+    fn reads_server_template_links() {
+        for link in [
+            "https://discord.new/aTemplateCode",
+            "https://www.discord.new/aTemplateCode/",
+            "https://discord.com/template/aTemplateCode",
+            "discord://-/template/aTemplateCode",
+        ] {
+            assert_eq!(
+                parse(link),
+                Some(Route::Template {
+                    code: "aTemplateCode".into()
+                }),
+                "{link}"
+            );
+        }
+    }
+
+    #[test]
     fn leaves_other_pages_and_look_alikes_alone() {
         for link in [
             // Discord pages with no BACKCORD screen behind this router.
@@ -359,7 +393,7 @@ mod tests {
             "https://discord.com/oauth2/authorize?client_id=157730590492196864",
             "https://discord.com/oauth2/authorize?client_id=157730590492196864&scope=webhook.incoming",
             "https://discord.com/oauth2/authorize?client_id=157730590492196864&scope=identify&scope=bot",
-            "https://discord.new/aTemplateCode",
+            "https://discord.new/not-a-code",
             "https://discord.com/shop",
             // Hosts that merely contain or resemble Discord's.
             "https://discord.com.example.com/channels/10/11",

@@ -215,6 +215,10 @@ pub struct OpenChannel {
     /// channel to open again. One that's answered leaves, as its replies then
     /// quote it, and a reply to it that comes later looks it up again.
     originals: HashMap<String, bool>,
+    /// Who wrote the originals of forwards on screen, by the original's id,
+    /// each asked for once: none while asked, or once Discord didn't say
+    /// (the channel unreadable, or the message gone).
+    sources: HashMap<String, Option<String>>,
     pub(super) previews: SharedPreviews,
     /// The image fetched ahead for the viewer as the pointer came onto it.
     ahead: Arc<Mutex<Option<Ahead>>>,
@@ -296,6 +300,7 @@ impl OpenChannel {
             requested: HashSet::new(),
             visible: HashSet::new(),
             originals: HashMap::new(),
+            sources: HashMap::new(),
             previews: SharedPreviews::default(),
             ahead: Arc::default(),
             rendered: HashMap::new(),
@@ -1378,6 +1383,66 @@ impl OpenChannel {
             .collect()
     }
 
+    /// Asks Discord who wrote the originals of the forwards on screen, one
+    /// after another, each once.
+    fn load_sources(&mut self, discord: &Discord, done: &UnboundedSender<Done>) {
+        let wanted: Vec<backcord_discord::message::ForwardSource> = self
+            .visible
+            .iter()
+            .filter_map(|order| self.shown.messages.get(order)?.forward_source.clone())
+            .filter(|source| !self.sources.contains_key(&source.message))
+            .collect();
+        if wanted.is_empty() {
+            return;
+        }
+        for source in &wanted {
+            self.sources.insert(source.message.clone(), None);
+        }
+        let (discord, done, room) = (discord.clone(), done.clone(), self.room.clone());
+        self.tasks.spawn(async move {
+            for source in wanted {
+                let guild = source
+                    .guild
+                    .as_deref()
+                    .unwrap_or(backcord_discord::ready::PRIVATE);
+                let author = match discord
+                    .original(guild, &source.channel, &source.message)
+                    .await
+                {
+                    Ok(Some(DiscordReply::Message {
+                        author_id, author, ..
+                    })) => Some(discord.name(guild, &author_id).unwrap_or(author)),
+                    _ => None,
+                };
+                let _ = done.send(Done::Source {
+                    room: room.clone(),
+                    id: source.message,
+                    author,
+                });
+            }
+        });
+    }
+
+    /// Who wrote a forward's original, as Discord said: its forwards show it.
+    pub(super) fn source(&mut self, id: &str, author: Option<String>) {
+        if author.is_none() {
+            return;
+        }
+        self.sources.insert(id.to_owned(), author);
+        let forwards = |message: &Message| {
+            message
+                .forward_source
+                .as_ref()
+                .is_some_and(|source| source.message == id)
+        };
+        for run in std::iter::once(&mut self.shown).chain(self.latest.as_mut()) {
+            for (order, _) in run.messages.iter().filter(|(_, message)| forwards(message)) {
+                self.rendered.remove(order);
+                self.dirty = true;
+            }
+        }
+    }
+
     /// Asks Discord for the originals of the replies on screen, one after
     /// another.
     fn load_originals(&mut self, discord: &Discord, done: &UnboundedSender<Done>) {
@@ -1385,6 +1450,7 @@ impl OpenChannel {
         if discord.snapshots().borrow().status != Status::Online {
             return;
         }
+        self.load_sources(discord, done);
         let wanted = self.originals_wanted();
         if wanted.is_empty() {
             return;
@@ -1950,6 +2016,30 @@ impl OpenChannel {
                         .is_some_and(|joined| now.saturating_sub(joined) < NEW_MEMBER_MS)
             },
             forwarded: message.forwarded,
+            forwarded_from: message.forward_source.as_ref().map(|source| {
+                let place = match &source.guild {
+                    Some(guild) => snapshot
+                        .servers
+                        .iter()
+                        .find(|server| server.id == *guild)
+                        .map(|server| match server.server.channel_name(&source.channel) {
+                            Some(channel) => format!("#{channel} · {}", server.server.name),
+                            None => server.server.name.clone(),
+                        }),
+                    None => snapshot
+                        .conversations
+                        .iter()
+                        .find(|conversation| conversation.id == source.channel)
+                        .map(|conversation| conversation.name.clone()),
+                };
+                crate::chat::ForwardedFrom {
+                    author: self.sources.get(&source.message).cloned().flatten(),
+                    place,
+                    time: crate::clock::time(
+                        backcord_discord::message::snowflake_ms(&source.message) / 1000,
+                    ),
+                }
+            }),
             body,
             formatted: ordinary,
             time: crate::clock::time(timestamp),

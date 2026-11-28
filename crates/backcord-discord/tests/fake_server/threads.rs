@@ -45,6 +45,72 @@ async fn joins_and_leaves_threads_as_discords_client_does() {
     );
 }
 
+/// Changing this account's notifications in a thread it's in, as Discord's
+/// client does from the thread's menu: a level of its own, then a mute.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn changes_a_threads_notifications_as_discords_client_does() {
+    use backcord_discord::notifications::{Change, Level};
+    let fixture = Fixture::start("changes_a_threads_notifications_as_discords_client_does").await;
+    let discord = &fixture.discord;
+    let server = fixture.server;
+    let plans = |snapshot: &Snapshot| {
+        snapshot.servers[0]
+            .threads
+            .iter()
+            .find(|thread| thread.name == "Plans")
+            .and_then(|thread| Some((thread.id.clone(), thread.thread.as_deref()?.clone())))
+    };
+    discord.view(&fixture.guild, Some(&fixture.general));
+    let (id, thread) =
+        plans(&*snapshot_where(discord, |snapshot| plans(snapshot).is_some()).await).unwrap();
+    assert!(thread.joined && thread.level.is_none() && !thread.mute.muted);
+    discord
+        .change_thread_notifications(&id, Change::Level(Some(Level::Nothing)))
+        .await
+        .unwrap();
+    snapshot_where(discord, |snapshot| {
+        plans(snapshot).is_some_and(|(_, thread)| thread.level == Some(Level::Nothing))
+    })
+    .await;
+    discord
+        .change_thread_notifications(
+            &id,
+            Change::Mute {
+                muted: true,
+                seconds: Some(900),
+            },
+        )
+        .await
+        .unwrap();
+    let snapshot = snapshot_where(discord, |snapshot| {
+        plans(snapshot).is_some_and(|(_, thread)| thread.mute.muted)
+    })
+    .await;
+    let (_, thread) = plans(&snapshot).unwrap();
+    // The level stays, and the mute ends a quarter of an hour on.
+    assert_eq!(thread.level, Some(Level::Nothing));
+    assert!(thread.mute.until.is_some());
+    // A thread has no default to follow.
+    assert!(
+        discord
+            .change_thread_notifications(&id, Change::Level(None))
+            .await
+            .is_err()
+    );
+    let sent: serde_json::Value = serde_json::from_str(&self::control(
+        server,
+        "GET",
+        "/_control/thread-settings",
+        "",
+    ))
+    .unwrap();
+    assert_eq!(sent[0]["flags"], 8);
+    assert_eq!(sent[1]["muted"], true);
+    assert_eq!(sent[1]["mute_config"]["selected_time_window"], 900);
+    assert!(sent[1]["mute_config"]["end_time"].is_string());
+}
+
 /// A forum's posts and what their cards show, as Discord's client loads
 /// them; part of [`talks_to_the_fake_server`], whose session it shares.
 #[tokio::test(flavor = "multi_thread")]
@@ -492,4 +558,76 @@ async fn starts_threads_as_discords_client_does() {
             "location": "Thread Browser Toolbar",
         })
     );
+}
+
+/// Giving a forum its tags whole, as Discord's client saves them from the
+/// forum's settings: one renamed, one added, the rest deleted.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn edits_a_forums_tags_as_discords_client_does() {
+    use backcord_discord::forum::{Emoji, TagEdit};
+    let fixture = Fixture::start("edits_a_forums_tags_as_discords_client_does").await;
+    let discord = &fixture.discord;
+    let server = fixture.server;
+    discord.view(&fixture.guild, Some(&fixture.general));
+    // The forum's id, and each tag's id, name and whether it's moderated.
+    type Tags = (String, Vec<(String, String, bool)>);
+    let tags = |snapshot: &Snapshot| -> Option<Tags> {
+        let forum = snapshot.servers[0]
+            .text_channels
+            .iter()
+            .find(|channel| channel.name == "ideas")?;
+        let tags = forum
+            .forum
+            .as_deref()?
+            .tags
+            .iter()
+            .map(|tag| (tag.id.clone(), tag.name.clone(), tag.moderated))
+            .collect();
+        Some((forum.id.clone(), tags))
+    };
+    let (forum, before) =
+        tags(&*snapshot_where(discord, |snapshot| tags(snapshot).is_some()).await).unwrap();
+    let feature = before[0].0.clone();
+    discord
+        .edit_forum_tags(
+            &forum,
+            &[
+                TagEdit {
+                    id: Some(feature.clone()),
+                    name: "Features".into(),
+                    moderated: false,
+                    emoji: Some(Emoji::Unicode("🚀".into())),
+                },
+                TagEdit {
+                    id: None,
+                    name: "Docs".into(),
+                    moderated: true,
+                    emoji: None,
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    let snapshot = snapshot_where(discord, |snapshot| {
+        tags(snapshot).is_some_and(|(_, tags)| tags.len() == 2)
+    })
+    .await;
+    let (_, after) = tags(&snapshot).unwrap();
+    assert_eq!(after[0], (feature, "Features".into(), false));
+    assert_eq!((after[1].1.as_str(), after[1].2), ("Docs", true));
+    assert!(!after[1].0.is_empty(), "Discord gave the new one an id");
+    let sent: serde_json::Value =
+        serde_json::from_str(&self::control(server, "GET", "/_control/forum-tags", "")).unwrap();
+    assert_eq!(sent[0][0]["emoji_name"], "🚀");
+    assert!(
+        sent[0][1].get("id").is_none(),
+        "a new tag goes without an id"
+    );
+    // A name too long is refused.
+    let long = TagEdit {
+        name: "x".repeat(51),
+        ..TagEdit::default()
+    };
+    assert!(discord.edit_forum_tags(&forum, &[long]).await.is_err());
 }

@@ -775,7 +775,7 @@ impl<'a> View<'a> {
         if !look.status.is_empty() {
             person = person.sub(self.cx.status_line(
                 &look.status,
-                StatusInk::under_name(self.cx.look.theme, opacity),
+                StatusInk::under_name(self.cx.look.theme, opacity).playing(pointed),
             ));
         }
         let plate = look

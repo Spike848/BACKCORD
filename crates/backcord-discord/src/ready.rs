@@ -267,8 +267,10 @@ pub struct Emoji {
 }
 
 /// A server's scheduled event, which the header's "N Events" row counts and
-/// lists; see <https://docs.discord.food/resources/guild-scheduled-event>.
+/// its Events dialog lists; see
+/// <https://docs.discord.food/resources/guild-scheduled-event>.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct ScheduledEvent {
     pub id: String,
     pub name: String,
@@ -282,9 +284,29 @@ pub struct ScheduledEvent {
     pub location: Option<String>,
     /// The channel of one in a voice or stage channel.
     pub channel: Option<String>,
-    /// How many are interested.
+    /// How many are interested: `user_count` when Discord counted them,
+    /// kept by GUILD_SCHEDULED_EVENT_USER_ADD and _REMOVE.
     pub interested: u64,
+    /// This account is interested, from `GET /users/@me/scheduled-events`
+    /// and the USER_ADD and _REMOVE that name it.
+    pub mine: bool,
+    /// 1 a stage channel, 2 a voice channel, 3 somewhere else.
+    pub kind: u8,
+    /// What it says about itself.
+    pub description: Option<String>,
+    /// Its cover picture's address on the CDN, for one with a cover.
+    pub cover: Option<String>,
+    /// Who made it: their id, and the name Discord shows for them when the
+    /// event carries its `creator`.
+    pub creator_id: Option<String>,
+    pub creator: Option<String>,
 }
+
+/// An event happening in a stage channel, a voice channel, or somewhere
+/// else, as `entity_type` says.
+pub const EVENT_STAGE: u8 = 1;
+pub const EVENT_VOICE: u8 = 2;
+pub const EVENT_EXTERNAL: u8 = 3;
 
 impl ScheduledEvent {
     /// A guild scheduled event object, from a guild object, the REST API or
@@ -303,6 +325,23 @@ impl ScheduledEvent {
                 .map(str::to_owned),
             channel: value["channel_id"].as_str().map(str::to_owned),
             interested: value["user_count"].as_u64().unwrap_or(0),
+            mine: false,
+            kind: value["entity_type"]
+                .as_u64()
+                .map_or(EVENT_EXTERNAL, |kind| u8::try_from(kind).unwrap_or(EVENT_EXTERNAL)),
+            description: value["description"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .map(str::to_owned),
+            cover: value["image"].as_str().map(|hash| {
+                let id = value["id"].as_str().unwrap_or_default();
+                format!("{}/guild-events/{id}/{hash}.png?size=1024", cdn())
+            }),
+            creator_id: value["creator_id"].as_str().map(str::to_owned),
+            creator: value["creator"]["global_name"]
+                .as_str()
+                .or_else(|| value["creator"]["username"].as_str())
+                .map(str::to_owned),
         })
     }
 
@@ -521,6 +560,16 @@ fn snowflake(id: &str) -> u64 {
 const THREAD_ALL_MESSAGES: u64 = 1 << 1;
 const THREAD_ONLY_MENTIONS: u64 = 1 << 2;
 const THREAD_NO_MESSAGES: u64 = 1 << 3;
+
+/// The thread member flag that chooses `level`, as
+/// `PATCH /channels/{thread}/thread-members/@me/settings` takes it.
+pub fn thread_level_flags(level: Level) -> u64 {
+    match level {
+        Level::All => THREAD_ALL_MESSAGES,
+        Level::Mentions => THREAD_ONLY_MENTIONS,
+        Level::Nothing => THREAD_NO_MESSAGES,
+    }
+}
 
 impl Thread {
     /// Takes this account's thread member object: it's in the thread, and
@@ -742,13 +791,55 @@ pub struct Verdict {
 impl Server {
     /// Keeps `event` as a GUILD_SCHEDULED_EVENT_CREATE or _UPDATE gives it, or
     /// forgets it for a delete or one that no longer counts.
-    pub fn put_event(&mut self, event: ScheduledEvent, deleted: bool) {
+    /// What Discord's dispatch leaves out is kept from the event as it was:
+    /// its count when the dispatch has no `user_count` (`counted`), this
+    /// account's interest, and who made it.
+    pub fn put_event(&mut self, mut event: ScheduledEvent, deleted: bool, counted: bool) {
         let events = Arc::make_mut(&mut self.events);
+        if let Some(known) = events.iter().find(|known| known.id == event.id) {
+            if !counted {
+                event.interested = known.interested;
+            }
+            event.mine = known.mine;
+            if event.creator.is_none() {
+                event.creator.clone_from(&known.creator);
+            }
+        }
         events.retain(|known| known.id != event.id);
         if !deleted && event.counts() {
             events.push(event);
             events.sort_by(|a, b| a.start.cmp(&b.start));
         }
+    }
+
+    /// Takes the events `GET /guilds/{id}/scheduled-events` listed, with
+    /// their counts and this account's interest, in place of those known.
+    pub fn put_events(&mut self, mut events: Vec<ScheduledEvent>) {
+        events.retain(ScheduledEvent::counts);
+        events.sort_by(|a, b| a.start.cmp(&b.start));
+        self.events = Arc::new(events);
+    }
+
+    /// Someone became interested in an event, or stopped being, as
+    /// GUILD_SCHEDULED_EVENT_USER_ADD or _REMOVE says; `me` when it's this
+    /// account. False for an event it doesn't keep.
+    pub fn event_user(&mut self, event: &str, added: bool, me: bool) -> bool {
+        let Some(at) = self.events.iter().position(|known| known.id == event) else {
+            return false;
+        };
+        let event = &mut Arc::make_mut(&mut self.events)[at];
+        if me && event.mine == added {
+            return false;
+        }
+        event.interested = if added {
+            event.interested.saturating_add(1)
+        } else {
+            event.interested.saturating_sub(1)
+        };
+        if me {
+            event.mine = added;
+        }
+        true
     }
 
     /// Who can read `channel`, as Discord's id for its member list, which
@@ -2289,14 +2380,46 @@ mod tests {
         assert_eq!(server.events[0].location.as_deref(), Some("Here"));
         assert_eq!(server.events[0].interested, 3);
         let new = ScheduledEvent::parse(&event("c", "2026-11-01T12:00:00+00:00", 1)).unwrap();
-        server.put_event(new, false);
+        server.put_event(new, false, true);
         assert_eq!(ids(&server), ["a", "c", "b"]);
         let gone = ScheduledEvent::parse(&event("a", "2026-11-01T10:00:00+00:00", 2)).unwrap();
-        server.put_event(gone, true);
+        server.put_event(gone, true, true);
         assert_eq!(ids(&server), ["c", "b"]);
         let ended = ScheduledEvent::parse(&event("c", "2026-11-01T12:00:00+00:00", 3)).unwrap();
-        server.put_event(ended, false);
+        server.put_event(ended, false, true);
         assert_eq!(ids(&server), ["b"], "one that ended no longer counts");
+    }
+
+    #[test]
+    fn an_events_count_and_interest_follow_its_users() {
+        let mut server = Server::default();
+        let listed = ScheduledEvent {
+            mine: true,
+            ..ScheduledEvent::parse(&json!({"id": "e", "name": "Quiz",
+                "scheduled_start_time": "2026-11-02T10:00:00+00:00", "status": 1,
+                "entity_type": 2, "channel_id": "5", "user_count": 4, "image": "h",
+                "description": "Bring snacks", "creator_id": "7",
+                "creator": {"username": "ann", "global_name": "Ann"}}))
+            .unwrap()
+        };
+        assert_eq!(listed.kind, EVENT_VOICE);
+        assert!(listed.cover.as_deref().unwrap().ends_with("/guild-events/e/h.png?size=1024"));
+        assert_eq!((listed.creator.as_deref(), listed.description.as_deref()), (Some("Ann"), Some("Bring snacks")));
+        server.put_events(vec![listed]);
+        assert!(server.event_user("e", true, false));
+        assert_eq!(server.events[0].interested, 5);
+        assert!(!server.event_user("e", true, true), "already interested");
+        assert!(server.event_user("e", false, true));
+        assert_eq!((server.events[0].interested, server.events[0].mine), (4, false));
+        // An update without a count keeps the count, the interest and the
+        // creator's name.
+        let renamed = ScheduledEvent::parse(&json!({"id": "e", "name": "Quiz night",
+            "scheduled_start_time": "2026-11-02T10:00:00+00:00", "status": 1}))
+        .unwrap();
+        server.put_event(renamed, false, false);
+        let event = &server.events[0];
+        assert_eq!((event.name.as_str(), event.interested, event.creator.as_deref()), ("Quiz night", 4, Some("Ann")));
+        assert!(!server.event_user("unknown", true, false));
     }
 
     #[test]

@@ -175,6 +175,10 @@ pub(super) fn command(
                         .bans(&guild, None)
                         .await
                         .map(|bans| ServerSettingsPage::Bans(bans.into_iter().map(ban).collect())),
+                    SettingsSection::AutoMod => discord
+                        .automod_rules(&guild)
+                        .await
+                        .map(|rules| ServerSettingsPage::AutoMod(super::automod::parse(&rules))),
                 };
                 let result = result.map_err(|error| {
                     tracing::warn!(

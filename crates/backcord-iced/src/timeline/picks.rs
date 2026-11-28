@@ -18,6 +18,8 @@ use crate::{
 /// What the menu of several messages does with them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MessagePick {
+    /// Those of them that can be forwarded, together, in order.
+    Forward,
     CopyText,
     CopyLinks,
     /// This account's own of them, of those it may delete.
@@ -149,9 +151,24 @@ fn open_menu(
             backcord_iced_kit::i18n::t(format!("{count} messages picked")),
         )
     }];
-    if messages.iter().any(|message| !message.body.is_empty()) {
+    let forwardable = messages
+        .iter()
+        .filter(|message| message.can_forward && !message.deleted)
+        .count();
+    let forwards = forwardable > 0 && crate::forward::allowed(app.client.state());
+    if forwards {
         rows.push(MenuRow {
             separated: true,
+            icon: Some(Icon::Forward),
+            ..MenuRow::plain(
+                act(MessagePick::Forward),
+                backcord_iced_kit::i18n::t(format!("Forward ({forwardable})")),
+            )
+        });
+    }
+    if messages.iter().any(|message| !message.body.is_empty()) {
+        rows.push(MenuRow {
+            separated: !forwards,
             ..MenuRow::new(
                 act(MessagePick::CopyText),
                 backcord_iced_kit::i18n::tr("Copy text"),
@@ -212,6 +229,14 @@ pub fn choose(app: &mut App, pick: MessagePick) -> Task<Message> {
     app.timeline.picked.clear();
     let focus = crate::composer::refocus(app);
     match pick {
+        MessagePick::Forward => {
+            let items = messages
+                .iter()
+                .filter(|message| message.can_forward && !message.deleted)
+                .map(|message| message.item.clone())
+                .collect();
+            crate::forward::start_many(app, items)
+        }
         MessagePick::CopyText => {
             let text = messages
                 .iter()

@@ -18,11 +18,23 @@ pub struct HighPass {
     a: [f64; 2],
     /// Each channel's last two inputs and outputs.
     state: [[f64; 4]; 2],
+    cutoff: f32,
 }
+
+/// The cutoffs Voice & video offers, in Hz: rumble and hum; plosives and
+/// a close microphone's boom too; and all a voice's body under its words.
+pub const HIGH_PASS_CUTOFFS: [u16; 3] = [100, 150, 200];
 
 impl Default for HighPass {
     fn default() -> Self {
-        let w0 = 2.0 * std::f64::consts::PI * f64::from(HIGH_PASS) / f64::from(SAMPLE_RATE);
+        Self::new(HIGH_PASS)
+    }
+}
+
+impl HighPass {
+    /// A high-pass at `cutoff` Hz.
+    pub fn new(cutoff: f32) -> Self {
+        let w0 = 2.0 * std::f64::consts::PI * f64::from(cutoff) / f64::from(SAMPLE_RATE);
         let (sin, cos) = w0.sin_cos();
         let alpha = sin / (2.0 * std::f64::consts::FRAC_1_SQRT_2);
         let a0 = 1.0 + alpha;
@@ -34,11 +46,13 @@ impl Default for HighPass {
             ],
             a: [-2.0 * cos / a0, (1.0 - alpha) / a0],
             state: [[0.0; 4]; 2],
+            cutoff,
         }
     }
-}
 
-impl HighPass {
+    pub fn cutoff(&self) -> f32 {
+        self.cutoff
+    }
     /// Filters `samples`, 48 kHz interleaved stereo, in place.
     pub fn process(&mut self, samples: &mut [i16]) {
         for pair in samples.chunks_exact_mut(2) {
@@ -148,6 +162,39 @@ mod tests {
         filter.process(&mut output);
         let tail = output.len() / 2;
         20.0 * (rms(&output[tail..]) / rms(&input[tail..])).log10()
+    }
+
+    #[test]
+    fn a_higher_cutoff_takes_out_more_of_the_voices_body() {
+        let at = |cutoff: f32, hz: f32| {
+            let mut filter = HighPass::new(cutoff);
+            let mut samples: Vec<i16> = (0..9_600)
+                .flat_map(|at| {
+                    let sample = ((at as f32 * std::f32::consts::TAU * hz / SAMPLE_RATE).sin()
+                        * 10_000.0) as i16;
+                    [sample, sample]
+                })
+                .collect();
+            filter.process(&mut samples);
+            let rms = |samples: &[i16]| {
+                (samples
+                    .iter()
+                    .skip(4_800)
+                    .map(|&s| f64::from(s).powi(2))
+                    .sum::<f64>()
+                    / (samples.len() - 4_800) as f64)
+                    .sqrt()
+            };
+            20.0 * (rms(&samples) / (10_000.0 / 2f64.sqrt())).log10()
+        };
+        for cutoff in [100.0, 150.0, 200.0] {
+            assert!(
+                (at(cutoff, cutoff) + 3.0).abs() < 0.5,
+                "{cutoff} Hz: {}",
+                at(cutoff, cutoff)
+            );
+        }
+        assert!(at(200.0, 120.0) < at(100.0, 120.0) - 6.0);
     }
 
     #[test]

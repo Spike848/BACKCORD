@@ -1343,3 +1343,129 @@ async fn keeps_this_accounts_nickname_when_someone_else_changes_it() {
     post_control(server, "/_control/rename-alice", "");
     until("her nickname came back again", named("Ally")).await;
 }
+
+/// AutoMod in Server Settings, as Discord's client uses it: the rules
+/// listed, one made, switched off and changed, Discord's limits and form
+/// errors, and one deleted.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn manages_automod_rules() {
+    use serde_json::json;
+    let fixture = Fixture::start("manages_automod_rules").await;
+    let discord = &fixture.discord;
+    let server = fixture.server;
+    let guild = fixture.guild.as_str();
+    // Bob's rule from before, on Discord's profanity list.
+    let rules = discord.automod_rules(guild).await.unwrap();
+    let rules = rules.as_array().unwrap();
+    assert_eq!(rules.len(), 1);
+    assert_eq!(rules[0]["trigger_type"], 4);
+    assert_eq!(rules[0]["trigger_metadata"]["presets"], json!([1]));
+
+    // A keyword rule, as AutoMod's form sends it.
+    let made = discord
+        .create_automod_rule(
+            guild,
+            &json!({
+                "name": "No spoilers", "event_type": 1, "trigger_type": 1, "enabled": true,
+                "trigger_metadata": {"keyword_filter": ["spoiler"], "regex_patterns": ["end(ing)?"],
+                                     "allow_list": []},
+                "actions": [{"type": 1, "metadata": {"custom_message": "Not here."}},
+                            {"type": 3, "metadata": {"duration_seconds": 60}}],
+                "exempt_roles": [], "exempt_channels": [],
+            }),
+        )
+        .await
+        .unwrap();
+    let id = made["id"].as_str().unwrap().to_owned();
+    assert_eq!(made["creator_id"], "1400000000000000001");
+    assert_eq!(made["actions"][1]["metadata"]["duration_seconds"], 60);
+
+    // Its switch, then a change; the trigger type stays.
+    let off = discord
+        .edit_automod_rule(guild, &id, &json!({"enabled": false}))
+        .await
+        .unwrap();
+    assert_eq!(
+        (off["enabled"].clone(), off["name"].clone()),
+        (json!(false), json!("No spoilers"))
+    );
+    let changed = discord
+        .edit_automod_rule(
+            guild,
+            &id,
+            &json!({"name": "Spoilers", "trigger_type": 5,
+                    "trigger_metadata": {"keyword_filter": ["spoiler", "leak"]}}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(changed["trigger_type"], 1);
+    assert_eq!(
+        changed["trigger_metadata"]["keyword_filter"],
+        json!(["spoiler", "leak"])
+    );
+
+    // Discord's refusals, in words: a regex that doesn't compile, a timeout
+    // for a member's profile, and a second rule of a kind that takes one.
+    let refused = discord
+        .edit_automod_rule(
+            guild,
+            &id,
+            &json!({"trigger_metadata": {"regex_patterns": ["(unclosed"]}}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(refused.to_string(), "Regex patterns: Invalid regex");
+    let refused = discord
+        .create_automod_rule(
+            guild,
+            &json!({"name": "Names", "event_type": 2, "trigger_type": 6,
+                    "trigger_metadata": {"keyword_filter": ["admin"]},
+                    "actions": [{"type": 3, "metadata": {"duration_seconds": 60}}]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(
+        refused.to_string(),
+        "Type: This action isn't allowed for this trigger type."
+    );
+    let refused = discord
+        .create_automod_rule(
+            guild,
+            &json!({"name": "Lists", "event_type": 1, "trigger_type": 4,
+                    "trigger_metadata": {"presets": [2]}, "actions": [{"type": 1, "metadata": {}}]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(
+        refused.to_string(),
+        "Trigger type: Maximum number of rules of this type reached"
+    );
+
+    // Delete, after which Discord no longer has it.
+    discord.delete_automod_rule(guild, &id).await.unwrap();
+    assert!(discord.delete_automod_rule(guild, &id).await.is_err());
+    assert_eq!(
+        discord
+            .automod_rules(guild)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let sent: serde_json::Value =
+        serde_json::from_str(&control(server, "GET", "/_control/automod", "")).unwrap();
+    let methods: Vec<&str> = sent
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|sent| sent["method"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        methods,
+        ["POST", "PATCH", "PATCH", "PATCH", "POST", "POST", "DELETE"],
+        "what Discord doesn't have isn't recorded"
+    );
+}

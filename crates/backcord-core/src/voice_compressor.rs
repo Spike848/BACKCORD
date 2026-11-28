@@ -25,6 +25,39 @@ const DETECTION: f32 = 0.005;
 pub const MAKEUP: f32 = 7.5;
 const SAMPLE_RATE: f32 = 48_000.0;
 
+/// How hard the compressor works, as Voice & video's three choices offer:
+/// each its threshold, ratio and speed, its makeup bringing speech at
+/// -20 dBFS back to where it was.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Preset {
+    /// 2:1 above -24 dBFS, slowly: levels a little, unheard.
+    Light,
+    /// 4:1 above -30 dBFS: as the compressor always was.
+    #[default]
+    Medium,
+    /// 8:1 above -36 dBFS, quickly: loud and quiet voices come out alike.
+    Strong,
+}
+
+impl Preset {
+    pub const ALL: [Preset; 3] = [Preset::Light, Preset::Medium, Preset::Strong];
+
+    /// Threshold (dBFS), ratio, attack and release (s).
+    fn shape(self) -> (f32, f32, f32, f32) {
+        match self {
+            Preset::Light => (-24.0, 2.0, 0.01, 0.15),
+            Preset::Medium => (THRESHOLD, RATIO, ATTACK, RELEASE),
+            Preset::Strong => (-36.0, 8.0, 0.003, 0.04),
+        }
+    }
+
+    /// The makeup, in dB: what speech at -20 dBFS loses.
+    pub fn makeup(self) -> f32 {
+        let (threshold, ratio, _, _) = self.shape();
+        -reduction(-20.0, threshold, ratio)
+    }
+}
+
 /// One voice's compressor.
 #[derive(Clone, Debug, Default)]
 pub struct Compressor {
@@ -35,9 +68,9 @@ pub struct Compressor {
 }
 
 /// How far a level is turned down, in dB, before the makeup.
-fn reduction(level: f32) -> f32 {
-    let over = level - THRESHOLD;
-    let slope = 1.0 / RATIO - 1.0;
+fn reduction(level: f32, threshold: f32, ratio: f32) -> f32 {
+    let over = level - threshold;
+    let slope = 1.0 / ratio - 1.0;
     if 2.0 * over < -KNEE {
         0.0
     } else if 2.0 * over.abs() <= KNEE {
@@ -55,21 +88,28 @@ impl Compressor {
     /// Compresses `samples`, 48 kHz interleaved stereo, in place, both
     /// channels by the same gain.
     pub fn process(&mut self, samples: &mut [i16]) {
+        self.process_with(samples, Preset::Medium);
+    }
+
+    /// Compresses `samples` as `preset` says.
+    pub fn process_with(&mut self, samples: &mut [i16], preset: Preset) {
+        let (threshold, ratio, attack, release) = preset.shape();
+        let makeup = preset.makeup();
         let detection = coefficient(DETECTION);
-        let attack = coefficient(ATTACK);
-        let release = coefficient(RELEASE);
+        let attack = coefficient(attack);
+        let release = coefficient(release);
         for pair in samples.chunks_exact_mut(2) {
             let peak = f32::from(pair[0].unsigned_abs().max(pair[1].unsigned_abs())) / 32768.0;
             self.power += (peak * peak - self.power) * detection;
             let level = 10.0 * (self.power + 1e-12).log10();
-            let target = reduction(level);
+            let target = reduction(level, threshold, ratio);
             let step = if target < self.reduction {
                 attack
             } else {
                 release
             };
             self.reduction += (target - self.reduction) * step;
-            let gain = 10f32.powf((self.reduction + MAKEUP) / 20.0);
+            let gain = 10f32.powf((self.reduction + makeup) / 20.0);
             for sample in pair {
                 *sample = (f32::from(*sample) * gain)
                     .round()
@@ -107,6 +147,29 @@ mod tests {
         compressor.process(&mut output);
         let tail = output.len() / 2;
         (rms(&input[tail..]), rms(&output[tail..]))
+    }
+
+    #[test]
+    fn the_presets_go_from_light_to_strong_and_medium_is_as_before() {
+        assert!((Preset::Medium.makeup() - MAKEUP).abs() < 0.01);
+        let spread = |preset: Preset| {
+            let settle = |amplitude: f32| {
+                let mut compressor = Compressor::default();
+                let mut output = tone(amplitude, 48_000);
+                compressor.process_with(&mut output, preset);
+                rms(&output[output.len() / 2..])
+            };
+            settle(20_000.0) - settle(2_000.0)
+        };
+        let (light, medium, strong) = (
+            spread(Preset::Light),
+            spread(Preset::Medium),
+            spread(Preset::Strong),
+        );
+        assert!(
+            light > medium && medium > strong,
+            "{light} {medium} {strong}"
+        );
     }
 
     #[test]

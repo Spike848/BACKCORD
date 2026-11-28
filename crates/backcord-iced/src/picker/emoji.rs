@@ -575,6 +575,17 @@ impl<'a> View<'a> {
         }
     }
 
+    /// The pointed emoji at the foot, an animated custom one playing as
+    /// it does in its cell.
+    fn foot_face(&self, tab: &'a Emoji, face: &Face) -> Element<'a, Message> {
+        if let Face::Custom(emoji) = face
+            && let Some(playing) = self.cx.playing_emoji(&emoji.picture, 26, &tab.players)
+        {
+            return container(playing).center(30.0).into();
+        }
+        self.face_view(tab, face, 30.0, 26, 1.0)
+    }
+
     fn section_mark(self, tab: &Emoji, mark: &Mark, side: f32, size: u32) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         match mark {
@@ -644,7 +655,7 @@ impl<'a> View<'a> {
                 } => {
                     let fade = if *usable { 1.0 } else { 0.4 };
                     // An animated custom emoji plays in its cell, greyed
-                    // or not; the rail and the foot show its still.
+                    // or not, and at the foot; the rail shows its still.
                     let playing = match face {
                         Face::Custom(emoji) => {
                             self.cx.playing_emoji(&emoji.picture, GLYPH, &tab.players)
@@ -715,7 +726,7 @@ impl<'a> View<'a> {
             .and_then(|index| tab.grid.sections.get(index));
         let foot: Element<'a, Message> = match (pointed, section) {
             (Some(face), _) => row![
-                self.face_view(tab, face, 30.0, 26, 1.0),
+                self.foot_face(tab, face),
                 kit::foot_words(names::title(&face.key()), true, theme)
             ]
             .spacing(10)

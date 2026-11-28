@@ -223,7 +223,7 @@ async fn reads_history_and_member_lists() {
     assert!(
         account
             .avatar
-            .contains("/avatars/1400000000000000001/alice1.png")
+            .contains("/avatars/1400000000000000001/alice1.webp")
     );
 
     // Reading the channel clears its unread mark.

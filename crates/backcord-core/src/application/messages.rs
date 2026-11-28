@@ -203,26 +203,47 @@ impl Application {
         }
     }
 
-    pub(super) fn start_forward(&mut self, item: String) -> Vec<Effect> {
-        let Some(room) = self.state.room_of(&item).cloned() else {
+    pub(super) fn start_forward(&mut self, items: Vec<String>) -> Vec<Effect> {
+        let Some(room) = items
+            .first()
+            .and_then(|item| self.state.room_of(item))
+            .cloned()
+        else {
             return vec![];
         };
         // Matrix forwards only from a verified device.
         let discord = Network::of(&room) == Network::Discord;
         let allowed = self.state.preview || self.state.trusted || discord;
-        self.state.forwarding = self
-            .state
-            .message(&item)
+        let mut seen = HashSet::new();
+        let messages: Vec<_> = items
+            .iter()
+            .filter(|item| seen.insert(item.as_str()))
+            .filter(|item| self.state.room_of(item) == Some(&room))
+            .filter_map(|item| self.state.message(item))
             .filter(|message| allowed && message.can_forward)
-            .map(|message| Forwarding {
-                quote: match message.attachments.first() {
+            .collect();
+        self.state.forwarding = (!messages.is_empty()).then(|| Forwarding {
+            quote: match messages.as_slice() {
+                [message] => match message.attachments.first() {
                     Some(attachment) if message.body.is_empty() => attachment.name.clone(),
                     _ => chat::plain_snippet(&message.body),
                 },
-                room,
-                item,
-                ..Default::default()
-            });
+                several => several
+                    .iter()
+                    .map(|message| match message.attachments.first() {
+                        Some(attachment) if message.body.is_empty() => attachment.name.clone(),
+                        _ => chat::plain_snippet(&message.body),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" · "),
+            },
+            items: messages
+                .iter()
+                .map(|message| message.item.clone())
+                .collect(),
+            room,
+            ..Default::default()
+        });
         // Discord's dialog ranks places by how much they're used, which
         // Discord's settings count.
         if self.state.forwarding.is_some() && discord {
@@ -646,7 +667,7 @@ impl Application {
             } else {
                 effects.push(Effect::Backend(Command::Forward {
                     room: forwarding.room.clone(),
-                    item: forwarding.item.clone(),
+                    items: forwarding.items.clone(),
                     target: target.clone(),
                     note,
                     silent,
@@ -673,18 +694,20 @@ impl Application {
 
     /// Adds the forward to the preview's samples of `target`, with `note`.
     fn forward_sample(&mut self, forwarding: &Forwarding, target: &str, note: Option<String>) {
-        let Some(message) = self
-            .samples
-            .get(&forwarding.room)
-            .and_then(|messages| {
-                messages
+        let originals: Vec<Arc<ChatMessage>> = forwarding
+            .items
+            .iter()
+            .filter_map(|item| {
+                self.samples
+                    .get(&forwarding.room)?
                     .iter()
-                    .find(|message| message.item == forwarding.item)
+                    .find(|message| message.item == *item)
+                    .cloned()
             })
-            .cloned()
-        else {
+            .collect();
+        if originals.is_empty() {
             return;
-        };
+        }
         let sample = |body: String, formatted, attachments, forwarded| {
             let item = uuid::Uuid::new_v4().to_string();
             Arc::new(ChatMessage {
@@ -702,12 +725,14 @@ impl Application {
             })
         };
         let messages = self.samples.entry(target.to_owned()).or_default();
-        messages.push(sample(
-            message.body.clone(),
-            message.formatted,
-            message.attachments.clone(),
-            true,
-        ));
+        for message in originals {
+            messages.push(sample(
+                message.body.clone(),
+                message.formatted,
+                message.attachments.clone(),
+                true,
+            ));
+        }
         if let Some(note) = note {
             messages.push(sample(note, true, vec![], false));
         }

@@ -78,7 +78,10 @@ pub use cosmetics::Cosmetics;
 pub use delete_all::{DeleteAllDialog, DeletingAll};
 pub use dm_folders::{DmFolder, DmFolderChange};
 pub use explore::{Explore, ExploreJoin, ExploreSort};
-pub use forum::{ForumInfo, ForumPost, ForumPosts, ForumView};
+pub use forum::{
+    FORUM_TAG_NAME, FORUM_TAGS, ForumInfo, ForumPost, ForumPosts, ForumSort, ForumTagsEditor,
+    ForumTagsInput, ForumView, ForumViewChange,
+};
 pub use gifs::{AskedPicture, GifPicker, GifPicture, GifView};
 pub use gift::GiftDialog;
 pub use interactions::{InteractionModal, Interactions, ModalField, SelectChoice, SelectMenu};
@@ -111,8 +114,9 @@ pub use reactions::{ReactionTip, ReactionsWindow, TIP_PEOPLE};
 pub use rooms::{MUTE_TIMES, MenuChoice, network_id, network_link};
 pub use scheduled_event::EventDialog;
 pub use server_settings::{
-    ADD_MEMBERS_LIMIT, AFK_TIMEOUTS, AUDIT_ACTIONS, AUDIT_PAGE, AddMembers, AuditInput, AuditKind,
-    AuditLine, AuditLogPage, AuditRow, AuditSpan, AuditWords, BANS_BATCH, BANS_PER_PAGE, BOOSTED,
+    ADD_MEMBERS_LIMIT, AFK_TIMEOUTS, AUDIT_ACTIONS, AUDIT_PAGE, AUTOMOD_PRESETS, AUTOMOD_TIMEOUTS,
+    AddMembers, AuditInput, AuditKind, AuditLine, AuditLogPage, AuditRow, AuditSpan, AuditWords,
+    AutomodForm, AutomodInput, AutomodPage, AutomodText, BANS_BATCH, BANS_PER_PAGE, BOOSTED,
     BanInput, BansPage, BoostPage, DEFAULT_ROLE_COLOR, DESCRIPTION_LIMIT, DeleteAsk,
     EMOJI_NAME_LIMIT, EmojiInput, EmojiPage, EmojiUpload, EngagementPage, ExpressionRules,
     FILTER_ALL, HIGHEST_VERIFICATION, InviteInput, InvitesPage, LEVEL_BOOSTS, MEMBER_PAGE_SIZES,
@@ -356,9 +360,10 @@ pub const FORWARD_LIMIT: usize = 5;
 /// A message being forwarded, while its dialog is open.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Forwarding {
-    /// The room the message is in, and its item there.
+    /// The room the messages are in, and their items there, in the
+    /// timeline's order.
     pub room: String,
-    pub item: String,
+    pub items: Vec<String>,
     /// What the dialog shows of it: its text, or its first file's name.
     pub quote: String,
     /// The conversations chosen, in the order chosen, up to
@@ -1928,6 +1933,9 @@ pub enum Action {
     MarkUnread(String),
     /// Open the forward dialog for a message of the selected room.
     StartForward(String),
+    /// Opens Forward To for several messages of one room at once, those
+    /// that can be forwarded, in the timeline's order.
+    StartForwardMany(Vec<String>),
     /// Choose a conversation to forward that message to, or leave it out.
     ChooseForward(String),
     /// Search the conversations it may go to.
@@ -2212,6 +2220,10 @@ pub enum Action {
     SearchPosts(String),
     /// The forum's list of posts scrolled near its end: load more of them.
     MorePosts,
+    /// Sort, lay out or filter the forum's posts, from its header.
+    ForumView(ForumViewChange),
+    /// Edit Tags for the forum on screen, with Manage Channels.
+    ForumTags(ForumTagsInput),
     /// Open the form for a post in the forum on screen.
     NewPost,
     /// Write the form's title or message.
@@ -2530,6 +2542,8 @@ pub enum Action {
     Invites(InviteInput),
     /// Something done on Bans in a server's settings.
     Bans(BanInput),
+    /// Something done on AutoMod in a server's settings.
+    Automod(AutomodInput),
     /// Something done on Audit Log in a server's settings.
     AuditLog(AuditInput),
     /// Answer the two-factor prompt: use another method, or with none
@@ -3239,6 +3253,7 @@ fn pictures_on_screen<'a>(
                     | server_settings::Page::Roles(_)
                     | server_settings::Page::Invites(_)
                     | server_settings::Page::Safety(_)
+                    | server_settings::Page::AutoMod(_)
                     | server_settings::Page::AuditLog(_)
                     | server_settings::Page::Bans(_),
                 )
@@ -4227,7 +4242,8 @@ impl Application {
             Action::ShowVoters { item, answer } => self.show_voters(item, answer),
             Action::PinMessage(item) => self.pin_message(item),
             Action::MarkUnread(item) => self.mark_unread(item),
-            Action::StartForward(item) => self.start_forward(item),
+            Action::StartForward(item) => self.start_forward(vec![item]),
+            Action::StartForwardMany(items) => self.start_forward(items),
             Action::ChooseForward(target) => self.choose_forward(target),
             Action::SearchForward(query) => self.search_forward(query),
             Action::Forward(note) => self.forward(note),
@@ -4442,6 +4458,8 @@ impl Application {
             Action::MoreThreads => self.more_threads(),
             Action::SearchPosts(query) => self.search_posts(query),
             Action::MorePosts => self.more_posts(),
+            Action::ForumView(change) => self.change_forum_view(change),
+            Action::ForumTags(input) => self.forum_tags_input(input),
             Action::NewPost => {
                 self.open_new_post();
                 vec![]
@@ -4720,6 +4738,7 @@ impl Application {
             Action::Ownership(input) => self.ownership_input(input),
             Action::Invites(input) => self.invite_input(input),
             Action::Bans(input) => self.ban_input(input),
+            Action::Automod(input) => self.automod_input(input),
             Action::AuditLog(input) => self.audit_log_input(input),
             Action::CloseServerSettings => {
                 self.close_server_settings();
@@ -5513,6 +5532,7 @@ impl Application {
                 starters,
             } => return self.threads_came(room, query, offset, result, starters),
             Event::Posts { room, result } => return self.posts_came(room, result),
+            Event::ForumTagsSaved { room, result } => self.forum_tags_saved(&room, result),
             Event::ThreadStarted { room, result } => return self.thread_started(room, result),
             Event::ForumPosted { room, result } => return self.forum_posted(room, result),
             Event::Found {
@@ -5616,6 +5636,11 @@ impl Application {
                 user,
                 result,
             } => self.unbanned(server, user, result),
+            Event::AutomodDone {
+                server,
+                did,
+                result,
+            } => self.automod_done(server, did, result),
             Event::AuditLogLoaded {
                 server,
                 query,

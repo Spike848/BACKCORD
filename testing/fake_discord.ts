@@ -108,7 +108,9 @@
 // POST /_control/call makes Bob call her; see "DM calls" below.
 // Bob and Carol are her friends; POST /users/@me/channels opens a DM, as with
 // Carol, whom she has none with yet, or with several people makes a group DM,
-// and PUT /channels/{id}/recipients/{user} adds someone to a group.
+// and PUT /channels/{id}/recipients/{user} adds someone to a group. Alice
+// owns the groups she makes: DELETE on the same path removes someone, and
+// PATCH /channels/{id} with {"owner": id} gives the group to them.
 // GET /channels/{id}/messages/pins lists a channel's pins: Bob's welcome in
 // #general, his question in his DM and Carol's in the group. PUT and DELETE
 // /channels/{id}/messages/pins/{message} pin a message and unpin it, which
@@ -313,7 +315,18 @@
 // /users/@me/scheduled-events?guild_ids={id} says whether Alice is
 // interested, and PUT (with its {response}) or DELETE on its users/@me
 // changes that. GET /_control/event-interest lists each change with the
-// response the PUT sent.
+// response the PUT sent. GET /guilds/{id}/scheduled-events lists it and the
+// events Alice made (POST), counted with ?with_user_count=true; GET
+// .../users lists those interested (Bob, and Alice when she is), with their
+// guild_member given ?with_member=true. PATCH changes, and DELETE deletes,
+// an event Alice made, Discord's status steps only (1 to 2 or 4, 2 to 3);
+// each sends GUILD_SCHEDULED_EVENT_CREATE, _UPDATE or _DELETE, making one
+// sends USER_ADD for her too, and GET /_control/event-writes lists each
+// method, event and body.
+// Making a server: POST /guilds (the default template's channels when it
+// sends none) and POST /guilds/templates/hgM48av5Q69A, whose GET previews
+// "Friends & Family", each send GUILD_CREATE for a server Alice owns, and
+// GET /_control/servers-made lists each body, template and id.
 // Linking by QR code goes through a remote login gateway at /remote-auth/, as
 // remote-auth-gateway.discord.gg speaks it. POST /_control/qr-scan scans the
 // code shown as Alice, /_control/qr-confirm confirms it (?close also ends
@@ -340,6 +353,10 @@
 // POST /_control/clip makes Bob attach clip.mp4, six seconds with sound, and
 // link a post whose card plays a video, as vxtwitter's do; Carol forwards
 // the clip. They go to #general, or with ?channel=ID to that channel or thread.
+// Alice sends a voice message as Discord's apps do: POST
+// /channels/{id}/messages flagged IS_VOICE_MESSAGE (1 << 13), with one
+// uploaded voice-message.ogg whose attachment has duration_secs and a base64
+// waveform, and no content; anything else so flagged is refused.
 // POST /_control/voice-message makes Bob send a voice message, the two
 // seconds of testing/fixtures/voice-tone.ogg, to #general or ?channel=ID.
 // POST /_control/bob-away makes Bob idle with a custom status,
@@ -370,7 +387,10 @@
 // lists each body sent. POST /channels/{id}/thread-members/@me, as Discord's
 // client joins a thread (the docs say PUT, which works too), and DELETE,
 // which leaves it, answer as Discord does; GET /_control/thread-members
-// lists each request's method and `location`.
+// lists each request's method and `location`. PATCH
+// /channels/{id}/thread-members/@me/settings changes Alice's flags and mute
+// in a thread she's in, with THREAD_MEMBER_UPDATE; GET
+// /_control/thread-settings lists each body.
 // #ideas is a forum, whose posts are threads with tags: Bob's welcome,
 // pinned; Carol's dark theme idea, which Alice is in, with reactions and
 // replies; Dave's crash report, with a screenshot; Bob's newest, which Alice
@@ -381,7 +401,9 @@
 // searching a forum's threads gives theirs too. POST /_control/forum-post
 // makes Carol post in it. POST /channels/{id}/threads?use_nested_fields=true
 // posts in it, as Discord's client does; POST /_control/forum-require-tag
-// (?off) sets whether a post must take a tag.
+// (?off) sets whether a post must take a tag. PATCH /channels/{id} with
+// `available_tags` gives it its tags whole, a new one an id, with
+// CHANNEL_UPDATE; GET /_control/forum-tags lists each set sent.
 
 import { createCipheriv, createDecipheriv } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -838,7 +860,9 @@ function collectiblePicture(sku: string, animated: boolean): Uint8Array {
 // far as Alice's roles allow, as Discord checks them. Given Mods, she may
 // delete others' messages in "Server", as she can't otherwise. POST
 // /_control/timeout-alice with a number of seconds has Bob time her out, which
-// leaves her only reading "Server" as it does in Discord, and 0 ends it. Staff may also mute,
+// leaves her only reading "Server" as it does in Discord, and 0 ends it.
+// POST /_control/rename-alice with a nickname has Bob rename her, and an
+// empty one takes hers away. Staff may also mute,
 // deafen and move members in voice: PATCH .../members/{user} with `mute`,
 // `deaf` or `channel_id`, null to disconnect them, changes the voice state
 // of someone in the server's voice, which VOICE_STATE_UPDATE says, and GET
@@ -960,6 +984,116 @@ function resetMembers() {
 }
 resetMembers();
 seedAudit();
+
+// --- AutoMod -----------------------------------------------------------------
+// "Server"'s AutoMod rules: Bob's from before, on Discord's profanity list,
+// and those Alice makes. GET /guilds/{id}/auto-moderation/rules lists them,
+// POST makes one, PATCH .../rules/{rule} changes one (its trigger type stays)
+// and DELETE deletes it, each with Manage Server, as Discord checks them: at
+// most 6 keyword rules and 1 of each other trigger type, the trigger
+// metadata's lists and lengths, the actions each trigger type takes, and
+// regex patterns that compile, refused with 50035 and the field's error.
+// Each answers with the rule (DELETE with 204) and dispatches
+// AUTO_MODERATION_RULE_CREATE, _UPDATE or _DELETE. GET /_control/automod
+// lists what Alice sent, oldest first; POST /_control/automod-reset puts
+// back Bob's rule alone and empties the list.
+type AutomodRule = Record<string, any> & { id: string; trigger_type: number };
+const automodRules = new Map<string, AutomodRule>();
+const automodSent: { method: string; rule: string | null; body: unknown }[] = [];
+let automodMade = 0;
+/** How many rules of each trigger type a server may have. */
+const AUTOMOD_LIMITS: Record<number, number> = { 1: 6, 3: 1, 4: 1, 5: 1, 6: 1 };
+function resetAutomod() {
+  automodRules.clear();
+  automodSent.length = 0;
+  automodRules.set("1400000000000000950", {
+    id: "1400000000000000950", guild_id: GUILD, name: "Block Commonly Flagged Words", creator_id: users.bob.id,
+    event_type: 1, trigger_type: 4, trigger_metadata: { presets: [1], allow_list: [] },
+    actions: [{ type: 1, metadata: {} }], enabled: true, exempt_roles: [], exempt_channels: [],
+  });
+}
+resetAutomod();
+
+/** What Discord finds wrong with a rule, as a 50035's `errors`, or null. */
+function automodProblem(rule: AutomodRule): Record<string, unknown> | null {
+  const field = (path: string[], code: string, message: string) => {
+    let errors: Record<string, unknown> = { _errors: [{ code, message }] };
+    for (const key of [...path].reverse()) errors = { [key]: errors };
+    return errors;
+  };
+  const type = rule.trigger_type;
+  if (typeof rule.name !== "string" || rule.name.length < 1 || rule.name.length > 100) {
+    return field(["name"], "BASE_TYPE_BAD_LENGTH", "Must be between 1 and 100 in length.");
+  }
+  if (!(type in AUTOMOD_LIMITS)) return field(["trigger_type"], "BASE_TYPE_CHOICES", "Value must be one of {1, 3, 4, 5, 6}.");
+  if (rule.event_type !== (type === 6 ? 2 : 1)) {
+    return field(["event_type"], "AUTO_MODERATION_INVALID_EVENT_TYPE", "Invalid event type for this trigger type.");
+  }
+  const meta = rule.trigger_metadata ?? {};
+  const strings = (key: string, most: number, longest: number) => {
+    const list = meta[key] ?? [];
+    if (!Array.isArray(list) || list.length > most) {
+      return field(["trigger_metadata", key], "BASE_TYPE_MAX_LENGTH", `Must be ${most} or fewer in length.`);
+    }
+    const at = list.findIndex((item) => typeof item !== "string" || item.length < 1 || item.length > longest);
+    return at < 0 ? null : field(["trigger_metadata", key, String(at)], "BASE_TYPE_BAD_LENGTH", `Must be between 1 and ${longest} in length.`);
+  };
+  if (type === 1 || type === 6) {
+    const problem = strings("keyword_filter", 1000, 60) ?? strings("regex_patterns", 10, 260) ?? strings("allow_list", 100, 60);
+    if (problem) return problem;
+    const patterns: string[] = meta.regex_patterns ?? [];
+    if ((meta.keyword_filter ?? []).length + patterns.length === 0) {
+      return field(["trigger_metadata"], "AUTO_MODERATION_TRIGGER_METADATA_REQUIRED", "A keyword or a regex pattern is required.");
+    }
+    const bad = patterns.findIndex((pattern) => {
+      try {
+        new RegExp(pattern);
+        return false;
+      } catch {
+        return true;
+      }
+    });
+    if (bad >= 0) return field(["trigger_metadata", "regex_patterns", String(bad)], "AUTO_MODERATION_INVALID_REGEX", "Invalid regex");
+  }
+  if (type === 4) {
+    const problem = strings("allow_list", 1000, 60);
+    if (problem) return problem;
+    const presets = meta.presets;
+    if (!Array.isArray(presets) || presets.length === 0 || presets.some((preset) => ![1, 2, 3].includes(preset))) {
+      return field(["trigger_metadata", "presets"], "BASE_TYPE_CHOICES", "Value must be one of {1, 2, 3}.");
+    }
+  }
+  if (type === 5) {
+    const limit = meta.mention_total_limit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+      return field(["trigger_metadata", "mention_total_limit"], "NUMBER_TYPE_MAX", "int value should be less than or equal to 50.");
+    }
+  }
+  const actions = rule.actions;
+  if (!Array.isArray(actions) || actions.length === 0) return field(["actions"], "BASE_TYPE_REQUIRED", "This field is required");
+  // A timeout only for keywords and mentions; a member's profile only
+  // alerts and blocks interactions.
+  const allowed = type === 6 ? [2, 4] : type === 1 || type === 5 ? [1, 2, 3] : [1, 2];
+  for (const [at, action] of actions.entries()) {
+    const where = ["actions", String(at)];
+    if (!allowed.includes(action?.type)) {
+      return field([...where, "type"], "AUTO_MODERATION_ACTION_NOT_ALLOWED", "This action isn't allowed for this trigger type.");
+    }
+    const data = action.metadata ?? {};
+    if (action.type === 2 && typeof data.channel_id !== "string") {
+      return field([...where, "metadata", "channel_id"], "BASE_TYPE_REQUIRED", "This field is required");
+    }
+    if (action.type === 3 && !(Number.isInteger(data.duration_seconds) && data.duration_seconds > 0 && data.duration_seconds <= 2419200)) {
+      return field([...where, "metadata", "duration_seconds"], "NUMBER_TYPE_MAX", "int value should be less than or equal to 2419200.");
+    }
+    if (action.type === 1 && data.custom_message !== undefined && (typeof data.custom_message !== "string" || data.custom_message.length > 150)) {
+      return field([...where, "metadata", "custom_message"], "BASE_TYPE_MAX_LENGTH", "Must be 150 or fewer in length.");
+    }
+  }
+  if ((rule.exempt_roles ?? []).length > 20) return field(["exempt_roles"], "BASE_TYPE_MAX_LENGTH", "Must be 20 or fewer in length.");
+  if ((rule.exempt_channels ?? []).length > 50) return field(["exempt_channels"], "BASE_TYPE_MAX_LENGTH", "Must be 50 or fewer in length.");
+  return null;
+}
 
 function serverLook(user: User) {
   const look = serverLooks[user.id];
@@ -1405,8 +1539,10 @@ const messages = new Map<string, Message[]>([
   [SPAM_FRANK, []],
 ]);
 
-// DMs and group DMs by channel id, with everyone in them besides Alice.
-type Private = { type: 1 | 3; recipients: User[]; name?: string; request?: boolean; spam?: boolean };
+// DMs and group DMs by channel id, with everyone in them besides Alice. A
+// group's owner is its first recipient unless `owner` names someone, as
+// Alice is of those she makes.
+type Private = { type: 1 | 3; recipients: User[]; name?: string; owner?: string; request?: boolean; spam?: boolean };
 const privates = new Map<string, Private>();
 const byId = new Map<string, Message>();
 let lastId = 0n;
@@ -1638,7 +1774,7 @@ function wirePrivate(id: string, channel: Private, users: "ids" | "objects") {
     type: channel.type,
     last_message_id: messages.get(id)!.at(-1)?.id ?? null,
     flags: 0,
-    ...(channel.type === 3 ? { name: channel.name ?? null, icon: null, owner_id: channel.recipients[0]!.id } : {}),
+    ...(channel.type === 3 ? { name: channel.name ?? null, icon: null, owner_id: channel.owner ?? channel.recipients[0]!.id } : {}),
     ...(channel.request
       ? { is_message_request: true, is_message_request_timestamp: iso(timeOf(messages.get(id)![0]!.id)), is_spam: !!channel.spam }
       : {}),
@@ -1920,14 +2056,17 @@ type Thread = {
   members: Map<string, number>;
   /** A forum post's tags, by id, and whether it's pinned to the top. */
   tags?: string[]; pinned?: boolean;
+  /** Alice's own settings in it, as PATCH .../thread-members/@me/settings
+   *  sets them: her thread member flags, mute and mute config. */
+  aliceFlags?: number; aliceMuted?: boolean; aliceMuteConfig?: unknown;
 };
 const threads = new Map<string, Thread>();
 
 /** Alice's thread member, as a thread she's in carries it. */
 function wireThreadMember(thread: Thread) {
   return {
-    id: thread.id, user_id: ALICE, join_timestamp: iso(thread.members.get(ALICE)!), flags: 1,
-    muted: false, mute_config: null,
+    id: thread.id, user_id: ALICE, join_timestamp: iso(thread.members.get(ALICE)!), flags: thread.aliceFlags ?? 1,
+    muted: thread.aliceMuted ?? false, mute_config: thread.aliceMuteConfig ?? null,
   };
 }
 
@@ -2086,6 +2225,11 @@ const threadSearches: string[] = [];
 /** Each time Alice joined or left a thread, as GET /_control/thread-members
  *  lists them: the method, then the `location` Discord's client sends. */
 const threadMemberRequests: string[] = [];
+/** Each set of tags Alice gave #ideas, as GET /_control/forum-tags lists them. */
+const forumTagEdits: unknown[] = [];
+/** Each change Alice made to her settings in a thread, as GET
+ *  /_control/thread-settings lists them: the thread and the body sent. */
+const threadSettings: Record<string, unknown>[] = [];
 /** Each thread Alice started: the channel, the message, if any, and the body
  *  she sent, as GET /_control/thread-creates lists them. */
 const threadCreates: Record<string, unknown>[] = [];
@@ -2258,6 +2402,10 @@ type SocketData = {
    *  once `zlibStarted`. */
   zlib?: boolean;
   zlibStarted?: boolean;
+  /** The gateway's zstd-stream compression, as Discord's desktop client
+   *  asks for it; the frame's header went once `zstdStarted`. */
+  zstd?: boolean;
+  zstdStarted?: boolean;
   /** A remote login: the client's key, the nonce it must prove, and the code. */
   remoteAuth?: { key?: CryptoKey; nonce?: Uint8Array; fingerprint?: string; scanned?: boolean; timer?: Timer };
 };
@@ -2289,6 +2437,10 @@ function send(ws: Socket, op: number, d: unknown, t: string | null = null) {
  *  is a sync flush. A payload over 64 KiB goes in two messages, as
  *  Discord's large ones may. */
 function sendGateway(ws: Socket, payload: string) {
+  if (ws.data.zstd) {
+    sendZstd(ws, payload);
+    return;
+  }
   if (!ws.data.zlib) {
     ws.send(payload);
     return;
@@ -2314,6 +2466,29 @@ function sendGateway(ws: Socket, payload: string) {
   }
   ws.send(message.subarray(0, 0x10000));
   ws.send(message.subarray(0x10000));
+}
+
+/** Sends a gateway payload in the connection's zstd stream. As with zlib, the
+ *  fake stores rather than compresses: one frame for the whole connection,
+ *  never ended, its header (no content size, a 128 KiB window) first, then
+ *  a raw block for each 128 KiB of each payload, which a decoder hands on
+ *  as soon as it has it, as Discord's flushed stream is. */
+function sendZstd(ws: Socket, payload: string) {
+  const data = Buffer.from(payload);
+  const parts: Buffer[] = [];
+  if (!ws.data.zstdStarted) {
+    ws.data.zstdStarted = true;
+    // Magic number, a descriptor with no flags, the window: 2^(10 + 7).
+    parts.push(Buffer.from([0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x38]));
+  }
+  const most = 0x20000;
+  for (let at = 0; at < data.length; at += most) {
+    const block = data.subarray(at, at + most);
+    // Not the last block, raw (type 0), its size in the upper 21 bits.
+    const header = block.length << 3;
+    parts.push(Buffer.from([header & 0xff, (header >> 8) & 0xff, (header >> 16) & 0xff]), block);
+  }
+  ws.send(Buffer.concat(parts));
 }
 
 function dispatch(name: string, data: unknown) {
@@ -5513,6 +5688,89 @@ function eventSubscription(response = 1) {
   return { guild_scheduled_event_id: SCHEDULED_EVENT, guild_scheduled_event_exception_id: null, user_id: ALICE, response };
 }
 
+/** The events Alice made in "Server", by id, each with how many are
+ *  interested (`count`) and whether she is (`alice`); and each POST, PATCH
+ *  and DELETE on them, oldest first, for GET /_control/event-writes. */
+const madeEvents = new Map<string, any>();
+const eventWrites: Record<string, unknown>[] = [];
+
+/** A made event as Discord gives it, counted when asked. */
+function madeEvent(event: any, counted = false) {
+  const { count, alice, ...wire } = event;
+  return counted ? { ...wire, user_count: count } : wire;
+}
+
+/** The servers Alice made, oldest first, for GET /_control/servers-made:
+ *  each body POST /guilds or POST /guilds/templates/{code} took, with the
+ *  template's code and the new server's id. */
+const serversMade: Record<string, unknown>[] = [];
+/** The one server template the fake knows, Discord's "Friends & Family". */
+const TEMPLATE_CODE = "hgM48av5Q69A";
+function guildTemplate() {
+  return {
+    code: TEMPLATE_CODE, name: "Friends & Family", description: "Hang out with your friends and family.",
+    usage_count: 1234, creator_id: users.bob.id ?? null, creator: wireUser(users.bob),
+    created_at: iso(Date.now() - 30 * DAY), updated_at: iso(Date.now() - DAY), source_guild_id: "1400000000000000990",
+    serialized_source_guild: {
+      name: "Friends & Family", description: null, region: null, verification_level: 0,
+      default_message_notifications: 0, explicit_content_filter: 0, preferred_locale: "en-US",
+      afk_channel_id: null, afk_timeout: 300, system_channel_id: 2, system_channel_flags: 0,
+      roles: [{ id: 0, name: "@everyone", permissions: "104324673", color: 0, hoist: false, mentionable: false }],
+      channels: [
+        { id: 1, type: 4, name: "Text Channels", position: 0, parent_id: null, permission_overwrites: [] },
+        { id: 2, type: 0, name: "general", position: 0, parent_id: 1, permission_overwrites: [] },
+        { id: 3, type: 0, name: "plans", position: 1, parent_id: 1, permission_overwrites: [] },
+        { id: 4, type: 4, name: "Voice Channels", position: 1, parent_id: null, permission_overwrites: [] },
+        { id: 5, type: 2, name: "Lounge", position: 0, parent_id: 4, permission_overwrites: [] },
+      ],
+    },
+    is_dirty: null,
+  };
+}
+
+/** Makes a server for Alice from template-shaped channels, sends its
+ *  GUILD_CREATE, and answers with the guild. */
+function makeServer(name: string, icon: string | null, channels: any[], record: Record<string, unknown>) {
+  const id = nextId(Date.now());
+  const ids = new Map<number, string>();
+  const made = channels.map((channel: any, at: number) => {
+    const real = nextId(Date.now());
+    ids.set(channel.id ?? -1 - at, real);
+    return { ...channel, real };
+  });
+  const wired = made.map((channel: any) => ({
+    id: channel.real, type: channel.type, name: channel.name, position: channel.position ?? 0,
+    parent_id: channel.parent_id == null ? null : ids.get(channel.parent_id) ?? null,
+    permission_overwrites: [], nsfw: false, topic: null, last_message_id: null,
+    ...(channel.type === 2 ? { bitrate: 64000, user_limit: 0, rtc_region: null } : {}),
+  }));
+  const guild = {
+    id,
+    properties: {
+      id, name, owner_id: ALICE, icon: icon ? `icon${id}` : null, banner: null, splash: null, description: null,
+      features: [], preferred_locale: "en-US", verification_level: 0, default_message_notifications: 0,
+      explicit_content_filter: 0, mfa_level: 0, nsfw_level: 0, premium_tier: 0,
+      system_channel_id: wired.find((channel: any) => channel.type === 0)?.id ?? null, afk_channel_id: null, afk_timeout: 300,
+    },
+    channels: wired,
+    roles: [{ id, name: "@everyone", permissions: "2248473465835073", position: 0, color: 0, hoist: false, managed: false, mentionable: false, flags: 0 }],
+    emojis: [], stickers: [], threads: [], stage_instances: [], guild_scheduled_events: [], activity_instances: [],
+    member_count: 1, joined_at: new Date().toISOString(), large: false, lazy: true, premium_subscription_count: 0,
+    data_mode: "full", version: 1, members: [member(users.alice)], voice_states: [], presences: [],
+  };
+  serversMade.push({ ...record, id });
+  dispatch("GUILD_CREATE", guild);
+  return { id, name, icon: guild.properties.icon, owner_id: ALICE, channels: wired, roles: guild.roles };
+}
+
+/** The channels Discord's default template gives a server made from nothing. */
+const DEFAULT_CHANNELS = [
+  { id: 1, type: 4, name: "Text Channels", position: 0 },
+  { id: 2, type: 0, name: "general", position: 0, parent_id: 1 },
+  { id: 3, type: 4, name: "Voice Channels", position: 1 },
+  { id: 4, type: 2, name: "General", position: 0, parent_id: 3 },
+];
+
 /** Files uploaded for a message that isn't sent yet, by uploaded filename. */
 const uploads = new Map<string, { filename: string; data?: Uint8Array }>();
 let uploadCount = 0;
@@ -6461,7 +6719,7 @@ async function api(req: Request, path: string, origin: string): Promise<Response
       const people = (body.recipients as unknown[]).map((id) => userById.get(String(id)));
       if (people.some((user) => !user) || people.length > 9) return json({ message: "Invalid Recipient(s)", code: 50033 }, 400);
       const id = snowflake(Date.now(), 78);
-      const channel: Private = { type: 3, recipients: people as User[] };
+      const channel: Private = { type: 3, recipients: people as User[], owner: ALICE };
       privates.set(id, channel);
       messages.set(id, []);
       dispatch("CHANNEL_CREATE", wirePrivate(id, channel, "objects"));
@@ -6579,14 +6837,27 @@ async function api(req: Request, path: string, origin: string): Promise<Response
         }
       }
       const reply = body.message_reference?.message_id;
+      // A voice message, IS_VOICE_MESSAGE: its recording alone, named as
+      // Discord's apps name it, with how long it plays and its waveform.
+      const voiceMessage = (Number(body.flags ?? 0) & (1 << 13)) !== 0;
+      const recording = body.attachments?.[0];
+      if (voiceMessage && (body.attachments?.length !== 1 || body.content
+        || recording?.filename !== "voice-message.ogg" || typeof recording?.duration_secs !== "number"
+        || typeof recording?.waveform !== "string")) {
+        return json({ message: "Invalid Form Body", code: 50035 }, 400);
+      }
       const attached = takeUploads(body.attachments, m[1]!);
       if (!attached) return json({ message: "Invalid Form Body", code: 50035 }, 400);
+      if (voiceMessage) {
+        attached[0]!.voice = { seconds: recording.duration_secs, waveform: Buffer.from(recording.waveform, "base64") };
+      }
       const message = post(m[1]!, users.alice, body.content ?? "", Date.now(), {
         nonce: body.nonce ? String(body.nonce) : undefined,
         reply: reply && byId.has(reply) ? reply : undefined,
         files: attached,
         stickers,
         poll,
+        ...(voiceMessage ? { flags: 1 << 13 } : {}),
       });
       // An env's favourite GIF comes with its embed, so a recording doesn't
       // show its link for the moment before the embed would come.
@@ -6828,6 +7099,36 @@ async function api(req: Request, path: string, origin: string): Promise<Response
     return new Response(null, { status: 204 });
   }
 
+  // Its owner removing someone from a group DM.
+  if (method === "DELETE" && (m = path.match(/^\/channels\/(\d+)\/recipients\/(\d+)$/))) {
+    const channel = privates.get(m[1]!);
+    const user = channel?.recipients.find((known) => known.id === m![2]);
+    if (channel?.type !== 3) return notFound("Unknown Channel", 10003);
+    if (channel.owner !== ALICE) return json({ message: "Missing Permissions", code: 50013 }, 403);
+    if (!user) return notFound("Unknown User", 10013);
+    channel.recipients = channel.recipients.filter((known) => known !== user);
+    dispatch("CHANNEL_RECIPIENT_REMOVE", { channel_id: m[1]!, user: wireUser(user) });
+    return new Response(null, { status: 204 });
+  }
+
+  // Its owner giving a group DM to another of its people, or renaming it.
+  if (method === "PATCH" && (m = path.match(/^\/channels\/(\d+)$/)) && privates.get(m[1]!)?.type === 3) {
+    const id = m[1]!;
+    const channel = privates.get(id)!;
+    const body: any = await req.json().catch(() => ({}));
+    if ("owner" in body) {
+      if (channel.owner !== ALICE) return json({ message: "Missing Permissions", code: 50013 }, 403);
+      if (!channel.recipients.some((known) => known.id === String(body.owner))) {
+        return json({ message: "Invalid Form Body", code: 50035 }, 400);
+      }
+      channel.owner = String(body.owner);
+    }
+    if ("name" in body) channel.name = body.name ?? undefined;
+    const wire = wirePrivate(id, channel, "objects");
+    dispatch("CHANNEL_UPDATE", wire);
+    return json(wire);
+  }
+
   if ((m = path.match(/^\/channels\/(\d+)\/messages\/pins\/(\d+)$/)) && (method === "PUT" || method === "DELETE")) {
     const message = byId.get(m[2]!);
     if (!message || message.channel !== m[1]) return notFound("Unknown Message", 10008);
@@ -6951,6 +7252,22 @@ async function api(req: Request, path: string, origin: string): Promise<Response
   // `archived` picks a kind, `name` finds them by the words of their names,
   // the newest message first, `limit` from the `offset`th. The first search
   // of each channel answers 202, as Discord's does while it indexes it.
+  // Alice's notifications in a thread she's in: `flags` (all but
+  // HAS_INTERACTED), `muted` and `mute_config`, answered with her thread
+  // member and THREAD_MEMBER_UPDATE, as Discord does.
+  if (method === "PATCH" && (m = path.match(/^\/channels\/(\d+)\/thread-members\/@me\/settings$/))) {
+    const thread = threads.get(m[1]!);
+    if (!thread || !visibleThread(thread)) return notFound("Unknown Channel", 10003);
+    if (!thread.members.has(ALICE)) return notFound("Unknown Member", 10007);
+    const body: any = await req.json().catch(() => ({}));
+    threadSettings.push({ thread: thread.id, ...body });
+    if (typeof body.flags === "number") thread.aliceFlags = ((thread.aliceFlags ?? 1) & 1) | (body.flags & ~1);
+    if (typeof body.muted === "boolean") thread.aliceMuted = body.muted;
+    if ("mute_config" in body) thread.aliceMuteConfig = body.mute_config;
+    const own = wireThreadMember(thread);
+    dispatch("THREAD_MEMBER_UPDATE", { ...own, guild_id: GUILD });
+    return json(own);
+  }
   if ((m = path.match(/^\/channels\/(\d+)\/thread-members\/@me$/)) && ["POST", "PUT", "DELETE"].includes(method)) {
     const thread = threads.get(m[1]!);
     if (!thread || !visibleThread(thread)) return notFound("Unknown Channel", 10003);
@@ -7373,6 +7690,20 @@ async function api(req: Request, path: string, origin: string): Promise<Response
       if (before.type === 0) {
         for (const key of ["topic", "nsfw", "rate_limit_per_user"] as const) if (key in body) (edit as any)[key] = body[key];
       }
+      // A forum's tags go whole: those left out are deleted, a new one gets
+      // an id, and at most one of its emoji fields is set.
+      if (before.type === 15 && Array.isArray(body.available_tags)) {
+        const tags = body.available_tags as any[];
+        if (tags.length > 20 || tags.some((tag) => typeof tag.name !== "string" || tag.name.length < 1 || tag.name.length > 50 ||
+          (tag.emoji_id != null && tag.emoji_name != null))) {
+          return json({ message: "Invalid Form Body", code: 50035 }, 400);
+        }
+        forumTagEdits.push(tags);
+        (edit as any).available_tags = tags.map((tag) => ({
+          id: tag.id ?? nextId(Date.now()), name: tag.name, moderated: !!tag.moderated,
+          emoji_id: tag.emoji_id ?? null, emoji_name: tag.emoji_name ?? null,
+        }));
+      }
       channelEdits.set(id, edit);
       dispatch("CHANNEL_UPDATE", channel());
       return json(channel());
@@ -7565,6 +7896,56 @@ async function api(req: Request, path: string, origin: string): Promise<Response
       if (after) found = found.filter(({ user }) => byId(user.id, after) > 0);
     }
     return json(found.slice(0, limit));
+  }
+
+  // AutoMod in Server Settings; see "AutoMod" above.
+  if ((m = path.match(/^\/guilds\/(\d+)\/auto-moderation\/rules(?:\/(\d+))?$/))) {
+    if (m[1] !== GUILD) return notFound("Unknown Guild", 10004);
+    if (!aliceMay(5)) return json({ message: "Missing Permissions", code: 50013 }, 403);
+    const id = m[2];
+    const invalid = (errors: Record<string, unknown>) => json({ message: "Invalid Form Body", code: 50035, errors }, 400);
+    if (id === undefined && method === "GET") return json([...automodRules.values()]);
+    if (id === undefined && method === "POST") {
+      const body: any = await req.json().catch(() => ({}));
+      automodSent.push({ method, rule: null, body });
+      const rule: AutomodRule = {
+        enabled: false, trigger_metadata: {}, exempt_roles: [], exempt_channels: [], ...body,
+        id: snowflake(Date.now(), ++automodMade % 4096), guild_id: GUILD, creator_id: ALICE,
+      };
+      const problem = automodProblem(rule);
+      if (problem) return invalid(problem);
+      const same = [...automodRules.values()].filter((known) => known.trigger_type === rule.trigger_type).length;
+      if (same >= AUTOMOD_LIMITS[rule.trigger_type]!) {
+        return invalid({ trigger_type: { _errors: [{ code: "AUTO_MODERATION_MAX_RULES_OF_TYPE_EXCEEDED", message: "Maximum number of rules of this type reached" }] } });
+      }
+      automodRules.set(rule.id, rule);
+      logAudit(140, rule.id);
+      dispatch("AUTO_MODERATION_RULE_CREATE", rule);
+      return json(rule);
+    }
+    const known = id === undefined ? undefined : automodRules.get(id);
+    if (!known) return notFound("Unknown Auto Moderation Rule", 10066);
+    if (method === "GET") return json(known);
+    if (method === "PATCH") {
+      const body: any = await req.json().catch(() => ({}));
+      automodSent.push({ method, rule: known.id, body });
+      const { trigger_type: _type, id: _id, guild_id: _guild, creator_id: _creator, ...change } = body;
+      const rule: AutomodRule = { ...known, ...change };
+      const problem = automodProblem(rule);
+      if (problem) return invalid(problem);
+      automodRules.set(known.id, rule);
+      logAudit(141, known.id);
+      dispatch("AUTO_MODERATION_RULE_UPDATE", rule);
+      return json(rule);
+    }
+    if (method === "DELETE") {
+      automodSent.push({ method, rule: known.id, body: null });
+      automodRules.delete(known.id);
+      logAudit(142, known.id);
+      dispatch("AUTO_MODERATION_RULE_DELETE", known);
+      return empty();
+    }
+    return notFound();
   }
 
   // Audit Log in Server Settings, newest first; see "auditEntries".
@@ -7850,6 +8231,103 @@ async function api(req: Request, path: string, origin: string): Promise<Response
     const form = inviteForm;
     inviteForm = false;
     return json({ ...invite, new_member: newMember, show_verification_form: form });
+  }
+
+  // "Server"'s events: the list with their counts, who's interested, and
+  // making, changing and deleting the ones Alice made, each sending the
+  // gateway event Discord sends; see "madeEvents".
+  if (method === "GET" && (m = path.match(/^\/guilds\/(\d+)\/scheduled-events$/))) {
+    if (m[1] !== GUILD) return notFound("Unknown Guild", 10004);
+    const counted = url.searchParams.get("with_user_count") === "true";
+    const base = { ...scheduledEvent(), ...(counted ? { user_count: eventInterested ? 8 : 7 } : {}) };
+    return json([base, ...[...madeEvents.values()].map((event) => madeEvent(event, counted))]);
+  }
+  if (method === "GET" && (m = path.match(/^\/guilds\/(\d+)\/scheduled-events\/(\d+)\/users$/))) {
+    if (m[1] !== GUILD || (m[2] !== SCHEDULED_EVENT && !madeEvents.has(m[2]))) return notFound("Unknown Guild Scheduled Event", 10070);
+    const interested = m[2] === SCHEDULED_EVENT ? [users.bob, ...(eventInterested ? [users.alice] : [])] : madeEvents.get(m[2]).alice ? [users.alice] : [];
+    const withMember = url.searchParams.get("with_member") === "true";
+    return json({
+      users: interested.map((user) => ({ ...wireUser(user), ...(withMember ? { guild_member: member(user) } : {}) })),
+    });
+  }
+  if (method === "POST" && (m = path.match(/^\/guilds\/(\d+)\/scheduled-events$/))) {
+    if (m[1] !== GUILD) return notFound("Unknown Guild", 10004);
+    const body: any = await req.json().catch(() => ({}));
+    const invalid = (field: string, message: string) =>
+      json({ message: "Invalid Form Body", code: 50035, errors: { [field]: { _errors: [{ code: "BASE_TYPE_REQUIRED", message }] } } }, 400);
+    if (typeof body.name !== "string" || !body.name.trim()) return invalid("name", "This field is required");
+    if (body.entity_type === 3 && (!body.entity_metadata?.location || !body.scheduled_end_time)) {
+      return invalid("entity_metadata", "An event somewhere else needs a location and an end time");
+    }
+    if (body.entity_type !== 3 && !body.channel_id) return invalid("channel_id", "This field is required");
+    const id = nextId(Date.now());
+    const event = {
+      id, guild_id: GUILD, channel_id: body.entity_type === 3 ? null : body.channel_id, creator_id: ALICE,
+      creator: wireUser(users.alice), name: body.name, description: body.description ?? null,
+      scheduled_start_time: body.scheduled_start_time, scheduled_end_time: body.scheduled_end_time ?? null,
+      privacy_level: body.privacy_level ?? 2, status: 1, entity_type: body.entity_type, entity_id: null,
+      entity_metadata: body.entity_metadata ?? null, image: body.image ? `cover${id}` : null,
+      recurrence_rule: null, guild_scheduled_event_exceptions: [], count: 1, alice: true,
+    };
+    madeEvents.set(id, event);
+    eventWrites.push({ method, event: id, body });
+    dispatch("GUILD_SCHEDULED_EVENT_CREATE", madeEvent(event));
+    // Discord subscribes the one who made it.
+    dispatch("GUILD_SCHEDULED_EVENT_USER_ADD", { guild_scheduled_event_id: id, guild_scheduled_event_exception_id: null, user_id: ALICE, guild_id: GUILD });
+    return json(madeEvent(event));
+  }
+  if ((m = path.match(/^\/guilds\/(\d+)\/scheduled-events\/(\d+)$/)) && (method === "PATCH" || method === "DELETE") && madeEvents.has(m[2])) {
+    const event = madeEvents.get(m[2]);
+    const body: any = method === "PATCH" ? await req.json().catch(() => ({})) : null;
+    eventWrites.push({ method, event: event.id, body });
+    if (method === "DELETE") {
+      madeEvents.delete(event.id);
+      dispatch("GUILD_SCHEDULED_EVENT_DELETE", madeEvent(event));
+      return empty();
+    }
+    // Only Discord's manual steps: scheduled to active or canceled, active to completed.
+    if (body.status !== undefined) {
+      const allowed = (event.status === 1 && [2, 4].includes(body.status)) || (event.status === 2 && body.status === 3);
+      if (!allowed) return json({ message: "Cannot update event status", code: 180002 }, 400);
+    }
+    for (const key of ["name", "description", "scheduled_start_time", "scheduled_end_time", "entity_type", "channel_id", "entity_metadata", "status", "privacy_level"]) {
+      if (key in body) event[key] = body[key];
+    }
+    if (body.image) event.image = `cover${event.id}e`;
+    if (event.status > 2) madeEvents.delete(event.id);
+    dispatch("GUILD_SCHEDULED_EVENT_UPDATE", madeEvent(event));
+    return json(madeEvent(event));
+  }
+  if ((m = path.match(/^\/guilds\/(\d+)\/scheduled-events\/(\d+)\/users\/@me$/)) && (method === "PUT" || method === "DELETE") && madeEvents.has(m[2])) {
+    const event = madeEvents.get(m[2]);
+    const interested = method === "PUT";
+    if (event.alice !== interested) {
+      event.alice = interested;
+      event.count += interested ? 1 : -1;
+      dispatch(interested ? "GUILD_SCHEDULED_EVENT_USER_ADD" : "GUILD_SCHEDULED_EVENT_USER_REMOVE", { guild_scheduled_event_id: event.id, guild_scheduled_event_exception_id: null, user_id: ALICE, guild_id: GUILD });
+    }
+    return interested ? json({ guild_scheduled_event_id: event.id, user_id: ALICE, response: 1 }) : empty();
+  }
+
+  // Making a server, from nothing or from a template; see "serversMade".
+  if (method === "POST" && path === "/guilds") {
+    const body: any = await req.json().catch(() => ({}));
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (name.length < 2 || name.length > 100) {
+      return json({ message: "Invalid Form Body", code: 50035, errors: { name: { _errors: [{ code: "BASE_TYPE_BAD_LENGTH", message: "Must be between 2 and 100 in length." }] } } }, 400);
+    }
+    const channels = Array.isArray(body.channels) && body.channels.length ? body.channels : DEFAULT_CHANNELS;
+    return json(makeServer(name, body.icon ?? null, channels, { body, template: null }));
+  }
+  if ((m = path.match(/^\/guilds\/templates\/(\w+)$/)) && (method === "GET" || method === "POST")) {
+    if (m[1] !== TEMPLATE_CODE) return notFound("Unknown Guild Template", 10057);
+    if (method === "GET") return json(guildTemplate());
+    const body: any = await req.json().catch(() => ({}));
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (name.length < 2 || name.length > 100) {
+      return json({ message: "Invalid Form Body", code: 50035, errors: { name: { _errors: [{ code: "BASE_TYPE_BAD_LENGTH", message: "Must be between 2 and 100 in length." }] } } }, 400);
+    }
+    return json(makeServer(name, body.icon ?? null, guildTemplate().serialized_source_guild.channels, { body, template: m[1] }));
   }
 
   // The scheduled event in "Server"'s Lounge, from its link, and Alice's
@@ -8450,7 +8928,7 @@ const GENERIC_CONTROLS = new Set([
   "voice-identifies", "voice-changes", "call-audio", "call-video", "voice-link", "voice-drop", "voice-move", "voice-kick",
   "stream-move", "sessions", "other-session", "cookies", "list-requests", "audit-log", "slow", "gateway-reconnect", "qr-scan",
   "qr-confirm", "qr-captcha", "qr-cancel", "qr-expire", "voice-audio", "video", "stream-codec", "reactor-pages",
-  "reactor-removals", "thread-searches", "thread-creates", "thread-members", "typed", "acks", "invites",
+  "reactor-removals", "thread-searches", "thread-creates", "thread-members", "thread-settings", "forum-tags", "typed", "acks", "invites",
   "invite-joins", "invite-captcha", "invite-form", "event-interest", "gift-redeems", "oauth-authorizations", "mfa", "soundboard-sends", "custom-call-sounds",
 ]);
 
@@ -8924,11 +9402,11 @@ const server = Bun.serve<SocketData>({
     }
     if (path === "/" && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
       const compress = url.searchParams.get("compress");
-      if (compress && compress !== "zlib-stream") {
-        return new Response("only zlib-stream compression is supported", { status: 400 });
+      if (compress && compress !== "zlib-stream" && compress !== "zstd-stream") {
+        return new Response("only zlib-stream and zstd-stream compression are supported", { status: 400 });
       }
       const session = `fake-session-${++sessions}`;
-      if (server.upgrade(req, { data: { sequence: 0, identified: false, session, origin, zlib: compress === "zlib-stream" } })) {
+      if (server.upgrade(req, { data: { sequence: 0, identified: false, session, origin, zlib: compress === "zlib-stream", zstd: compress === "zstd-stream" } })) {
         return undefined;
       }
       return new Response("upgrade failed", { status: 400 });
@@ -9304,6 +9782,11 @@ const server = Bun.serve<SocketData>({
       return new Response("changed\n");
     }
     if (path === "/_control/audit-log") return Response.json(auditLog);
+    if (path === "/_control/automod") return Response.json(automodSent);
+    if (req.method === "POST" && path === "/_control/automod-reset") {
+      resetAutomod();
+      return new Response("ok\n");
+    }
     if (req.method === "POST" && path === "/_control/audit-entries") {
       const body: any = await req.json().catch(() => ({}));
       const count = Number(body.count) || 0;
@@ -9354,6 +9837,15 @@ const server = Bun.serve<SocketData>({
       else timeouts.delete(ALICE);
       changeMembers(() => memberUpdated(users.alice));
       return new Response(seconds > 0 ? `Alice is timed out for ${seconds} s\n` : "Alice's timeout ended\n");
+    }
+    if (req.method === "POST" && path === "/_control/rename-alice") {
+      const nick = (await req.text()).trim();
+      changeMembers(() => {
+        if (nick) memberNicks.set(ALICE, nick);
+        else memberNicks.delete(ALICE);
+        memberUpdated(users.alice);
+      });
+      return new Response(nick ? `Bob renamed Alice ${nick}\n` : "Bob took Alice's nickname away\n");
     }
     if (req.method === "POST" && path === "/_control/slow") {
       slowMs = Number(await req.text()) || 0;
@@ -9581,6 +10073,12 @@ const server = Bun.serve<SocketData>({
     if (req.method === "GET" && path === "/_control/thread-members") {
       return Response.json(threadMemberRequests);
     }
+    if (req.method === "GET" && path === "/_control/thread-settings") {
+      return Response.json(threadSettings);
+    }
+    if (req.method === "GET" && path === "/_control/forum-tags") {
+      return Response.json(forumTagEdits);
+    }
     if (req.method === "GET" && path === "/_control/post-data") {
       return Response.json(postDataRequests);
     }
@@ -9758,6 +10256,12 @@ const server = Bun.serve<SocketData>({
     }
     if (req.method === "GET" && path === "/_control/event-interest") {
       return Response.json(eventInterest);
+    }
+    if (req.method === "GET" && path === "/_control/event-writes") {
+      return Response.json(eventWrites);
+    }
+    if (req.method === "GET" && path === "/_control/servers-made") {
+      return Response.json(serversMade);
     }
     if (req.method === "GET" && path === "/_control/gift-redeems") {
       return Response.json(giftRedeems);

@@ -118,7 +118,8 @@ fn server_settings_open_only_with_a_page_she_may_change() {
             SettingsSection::Members,
             SettingsSection::Roles,
             SettingsSection::Invites,
-            SettingsSection::Safety
+            SettingsSection::Safety,
+            SettingsSection::AutoMod
         ]
     );
 

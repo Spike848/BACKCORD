@@ -598,7 +598,22 @@ The sidebar lists each active thread the account is in under its channel,
 joined to it by a line, with its own unread state and mentions, read at
 join time until Discord's read state says otherwise. A thread notifies
 as its own level says, else as its channel does; one the account isn't in
-notifies only of mentions, and a muted thread not at all. Opening one shows
+notifies only of mentions, and a muted thread not at all.
+
+A thread the account is in has its own notification settings in its menu
+and the header's More menu, after Leave thread, and a forum post's in its
+header's bell, as Discord's client offers them: Mute thread, for one of the times a channel's mute
+offers or until it's turned back on, or Unmute thread saying till when;
+and Notification settings, All messages, Only @mentions or Nothing, the
+one that applies checked: its own, else its channel's. A thread has no
+"use default" to choose. They go to Discord's thread member, not the
+server's settings: `PATCH /channels/{id}/thread-members/@me/settings`
+with `flags` (2, 4 or 8) for a level, or `muted` and `mute_config`
+(`selected_time_window` in seconds, -1 for good, and `end_time`), as a
+channel's mute sends them. Discord answers with THREAD_MEMBER_UPDATE,
+which the snapshot takes (`Thread::join`), and the unread and notification
+logic above reads from there; a timed mute ends by itself at its
+`end_time`. Opening one shows
 it in place of the channel, its header reading "general › Plans" with the
 channel's name a link back, and the channel's member list beside it.
 
@@ -637,8 +652,8 @@ after Mark as read, as Discord's client does (its `thread-context` menu). So
 does the More button (…) in a thread's header, after its member list, and in
 the header of a thread beside its channel: the same menu less Mark as read, as
 Discord's "Toolbar Overflow" and "Sidebar Overflow" menus start with joining or
-leaving; their other items, such as closing or locking the thread, BACKCORD
-doesn't have yet. Discord's client checks nothing else: not archiving, locking
+leaving, and its notification settings (above); their other items, such as
+closing or locking the thread, BACKCORD doesn't have yet. Discord's client checks nothing else: not archiving, locking
 or permissions. It sends `POST /channels/{id}/thread-members/@me` to join,
 though docs.discord.food says PUT, and `DELETE` to leave, each with the menu's
 `location` ("Context Menu", "Toolbar Overflow" or "Sidebar Overflow") and no
@@ -775,6 +790,29 @@ messages are kept only while the forum shows. Opening the forum marks it
 read, which acknowledges its newest message, as Discord's client does; a
 forum's newest message is its newest post, so a post made since makes it
 unread (THREAD_CREATE with `newly_created`).
+
+Under the search, as Discord's forum header has it, Sort & View sorts the
+posts by Recent Activity (their latest message) or Creation Date, and
+shows them as a List of cards or a Gallery of 260px tiles, each its first
+picture over its tags, title and replies. They start as the forum's
+`default_sort_order` and `default_forum_layout` say (2 is the gallery,
+which a media channel always starts with), and a choice holds while the
+forum shows; Discord's client keeps it per forum in its settings, which
+BACKCORD doesn't write. Beside it are the forum's tags: a click shows only
+the posts with any tag chosen, as Discord's `match_some` does, and Clear
+shows them all. Sorting and filtering work on the posts loaded, the
+active ones and the archived pages, which keep loading by latest message
+as the list scrolls.
+
+With Manage Channels on the forum, Edit Tags shows its tags in place of
+the posts, each with its emoji (a Unicode one pasted or picked; a custom
+one stays until replaced), its name of at most 50 characters, whether it's
+moderated (given only by those with Manage Threads) and Delete; Add Tag
+adds one, up to 20. Save sends them whole, as Discord's client does,
+`PATCH /channels/{id}` with `available_tags`: an existing tag by its
+`id`, a new one without, one left out deleted, and at most one of
+`emoji_id` and `emoji_name`. Discord's CHANNEL_UPDATE brings the forum
+back with them, and Edit Tags closes; a refusal says why.
 
 Above an open post's messages a 45px bar has "React to post", which opens the
 emoji picker for the post's first message (once it's loaded), and on the right

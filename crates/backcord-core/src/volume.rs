@@ -11,7 +11,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{
         LazyLock, RwLock,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering},
     },
 };
 
@@ -278,6 +278,24 @@ pub const VOICE_GATE_HIGHEST: f32 = -20.0;
 /// not the limiter.
 static EFFECTS_BYPASSED: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(RwLock::default);
 
+/// The high-pass's cutoff, in Hz, as f32 bits.
+static VOICE_HIGH_PASS_CUTOFF: AtomicU32 =
+    AtomicU32::new(crate::voice_filters::HIGH_PASS.to_bits());
+
+/// Where the high-pass on people's voices cuts, in Hz; 100 unless set.
+pub fn set_voice_high_pass_cutoff(hz: f32) {
+    let hz = if hz.is_finite() {
+        hz.clamp(20.0, 400.0)
+    } else {
+        crate::voice_filters::HIGH_PASS
+    };
+    VOICE_HIGH_PASS_CUTOFF.store(hz.to_bits(), Ordering::Relaxed);
+}
+
+pub fn voice_high_pass_cutoff() -> f32 {
+    f32::from_bits(VOICE_HIGH_PASS_CUTOFF.load(Ordering::Relaxed))
+}
+
 pub fn set_voice_high_pass(on: bool) {
     VOICE_HIGH_PASS.store(on, Ordering::Relaxed);
 }
@@ -384,6 +402,23 @@ pub fn set_microphone_pan(pan: f32) {
     #[cfg(feature = "discord")]
     backcord_discord::spatial::set_pan(pan);
     let _ = pan;
+}
+
+/// The compressor's preset, as [`crate::voice_compressor::Preset::ALL`]'s
+/// index: Medium unless set.
+static VOICE_COMPRESSOR_PRESET: AtomicU8 = AtomicU8::new(1);
+
+pub fn set_voice_compressor_preset(preset: crate::voice_compressor::Preset) {
+    let index = crate::voice_compressor::Preset::ALL
+        .iter()
+        .position(|kind| *kind == preset)
+        .unwrap_or(1);
+    VOICE_COMPRESSOR_PRESET.store(index as u8, Ordering::Relaxed);
+}
+
+pub fn voice_compressor_preset() -> crate::voice_compressor::Preset {
+    let index = usize::from(VOICE_COMPRESSOR_PRESET.load(Ordering::Relaxed));
+    crate::voice_compressor::Preset::ALL[index.min(2)]
 }
 
 pub fn set_voice_compressor(on: bool) {

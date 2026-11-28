@@ -549,12 +549,12 @@ impl Matrix {
             }
             Command::Forward {
                 room,
-                item,
+                items,
                 target,
                 note,
                 ..
             } => {
-                let result = forward(session, open.as_ref(), &room, &item, &target, note).await;
+                let result = forward(session, open.as_ref(), &room, &items, &target, note).await;
                 let _ = events.send(Event::Forwarded {
                     room: target,
                     result,
@@ -1458,13 +1458,23 @@ async fn forward(
     session: &Session,
     open: Option<&OpenRoom>,
     room: &str,
-    item: &str,
+    items: &[String],
     target: &str,
     note: Option<String>,
 ) -> Result<(), ForwardFailure> {
-    let target = forward_message(session, open, room, item, target)
-        .await
-        .map_err(|why| ForwardFailure::Forward(why.into()))?;
+    let mut forwarded = None;
+    for item in items {
+        forwarded = Some(
+            forward_message(session, open, room, item, target)
+                .await
+                .map_err(|why| ForwardFailure::Forward(why.into()))?,
+        );
+    }
+    let Some(target) = forwarded else {
+        return Err(ForwardFailure::Forward(
+            "This message can't be forwarded.".into(),
+        ));
+    };
     let Some(note) = note else {
         return Ok(());
     };
@@ -3237,7 +3247,7 @@ mod tests {
             commands
                 .send(Command::Forward {
                     room: room.clone(),
-                    item: original.item.clone(),
+                    items: vec![original.item.clone()],
                     target: other.to_string(),
                     note: Some("not sent".into()),
                     silent: false,
@@ -3260,7 +3270,7 @@ mod tests {
                 commands
                     .send(Command::Forward {
                         room: room.clone(),
-                        item: item.clone(),
+                        items: vec![item.clone()],
                         target: other.to_string(),
                         note: (item == &sent.item).then(|| "have a look".into()),
                         silent: false,

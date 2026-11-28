@@ -371,7 +371,8 @@ impl AppState {
             choices.push(MenuChoice::EditGroup);
             choices.push(MenuChoice::LeaveGroup);
         }
-        // A thread's notifications are its own, which BACKCORD doesn't change yet.
+        // A thread's notifications are its own, which its thread member
+        // keeps: `Application::discord_channel_choices` adds them.
         if room.network == Network::Discord
             && !room.direct
             && !room.voice

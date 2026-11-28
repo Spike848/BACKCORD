@@ -114,6 +114,9 @@ pub fn command(
     let Some(command) = super::audit_log::command(command, discord, events) else {
         return;
     };
+    let Some(command) = super::automod::command(command, discord, events) else {
+        return;
+    };
     let Some(command) = super::people::command(command, discord, events) else {
         return;
     };
@@ -133,6 +136,9 @@ pub fn command(
         return;
     };
     let Some(command) = super::ownership::command(command, discord, events) else {
+        return;
+    };
+    let Some(command) = super::events::command(command, discord, events) else {
         return;
     };
     let Some(command) = super::interactions::command(command, discord, events) else {
@@ -165,12 +171,12 @@ pub fn command(
         | Command::Present(room) => room.clone(),
         Command::Forward {
             room,
-            item,
+            items,
             target,
             note,
             silent,
         } => {
-            forward(discord, room, item, target, note, *silent, events);
+            forward(discord, room, items, target, note, *silent, events);
             return;
         }
         _ => return,
@@ -474,6 +480,7 @@ pub fn finished(
     let room = match &finished {
         Done::History { room, .. }
         | Done::Original { room, .. }
+        | Done::Source { room, .. }
         | Done::Sent { room, .. }
         | Done::Edited { room, .. }
         | Done::Deleted { room, .. }
@@ -635,6 +642,10 @@ pub fn finished(
         },
         (Done::Original { id, result, .. }, Some(channel)) => {
             channel.original(&id, result);
+            changed = true;
+        }
+        (Done::Source { id, author, .. }, Some(channel)) => {
+            channel.source(&id, author);
             changed = true;
         }
         (Done::Picture { url, picture, .. }, Some(channel)) => {
@@ -916,7 +927,7 @@ fn send_poll(
 fn forward(
     discord: Result<&Discord, &str>,
     room: &str,
-    item: &str,
+    items: &[String],
     target: &str,
     note: &Option<String>,
     silent: bool,
@@ -937,7 +948,12 @@ fn forward(
     else {
         return fail("Forwarding doesn't cross between Discord and Matrix.".into());
     };
-    let Some(id) = sent_id(item) else {
+    let Some(ids) = items
+        .iter()
+        .map(|item| sent_id(item).map(str::to_owned))
+        .collect::<Option<Vec<_>>>()
+        .filter(|ids| !ids.is_empty())
+    else {
         return fail("You can forward that message once it has been sent.".into());
     };
     // Checked first, so a message too long to add isn't forwarded without it.
@@ -949,20 +965,27 @@ fn forward(
     }
     let (discord, events) = (discord.clone(), events.clone());
     let (source, place) = (
-        [guild, channel, id].map(str::to_owned),
+        [guild, channel].map(str::to_owned),
         [target_guild, target_channel].map(str::to_owned),
     );
     let (room, note) = (target.to_owned(), note.clone());
     tokio::spawn(async move {
-        let [guild, channel, id] = &source;
+        let [guild, channel] = &source;
         let [target_guild, target] = &place;
-        let mut result = discord
-            .forward((guild, channel, id), (target_guild, target), silent)
-            .await
-            .map_err(|error| {
-                tracing::warn!(error = format!("{error:#}"), "could not forward a message");
-                ForwardFailure::Forward(error.to_string())
-            });
+        // One after another, so they arrive in the order they were written.
+        let mut result = Ok(());
+        for id in &ids {
+            result = discord
+                .forward((guild, channel, id), (target_guild, target), silent)
+                .await
+                .map_err(|error| {
+                    tracing::warn!(error = format!("{error:#}"), "could not forward a message");
+                    ForwardFailure::Forward(error.to_string())
+                });
+            if result.is_err() {
+                break;
+            }
+        }
         if let (Ok(()), Some(note)) = (&result, note) {
             result = discord
                 .send_forward_note((target_guild, target), &note, silent)

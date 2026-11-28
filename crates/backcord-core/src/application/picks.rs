@@ -35,6 +35,11 @@ const TOGETHER: [MenuChoice; 18] = [
     MenuChoice::Ban,
 ];
 
+/// What a menu of several people offers when only some of them have it in
+/// their own menus, acting on those: a friend request to those who aren't
+/// friends yet, and unfriending those who are.
+const ANY_OF: [MenuChoice; 2] = [MenuChoice::AddFriend, MenuChoice::Unfriend];
+
 impl Application {
     /// Picks someone along with the rest, or lets them go if picked; one
     /// from another server than those picked starts the picking anew.
@@ -75,14 +80,40 @@ impl Application {
             return vec![];
         }
         let each: Vec<Vec<MenuChoice>> = picked.iter().map(|pick| self.choices_of(pick)).collect();
-        each[0]
+        let mut choices: Vec<MenuChoice> = each[0]
             .iter()
             .copied()
             .filter(|choice| TOGETHER.contains(choice))
-            .filter(|choice| each[1..].iter().all(|other| other.contains(choice)))
+            .filter(|choice| {
+                ANY_OF.contains(choice) || each[1..].iter().all(|other| other.contains(choice))
+            })
             .filter(|choice| {
                 *choice != MenuChoice::MoveTo || !self.picked_move_targets().is_empty()
             })
+            .collect();
+        // A friend request, or an unfriending, for those it suits, though
+        // the first picked isn't among them: after Mention, as in each
+        // one's own menu.
+        for choice in ANY_OF {
+            if !choices.contains(&choice) && each.iter().any(|own| own.contains(&choice)) {
+                let at = choices
+                    .iter()
+                    .position(|choice| *choice == MenuChoice::Mention)
+                    .map_or(0, |at| at + 1);
+                choices.insert(at, choice);
+            }
+        }
+        choices
+    }
+
+    /// Those picked whose own menus offer `choice`: whom a friend request
+    /// or an unfriending of them all goes to.
+    pub fn picked_with(&self, choice: MenuChoice) -> Vec<Picked> {
+        self.state
+            .picked
+            .iter()
+            .filter(|pick| self.choices_of(pick).contains(&choice))
+            .cloned()
             .collect()
     }
 
@@ -143,7 +174,8 @@ impl Application {
                 .into_iter()
                 .filter(|pick| self.member_ask_allowed(&pick.place, &pick.user, ask))
                 .collect(),
-            PersonAsk::Unfriend | PersonAsk::Block => picked
+            PersonAsk::Unfriend => self.picked_with(MenuChoice::Unfriend),
+            PersonAsk::Block => picked
                 .into_iter()
                 .filter(|pick| self.state.relation(&pick.user) != Relation::Me)
                 .collect(),
@@ -231,6 +263,34 @@ mod tests {
         app.dispatch(Action::ClearPicks);
         pick(&mut app, GENERAL, "4");
         assert!(app.picked_choices().is_empty());
+    }
+
+    /// A friend request and an unfriending show when any of them suits,
+    /// and go to those it suits alone.
+    #[test]
+    fn a_friend_request_of_several_goes_to_those_not_friends() {
+        let mut app = server(&["30"]);
+        for user in ["4", "6", "3"] {
+            pick(&mut app, GENERAL, user);
+        }
+        let choices = app.picked_choices();
+        for choice in ANY_OF {
+            let suited: Vec<String> = app
+                .state
+                .picked
+                .clone()
+                .iter()
+                .filter(|pick| app.choices_of(pick).contains(&choice))
+                .map(|pick| pick.user.clone())
+                .collect();
+            assert_eq!(choices.contains(&choice), !suited.is_empty(), "{choice:?}");
+            let sent: Vec<String> = app
+                .picked_with(choice)
+                .into_iter()
+                .map(|pick| pick.user)
+                .collect();
+            assert_eq!(sent, suited);
+        }
     }
 
     #[test]

@@ -18,6 +18,11 @@ const REQUIRE_TAG: u64 = 1 << 4;
 const PINNED: u64 = 1 << 1;
 /// Its `default_sort_order` that sorts posts by when they were made.
 const CREATION_DATE: u64 = 1;
+/// Its `default_forum_layout` that shows posts as tiles.
+const GALLERY: u64 = 2;
+/// The most tags a forum has, and the longest a tag's name may be.
+pub const MAX_TAGS: usize = 20;
+pub const TAG_NAME: usize = 50;
 
 /// What a forum channel has that a text channel doesn't.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -31,6 +36,10 @@ pub struct Forum {
     pub by_creation: bool,
     /// The emoji a post without reactions offers to react with.
     pub reaction: Option<Emoji>,
+    /// Its posts show as a gallery of tiles rather than a list, as its
+    /// default layout says; a media channel's always do.
+    #[serde(default)]
+    pub gallery: bool,
 }
 
 /// A tag a forum's posts may take.
@@ -98,7 +107,47 @@ pub fn parse(channel: &Value) -> Option<Box<Forum>> {
         require_tag: channel["flags"].as_u64().unwrap_or_default() & REQUIRE_TAG != 0,
         by_creation: channel["default_sort_order"].as_u64() == Some(CREATION_DATE),
         reaction: Emoji::of_tag(&channel["default_reaction_emoji"]),
+        gallery: channel["type"].as_u64() == Some(GUILD_MEDIA)
+            || channel["default_forum_layout"].as_u64() == Some(GALLERY),
     }))
+}
+
+/// A tag as a forum's settings send it: an existing one by its id, or a new
+/// one without.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TagEdit {
+    pub id: Option<String>,
+    pub name: String,
+    pub moderated: bool,
+    pub emoji: Option<Emoji>,
+}
+
+/// The body of `PATCH /channels/{forum}` that gives a forum these tags, in
+/// this order, as Discord's client sends them: those left out are deleted,
+/// and Discord gives the new ones ids. At most one of `emoji_id` and
+/// `emoji_name` is set.
+pub fn tags_body(tags: &[TagEdit]) -> Value {
+    let tags: Vec<Value> = tags
+        .iter()
+        .map(|tag| {
+            let (emoji_id, emoji_name) = match &tag.emoji {
+                Some(Emoji::Custom { id, .. }) => (Some(id.as_str()), None),
+                Some(Emoji::Unicode(name)) => (None, Some(name.as_str())),
+                None => (None, None),
+            };
+            let mut body = serde_json::json!({
+                "name": tag.name,
+                "moderated": tag.moderated,
+                "emoji_id": emoji_id,
+                "emoji_name": emoji_name,
+            });
+            if let Some(id) = &tag.id {
+                body["id"] = id.as_str().into();
+            }
+            body
+        })
+        .collect();
+    serde_json::json!({ "available_tags": tags })
 }
 
 /// The tags a post's channel object gives it, by id.
@@ -217,7 +266,7 @@ mod tests {
             ],
         }))
         .unwrap();
-        assert!(forum.require_tag && forum.by_creation);
+        assert!(forum.require_tag && forum.by_creation && !forum.gallery);
         assert_eq!(forum.reaction, Some(Emoji::Unicode("👍".into())));
         let tags: Vec<_> = forum
             .tags
@@ -243,7 +292,37 @@ mod tests {
         let plain = parse(&json!({"id": "3", "type": 15})).unwrap();
         assert!(!plain.require_tag && !plain.by_creation && plain.reaction.is_none());
         let media = parse(&json!({"id": "4", "type": 16, "flags": 16})).unwrap();
-        assert!(media.require_tag);
+        assert!(media.require_tag && media.gallery);
+        let tiles = parse(&json!({"id": "5", "type": 15, "default_forum_layout": 2})).unwrap();
+        assert!(tiles.gallery);
+    }
+
+    #[test]
+    fn tags_go_back_whole_with_their_ids_and_one_emoji() {
+        let body = tags_body(&[
+            TagEdit {
+                id: Some("7".into()),
+                name: "Bug".into(),
+                moderated: false,
+                emoji: Some(Emoji::Unicode("🐛".into())),
+            },
+            TagEdit {
+                id: None,
+                name: "Staff".into(),
+                moderated: true,
+                emoji: Some(Emoji::Custom {
+                    id: "9".into(),
+                    name: "staff".into(),
+                }),
+            },
+        ]);
+        assert_eq!(
+            body,
+            json!({"available_tags": [
+                {"id": "7", "name": "Bug", "moderated": false, "emoji_id": null, "emoji_name": "🐛"},
+                {"name": "Staff", "moderated": true, "emoji_id": "9", "emoji_name": null},
+            ]})
+        );
     }
 
     #[test]

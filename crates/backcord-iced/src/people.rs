@@ -34,9 +34,18 @@ pub struct StatusInk {
     pub ink: Color,
     pub opacity: f32,
     pub icon: bool,
+    /// An animated custom emoji plays: on a profile, and in a list's row
+    /// under the pointer, as Discord's client plays them.
+    pub plays: bool,
 }
 
 impl StatusInk {
+    /// The same, its animated emoji playing while `plays`.
+    #[must_use]
+    pub fn playing(self, plays: bool) -> Self {
+        Self { plays, ..self }
+    }
+
     /// Under a name in a list: 12 px in the muted ink, faded by `opacity`,
     /// the activity's icon first.
     pub fn under_name(theme: &crate::theme::Theme, opacity: f32) -> Self {
@@ -46,6 +55,7 @@ impl StatusInk {
             ink: theme.muted,
             opacity,
             icon: true,
+            plays: false,
         }
     }
 
@@ -57,6 +67,7 @@ impl StatusInk {
             ink,
             opacity: 1.0,
             icon: false,
+            plays: false,
         }
     }
 }
@@ -179,9 +190,18 @@ impl<'a> crate::ctx::Ctx<'a> {
             }
         }
         if let Some(emoji) = &status.emoji {
-            line = line.push(match self.picture(emoji, side as u32, side as u32, false) {
-                Some(picture) => Element::from(Pic::square(picture, side).opacity(look.opacity)),
-                None => Space::new().width(side).height(side).into(),
+            let playing = look
+                .plays
+                .then(|| self.playing_emoji(emoji, side as u32, &self.pictures.players))
+                .flatten();
+            line = line.push(match playing {
+                Some(playing) => Element::from(playing.opacity(look.opacity)),
+                None => match self.picture(emoji, side as u32, side as u32, false) {
+                    Some(picture) => {
+                        Element::from(Pic::square(picture, side).opacity(look.opacity))
+                    }
+                    None => Space::new().width(side).height(side).into(),
+                },
             });
         }
         if !status.words.is_empty() {

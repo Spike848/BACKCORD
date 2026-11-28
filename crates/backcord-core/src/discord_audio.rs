@@ -243,8 +243,10 @@ impl Listener for Hearing {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Chosen {
     high_pass: bool,
+    high_pass_cutoff: f32,
     gate: Option<f32>,
     compress: bool,
+    compress_preset: crate::voice_compressor::Preset,
     limit: Option<f32>,
 }
 
@@ -252,8 +254,10 @@ impl Chosen {
     fn now() -> Self {
         Self {
             high_pass: crate::volume::voice_high_pass(),
+            high_pass_cutoff: crate::volume::voice_high_pass_cutoff(),
             gate: crate::volume::voice_gate(),
             compress: crate::volume::voice_compressor(),
+            compress_preset: crate::volume::voice_compressor_preset(),
             limit: crate::volume::voice_limit(),
         }
     }
@@ -335,13 +339,19 @@ impl VoiceEffects {
             self.frame.clear();
             self.frame.extend_from_slice(samples);
             if chosen.high_pass {
+                if effects.high_pass.cutoff() != chosen.high_pass_cutoff {
+                    effects.high_pass =
+                        crate::voice_filters::HighPass::new(chosen.high_pass_cutoff);
+                }
                 effects.high_pass.process(&mut self.frame);
             }
             if let Some(threshold) = chosen.gate {
                 effects.gate.process(&mut self.frame, threshold);
             }
             if chosen.compress {
-                effects.compressor.process(&mut self.frame);
+                effects
+                    .compressor
+                    .process_with(&mut self.frame, chosen.compress_preset);
             }
             &self.frame
         } else {
@@ -1541,8 +1551,10 @@ mod tests {
         let loud = vec![30_000i16; FRAME_SAMPLES];
         let chosen = Chosen {
             high_pass: true,
+            high_pass_cutoff: crate::voice_filters::HIGH_PASS,
             gate: Some(-30.0),
             compress: true,
+            compress_preset: crate::voice_compressor::Preset::Medium,
             limit: Some(10f32.powf(-20.0 / 20.0)),
         };
         let mut effects = VoiceEffects::default();

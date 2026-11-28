@@ -1266,14 +1266,30 @@ fn server_rooms(
         events: server
             .events
             .iter()
-            .map(|event| chat::ServerEvent {
-                id: event.id.clone(),
-                name: event.name.clone(),
-                start: backcord_discord::message::iso_ms(&event.start)
-                    .map_or(0, |ms| i64::try_from(ms / 1000).unwrap_or(0)),
-                location: event.location.clone(),
-                active: event.status == 2,
-                interested: event.interested,
+            .map(|event| {
+                let seconds = |time: &str| {
+                    backcord_discord::message::iso_ms(time)
+                        .map_or(0, |ms| i64::try_from(ms / 1000).unwrap_or(0))
+                };
+                chat::ServerEvent {
+                    id: event.id.clone(),
+                    name: event.name.clone(),
+                    start: seconds(&event.start),
+                    end: event.end.as_deref().map(seconds),
+                    location: event.location.clone(),
+                    kind: event.kind,
+                    room: event
+                        .channel
+                        .as_deref()
+                        .map(|channel| room_id(&server.id, channel)),
+                    active: event.status == 2,
+                    interested: event.interested,
+                    mine: event.mine,
+                    description: event.description.clone(),
+                    cover: event.cover.clone(),
+                    creator_id: event.creator_id.clone(),
+                    creator: event.creator.clone(),
+                }
             })
             .collect(),
     };

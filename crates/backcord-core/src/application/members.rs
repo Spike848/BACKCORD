@@ -407,12 +407,14 @@ impl Application {
         if in_voice && !me && self.may(place, Permission::MoveMembers) {
             choices.push(MenuChoice::Disconnect);
         }
+        // Ending a timeout is offered even when BACKCORD doesn't know of
+        // one: Discord often doesn't say (a timeout someone else gave, a
+        // large server), and ending none changes nothing.
         if self.may_moderate(place, user, Permission::Moderate) && !self.is_admin(place, user) {
-            choices.push(if self.timed_out(place, user) {
-                MenuChoice::RemoveTimeout
-            } else {
-                MenuChoice::Timeout
-            });
+            if !self.timed_out(place, user) {
+                choices.push(MenuChoice::Timeout);
+            }
+            choices.push(MenuChoice::RemoveTimeout);
         }
         if self.may_moderate(place, user, Permission::Kick) {
             choices.push(MenuChoice::Kick);
@@ -708,7 +710,7 @@ impl Application {
                 MemberChange::Role { role, .. } => self.may_grant(&place, role),
                 MemberChange::Timeout { until_ms: None, .. } => {
                     self.may_moderate(&place, &user, Permission::Moderate)
-                        && self.timed_out(&place, &user)
+                        && !self.is_admin(&place, &user)
                 }
                 MemberChange::ServerMute(_) => self.may(&place, Permission::MuteMembers),
                 MemberChange::ServerDeafen(_) => self.may(&place, Permission::DeafenMembers),

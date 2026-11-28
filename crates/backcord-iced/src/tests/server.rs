@@ -479,6 +479,122 @@ fn moderation_shows_safety_setup_and_bans_as_discords_pages_do() {
 }
 
 #[test]
+fn automod_lists_its_rules_and_makes_a_kind_still_free() {
+    use backcord_core::{
+        application::{Action, AutomodInput},
+        chat::{AutomodAction, AutomodDid, AutomodKind, AutomodRule},
+    };
+    let rule = |id: &str, name: &str, kind| AutomodRule {
+        id: id.into(),
+        name: name.into(),
+        kind,
+        enabled: true,
+        keywords: vec![],
+        regex: vec![],
+        allowed: vec![],
+        presets: vec![],
+        mention_limit: 20,
+        raid_protection: false,
+        actions: vec![AutomodAction::Block { message: None }],
+        exempt_roles: vec![],
+        exempt_channels: vec![],
+    };
+    let automod = |app: &App| match page(app) {
+        SettingsPage::AutoMod(page) => page.clone(),
+        _ => panic!("not AutoMod"),
+    };
+    let (mut app, _folder) = discord_server(permission::MANAGE_GUILD, |_, _| {});
+    open_settings(&mut app);
+    for page in ["MODERATION", "Safety Setup", "AutoMod"] {
+        assert!(shows(&app, page), "{page}");
+    }
+    interact(&mut app, |ui| {
+        ui.click("AutoMod").expect("AutoMod");
+    });
+    load(
+        &mut app,
+        SettingsSection::AutoMod,
+        ServerSettingsPage::AutoMod(vec![
+            rule("900", "No spam", AutomodKind::Spam),
+            rule("901", "Words", AutomodKind::Keyword),
+        ]),
+    );
+    for words in [
+        "No spam",
+        "Block Suspected Spam Content",
+        "Words",
+        "Block Custom Words",
+        "Create Rule",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
+
+    // Create Rule offers the kinds still free: the server has its spam rule.
+    interact(&mut app, |ui| {
+        ui.click("Create Rule").expect("Create Rule");
+    });
+    assert!(shows(&app, "CHOOSE A RULE TYPE"));
+    assert!(shows(
+        &app,
+        "Block messages with too many role and user mentions."
+    ));
+    assert!(!shows(&app, "Block messages Discord suspects are spam."));
+    interact(&mut app, |ui| {
+        ui.click("Block Mention Spam").expect("Block Mention Spam");
+    });
+    for words in [
+        "RULE NAME",
+        "MENTION LIMIT",
+        "Mention raid protection",
+        "ACTIONS",
+        "Block message",
+        "Time out the member",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
+    assert!(!shows(&app, "KEYWORDS"), "not for mentions");
+    interact(&mut app, |ui| {
+        ui.click("Time out the member")
+            .expect("Time out the member");
+    });
+    assert!(shows(&app, "60 seconds"), "the timeout's length");
+    app.client.dispatch(Action::Automod(AutomodInput::Save));
+    let _ = app.sync();
+    let form = automod(&app).form.expect("the form");
+    assert!(form.saving);
+    let made = form.rule();
+    assert!(
+        made.actions
+            .contains(&AutomodAction::Timeout { seconds: 60 })
+    );
+    let mut made = rule("902", "Mentions", AutomodKind::MentionSpam);
+    made.enabled = false;
+    app.client.apply(Event::AutomodDone {
+        server: SERVER.into(),
+        did: AutomodDid::Created,
+        result: Ok(Some(Box::new(made))),
+    });
+    let _ = app.sync();
+    assert!(automod(&app).form.is_none());
+    assert!(shows(&app, "Mentions") && shows(&app, "Block Mention Spam"));
+
+    // Delete asks first, and Escape takes the question back.
+    interact(&mut app, |ui| {
+        ui.click("Delete").expect("Delete");
+    });
+    for words in [
+        "Delete Rule",
+        "Delete the rule No spam? This can't be undone.",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
+    escape(&mut app);
+    let _ = app.sync();
+    assert!(!shows(&app, "Delete Rule"));
+    assert_eq!(automod(&app).rules.len(), 3);
+}
+
+#[test]
 fn audit_log_shows_rows_that_open_their_numbered_lines() {
     use backcord_core::chat::{AuditEntry, AuditLog, AuditUser};
     let (mut app, _folder) = discord_server(permission::VIEW_AUDIT_LOG, |_, _| {});

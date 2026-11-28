@@ -483,9 +483,10 @@ pub fn suggestions_view<'a>(
             let lit = ctx.composer.suggest.lit(ctx.composer.suggest.emoji.len());
             let pictures = &ctx.composer.suggest.emoji_pictures;
             for (index, found) in ctx.composer.suggest.emoji.iter().enumerate() {
+                // An animated one plays, as in Discord's suggestions.
                 let face = match pictures.get(index).and_then(Option::as_deref) {
                     Some(url) => picture_face(ctx, url, EMOJI),
-                    None => emoji_face(ctx, &found.key, EMOJI),
+                    None => face(ctx, &found.key, EMOJI, true),
                 };
                 let face = container(face).width(24).center_x(24);
                 list = list.push(suggestion_row(
@@ -614,6 +615,9 @@ fn suggestion_row<'a>(
 /// square until then).
 fn picture_face<'a>(ctx: crate::ctx::Ctx<'a>, url: &str, size: u32) -> Element<'a, Message> {
     let side = size as f32;
+    if let Some(playing) = ctx.playing_emoji(url, size, &ctx.pictures.players) {
+        return playing.into();
+    }
     match ctx.picture(url, size, size, false) {
         Some(handle) => Pic::square(handle, side).into(),
         None => Space::new().width(side).height(side).into(),

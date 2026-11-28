@@ -120,6 +120,104 @@ fn discord_threads_open_once_listed() {
 
 #[test]
 #[cfg(feature = "discord")]
+fn a_joined_threads_menu_changes_its_own_notifications() {
+    use crate::chat::{Muting, NotificationChange, NotifyLevel};
+    use backcord_discord::{
+        notifications::{Level, Mute},
+        ready::{Channel, Server, Thread},
+        service::{Snapshot, Status},
+    };
+    let snapshot = |joined: bool, level: Option<Level>, muted: bool| Snapshot {
+        status: Status::Online,
+        servers: vec![MarkedServer::from(Server {
+            id: "10".into(),
+            name: "Test".into(),
+            text_channels: vec![Channel {
+                id: "21".into(),
+                name: "general".into(),
+                ..Default::default()
+            }],
+            threads: vec![Channel {
+                id: "30".into(),
+                name: "Plans".into(),
+                parent: Some("21".into()),
+                thread: Some(Box::new(Thread {
+                    joined,
+                    level,
+                    mute: Mute { muted, until: None },
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }],
+            default_level: Level::Mentions,
+            ..Default::default()
+        })],
+        viewing: vec!["30".into()],
+        user_id: Some("1".into()),
+        ..Default::default()
+    };
+    let mut app = connected();
+    app.apply(discord_event(snapshot(true, None, false)));
+    app.dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.dispatch(Action::SelectRoom("discord:10:30".into()));
+    // Joined, its menu mutes it and chooses its level after leaving it.
+    assert_eq!(
+        app.menu_choices("discord:10:30"),
+        [
+            MenuChoice::LeaveThread,
+            MenuChoice::ChannelMute,
+            MenuChoice::ChannelNotifications,
+            MenuChoice::CopyLink,
+            MenuChoice::CopyId
+        ]
+    );
+    // Without a level of its own, it notifies as its channel does.
+    let own = app.notifications("discord:10:30").unwrap();
+    assert_eq!(
+        (own.level, own.inherited, own.muted),
+        (None, NotifyLevel::Mentions, false)
+    );
+    let change = |change| Action::ChangeNotifications {
+        place: "discord:10:30".into(),
+        change,
+    };
+    let nothing = NotificationChange::Level(Some(NotifyLevel::Nothing));
+    assert!(matches!(
+        app.dispatch(change(nothing)).as_slice(),
+        [Effect::Backend(Command::Discord(DiscordCommand::ThreadNotifications {
+            room,
+            change: NotificationChange::Level(Some(NotifyLevel::Nothing)),
+        }))] if room == "discord:10:30"
+    ));
+    let mute = NotificationChange::Mute(Muting::Minutes(15));
+    assert!(matches!(
+        app.dispatch(change(mute)).as_slice(),
+        [Effect::Backend(Command::Discord(
+            DiscordCommand::ThreadNotifications { .. }
+        ))]
+    ));
+    // A thread has no default to follow, nor a server's switches.
+    assert!(
+        app.dispatch(change(NotificationChange::Level(None)))
+            .is_empty()
+    );
+    assert!(
+        app.dispatch(change(NotificationChange::SuppressRoles(true)))
+            .is_empty()
+    );
+    // Discord's THREAD_MEMBER_UPDATE shows in the menu.
+    app.apply(discord_event(snapshot(true, Some(Level::Nothing), true)));
+    let own = app.notifications("discord:10:30").unwrap();
+    assert_eq!((own.level, own.muted), (Some(NotifyLevel::Nothing), true));
+    // Not in it, it has none to change.
+    app.apply(discord_event(snapshot(false, None, false)));
+    let choices = app.menu_choices("discord:10:30");
+    assert!(!choices.contains(&MenuChoice::ChannelNotifications));
+    assert!(app.dispatch(change(nothing)).is_empty());
+}
+
+#[test]
+#[cfg(feature = "discord")]
 fn discord_threads_show_beside_their_channel() {
     use backcord_discord::{
         ready::{Channel, Server, Thread},
@@ -875,6 +973,157 @@ fn a_forum_shows_its_posts_as_discords_client_does() {
         Effect::Backend(Command::Discord(DiscordCommand::CloseThreads))
     )));
     assert!(app.state.forum.is_none());
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn a_forums_header_sorts_filters_and_lays_out_its_posts_and_edits_its_tags() {
+    use crate::application::{ForumSort, ForumTagsInput, ForumViewChange};
+    use backcord_discord::{
+        ready::{self, permission},
+        service::{Snapshot, Status},
+    };
+    let post = |id: &str, name: &str, last: &str, tags: &[&str]| {
+        serde_json::json!({
+            "id": id, "type": 11, "name": name, "parent_id": "15", "guild_id": "10",
+            "last_message_id": last, "applied_tags": tags, "message_count": 2,
+            "thread_metadata": {"archived": false, "locked": false},
+        })
+    };
+    let snapshot = |manage: bool| {
+        let mut bits =
+            permission::VIEW_CHANNEL | permission::SEND_MESSAGES | permission::READ_MESSAGE_HISTORY;
+        if manage {
+            bits |= permission::MANAGE_CHANNELS;
+        }
+        let server = ready::server(&serde_json::json!({
+            "id": "10", "owner_id": "99", "properties": {"name": "Test"},
+            "roles": [{"id": "10", "name": "@everyone", "position": 0, "permissions": bits.to_string()}],
+            "channels": [
+                {"id": "11", "type": 0, "name": "general", "position": 0},
+                {"id": "15", "type": 15, "name": "ideas", "position": 1, "default_forum_layout": 2,
+                 "available_tags": [
+                     {"id": "7", "name": "Bug", "emoji_id": null, "emoji_name": "🐛"},
+                     {"id": "8", "name": "Idea", "emoji_id": "9", "emoji_name": "idea", "moderated": true},
+                 ]},
+            ],
+            // Made in this order; the oldest has the newest message.
+            "threads": [
+                post("40", "Oldest", "70", &["7"]),
+                post("50", "Middle", "55", &["8"]),
+                post("60", "Newest", "60", &[]),
+            ],
+        }))
+        .unwrap();
+        discord_event(Snapshot {
+            status: Status::Online,
+            user_id: Some("1".into()),
+            servers: vec![MarkedServer::from(server)],
+            ..Default::default()
+        })
+    };
+    let mut app = Application::default();
+    app.apply(snapshot(true));
+    app.dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.dispatch(Action::SelectRoom("discord:10:15".into()));
+    let names = |app: &Application| -> Vec<String> {
+        let posts = app.forum_posts().unwrap();
+        posts
+            .active
+            .iter()
+            .map(|post| post.thread.name.clone())
+            .collect()
+    };
+    // By Recent Activity, as the forum sorts, and as a gallery, as it lays
+    // them out.
+    assert_eq!(names(&app), ["Oldest", "Newest", "Middle"]);
+    let posts = app.forum_posts().unwrap();
+    assert!(posts.gallery && !posts.by_creation && !posts.filtered);
+    app.dispatch(Action::ForumView(ForumViewChange::Sort(
+        ForumSort::Creation,
+    )));
+    assert_eq!(names(&app), ["Newest", "Middle", "Oldest"]);
+    app.dispatch(Action::ForumView(ForumViewChange::Gallery(false)));
+    assert!(!app.forum_posts().unwrap().gallery);
+    // A tag shows only the posts with it; two, those with either.
+    app.dispatch(Action::ForumView(ForumViewChange::Tag("7".into())));
+    assert_eq!(names(&app), ["Oldest"]);
+    assert!(app.forum_posts().unwrap().filtered);
+    app.dispatch(Action::ForumView(ForumViewChange::Tag("8".into())));
+    assert_eq!(names(&app), ["Middle", "Oldest"]);
+    // A tag the forum hasn't is no filter; chosen again, one goes.
+    app.dispatch(Action::ForumView(ForumViewChange::Tag("99".into())));
+    app.dispatch(Action::ForumView(ForumViewChange::Tag("8".into())));
+    assert_eq!(names(&app), ["Oldest"]);
+    app.dispatch(Action::ForumView(ForumViewChange::ClearTags));
+    assert_eq!(names(&app).len(), 3);
+
+    // Edit Tags starts from the forum's, emoji and all.
+    assert!(app.may_edit_forum_tags("discord:10:15"));
+    app.dispatch(Action::ForumTags(ForumTagsInput::Open));
+    let editor = |app: &Application| app.state.forum().unwrap().editor.clone().unwrap();
+    let tags = editor(&app).tags;
+    assert_eq!(tags.len(), 2);
+    assert_eq!(tags[0].emoji_name.as_deref(), Some("🐛"));
+    assert_eq!(
+        (tags[1].emoji_id.as_deref(), tags[1].moderated),
+        (Some("9"), true)
+    );
+    // Renamed, one deleted, one added without a name: it asks for one.
+    app.dispatch(Action::ForumTags(ForumTagsInput::Name(0, "Bugs".into())));
+    app.dispatch(Action::ForumTags(ForumTagsInput::Remove(1)));
+    app.dispatch(Action::ForumTags(ForumTagsInput::Add));
+    assert!(
+        app.dispatch(Action::ForumTags(ForumTagsInput::Save))
+            .is_empty()
+    );
+    assert_eq!(
+        editor(&app).error.as_deref(),
+        Some("Every tag needs a name.")
+    );
+    app.dispatch(Action::ForumTags(ForumTagsInput::Name(1, " Docs ".into())));
+    app.dispatch(Action::ForumTags(ForumTagsInput::Emoji(1, "📚".into())));
+    app.dispatch(Action::ForumTags(ForumTagsInput::Moderated(1, true)));
+    let effects = app.dispatch(Action::ForumTags(ForumTagsInput::Save));
+    let sent = match effects.as_slice() {
+        [Effect::Backend(Command::Discord(DiscordCommand::ForumTags { room, tags }))]
+            if room == "discord:10:15" =>
+        {
+            tags.clone()
+        }
+        _ => panic!("the tags go to Discord"),
+    };
+    assert_eq!(sent[0].id.as_deref(), Some("7"));
+    assert_eq!(sent[0].name, "Bugs");
+    assert_eq!(
+        (
+            sent[1].id.as_deref(),
+            sent[1].name.as_str(),
+            sent[1].emoji_name.as_deref()
+        ),
+        (None, "Docs", Some("📚"))
+    );
+    assert!(sent[1].moderated);
+    // Nothing changes while Discord takes them; a refusal says why.
+    assert!(editor(&app).saving);
+    app.dispatch(Action::ForumTags(ForumTagsInput::Remove(0)));
+    assert_eq!(editor(&app).tags.len(), 2);
+    app.apply(Event::ForumTagsSaved {
+        room: "discord:10:15".into(),
+        result: Err("Couldn't save the tags: Missing Permissions".into()),
+    });
+    assert!(!editor(&app).saving);
+    assert!(editor(&app).error.is_some());
+    app.apply(Event::ForumTagsSaved {
+        room: "discord:10:15".into(),
+        result: Ok(()),
+    });
+    assert!(app.state.forum().unwrap().editor.is_none());
+    // Without Manage Channels, there's no Edit Tags.
+    app.apply(snapshot(false));
+    assert!(!app.may_edit_forum_tags("discord:10:15"));
+    app.dispatch(Action::ForumTags(ForumTagsInput::Open));
+    assert!(app.state.forum().unwrap().editor.is_none());
 }
 
 #[test]

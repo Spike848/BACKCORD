@@ -721,7 +721,10 @@ fn thought_bubble<'a>(
     let mut words = row![].spacing(4);
     if let Some(emoji) = &status.emoji {
         let side = (size + 3.0_f32).round();
-        if let Some(picture) = ctx.picture(emoji, side as u32, side as u32, false) {
+        // An animated custom emoji plays on a profile, as in Discord.
+        if let Some(playing) = ctx.playing_emoji(emoji, side as u32, &ctx.pictures.players) {
+            words = words.push(playing);
+        } else if let Some(picture) = ctx.picture(emoji, side as u32, side as u32, false) {
             words = words.push(Pic::square(picture, side));
         }
     }

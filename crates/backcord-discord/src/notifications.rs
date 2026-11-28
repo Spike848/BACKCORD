@@ -317,6 +317,21 @@ impl Change {
             None => Value::Object(fields),
         })
     }
+
+    /// The body of `PATCH /channels/{thread}/thread-members/@me/settings`
+    /// that makes this change to a thread this account is in, as Discord's
+    /// client sends it: `muted` and `mute_config` as a channel's, or the
+    /// thread member `flags` that choose a level. None for a change a
+    /// thread hasn't: its channel's default, or a server's switches.
+    pub fn thread_body(self) -> Option<Value> {
+        match self {
+            Self::Mute { .. } => self.body(None),
+            Self::Level(Some(level)) => {
+                Some(json!({"flags": crate::ready::thread_level_flags(level)}))
+            }
+            _ => None,
+        }
+    }
 }
 
 /// The body of `PATCH /users/@me/guilds/{guild}/settings` that sets the

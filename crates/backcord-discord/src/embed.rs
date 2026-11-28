@@ -106,6 +106,45 @@ fn gif(picture: &mut Attachment, embed: &Value) {
     }
 }
 
+/// A linked audio file as an attachment to play: through Discord's proxy
+/// when it has it, by its own name, or one its type gives when the address
+/// has none an audio player knows.
+fn audio(value: &Value, embed: &Value) -> Option<Attachment> {
+    let source = value["url"].as_str().or(embed["url"].as_str())?;
+    let url = value["proxy_url"].as_str().unwrap_or(source);
+    let mut name = file_name(source).unwrap_or("audio").to_owned();
+    if !name.contains('.')
+        && let Some(extension) = value["content_type"]
+            .as_str()
+            .and_then(|kind| kind.strip_prefix("audio/"))
+    {
+        let extension = match extension {
+            "mpeg" => "mp3",
+            "x-wav" | "wave" => "wav",
+            "x-flac" => "flac",
+            "mp4" | "x-m4a" => "m4a",
+            other => other,
+        };
+        name = format!("{name}.{extension}");
+    }
+    Some(Attachment {
+        name,
+        size: None,
+        url: url.into(),
+        image: false,
+        dimensions: None,
+        preview_url: None,
+        view_url: None,
+        still_url: None,
+        video_url: None,
+        link_url: Some(source.into()),
+        animated: false,
+        shown: Shown::Message,
+        spoiler: false,
+        description: text(&value["description"]),
+    })
+}
+
 /// The last part of an address's path, such as `cat.png`.
 pub(crate) fn file_name(url: &str) -> Option<&str> {
     url.split(['?', '#'])
@@ -153,6 +192,14 @@ pub fn parse(embeds: &Value) -> Parsed {
                             .map(Into::into);
                     }
                     parsed.pictures.push(picture);
+                    parsed.hides.extend(url);
+                }
+                continue;
+            }
+            // A linked audio file plays inline, as an attached one does.
+            "audio" => {
+                if let Some(sound) = audio(&embed["audio"], embed) {
+                    parsed.pictures.push(sound);
                     parsed.hides.extend(url);
                 }
                 continue;
@@ -257,6 +304,34 @@ mod tests {
             "width": width,
             "height": height,
         })
+    }
+
+    #[test]
+    fn a_linked_audio_file_plays_like_an_attached_one() {
+        let parsed = parse(&json!([
+            {"type": "audio", "url": "https://example.com/song.mp3",
+             "audio": {"url": "https://example.com/song.mp3",
+                       "proxy_url": "https://media.discordapp.net/external/x/song.mp3",
+                       "content_type": "audio/mpeg"}},
+            {"type": "audio", "url": "https://example.com/stream",
+             "audio": {"url": "https://example.com/stream", "content_type": "audio/ogg"}},
+        ]));
+        assert!(parsed.embeds.is_empty());
+        let names: Vec<&str> = parsed
+            .pictures
+            .iter()
+            .map(|sound| sound.name.as_str())
+            .collect();
+        assert_eq!(names, ["song.mp3", "stream.ogg"]);
+        assert_eq!(
+            &*parsed.pictures[0].url,
+            "https://media.discordapp.net/external/x/song.mp3"
+        );
+        assert!(!parsed.pictures[0].image);
+        assert_eq!(
+            parsed.hides,
+            ["https://example.com/song.mp3", "https://example.com/stream"]
+        );
     }
 
     #[test]

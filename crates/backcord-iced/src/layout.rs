@@ -457,8 +457,13 @@ pub struct Voice {
     pub voice_limit: Option<i8>,
     /// People's voices go through the voice compressor; off unless set.
     pub voice_compressor: bool,
+    /// The compressor's preset: 0 Light, 1 Medium, 2 Strong; Medium unless
+    /// set.
+    pub voice_compressor_preset: Option<u8>,
     /// People's voices go through the 100 Hz high-pass; off unless set.
     pub voice_high_pass: bool,
+    /// The high-pass's cutoff, in Hz: 100, 150 or 200; 100 unless set.
+    pub voice_high_pass_cutoff: Option<u16>,
     /// The level under which the gate silences people's voices, in dBFS,
     /// from -70 to -20; off unless set.
     pub voice_gate: Option<i8>,
@@ -595,6 +600,10 @@ impl Voice {
         backcord_core::volume::set_speakers(gain(self.speaker_volume));
         backcord_core::volume::set_voice_limit(f32::from(self.voice_limit.unwrap_or(0)));
         backcord_core::volume::set_voice_compressor(self.voice_compressor);
+        backcord_core::volume::set_voice_compressor_preset(
+            backcord_core::voice_compressor::Preset::ALL
+                [usize::from(self.voice_compressor_preset.unwrap_or(1)).min(2)],
+        );
         backcord_core::volume::set_microphone_wide(self.microphone_wide);
         backcord_core::volume::set_share_stream_sound(!self.stream_without_sound);
         backcord_core::volume::set_microphone_pitch(f32::from(self.microphone_pitch.unwrap_or(0)));
@@ -617,6 +626,9 @@ impl Voice {
             f32::from(self.microphone_pan.unwrap_or(0).clamp(-100, 100)) / 100.0,
         );
         backcord_core::volume::set_voice_high_pass(self.voice_high_pass);
+        backcord_core::volume::set_voice_high_pass_cutoff(f32::from(
+            self.voice_high_pass_cutoff.unwrap_or(100),
+        ));
         backcord_core::volume::set_voice_gate(f32::from(self.voice_gate.unwrap_or(0)));
     }
 

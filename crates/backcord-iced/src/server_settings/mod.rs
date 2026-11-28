@@ -12,6 +12,7 @@
 //! the pages' pictures, when the settings close. Each page's view and
 //! controls are in its module.
 
+mod automod;
 mod expressions;
 mod moderation;
 mod ownership;
@@ -23,7 +24,7 @@ use std::path::PathBuf;
 
 use backcord_core::{
     application::{
-        Action, AppState, AuditInput, BanInput, EmojiInput, InviteInput, MemberInput,
+        Action, AppState, AuditInput, AutomodInput, BanInput, EmojiInput, InviteInput, MemberInput,
         OwnershipInput, RoleInput, ServerSettings, SettingsChoice, SettingsPage, SettingsText,
         SettingsToggle, StickerInput,
     },
@@ -60,6 +61,8 @@ pub enum Drop {
     InviteAge,
     InviteUses,
     PauseHours,
+    AutomodAlert,
+    AutomodTimeout,
 }
 
 /// The settings' own state while they're open.
@@ -78,6 +81,8 @@ pub struct Screen {
     people: people::Local,
     /// Emoji's own: a name being written, the list's viewport.
     expressions: expressions::Local,
+    /// AutoMod's form's lists, as they're typed.
+    automod: automod::Local,
     /// The open dialog's field that took the keys when it showed.
     focused: Option<&'static str>,
 }
@@ -108,6 +113,9 @@ pub enum Event {
     MemberLocal(people::Event),
     Invite(InviteInput),
     Ban(BanInput),
+    Automod(AutomodInput),
+    /// One of AutoMod's form's lists.
+    AutomodArea(automod::Area, field::Event),
     Audit(AuditInput),
     Emoji(EmojiInput),
     Sticker(StickerInput),
@@ -148,6 +156,11 @@ impl Screen {
                 Some(SettingsPage::Emoji(page)) => expressions::dialog_field(page),
                 _ => None,
             });
+        // AutoMod's lists follow its form, as it opens on a rule.
+        self.automod.sync(match &core.page {
+            Some(SettingsPage::AutoMod(page)) => page.form.as_deref(),
+            _ => None,
+        });
         let mut tasks = vec![];
         if self.focused != field {
             self.focused = field;
@@ -256,6 +269,16 @@ impl Screen {
                 Action::Invites(input)
             }
             Event::Ban(input) => Action::Bans(input),
+            Event::Automod(input) => {
+                self.open = None;
+                Action::Automod(input)
+            }
+            Event::AutomodArea(area, event) => match event {
+                field::Event::Edited(text, _) => {
+                    Action::Automod(AutomodInput::Write(area.text(), text))
+                }
+                _ => return Task::none(),
+            },
             Event::Audit(input) => {
                 self.open = None;
                 Action::AuditLog(input)
@@ -325,6 +348,11 @@ fn dialog_cancel(core: Option<&ServerSettings>) -> Option<Event> {
             Some(Event::Role(RoleInput::CloseAdding))
         }
         SettingsPage::Bans(page) if page.open.is_some() => Some(Event::Ban(BanInput::Close)),
+        SettingsPage::AutoMod(page)
+            if page.deleting.is_some() || page.form.is_some() || page.picking =>
+        {
+            Some(Event::Automod(AutomodInput::Cancel))
+        }
         SettingsPage::Invites(page) if page.security.is_some() => {
             Some(Event::Invite(InviteInput::CloseSecurity))
         }
@@ -370,6 +398,7 @@ impl<'a> View<'a> {
                 SettingsPage::BoostPerks(page) => (self.boost_page(core, page), false),
                 SettingsPage::Roles(page) => self.roles_page(core, page, screen),
                 SettingsPage::Safety(page) => (self.safety_page(core, page), false),
+                SettingsPage::AutoMod(page) => (self.automod_page(core, page, screen), false),
                 SettingsPage::Bans(page) => (self.bans_page(core, page), true),
                 SettingsPage::AuditLog(page) => (self.audit_page(page, screen), true),
                 SettingsPage::Members(page) => (self.members_page(core, page, screen), true),
@@ -425,6 +454,7 @@ impl<'a> View<'a> {
         match &core.page {
             Some(SettingsPage::Roles(page)) => dialogs.extend(self.roles_dialogs(page, screen)),
             Some(SettingsPage::Bans(page)) => dialogs.extend(self.ban_dialog(core, page)),
+            Some(SettingsPage::AutoMod(page)) => dialogs.extend(self.automod_dialog(page)),
             Some(SettingsPage::Invites(page)) => dialogs.extend(self.security_dialog(page, screen)),
             Some(SettingsPage::Emoji(page)) => dialogs.extend(self.emoji_dialog(page)),
             Some(SettingsPage::Stickers(page)) => dialogs.extend(self.sticker_dialog(core, page)),
@@ -460,9 +490,10 @@ impl<'a> View<'a> {
                 SettingsSection::Members | SettingsSection::Roles | SettingsSection::Invites => {
                     backcord_iced_kit::i18n::tr("PEOPLE")
                 }
-                SettingsSection::Safety | SettingsSection::AuditLog | SettingsSection::Bans => {
-                    backcord_iced_kit::i18n::tr("MODERATION")
-                }
+                SettingsSection::Safety
+                | SettingsSection::AutoMod
+                | SettingsSection::AuditLog
+                | SettingsSection::Bans => backcord_iced_kit::i18n::tr("MODERATION"),
                 _ => "",
             };
             if heading != group {
@@ -520,6 +551,7 @@ fn section_look(section: SettingsSection) -> (&'static str, Icon) {
         SettingsSection::Roles => (backcord_iced_kit::i18n::tr("Roles"), Icon::Shield),
         SettingsSection::Invites => (backcord_iced_kit::i18n::tr("Invites"), Icon::Chain),
         SettingsSection::Safety => (backcord_iced_kit::i18n::tr("Safety Setup"), Icon::Lock),
+        SettingsSection::AutoMod => (backcord_iced_kit::i18n::tr("AutoMod"), Icon::Rules),
         SettingsSection::AuditLog => (backcord_iced_kit::i18n::tr("Audit Log"), Icon::History),
         SettingsSection::Bans => (backcord_iced_kit::i18n::tr("Bans"), Icon::Gavel),
         SettingsSection::Emoji => (backcord_iced_kit::i18n::tr("Emoji"), Icon::Smile),
