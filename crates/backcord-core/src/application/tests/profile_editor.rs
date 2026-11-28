@@ -131,6 +131,8 @@ fn a_server_profile_is_edited_as_discords_per_server_profile_editor_does() {
         has_email: true,
         nsfw_allowed: false,
         nsfw_commands_in_dms: false,
+        email_verified: false,
+        auth_session: None,
     });
     app.apply(discord_event(snapshot));
     app.dispatch(Action::EditServerProfile("discord:10".into()));
@@ -378,6 +380,8 @@ fn the_main_profile_is_edited_as_discords_profile_editor_does() {
         has_email: true,
         nsfw_allowed: false,
         nsfw_commands_in_dms: false,
+        email_verified: false,
+        auth_session: None,
     });
     app.apply(discord_event(snapshot));
     app.dispatch(Action::EditProfile);

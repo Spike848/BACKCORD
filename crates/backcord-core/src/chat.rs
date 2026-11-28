@@ -724,6 +724,8 @@ pub enum Permission {
     /// Create scheduled events, as Discord's client asks before showing its
     /// Events row: managing them all isn't enough on its own.
     CreateEvents,
+    /// Ask to speak on a stage.
+    RequestToSpeak,
     /// Change, start, end, cancel and delete anyone's scheduled events.
     ManageEvents,
 }
@@ -4062,6 +4064,25 @@ pub enum DiscordCommand {
     TextMfa(u64),
     /// Give up on a prompt; the request waiting on it fails.
     CancelMfa(u64),
+    /// Change the stage of the voice channel `room`: its topic, who
+    /// speaks; [`Event::StageChanged`] follows.
+    Stage {
+        room: String,
+        change: StageChange,
+    },
+    /// List the devices signed in to this account; [`Event::Devices`]
+    /// follows.
+    Devices,
+    /// Sign devices out of this account by their sessions' hashes, which
+    /// Discord may confirm with two-factor authentication first;
+    /// [`Event::DevicesLoggedOut`] follows.
+    LogOutDevices(Vec<String>),
+    /// Ask whether another account has this username;
+    /// [`Event::UsernameChecked`] follows.
+    CheckUsername(String),
+    /// Change the account itself, from My Account; [`Event::AccountChanged`]
+    /// follows.
+    ChangeAccount(AccountChange),
     /// A page of a Discord server's settings, by its server id, as it
     /// opens; [`Event::ServerSettingsLoaded`] follows.
     ServerSettings {
@@ -4282,6 +4303,136 @@ pub enum RoleAction {
         role: String,
         member: String,
     },
+}
+
+/// A change to a Discord stage, as its controls make it; see
+/// docs/discord/voice.md, "Stages".
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StageChange {
+    /// Start it with this topic, as its moderator, and speak.
+    Start(String),
+    Topic(String),
+    End,
+    /// Raise this account's hand, or lower it.
+    Hand(bool),
+    /// Become a speaker: saying yes to an invitation, or as a moderator.
+    Speak,
+    /// Go to the audience: from the speakers, or saying no to an
+    /// invitation.
+    Audience,
+    /// Invite someone in the audience to speak, by user id, as a moderator.
+    Invite(String),
+    /// Move a speaker to the audience, by user id, as a moderator.
+    ToAudience(String),
+}
+
+/// A device signed in to the Discord account, as its Devices settings
+/// list it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Device {
+    /// Its session's hash, which signing it out names.
+    pub id: String,
+    pub os: Option<String>,
+    /// Its client or browser.
+    pub platform: Option<String>,
+    pub location: Option<String>,
+    /// When it was last used, roughly, in Unix milliseconds.
+    pub last_used: Option<u64>,
+    /// It's this device, which Discord's list marks and doesn't sign out.
+    pub current: bool,
+}
+
+/// One of the account's backup codes for two-factor authentication.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BackupCode {
+    pub code: String,
+    /// It was used, and works no more.
+    pub consumed: bool,
+}
+
+/// A change to the Discord account itself, as My Account makes it. Its
+/// passwords and codes never show in logs: its `Debug` names the change
+/// alone.
+#[derive(Clone, PartialEq, Eq)]
+pub enum AccountChange {
+    Username {
+        username: String,
+        password: String,
+    },
+    Password {
+        current: String,
+        new: String,
+    },
+    /// Have Discord email a code to the verified address, to change it.
+    SendEmailCode,
+    /// Trade the code emailed for the token that changes the address.
+    VerifyEmailCode(String),
+    Email {
+        email: String,
+        password: String,
+        /// The token the emailed code gave, when the address was verified.
+        token: Option<String>,
+    },
+    /// Check the password before two-factor authentication's setup shows
+    /// the secret.
+    CheckTotpPassword(String),
+    EnableTotp {
+        password: String,
+        secret: String,
+        code: String,
+    },
+    DisableTotp,
+    /// Have Discord email the key that shows the backup codes.
+    BackupCodesChallenge(String),
+    BackupCodes {
+        key: String,
+        nonce: String,
+    },
+}
+
+impl std::fmt::Debug for AccountChange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Username { .. } => "Username",
+            Self::Password { .. } => "Password",
+            Self::SendEmailCode => "SendEmailCode",
+            Self::VerifyEmailCode(_) => "VerifyEmailCode",
+            Self::Email { .. } => "Email",
+            Self::CheckTotpPassword(_) => "CheckTotpPassword",
+            Self::EnableTotp { .. } => "EnableTotp",
+            Self::DisableTotp => "DisableTotp",
+            Self::BackupCodesChallenge(_) => "BackupCodesChallenge",
+            Self::BackupCodes { .. } => "BackupCodes",
+        })
+    }
+}
+
+/// What Discord answered a change to the account with, when it took it.
+#[derive(Clone, PartialEq, Eq)]
+pub enum AccountAnswer {
+    Done,
+    /// The token that changes the email address.
+    EmailToken(String),
+    /// The password is right: the secret for the authenticator app, made
+    /// for it.
+    PasswordChecked {
+        secret: String,
+    },
+    BackupCodes(Vec<BackupCode>),
+    /// The nonce that shows the backup codes with the key emailed.
+    BackupNonce(String),
+}
+
+impl std::fmt::Debug for AccountAnswer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Done => "Done",
+            Self::EmailToken(_) => "EmailToken",
+            Self::PasswordChecked { .. } => "PasswordChecked",
+            Self::BackupCodes(_) => "BackupCodes",
+            Self::BackupNonce(_) => "BackupNonce",
+        })
+    }
 }
 
 /// A way to confirm with two-factor authentication, as Discord offers them.
@@ -5360,6 +5511,27 @@ pub enum Event {
         id: u64,
         result: Result<String, String>,
     },
+    /// Whether Discord made the change [`DiscordCommand::Stage`] asked.
+    StageChanged {
+        change: StageChange,
+        result: Result<(), String>,
+    },
+    /// The devices signed in to this account, as
+    /// [`DiscordCommand::Devices`] asked, or why Discord didn't list them.
+    Devices(Result<Vec<Device>, String>),
+    /// Whether Discord signed out the devices
+    /// [`DiscordCommand::LogOutDevices`] named.
+    DevicesLoggedOut {
+        hashes: Vec<String>,
+        result: Result<(), String>,
+    },
+    /// Whether another account has `username`.
+    UsernameChecked {
+        username: String,
+        taken: Result<bool, String>,
+    },
+    /// What Discord answered [`DiscordCommand::ChangeAccount`] with.
+    AccountChanged(Result<AccountAnswer, String>),
     /// A page of a Discord server's settings, by its server id, as
     /// [`DiscordCommand::ServerSettings`] asked, or why Discord didn't give
     /// it.

@@ -137,6 +137,8 @@ fn decorations_and_nameplates_reach_profiles_and_the_account() {
             has_email: true,
             nsfw_allowed: false,
             nsfw_commands_in_dms: false,
+            email_verified: false,
+            auth_session: None,
         }),
         ..Default::default()
     }));
@@ -197,6 +199,8 @@ fn profile_switches_that_are_off_ask_for_nothing() {
                 has_email: true,
                 nsfw_allowed: false,
                 nsfw_commands_in_dms: false,
+                email_verified: false,
+                auth_session: None,
             }),
             ..Default::default()
         }));

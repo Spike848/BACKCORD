@@ -555,6 +555,8 @@ pub(crate) async fn call(
         // Moved to another channel since the connection last opened, and
         // the server Discord named for it while the connection held.
         let mut was_moved = false;
+        // In a stage's audience when last looked: its microphone sent nothing.
+        let mut was_silenced = false;
         let mut pending_move: Option<backcord_discord::service::VoiceServer> = None;
         let lost = tokio::time::sleep(MOVE_GRACE);
         tokio::pin!(lost);
@@ -566,6 +568,22 @@ pub(crate) async fn call(
                 guild,
                 &channel,
             ));
+            // On a stage, the audience's microphone sends nothing, nor that
+            // of one invited to speak until they say yes; it opens again as
+            // they become a speaker, unless they muted it themselves.
+            let silent = silenced(&discord_states.borrow(), &channel, &me);
+            if silent && capture.take().is_some() {
+                tracing::info!("in a stage's audience: the microphone sends nothing");
+            } else if !silent && was_silenced && !state.muted && capture.is_none() {
+                match open_discord_microphone(state, &reverse, &microphone, &track, &microphone_thread) {
+                    Ok(opened) => capture = Some(opened),
+                    Err(error) => {
+                        state.muted = true;
+                        state.error = Some(error.to_string());
+                    }
+                }
+            }
+            was_silenced = silent;
             let talking = capture.as_ref().is_some_and(Capture::talking);
             let participants = discord_participants(
                 &discord_states.borrow(),
@@ -660,7 +678,11 @@ pub(crate) async fn call(
                                 hearing.set_deafened(false);
                                 Watch::hear(&mut watches, true);
                             }
-                            if unmute {
+                            if unmute && silenced(&discord_states.borrow(), &channel, &me) {
+                                // Unmuted, it opens once this account may speak.
+                                state.muted = false;
+                                state.error = None;
+                            } else if unmute {
                                 match open_discord_microphone(state, &reverse, &microphone, &track, &microphone_thread) {
                                     Ok(opened) => {
                                         capture = Some(opened);
@@ -1284,6 +1306,16 @@ fn open_discord_speakers(
     Ok(speakers)
 }
 
+/// Whether this account may not speak in `channel`: in a stage's audience,
+/// or invited to speak and not yet said yes, as its voice state says.
+fn silenced(snapshot: &backcord_discord::service::Snapshot, channel: &str, me: &str) -> bool {
+    snapshot
+        .voice
+        .get(channel)
+        .and_then(|members| members.iter().find(|member| member.user_id == me))
+        .is_some_and(|member| member.suppressed || member.requested_to_speak.is_some())
+}
+
 /// Opens the chosen microphone, or the system default if it's gone.
 fn open_discord_microphone(
     state: &State,
@@ -1330,6 +1362,12 @@ fn discord_participants(
     announced: &[u64],
 ) -> Vec<Participant> {
     let members = snapshot.voice.get(channel).into_iter().flatten();
+    let stage = snapshot.servers.iter().any(|server| {
+        server
+            .voice_channels
+            .iter()
+            .any(|found| found.id == channel && found.stage)
+    });
     // Their voice state says they film, or the voice server does: it can
     // say so first, and a camera it announced while the gateway's state
     // didn't showed nothing.
@@ -1359,7 +1397,10 @@ fn discord_participants(
                 person: member.user_id.clone(),
                 local,
                 muted: if local {
-                    state.muted || member.server_muted
+                    state.muted
+                        || member.server_muted
+                        || member.suppressed
+                        || member.requested_to_speak.is_some()
                 } else {
                     member.muted
                 },
@@ -1387,9 +1428,19 @@ fn discord_participants(
                 avatar: Some(member.avatar.clone()),
                 streaming: member.streaming,
                 video,
+                audience: stage && member.suppressed,
+                requested_to_speak: if stage {
+                    member.requested_to_speak
+                } else {
+                    None
+                },
             }
         })
         .collect();
+    // A stage's speakers first, then its audience, each in Discord's order.
+    if stage {
+        participants.sort_by_key(|person| person.audience);
+    }
     // Those a DM call rings, until they answer or it stops ringing them.
     let ringing = snapshot
         .conversations
@@ -1417,6 +1468,8 @@ fn discord_participants(
                 avatar: Some(member.avatar.clone()),
                 streaming: false,
                 video: None,
+                audience: false,
+                requested_to_speak: None,
             });
         }
     }

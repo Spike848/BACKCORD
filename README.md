@@ -70,6 +70,13 @@ cifrata.
   dei messaggi linkati
 - Chiamate vocali e video, condivisione schermo e visione delle dirette altrui,
   con limitatore, compressore, passa-alto e gate sulle voci degli altri
+- **Stage**: entri nel pubblico, alzi la mano per parlare, accetti o rifiuti
+  l'invito; i moderatori avviano lo Stage con un argomento, lo modificano, lo
+  terminano, invitano a parlare e spostano nel pubblico
+- **Account e dispositivi** in Impostazioni: cambi nome utente, email e
+  password, attivi o togli l'autenticazione a due fattori con un'app (codice
+  QR), vedi i codici di backup, e disconnetti i dispositivi collegati uno per
+  uno o tutti insieme
 - Messaggi vocali: registri, riascolti e invii dalla chat
 - Stati dei canali vocali, profili, ruoli, decorazioni e targhette
 - **Esporta chat**: tasto destro su un canale, una DM o un gruppo → **Esporta chat…**,

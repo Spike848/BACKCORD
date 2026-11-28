@@ -58,7 +58,9 @@ mod ownership;
 mod people;
 mod render;
 mod roles;
+mod security;
 mod server_settings;
+mod stage;
 mod stickers;
 
 pub use channels::Channels;

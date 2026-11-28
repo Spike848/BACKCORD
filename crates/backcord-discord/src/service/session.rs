@@ -78,6 +78,12 @@ pub(super) async fn run(
         tokio::spawn(async move { api.learn_build_number().await });
     }
     loop {
+        // A login changed while connected, such as by a new password, is the
+        // one to connect with.
+        let current = shared.api.login();
+        if !current.is_empty() && current != token {
+            token = current;
+        }
         snapshots.send_modify(|snapshot| Arc::make_mut(snapshot).status = Status::Connecting);
         let connect = async {
             // Without one kept, the page goes first, so the first identify
@@ -116,7 +122,15 @@ pub(super) async fn run(
             Err(error) => (error, None),
         };
         tracing::warn!(%error, "Discord connection ended");
-        let stopped = if error.downcast_ref::<Closed>().is_some_and(Closed::is_final) {
+        // Discord may end the session of a login it replaced, such as the
+        // one a new password replaced; the new one connects again.
+        let replaced = {
+            let current = shared.api.login();
+            !current.is_empty() && current != token
+        };
+        let stopped = if replaced {
+            None
+        } else if error.downcast_ref::<Closed>().is_some_and(Closed::is_final) {
             Some("Discord refused the saved login. Link your Discord account again.")
         } else if error.downcast_ref::<TooManyIdentifies>().is_some() {
             Some(
@@ -165,10 +179,12 @@ impl Drop for AbortOnDrop {
     }
 }
 
-/// Discord refreshed the login in READY, and the one BACKCORD identified with
-/// is to go: requests, identifying again, the credential store and the
-/// files kept all take the new one. The gateway takes it from READY itself.
-async fn relogin(api: &Api, token: &str) {
+/// Discord refreshed the login in READY, or gave a new one for a new
+/// password or two-factor authentication, and the one BACKCORD identified
+/// with is to go: requests, identifying again, the credential store and the
+/// files kept all take the new one. The gateway takes it from READY itself,
+/// or connects again with it.
+pub(super) async fn relogin(api: &Api, token: &str) {
     tracing::info!("Discord refreshed the login");
     api.relogin(token);
     let token = token.to_owned();

@@ -4318,3 +4318,83 @@ Campus Clubs & Organizations	Club e associazioni universitarie
 Local Communities	Community locali
 Creators & Hobbies	Creatori e hobby
 Global Communities	Community globali
+ACCOUNT	ACCOUNT
+Discord emails you here.	Discord ti scrive qui.
+PASSWORD AND AUTHENTICATION	PASSWORD E AUTENTICAZIONE
+Change Password	Cambia password
+View Backup Codes	Mostra codici di backup
+Remove 2FA	Rimuovi 2FA
+Two-factor authentication is on: signing in and changing what Discord protects asks for a code from your authenticator app.	L'autenticazione a due fattori è attiva: per accedere e per cambiare ciò che Discord protegge serve un codice della tua app di autenticazione.
+Enable Authenticator App	Attiva app di autenticazione
+Two-factor authentication is off. An authenticator app adds a code to your password, so your account stays yours if your password leaks.	L'autenticazione a due fattori è disattivata. Un'app di autenticazione aggiunge un codice alla password, così il tuo account resta tuo anche se la password viene scoperta.
+Enter a new username and your existing password.	Inserisci un nuovo nome utente e la tua password attuale.
+Username is available!	Nome utente disponibile!
+Change your username	Cambia il tuo nome utente
+Update your password	Aggiorna la tua password
+Enter your current password and a new password.	Inserisci la password attuale e una nuova password.
+Verify email address	Verifica indirizzo email
+Discord is emailing a code to your current address...	Discord sta inviando un codice al tuo indirizzo attuale...
+Discord emailed a verification code to your current address. Enter it below to change it.	Discord ha inviato un codice di verifica al tuo indirizzo attuale. Inseriscilo qui sotto per cambiarlo.
+Enter an email address	Inserisci un indirizzo email
+Enter a new email address and your existing password. Discord sends a link to verify it.	Inserisci un nuovo indirizzo email e la tua password attuale. Discord invia un link per verificarlo.
+Enable two-factor authentication	Attiva l'autenticazione a due fattori
+Enter your password to continue.	Inserisci la tua password per continuare.
+Continue	Continua
+Scan the QR code with an authenticator app, such as Google Authenticator or Authy, or enter the key below in it. Then enter the 6-digit code it shows.	Scansiona il codice QR con un'app di autenticazione, come Google Authenticator o Authy, oppure inserisci al suo interno la chiave qui sotto. Poi inserisci il codice a 6 cifre che mostra.
+KEY	CHIAVE
+Activate	Attiva
+Backup codes	Codici di backup
+Each code signs you in once, if you lose your authenticator app. Keep them somewhere safe: anyone with them can get into your account.	Ogni codice ti fa accedere una volta, se perdi l'app di autenticazione. Conservali in un posto sicuro: chiunque li abbia può entrare nel tuo account.
+Copy codes	Copia codici
+Your account will be less safe without two-factor authentication. Discord asks for a code from your authenticator app first.	Senza l'autenticazione a due fattori il tuo account sarà meno sicuro. Discord chiede prima un codice della tua app di autenticazione.
+View backup codes	Mostra codici di backup
+Enter your password. Discord then emails you a key that shows your backup codes.	Inserisci la tua password. Discord ti invierà per email una chiave che mostra i tuoi codici di backup.
+Send Key	Invia chiave
+Enter the key Discord emailed you.	Inserisci la chiave che Discord ti ha inviato per email.
+View Codes	Mostra codici
+{} (used)	{} (usato)
+USERNAME	NOME UTENTE
+EMAIL	EMAIL
+Current Password	Password attuale
+New Password	Nuova password
+Confirm New Password	Conferma nuova password
+Verification Code	Codice di verifica
+Email	Email
+Key	Chiave
+Unknown device	Dispositivo sconosciuto
+Here are all the devices that are currently logged in with your Discord account. You can log out of each one individually or all other known devices.	Ecco tutti i dispositivi che hanno effettuato l'accesso con il tuo account Discord. Puoi disconnetterli uno per uno o disconnettere tutti gli altri dispositivi noti.
+Log out	Disconnetti
+CURRENT DEVICE	DISPOSITIVO ATTUALE
+OTHER DEVICES	ALTRI DISPOSITIVI
+LOG OUT OF ALL KNOWN DEVICES	DISCONNETTI TUTTI I DISPOSITIVI NOTI
+You'll have to log back in on all logged out devices.	Dovrai accedere di nuovo su tutti i dispositivi disconnessi.
+Log out all known devices	Disconnetti tutti i dispositivi noti
+Log out of device?	Disconnettere il dispositivo?
+You'll have to log back in on this device.	Dovrai accedere di nuovo su questo dispositivo.
+Log out of all known devices?	Disconnettere tutti i dispositivi noti?
+Log Out	Disconnetti
+Logging out...	Disconnessione...
+What's your stage about?	Di cosa parla il tuo Stage?
+Live stage	Stage in diretta
+Nobody started this stage. Start it with a topic for its audience.	Nessuno ha avviato questo Stage. Avvialo con un argomento per il suo pubblico.
+Nobody started this stage yet.	Nessuno ha ancora avviato questo Stage.
+Edit Topic	Modifica argomento
+You're invited to speak.	Sei stato invitato a parlare.
+Become a Speaker	Diventa relatore
+Lower Hand	Abbassa la mano
+Move to Audience	Sposta nel pubblico
+Invite to Speak	Invita a parlare
+AUDIENCE — {}	PUBBLICO — {}
+Your username changed.	Il tuo nome utente è cambiato.
+Your password changed. Your other devices were signed out.	La tua password è cambiata. Gli altri tuoi dispositivi sono stati disconnessi.
+Your email changed. Discord sends a link to verify the new address.	La tua email è cambiata. Discord invia un link per verificare il nuovo indirizzo.
+Two-factor authentication is off.	L'autenticazione a due fattori è disattivata.
+Two-factor authentication is on.	L'autenticazione a due fattori è attiva.
+Must be between 2 and 32 in length.	Deve essere lungo da 2 a 32 caratteri.
+Usernames can only use lowercase letters, numbers, underscores and periods.	I nomi utente possono usare solo lettere minuscole, numeri, trattini bassi e punti.
+Username is unavailable. Try adding numbers, letters, underscores _ , or periods.	Nome utente non disponibile. Prova ad aggiungere numeri, lettere, trattini bassi _ o punti.
+Must be between 8 and 72 in length.	Deve essere lunga da 8 a 72 caratteri.
+Passwords do not match!	Le password non coincidono!
+Not a well formed email address.	Indirizzo email non valido.
+The preview can't change a Discord account.	L'anteprima non può modificare un account Discord.
+Couldn't list your devices: {}	Impossibile elencare i tuoi dispositivi: {}

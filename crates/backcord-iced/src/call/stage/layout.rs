@@ -53,8 +53,15 @@ pub struct Stage<'a> {
 impl<'a> Stage<'a> {
     pub fn of(voice: &'a voice::State) -> Self {
         Self {
+            // On a Discord stage, its speakers alone, who come before its
+            // audience: the audience shows under the tiles.
             participants: if voice.active() {
-                &voice.participants
+                let speakers = voice
+                    .participants
+                    .iter()
+                    .take_while(|person| !person.audience)
+                    .count();
+                &voice.participants[..speakers]
             } else {
                 &[]
             },
@@ -414,6 +421,8 @@ mod tests {
             streaming,
             video: filming.then(backcord_core::picture::Feed::new),
             avatar: None,
+            audience: false,
+            requested_to_speak: None,
         }
     }
 

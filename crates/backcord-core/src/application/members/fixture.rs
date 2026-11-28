@@ -118,6 +118,8 @@ pub fn member_server(alice: &[&str]) -> Application {
                     elsewhere: false,
                     tag: None,
                     style: None,
+                    suppressed: false,
+                    requested_to_speak: None,
                 },
                 backcord_discord::service::VoiceMember {
                     user_id: "1".into(),
@@ -132,6 +134,8 @@ pub fn member_server(alice: &[&str]) -> Application {
                     elsewhere: true,
                     tag: None,
                     style: None,
+                    suppressed: false,
+                    requested_to_speak: None,
                 },
             ],
         )]

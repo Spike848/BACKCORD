@@ -103,6 +103,10 @@ struct VoiceEntry {
     server_deafened: bool,
     streaming: bool,
     video: bool,
+    /// On a stage, not allowed to speak: in its audience.
+    suppressed: bool,
+    /// When they asked to speak on a stage, in Unix milliseconds.
+    requested: Option<u64>,
 }
 
 /// The account's servers and voice channels, kept current from gateway events.
@@ -115,8 +119,12 @@ pub(super) struct Tracker {
     premium: u8,
     /// Whether this account has two-factor authentication on.
     mfa: bool,
-    /// Whether it has an email address, as [`Account::has_email`].
+    /// Whether it has an email address, as [`Account::has_email`], and
+    /// whether the address is verified.
     email: bool,
+    email_verified: bool,
+    /// This login's session's hash, as [`Account::auth_session`].
+    auth_session: Option<String>,
     /// Changed through [`Self::server_mut`], which copies one a snapshot
     /// still shares.
     pub(super) servers: Vec<Arc<Server>>,
@@ -232,6 +240,8 @@ impl Tracker {
             premium: premium_type(&ready["user"]),
             mfa: ready["user"]["mfa_enabled"].as_bool().unwrap_or_default(),
             email: ready["user"]["email"].is_string(),
+            email_verified: ready["user"]["verified"].as_bool().unwrap_or_default(),
+            auth_session: ready["auth_session_id_hash"].as_str().map(str::to_owned),
             nsfw_allowed: ready["user"]["nsfw_allowed"].as_bool().unwrap_or_default(),
             nsfw_commands_in_dms: false,
             servers: ready::servers(ready).into_iter().map(Arc::new).collect(),
@@ -444,6 +454,19 @@ impl Tracker {
                 }
                 self.learn_members(&data["guilds"], &data["merged_members"]);
                 true
+            }
+            Event::StageInstanceCreate
+            | Event::StageInstanceUpdate
+            | Event::StageInstanceDelete => {
+                let (Some(server), Some(stage)) = (
+                    data["guild_id"]
+                        .as_str()
+                        .and_then(|guild| self.server_mut(guild)),
+                    ready::StageInstance::parse(data),
+                ) else {
+                    return false;
+                };
+                server.put_stage(stage, *event == Event::StageInstanceDelete)
             }
             Event::VoiceStateUpdate => {
                 match data["guild_id"].as_str() {
@@ -678,15 +701,18 @@ impl Tracker {
                 // Only this account's own USER_UPDATE has `email`, null
                 // for none.
                 let email = data.get("email").map_or(self.email, Value::is_string);
+                let verified = data["verified"].as_bool().unwrap_or(self.email_verified);
                 let nsfw = data["nsfw_allowed"].as_bool().unwrap_or(self.nsfw_allowed);
                 let changed = premium != self.premium
                     || mfa != self.mfa
                     || email != self.email
+                    || verified != self.email_verified
                     || nsfw != self.nsfw_allowed
                     || shown(self) != before;
                 self.premium = premium;
                 self.mfa = mfa;
                 self.email = email;
+                self.email_verified = verified;
                 self.nsfw_allowed = nsfw;
                 changed
             }
@@ -1296,6 +1322,10 @@ impl Tracker {
                         server_deafened: flag("deaf"),
                         streaming: flag("self_stream"),
                         video: flag("self_video"),
+                        suppressed: flag("suppress"),
+                        requested: state["request_to_speak_timestamp"]
+                            .as_str()
+                            .and_then(crate::message::iso_ms),
                     },
                 );
             }
@@ -1962,6 +1992,8 @@ impl Tracker {
                 server_deafened: false,
                 streaming: false,
                 video: false,
+                suppressed: false,
+                requested_to_speak: None,
                 elsewhere: false,
                 tag: names.server_tag(user).cloned(),
                 style: names.style(None, user),
@@ -2117,6 +2149,8 @@ impl Tracker {
                     server_deafened: entry.server_deafened,
                     streaming: entry.streaming,
                     video: entry.video,
+                    suppressed: entry.suppressed,
+                    requested_to_speak: entry.requested,
                     elsewhere: *user == self.me && self.elsewhere(entry),
                     tag: names.server_tag(user).cloned(),
                     style: names.style(server(guild), user),
@@ -2212,6 +2246,8 @@ impl Tracker {
                 premium_type: self.premium,
                 mfa_enabled: self.mfa,
                 has_email: self.email,
+                email_verified: self.email_verified,
+                auth_session: self.auth_session.clone(),
                 nsfw_allowed: self.nsfw_allowed,
                 nsfw_commands_in_dms: self.nsfw_commands_in_dms,
             }),
@@ -2254,6 +2290,57 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    /// A stage's live stage comes and goes with STAGE_INSTANCE_CREATE,
+    /// _UPDATE and _DELETE, READY's `stage_instances` first; its voice
+    /// states say who is in the audience and who asked to speak.
+    #[test]
+    fn tracks_stages_and_who_may_speak_on_them() {
+        let ready = json!({
+            "user": {"id": "1", "username": "me"},
+            "guilds": [{"id": "10", "properties": {"name": "Test"}, "channels": [
+                {"id": "13", "name": "Town Hall", "type": 13, "position": 0},
+            ], "stage_instances": [
+                {"id": "90", "guild_id": "10", "channel_id": "13", "topic": "Hello", "privacy_level": 2},
+            ]}],
+        });
+        let mut tracker = Tracker::from_ready("1".into(), &ready, Default::default());
+        assert_eq!(
+            tracker.servers[0]
+                .stage("13")
+                .map(|stage| stage.topic.as_str()),
+            Some("Hello")
+        );
+        let stage = json!({"id": "90", "guild_id": "10", "channel_id": "13", "topic": "Q&A"});
+        assert!(tracker.apply(&Event::StageInstanceUpdate, &stage));
+        assert!(
+            !tracker.apply(&Event::StageInstanceUpdate, &stage),
+            "the same"
+        );
+        assert_eq!(tracker.servers[0].stage("13").unwrap().topic, "Q&A");
+        assert!(tracker.apply(&Event::StageInstanceDelete, &stage));
+        assert!(tracker.servers[0].stage("13").is_none());
+        assert!(tracker.apply(&Event::StageInstanceCreate, &stage));
+        assert!(tracker.servers[0].stage("13").is_some());
+
+        tracker.apply(
+            &Event::VoiceStateUpdate,
+            &json!({"guild_id": "10", "user_id": "2", "channel_id": "13", "suppress": true,
+                "request_to_speak_timestamp": "2026-11-20T08:30:00.000000+00:00"}),
+        );
+        tracker.apply(
+            &Event::VoiceStateUpdate,
+            &json!({"guild_id": "10", "user_id": "1", "channel_id": "13", "suppress": false,
+                "request_to_speak_timestamp": null}),
+        );
+        let snapshot = tracker.snapshot();
+        let hall = &snapshot.voice["13"];
+        let two = hall.iter().find(|member| member.user_id == "2").unwrap();
+        assert!(two.suppressed);
+        assert_eq!(two.requested_to_speak, Some(1_795_163_400_000));
+        let me = hall.iter().find(|member| member.user_id == "1").unwrap();
+        assert!(!me.suppressed && me.requested_to_speak.is_none());
+    }
 
     #[test]
     fn tracks_voice_channels_and_names() {

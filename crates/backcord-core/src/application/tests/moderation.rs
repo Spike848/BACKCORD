@@ -147,6 +147,8 @@ fn safety_setup_saves_each_choice_as_its_made_and_puts_it_back_if_refused() {
         has_email: true,
         nsfw_allowed: false,
         nsfw_commands_in_dms: false,
+        email_verified: false,
+        auth_session: None,
     });
     app.apply(discord_event(snapshot));
     assert!(matches!(

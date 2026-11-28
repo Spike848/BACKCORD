@@ -27,6 +27,8 @@ pub mod updates;
 pub use pages::Extra;
 #[cfg(test)]
 pub(crate) use pages::Pref;
+#[cfg(test)]
+pub use pages::SecurityEvent;
 pub use pages::message_size;
 pub use pages::{
     auto_delete, blocked_pictures, emulate_platform, fake_nitro, network, relationship_notifier,
@@ -34,7 +36,7 @@ pub use pages::{
 pub mod voice;
 
 use crate::widgets::scroll_view;
-use backcord_core::application::{Action, AppState};
+use backcord_core::application::{Action, AppState, SecurityInput};
 use backcord_core::new_tags::{self, Page as NewPage};
 use iced::{
     Alignment, Color, Element, Length, Task,
@@ -78,6 +80,8 @@ const PAGE: &str = "settings-page";
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Section {
     Account,
+    /// The devices signed in to the Discord account.
+    Devices,
     Voice,
     Messages,
     Notifications,
@@ -107,6 +111,7 @@ impl Section {
     fn title(self) -> &'static str {
         match self {
             Section::Account => backcord_iced_kit::i18n::tr("My Account"),
+            Section::Devices => backcord_iced_kit::i18n::tr("Devices"),
             Section::Voice => backcord_iced_kit::i18n::tr("Voice & Video"),
             Section::Messages => backcord_iced_kit::i18n::tr("Messages"),
             Section::Notifications => backcord_iced_kit::i18n::tr("Notifications"),
@@ -125,6 +130,7 @@ impl Section {
     fn icon(self) -> Icon {
         match self {
             Section::Account => Icon::User,
+            Section::Devices => Icon::Monitor,
             Section::Voice => Icon::Mic,
             Section::Messages => Icon::MessageCircle,
             Section::Notifications => Icon::Bell,
@@ -144,7 +150,7 @@ impl Section {
 /// The column's groups and their sections, as Discord's settings group
 /// them.
 const GROUPS: [(&str, &[Section]); 4] = [
-    ("Account", &[Section::Account]),
+    ("Account", &[Section::Account, Section::Devices]),
     (
         "Experience",
         &[
@@ -213,6 +219,9 @@ pub struct Settings {
     /// What the desktop says of starting at sign-in and Discord's links,
     /// read as Settings opens and after each change.
     pub platform: Platform,
+    /// The QR code of the authenticator app's secret being set up, made
+    /// once for its address.
+    qr: std::cell::RefCell<Option<(String, iced::advanced::image::Handle, f32)>>,
 }
 
 /// Starting at sign-in, where the build and the desktop can: none where
@@ -225,6 +234,17 @@ pub struct Platform {
 impl Settings {
     pub fn section(&self) -> Section {
         self.section.unwrap_or(Section::Account)
+    }
+
+    /// The QR code that carries `address`, made the first time it's drawn
+    /// and kept while it's the one shown.
+    fn qr_code(&self, address: &str) -> Option<(iced::advanced::image::Handle, f32)> {
+        let mut kept = self.qr.borrow_mut();
+        if kept.as_ref().is_none_or(|(shown, ..)| shown != address) {
+            *kept = crate::signin::qr_code(address)
+                .map(|(code, side)| (address.to_owned(), code, side));
+        }
+        kept.as_ref().map(|(_, code, side)| (code.clone(), *side))
     }
 }
 
@@ -249,6 +269,8 @@ pub enum Event {
     SoundPicked(usize, Option<Result<crate::layout::ChosenSound, String>>),
     /// My Account's and the Discord page's buttons.
     Account(pages::AccountEvent),
+    /// My Account's security, Devices, and their dialogs.
+    Security(pages::SecurityEvent),
     Game(pages::GameEvent),
     Voice(voice::Event),
     Theme(appearance::Event),
@@ -301,6 +323,16 @@ impl Settings {
         }
         if section == Section::Voice && before != Some(Section::Voice) {
             self.enter_voice(cx);
+        }
+        // What a page left open goes with it; Devices are listed afresh.
+        if before == Some(Section::Account) && section != Section::Account {
+            cx.dispatch(Action::Security(SecurityInput::Edit(None)));
+        }
+        if before == Some(Section::Devices) && section != Section::Devices {
+            cx.dispatch(Action::Security(SecurityInput::AskLogOut(None)));
+        }
+        if section == Section::Devices {
+            cx.dispatch(Action::Security(SecurityInput::ListDevices));
         }
         cx.touch();
         // Another page starts at its top.
@@ -364,6 +396,7 @@ impl Settings {
             Event::SoundPicked(_, None) => {}
             Event::SoundPicked(index, Some(picked)) => self.sound_picked(index, picked, cx),
             Event::Account(event) => self.account_event(event, cx),
+            Event::Security(event) => return self.security_event(event, cx),
             Event::Game(event) => self.game_event(event, cx),
             Event::Voice(event) => self.voice_event(event, cx),
             Event::Theme(event) => return self.theme_event(event, cx),
@@ -378,6 +411,15 @@ impl Settings {
     /// Settings.
     pub fn escape(&mut self, cx: &mut Cx<'_>) {
         if self.extra.take().is_some() {
+            return;
+        }
+        let security = &cx.state().security;
+        if security.editor.as_ref().is_some_and(|editor| !editor.busy) {
+            cx.dispatch(Action::Security(SecurityInput::Edit(None)));
+            return;
+        }
+        if security.devices.asking.is_some() && !security.devices.busy {
+            cx.dispatch(Action::Security(SecurityInput::AskLogOut(None)));
             return;
         }
         if self.open.take().is_some() {
@@ -431,6 +473,10 @@ impl Closes for Settings {
         if cx.state().discord_link.is_some() {
             cx.dispatch(Action::CancelDiscordLink);
         }
+        // What was typed in an account's dialog goes with it.
+        cx.dispatch(Action::Security(SecurityInput::Edit(None)));
+        cx.dispatch(Action::Security(SecurityInput::AskLogOut(None)));
+        self.qr.take();
         // The pictures only its pages showed go with it.
         cx.touch();
         if why != Why::Window {
@@ -478,6 +524,7 @@ impl<'a> Page<'a> {
         let section = settings.section();
         let page = match section {
             Section::Account => self.account_page(),
+            Section::Devices => self.devices_page(),
             Section::Voice => self.voice_page(),
             Section::Messages => self.messages_page(),
             Section::Notifications => self.notifications_page(),
@@ -550,6 +597,16 @@ impl<'a> Page<'a> {
         {
             Some(extra) => iced::widget::stack![card, self.extra_dialog(extra)].into(),
             None => card.into(),
+        };
+        // An account's dialog, or the question before signing out.
+        let over = match section {
+            Section::Account => self.account_dialog(),
+            Section::Devices => self.log_out_dialog(),
+            _ => None,
+        };
+        let card: Element<'a, Message> = match over {
+            Some(over) => iced::widget::stack![card, over].into(),
+            None => card,
         };
         crate::sheet::backdrop(theme, card, MARGIN, Message::Settings(Event::Close))
     }
@@ -637,6 +694,10 @@ impl<'a> Page<'a> {
                 // Discord's own sections, outside the preview.
                 let discord_only = matches!(section, Section::Discord | Section::Games);
                 if discord_only && self.cx.state.preview {
+                    continue;
+                }
+                // A Discord account's devices, or the preview's.
+                if section == Section::Devices && !linked && !self.cx.state.preview {
                     continue;
                 }
                 if !query.is_empty() && !section.title().to_lowercase().contains(&query) {

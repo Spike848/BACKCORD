@@ -61,6 +61,20 @@ pub struct Participant {
     pub video: Option<crate::picture::Feed>,
     /// The address of their avatar; see [`crate::chat::DiscordCommand::Pictures`].
     pub avatar: Option<String>,
+    /// On a Discord stage, in its audience rather than among its speakers.
+    /// The audience comes after the speakers in the call's list.
+    pub audience: bool,
+    /// On a stage, when they asked to speak, or were invited to, in Unix
+    /// milliseconds: an audience's raised hand, or a speaker's invitation
+    /// waiting for a yes.
+    pub requested_to_speak: Option<u64>,
+}
+
+impl Participant {
+    /// Invited to speak on a stage, and not yet said yes or no.
+    pub fn invited(&self) -> bool {
+        !self.audience && self.requested_to_speak.is_some()
+    }
 }
 
 /// Sharing this account's screen in the call.

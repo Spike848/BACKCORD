@@ -354,12 +354,16 @@ mod profiles;
 #[cfg(feature = "discord")]
 mod relationships;
 #[cfg(feature = "discord")]
+mod security;
+#[cfg(feature = "discord")]
 mod server_settings;
 #[cfg(feature = "discord")]
 mod servers;
 mod session;
 #[cfg(feature = "discord")]
 mod slash_commands;
+#[cfg(feature = "discord")]
+mod stage;
 mod threads;
 mod timeline;
 mod unread;

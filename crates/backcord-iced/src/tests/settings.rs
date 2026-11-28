@@ -1,12 +1,13 @@
 //! Settings: a theme chosen in Appearance shows at once and is kept, a
 //! custom theme made, edited and deleted there, preferences kept across a
 //! restart, a device chosen in Voice & video, and push to talk's key
-//! recorded and kept.
+//! recorded and kept; Devices signing out, and My Account's password
+//! dialog.
 
 use backcord_core::voice;
 use iced::keyboard::{Key, Location, key};
 
-use super::{change, interact, local, preview, shows, start};
+use super::{change, interact, local, present, preview, shows, start};
 use crate::{
     app::{
         App, Message,
@@ -1202,4 +1203,63 @@ fn the_dynamic_island_shows_spotify_only_when_on_and_linked() {
         state.spotify = None;
     });
     assert!(!crate::island::shown(&app), "nothing playing and no call");
+}
+
+/// Devices, in the preview: listed as the page shows, this one apart, and
+/// every other one signed out once it's confirmed.
+#[test]
+fn devices_show_this_one_apart_and_sign_out_once_confirmed() {
+    let (mut app, _folder) = preview();
+    open(&mut app, Section::Devices);
+    assert!(shows(&app, "CURRENT DEVICE"));
+    assert!(shows(&app, "LINUX · BACKCORD"));
+    assert!(shows(&app, "ANDROID · DISCORD ANDROID"));
+    interact(&mut app, |ui| {
+        ui.click("Log out all known devices").expect("the button");
+    });
+    assert!(shows(&app, "Log out of all known devices?"));
+    assert!(present(&app, "ANDROID · DISCORD ANDROID"), "nothing yet");
+    interact(&mut app, |ui| {
+        ui.click("Log Out").expect("the confirmation");
+    });
+    assert!(!present(&app, "Log out of all known devices?"));
+    assert!(!present(&app, "ANDROID · DISCORD ANDROID"));
+    assert!(!present(&app, "OTHER DEVICES"));
+    assert!(shows(&app, "LINUX · BACKCORD"), "this one stays");
+}
+
+/// My Account's password dialog: it opens from Change Password, says what
+/// doesn't fit as it's typed, and Escape closes it, forgetting what was
+/// typed.
+#[test]
+fn the_password_dialog_checks_what_is_typed_and_escape_forgets_it() {
+    use crate::settings::SecurityEvent;
+    use backcord_core::application::AccountField;
+    let (mut app, _folder) = preview();
+    open(&mut app, Section::Account);
+    assert!(shows(&app, "PASSWORD AND AUTHENTICATION"));
+    assert!(shows(&app, "Enable Authenticator App"));
+    interact(&mut app, |ui| {
+        ui.click("Change Password").expect("the button");
+    });
+    assert!(shows(&app, "Update your password"));
+    let write = |app: &mut App, field, words: &str| {
+        let _ = app.update(Message::Settings(Event::Security(SecurityEvent::Write(
+            field,
+            words.into(),
+        ))));
+    };
+    write(&mut app, AccountField::Password, "old password");
+    write(&mut app, AccountField::NewPassword, "short");
+    assert!(shows(&app, "Must be between 8 and 72 in length."));
+    write(&mut app, AccountField::NewPassword, "long enough");
+    write(&mut app, AccountField::Confirm, "long enougH");
+    assert!(shows(&app, "Passwords do not match!"));
+    let _ = app.update(Message::Key(
+        Key::Named(key::Named::Escape),
+        Default::default(),
+    ));
+    assert!(!present(&app, "Update your password"));
+    assert!(app.win.settings.is_open(), "Escape closed the dialog first");
+    assert!(app.client.app.state.security.editor.is_none(), "forgotten");
 }

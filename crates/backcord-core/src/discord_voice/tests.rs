@@ -18,6 +18,42 @@ fn a_failed_join_shows_the_step_that_failed() {
     );
 }
 
+/// On a stage, the audience may not speak, nor one invited to until they
+/// say yes; a speaker, and anyone in a voice channel, may.
+#[test]
+fn the_audience_and_the_invited_are_silenced() {
+    use backcord_discord::service::VoiceMember;
+    let member = |suppressed: bool, requested: Option<u64>| VoiceMember {
+        user_id: "1".into(),
+        name: "Me".into(),
+        avatar: String::new(),
+        muted: false,
+        deafened: false,
+        server_muted: false,
+        server_deafened: false,
+        streaming: false,
+        video: false,
+        suppressed,
+        requested_to_speak: requested,
+        elsewhere: false,
+        tag: None,
+        style: None,
+    };
+    let mut snapshot = Snapshot::default();
+    let silent = |snapshot: &mut Snapshot, me: VoiceMember| {
+        snapshot.voice.insert("13".into(), vec![me]);
+        silenced(snapshot, "13", "1")
+    };
+    assert!(silent(&mut snapshot, member(true, None)), "the audience");
+    assert!(
+        silent(&mut snapshot, member(true, Some(1))),
+        "a hand raised"
+    );
+    assert!(silent(&mut snapshot, member(false, Some(1))), "invited");
+    assert!(!silent(&mut snapshot, member(false, None)), "a speaker");
+    assert!(!silenced(&snapshot, "14", "1"), "elsewhere");
+}
+
 /// Held by each test that joins a call in the fake Discord, so one runs at
 /// a time: they join as the same account, which sees another's join as
 /// joining elsewhere and ends its call, and the fake's voice controls are

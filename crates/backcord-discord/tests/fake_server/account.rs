@@ -693,3 +693,213 @@ async fn next_step(shown: &mut tokio::sync::mpsc::UnboundedReceiver<Step>) -> St
         .expect("timed out linking")
         .expect("linking stopped")
 }
+
+/// Devices, as Discord's Devices settings list them: this one marked by
+/// READY's session hash, one signed out, which Discord confirms with 2FA
+/// while it asks, then the rest but this one.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn lists_and_signs_out_devices() {
+    use backcord_discord::mfa::Method;
+    let fixture = Fixture::start("lists_and_signs_out_devices").await;
+    let (discord, server) = (&fixture.discord, fixture.server);
+    let account = fixture.snapshot.account.as_ref().unwrap();
+    assert_eq!(account.auth_session.as_deref(), Some("fake"));
+    assert!(account.email_verified);
+    let devices = discord.devices().await.unwrap();
+    let hashes: Vec<&str> = devices
+        .iter()
+        .map(|device| device.id_hash.as_str())
+        .collect();
+    assert_eq!(hashes, ["fake", "fake-phone", "fake-browser"]);
+    assert_eq!(devices[1].os.as_deref(), Some("Android"));
+    assert_eq!(devices[1].platform.as_deref(), Some("Discord Android"));
+    assert_eq!(
+        devices[1].location.as_deref(),
+        Some("Milan, Lombardy, Italy")
+    );
+    assert_eq!(devices[2].location, None);
+
+    post_control(server, "/_control/mfa", "");
+    let mut live = discord.live();
+    let phone = vec!["fake-phone".to_owned()];
+    let logout = tokio::spawn({
+        let discord = discord.clone();
+        async move {
+            discord
+                .stepping_up(|| discord.log_out_devices(&phone))
+                .await
+        }
+    });
+    let id = live_where(&mut live, |live| match live {
+        Live::MfaRequired { id, .. } => Some(id),
+        _ => None,
+    })
+    .await;
+    discord
+        .finish_mfa(id, Method::Totp, "123456")
+        .await
+        .unwrap();
+    logout.await.unwrap().unwrap();
+    post_control(server, "/_control/mfa?off", "");
+    let left: Vec<String> =
+        serde_json::from_str(&control(server, "GET", "/_control/devices", "")).unwrap();
+    assert_eq!(left, ["fake", "fake-browser"]);
+    discord
+        .log_out_devices(&["fake-browser".to_owned()])
+        .await
+        .unwrap();
+    let left: Vec<String> =
+        serde_json::from_str(&control(server, "GET", "/_control/devices", "")).unwrap();
+    assert_eq!(left, ["fake"]);
+}
+
+/// The username, the email and the password, as My Account changes them:
+/// each needs the password, a username taken is said before and refused,
+/// a verified email changes with the code emailed there first, and a new
+/// password gives a new login, which BACKCORD asks with and keeps.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn changes_the_username_email_and_password() {
+    let fixture = Fixture::start("changes_the_username_email_and_password").await;
+    let (discord, server) = (&fixture.discord, fixture.server);
+    assert!(discord.username_taken("bob").await.unwrap());
+    assert!(!discord.username_taken("alice_new").await.unwrap());
+    let wrong = discord
+        .change_username("alice_new", "nope")
+        .await
+        .unwrap_err();
+    assert_eq!(wrong.to_string(), "Password: Password does not match.");
+    let taken = discord
+        .change_username("bob", "password")
+        .await
+        .unwrap_err();
+    assert!(
+        taken
+            .to_string()
+            .starts_with("Username: Username is unavailable"),
+        "{taken}"
+    );
+    discord
+        .change_username("alice_new", "password")
+        .await
+        .unwrap();
+
+    let unverified = discord
+        .change_email("alice@new.example", "password", None)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        unverified.to_string(),
+        "Email token: Verify your current email first."
+    );
+    discord.send_email_code().await.unwrap();
+    assert!(discord.verify_email_code("000000").await.is_err());
+    let token = discord.verify_email_code("123456").await.unwrap();
+    discord
+        .change_email("alice@new.example", "password", Some(&token))
+        .await
+        .unwrap();
+
+    let short = discord
+        .change_password("password", "short")
+        .await
+        .unwrap_err();
+    assert_eq!(
+        short.to_string(),
+        "New password: Must be between 8 and 72 in length."
+    );
+    discord
+        .change_password("password", "a much longer password")
+        .await
+        .unwrap();
+    // The new login asks from now on, and is the one kept.
+    assert!(!discord.devices().await.unwrap().is_empty());
+    assert_eq!(
+        token::load().unwrap(),
+        format!("{}.new1", client::TEST_TOKEN)
+    );
+    let changes: serde_json::Value =
+        serde_json::from_str(&control(server, "GET", "/_control/account-changes", "")).unwrap();
+    assert_eq!(
+        changes,
+        serde_json::json!([
+            {"username": "alice_new"},
+            {"email": "alice@new.example"},
+            {"new_password": true},
+        ])
+    );
+}
+
+/// Two-factor authentication with an authenticator app, as Discord's
+/// client turns it on: the password checked first, then the secret with
+/// a code from the app, which gives a new login and the backup codes; the
+/// backup codes shown again with the key emailed; and turning it off,
+/// which Discord confirms with it first.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn turns_two_factor_authentication_on_and_off() {
+    use backcord_discord::mfa::Method;
+    let fixture = Fixture::start("turns_two_factor_authentication_on_and_off").await;
+    let (discord, server) = (&fixture.discord, fixture.server);
+    assert!(discord.check_totp_password("nope").await.is_err());
+    discord.check_totp_password("password").await.unwrap();
+    let secret = backcord_discord::security::new_totp_secret();
+    let wrong = discord.enable_totp("password", &secret, "000000").await;
+    assert!(wrong.is_err());
+    let code = control(
+        server,
+        "GET",
+        &format!("/_control/totp-code?secret={secret}"),
+        "",
+    );
+    let codes = discord
+        .enable_totp("password", &secret, &code)
+        .await
+        .unwrap();
+    assert_eq!(codes.len(), 8);
+    assert!(codes[0].consumed && !codes[1].consumed);
+    snapshot_where(discord, |snapshot| {
+        snapshot
+            .account
+            .as_ref()
+            .is_some_and(|account| account.mfa_enabled)
+    })
+    .await;
+    assert_ne!(
+        token::load().unwrap(),
+        client::TEST_TOKEN,
+        "the new login is kept"
+    );
+
+    let nonce = discord.backup_codes_challenge("password").await.unwrap();
+    assert!(discord.backup_codes("wrong", &nonce).await.is_err());
+    let nonce = discord.backup_codes_challenge("password").await.unwrap();
+    assert_eq!(
+        discord.backup_codes("backupkey", &nonce).await.unwrap(),
+        codes
+    );
+
+    let mut live = discord.live();
+    let disable = tokio::spawn({
+        let discord = discord.clone();
+        async move { discord.stepping_up(|| discord.disable_totp()).await }
+    });
+    let id = live_where(&mut live, |live| match live {
+        Live::MfaRequired { id, .. } => Some(id),
+        _ => None,
+    })
+    .await;
+    discord
+        .finish_mfa(id, Method::Totp, "123456")
+        .await
+        .unwrap();
+    disable.await.unwrap().unwrap();
+    snapshot_where(discord, |snapshot| {
+        snapshot
+            .account
+            .as_ref()
+            .is_some_and(|account| !account.mfa_enabled)
+    })
+    .await;
+}

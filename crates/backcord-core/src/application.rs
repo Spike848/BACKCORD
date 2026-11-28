@@ -60,11 +60,13 @@ mod reactions;
 mod relationships;
 mod rooms;
 mod scheduled_event;
+mod security;
 mod server;
 mod server_events;
 mod server_settings;
 mod session;
 mod slash;
+mod stage;
 mod stickers;
 mod threads;
 
@@ -118,6 +120,10 @@ pub use profile_editor::{
 pub use reactions::{ReactionTip, ReactionsWindow, TIP_PEOPLE};
 pub use rooms::{MUTE_TIMES, MenuChoice, network_id, network_link};
 pub use scheduled_event::EventDialog;
+pub use security::{
+    AccountEditor, Devices, Dialog as AccountDialog, Field as AccountField, LogOut,
+    PASSWORD_LENGTH, Security, SecurityInput, Step as AccountStep, totp_address,
+};
 pub use server_events::{
     EVENT_DESCRIPTION_LIMIT, EVENT_EXTERNAL, EVENT_LOCATION_LIMIT, EVENT_NAME_LIMIT, EVENT_STAGE,
     EVENT_VOICE, EventField, EventForm, EventsAction, EventsDialog, EventsPage, local_date_time,
@@ -138,6 +144,7 @@ pub use server_settings::{
     TransferAsk, WELCOME, WELCOME_STICKER, emoji_name,
 };
 pub use slash::{CommandDraft, CommandRow, OptionDraft};
+pub use stage::{CallStage, STAGE_TOPIC_LIMIT, StageInput, StageRole, StageState, TopicEditor};
 pub use stickers::{FREQUENT_STICKERS, ServerStickers, StickerPicker, StickerPicture, StickerUse};
 pub use threads::{
     NewThread, THREAD_NAME_LIMIT, ThreadFrom, ThreadList, ThreadSearch, ThreadSections,
@@ -647,6 +654,12 @@ pub struct AppState {
     /// Requests Discord holds back for two-factor authentication, the
     /// first one's prompt showing.
     pub mfa: Vec<MfaPrompt>,
+    /// The Discord account's devices and the dialogs that change it, from
+    /// Settings.
+    pub security: Security,
+    /// The stage the call is on: its topic's dialog, and why the last
+    /// change didn't happen.
+    pub stage: StageState,
     /// The same friends by name, as the friends list shows them.
     pub friends: Vec<chat::Friend>,
     pub friend_requests: Vec<chat::FriendRequest>,
@@ -2576,6 +2589,10 @@ pub enum Action {
     ResendMfa,
     ConfirmMfa,
     CancelMfa,
+    /// Something done on My Account's security or on Devices.
+    Security(SecurityInput),
+    /// Something done on the Discord stage the call is on.
+    StageChannel(StageInput),
     /// Change how the Discord account stands with someone, from `location`
     /// in Discord's client, such as "ContextMenu". Unfriending and blocking
     /// ask first, through [`Action::AskPerson`].
@@ -4779,6 +4796,8 @@ impl Application {
             Action::ResendMfa => self.resend_mfa(),
             Action::ConfirmMfa => self.confirm_mfa(),
             Action::CancelMfa => self.cancel_mfa(),
+            Action::Security(input) => self.security_input(input),
+            Action::StageChannel(input) => self.stage_input(input),
             Action::ChangeRelationship {
                 user,
                 change,
@@ -5638,6 +5657,11 @@ impl Application {
             Event::MfaRequired { id, methods } => return self.mfa_required(id, methods),
             Event::MfaFinished { id, result } => return self.mfa_finished(id, result),
             Event::MfaTexted { id, result } => self.mfa_texted(id, result),
+            Event::Devices(result) => self.devices_listed(result),
+            Event::DevicesLoggedOut { hashes, result } => self.devices_logged_out(hashes, result),
+            Event::UsernameChecked { username, taken } => self.username_checked(username, taken),
+            Event::AccountChanged(result) => self.account_changed(result),
+            Event::StageChanged { change, result } => self.stage_changed(change, result),
             Event::ServerSettingsLoaded {
                 server,
                 section,

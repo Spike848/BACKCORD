@@ -2850,6 +2850,8 @@ mod tests {
             style: None,
             server_muted: false,
             server_deafened: false,
+            suppressed: false,
+            requested_to_speak: None,
         };
         let first = Snapshot {
             servers: vec![server("10", "11", "12"), server("20", "21", "22")],
@@ -3024,6 +3026,8 @@ mod tests {
                 elsewhere: false,
                 tag: None,
                 style: None,
+                suppressed: false,
+                requested_to_speak: None,
             }],
         );
         assert!(kept.update_into(&call, false, &mut rooms, &mut servers));
@@ -3120,6 +3124,8 @@ mod tests {
             elsewhere: false,
             tag: None,
             style: None,
+            suppressed: false,
+            requested_to_speak: None,
         };
         let snapshot = Snapshot {
             servers: vec![MarkedServer::marked(
@@ -3206,6 +3212,8 @@ mod tests {
                     style: None,
                     server_muted: false,
                     server_deafened: false,
+                    suppressed: false,
+                    requested_to_speak: None,
                 }],
             )]
             .into(),

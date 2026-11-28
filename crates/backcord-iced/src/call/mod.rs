@@ -11,7 +11,9 @@
 //! - `dm.rs`, a DM's call: its invitation above the messages, a call
 //!   ringing elsewhere, and the question before switching calls;
 //! - `corner.rs`, the stream or camera kept in a corner while the call is
-//!   off screen, and the large tile full screen.
+//!   off screen, and the large tile full screen;
+//! - `stage_channel.rs`, a Discord stage's topic, its audience and what
+//!   its speakers, audience and moderators may do.
 //!
 //! The tiles are the kit's [`crate::tile`]; a frame is drawn by
 //! [`crate::video`].
@@ -22,6 +24,7 @@ pub mod dm;
 pub mod dock;
 pub(crate) mod popups;
 pub mod stage;
+pub mod stage_channel;
 
 use std::{cell::Cell, sync::Arc};
 
@@ -148,6 +151,8 @@ pub enum Popup {
 pub enum Event {
     /// A voice channel's Join, or a DM's call joined.
     Join(String),
+    /// Something done on the Discord stage the call is on.
+    Stage(stage_channel::StageEvent),
     Leave,
     Mute,
     Deafen,
@@ -275,6 +280,7 @@ pub enum Event {
 pub fn update(app: &mut App, event: Event) -> Task<Message> {
     let voice = &app.client.state().voice;
     let action = match event {
+        Event::Stage(event) => return stage_channel::update(app, event),
         Event::Join(room) => Action::RequestJoinVoice(room),
         Event::Leave => Action::Voice(Command::Leave),
         Event::Mute => Action::Voice(Command::Mute(!voice.muted)),

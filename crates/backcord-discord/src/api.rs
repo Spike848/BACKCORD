@@ -447,6 +447,11 @@ impl Api {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
+    /// The login requests go with now.
+    pub(crate) fn login(&self) -> String {
+        self.token().clone()
+    }
+
     /// Asks with `token` from now on: Discord refreshed the login to it.
     pub fn relogin(&self, token: &str) {
         token.clone_into(
@@ -555,6 +560,171 @@ impl Api {
         let body = json!({"provider": null, "voip_provider": null});
         self.empty(with_json(self.request(Method::POST, "/auth/logout"), &body))
             .await
+    }
+
+    /// Starts a stage on a stage channel with a topic, as its moderator,
+    /// seen by the server's members alone (privacy level 2), telling no
+    /// one.
+    pub async fn create_stage_instance(&self, channel: &str, topic: &str) -> Result<Value> {
+        let body = json!({
+            "channel_id": channel,
+            "topic": topic,
+            "privacy_level": 2,
+            "send_start_notification": false,
+        });
+        self.json(with_json(
+            self.request(Method::POST, "/stage-instances"),
+            &body,
+        ))
+        .await
+    }
+
+    /// Changes a live stage's topic.
+    pub async fn edit_stage_instance(&self, channel: &str, topic: &str) -> Result<Value> {
+        let path = format!("/stage-instances/{}", encode(channel));
+        self.json(with_json(
+            self.request(Method::PATCH, &path),
+            &json!({"topic": topic}),
+        ))
+        .await
+    }
+
+    /// Ends a live stage.
+    pub async fn delete_stage_instance(&self, channel: &str) -> Result<()> {
+        let path = format!("/stage-instances/{}", encode(channel));
+        self.empty(self.request(Method::DELETE, &path)).await
+    }
+
+    /// Changes this account's voice state on a stage of `guild`: whether
+    /// it's in the audience, and when it asked to speak.
+    pub async fn modify_own_voice_state(&self, guild: &str, body: &Value) -> Result<()> {
+        let path = format!("/guilds/{}/voice-states/@me", encode(guild));
+        self.empty(with_json(self.request(Method::PATCH, &path), body))
+            .await
+    }
+
+    /// Moves someone on a stage of `guild` to its speakers, inviting them,
+    /// or to its audience, as a moderator.
+    pub async fn modify_voice_state(&self, guild: &str, user: &str, body: &Value) -> Result<()> {
+        let path = format!("/guilds/{}/voice-states/{}", encode(guild), encode(user));
+        self.empty(with_json(self.request(Method::PATCH, &path), body))
+            .await
+    }
+
+    /// The devices signed in to this account, as Discord's Devices settings
+    /// list them.
+    pub async fn auth_sessions(&self) -> Result<Value> {
+        self.json(self.request(Method::GET, "/auth/sessions")).await
+    }
+
+    /// Signs devices out of this account by their sessions' hashes, as
+    /// Discord's Devices settings do; Discord may hold it back for
+    /// two-factor authentication.
+    pub async fn logout_sessions(&self, hashes: &[String]) -> Result<()> {
+        let body = json!({"session_id_hashes": hashes});
+        self.empty(with_json(
+            self.request(Method::POST, "/auth/sessions/logout"),
+            &body,
+        ))
+        .await
+    }
+
+    /// Whether another account has the username `username`, as Discord's
+    /// client asks while a new one is written.
+    pub async fn username_taken(&self, username: &str) -> Result<bool> {
+        let body = json!({"username": username});
+        let answer = self
+            .json(with_json(
+                self.request(Method::POST, "/users/@me/pomelo-attempt"),
+                &body,
+            ))
+            .await?;
+        Ok(answer["taken"].as_bool().unwrap_or(false))
+    }
+
+    /// Changes the account itself (`PATCH /users/@me`): its username, email
+    /// or password, each with the current password. Discord answers with
+    /// the user and, for a new password, the login that takes the old
+    /// one's place.
+    pub async fn modify_account(&self, body: &Value) -> Result<Value> {
+        self.json(with_json(self.request(Method::PATCH, "/users/@me"), body))
+            .await
+    }
+
+    /// Has Discord email a code to the account's verified address, the
+    /// first step of changing it.
+    pub async fn email_change_challenge(&self) -> Result<()> {
+        self.empty(with_json(
+            self.request(Method::PUT, "/users/@me/email"),
+            &json!({}),
+        ))
+        .await
+    }
+
+    /// Trades the code Discord emailed for the token that changes the
+    /// address.
+    pub async fn verify_email_code(&self, code: &str) -> Result<String> {
+        let body = json!({"code": code});
+        let answer = self
+            .json(with_json(
+                self.request(Method::POST, "/users/@me/email/verify-code"),
+                &body,
+            ))
+            .await?;
+        answer["token"]
+            .as_str()
+            .map(str::to_owned)
+            .context("Discord gave no token for the code")
+    }
+
+    /// Turns two-factor authentication on with an authenticator app: with
+    /// the password alone Discord checks it, refusing with
+    /// [`crate::security::PASSWORD_CHECKED`] when it's right; with the
+    /// secret and a code from the app it turns it on, answering with a new
+    /// login and the backup codes.
+    pub async fn enable_totp(&self, body: &Value) -> Result<Value> {
+        self.json(with_json(
+            self.request(Method::POST, "/users/@me/mfa/totp/enable"),
+            body,
+        ))
+        .await
+    }
+
+    /// Turns two-factor authentication off, which Discord confirms with it
+    /// first; Discord answers with a new login.
+    pub async fn disable_totp(&self) -> Result<Value> {
+        self.json(with_json(
+            self.request(Method::POST, "/users/@me/mfa/totp/disable"),
+            &json!({}),
+        ))
+        .await
+    }
+
+    /// Has Discord email a key that shows the backup codes, once the
+    /// password is right; the nonce that shows them comes back.
+    pub async fn backup_codes_challenge(&self, password: &str) -> Result<String> {
+        let body = json!({"password": password});
+        let answer = self
+            .json(with_json(
+                self.request(Method::POST, "/auth/verify/view-backup-codes-challenge"),
+                &body,
+            ))
+            .await?;
+        answer["nonce"]
+            .as_str()
+            .map(str::to_owned)
+            .context("Discord didn't start showing the backup codes")
+    }
+
+    /// The backup codes, with the key Discord emailed and the nonce of
+    /// [`Self::backup_codes_challenge`].
+    pub async fn backup_codes(&self, key: &str, nonce: &str) -> Result<Value> {
+        let body = json!({"key": key, "nonce": nonce, "regenerate": false});
+        self.json(with_json(
+            self.request(Method::POST, "/users/@me/mfa/codes-verification"),
+            &body,
+        ))
+        .await
     }
 
     /// The account the token belongs to.

@@ -526,6 +526,8 @@ impl Application {
                             avatar: None,
                             streaming: false,
                             video: None,
+                            audience: false,
+                            requested_to_speak: None,
                         }],
                         can_film: true,
                         ..self.preview_voice()

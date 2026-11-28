@@ -138,6 +138,12 @@ pub fn command(
     let Some(command) = super::ownership::command(command, discord, events) else {
         return;
     };
+    let Some(command) = super::security::command(command, discord, events) else {
+        return;
+    };
+    let Some(command) = super::stage::command(command, discord, events) else {
+        return;
+    };
     let Some(command) = super::events::command(command, discord, events) else {
         return;
     };

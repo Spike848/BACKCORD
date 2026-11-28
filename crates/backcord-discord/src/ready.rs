@@ -73,6 +73,8 @@ pub mod permission {
     pub const MANAGE_GUILD_EXPRESSIONS: u64 = 1 << 30;
     /// Using another server's emoji, for those with Nitro.
     pub const USE_EXTERNAL_EMOJIS: u64 = 1 << 18;
+    /// Asking to speak on a stage.
+    pub const REQUEST_TO_SPEAK: u64 = 1 << 32;
     /// Editing and cancelling any of a server's scheduled events.
     pub const MANAGE_EVENTS: u64 = 1 << 33;
     /// Seeing every private thread, and sending in locked ones.
@@ -240,6 +242,10 @@ pub struct Server {
     /// header counts; see [`ScheduledEvent`].
     #[serde(default)]
     pub events: Arc<Vec<ScheduledEvent>>,
+    /// Its stage channels' live stages, as READY, GUILD_CREATE and
+    /// STAGE_INSTANCE_CREATE, _UPDATE and _DELETE give them.
+    #[serde(default)]
+    pub stages: Vec<StageInstance>,
     /// How many boosts it has, and whether its owner shows the progress bar
     /// toward the next goal at the top of its channel list.
     #[serde(default)]
@@ -264,6 +270,38 @@ pub struct Emoji {
     /// Usable: a server that loses boosts keeps emoji it no longer has room for,
     /// unavailable.
     pub available: bool,
+}
+
+/// A stage channel's live stage: a stage is live while it has one, and its
+/// topic shows over the stage; see
+/// <https://docs.discord.food/resources/stage-instance>.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct StageInstance {
+    pub id: String,
+    /// Its stage channel.
+    pub channel: String,
+    pub topic: String,
+}
+
+impl StageInstance {
+    /// A stage instance object, as Discord sends it.
+    pub fn parse(stage: &Value) -> Option<Self> {
+        Some(Self {
+            id: stage["id"].as_str()?.to_owned(),
+            channel: stage["channel_id"].as_str()?.to_owned(),
+            topic: stage["topic"].as_str().unwrap_or_default().to_owned(),
+        })
+    }
+}
+
+/// A server's live stages, from a guild object's `stage_instances`.
+pub fn stage_instances(list: &Value) -> Vec<StageInstance> {
+    list.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(StageInstance::parse)
+        .collect()
 }
 
 /// A server's scheduled event, which the header's "N Events" row counts and
@@ -812,6 +850,36 @@ impl Server {
             events.push(event);
             events.sort_by(|a, b| a.start.cmp(&b.start));
         }
+    }
+
+    /// Keeps a stage that went live or changed, or forgets one that ended;
+    /// whether anything changed.
+    pub fn put_stage(&mut self, stage: StageInstance, ended: bool) -> bool {
+        let before = self.stages.len();
+        let known = self
+            .stages
+            .iter()
+            .position(|known| known.channel == stage.channel);
+        match (known, ended) {
+            (Some(at), false) if self.stages[at] == stage => false,
+            (Some(at), false) => {
+                self.stages[at] = stage;
+                true
+            }
+            (None, false) => {
+                self.stages.push(stage);
+                true
+            }
+            (_, true) => {
+                self.stages.retain(|known| known.channel != stage.channel);
+                self.stages.len() != before
+            }
+        }
+    }
+
+    /// The live stage in `channel`, if it's live.
+    pub fn stage(&self, channel: &str) -> Option<&StageInstance> {
+        self.stages.iter().find(|stage| stage.channel == channel)
     }
 
     /// Takes the events `GET /guilds/{id}/scheduled-events` listed, with
@@ -1766,6 +1834,7 @@ pub fn server(guild: &Value) -> Option<Server> {
         emojis: Arc::new(emojis(&guild["emojis"])),
         stickers: Arc::new(crate::stickers::parse_all(&guild["stickers"])),
         events: Arc::new(scheduled_events(&guild["guild_scheduled_events"])),
+        stages: stage_instances(&guild["stage_instances"]),
         boosts: guild["premium_subscription_count"]
             .as_u64()
             .or_else(|| guild["properties"]["premium_subscription_count"].as_u64())

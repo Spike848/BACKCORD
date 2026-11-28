@@ -475,6 +475,8 @@ fn the_account_cards_avatar_rings_while_its_microphone_carries_voice() {
             streaming: false,
             video: None,
             avatar: None,
+            audience: false,
+            requested_to_speak: None,
         }];
     });
     let speaking = super::drawn(&mut account_card(&app));

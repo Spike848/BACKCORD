@@ -1031,6 +1031,8 @@ fn another_servers_emoji_and_stickers_need_the_channels_leave() {
             has_email: true,
             nsfw_allowed: false,
             nsfw_commands_in_dms: false,
+            email_verified: false,
+            auth_session: None,
         }),
         servers: vec![
             MarkedServer::from(Server {

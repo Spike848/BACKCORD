@@ -27,6 +27,8 @@ fn account(app: &mut Application, mfa: bool, email: bool) {
         has_email: email,
         nsfw_allowed: false,
         nsfw_commands_in_dms: false,
+        email_verified: false,
+        auth_session: None,
     });
     app.apply(discord_event(snapshot));
 }

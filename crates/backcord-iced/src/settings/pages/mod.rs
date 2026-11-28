@@ -16,7 +16,10 @@ use crate::{
 mod about;
 mod account;
 pub(super) use account::BLOCKED_STEP;
+pub mod account_security;
+pub use account_security::SecurityEvent;
 mod advanced;
+mod devices;
 mod discord;
 pub use discord::blocked_pictures;
 mod extras;

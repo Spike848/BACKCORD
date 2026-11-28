@@ -24,7 +24,28 @@ recording. Each change is kept at once in
 - My account (`pages/`, a file a page, with the preferences' changes in
   its `mod.rs`): the account's card, where its login is kept,
   Reconnect while offline, Edit profile, the custom status, and Sign out
-  (Back to sign in in the preview).
+  (Back to sign in in the preview); then for a Discord account (and in the
+  preview) its username and email with Edit, and Password and
+  Authentication: Change Password, and two-factor authentication's state
+  with Enable Authenticator App, or View Backup Codes and Remove 2FA
+  (`pages/account_security.rs`). Each opens a dialog over the card, a step
+  at a time: what it changes and the current password, the code Discord
+  emails a verified address first, the authenticator app's QR code and key
+  then its code, the backup codes with Copy codes. What's typed is said
+  wrong as it's typed (a username's letters and length, a password's length
+  and its second typing, an email's shape), and whether a username is free
+  half a second after the last key; Discord's refusals show under the
+  fields. Escape or Cancel closes it, forgetting what was typed, except while
+  Discord answers; leaving the page or closing Settings closes it even
+  then. What
+  changed is said under the card. See
+  [account security](../discord/README.md#account-security).
+- Devices (`pages/devices.rs`), under My Account for a Discord account
+  and in the preview, whose devices are its own: listed again each time it
+  shows, this one under Current Device, the rest under Other Devices, each
+  with its system and client, its place and how long ago it was used, and
+  an X that signs it out; then Log out all known devices. Each asks first,
+  in a dialog Escape closes.
 - Voice & video (`voice.rs`): the microphone, speakers and camera, each a
   dropdown of the devices the core lists (listed again as the page shows),
   the microphone's and speakers' volumes, which play while dragged and are

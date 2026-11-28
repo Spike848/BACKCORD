@@ -437,6 +437,47 @@ sides.
 and in a DM call, against the fake's. `testing/measure_discord_cameras.py`
 measures a call with cameras; see [measurements](../measurements/README.md).
 
+## Stages
+
+A stage channel's call is a stage, as Discord's client runs one; see
+[docs.discord.food](https://docs.discord.food/resources/stage-instance).
+`ready::Server::stages` keeps each live stage, its topic, from READY's and
+GUILD_CREATE's `stage_instances` and STAGE_INSTANCE_CREATE, _UPDATE and
+_DELETE; each voice state's `suppress` and `request_to_speak_timestamp` say
+who is in the audience and who asked to speak (`VoiceMember::suppressed`,
+`requested_to_speak`). The core's `Application::call_stage` says what the
+call's view shows, and `discord_text/stage.rs` sends the changes.
+
+- **Joining** joins the audience: Discord suppresses everyone who joins a
+  stage. The call's participants are its speakers, then its audience
+  (`Participant::audience`); the tiles are the speakers alone, and the
+  audience shows in a row under them, raised hands first, with their count.
+- **The microphone.** While this account is suppressed, or invited and
+  hasn't said yes, its microphone sends nothing: the call closes it, shows
+  this account muted, and opens it again once it may speak, unless it
+  muted itself meanwhile. Unmuting in the audience waits the same way.
+- **Over the tiles**, the topic while the stage is live, and what this
+  account may do there: in the audience Request to Speak (with Request to
+  Speak on the stage) or Lower Hand, `PATCH
+  /guilds/{id}/voice-states/@me` with `request_to_speak_timestamp` now or
+  null; as a speaker Move to Audience (`suppress: true`); invited, "You're
+  invited to speak." with Accept (`suppress: false` and the request null)
+  and Decline (`suppress: true`).
+- **Moderators**, with Manage Channels, Mute Members and Move Members on the
+  stage: Start Stage while nobody started it, its topic (1 to 120
+  characters) written in place over the tiles, which `POST /stage-instances`
+  starts, seen by the server alone and telling nobody, and then makes them
+  a speaker; Edit Topic (`PATCH /stage-instances/{channel}`) and End Stage
+  (`DELETE`); in the audience, Become a Speaker. Under the tiles each of the
+  audience has Invite to Speak and each other speaker Move to Audience,
+  `PATCH /guilds/{id}/voice-states/{user}` with `suppress` false or true:
+  Discord marks an invitation with a request's time until it's answered.
+- A change Discord refuses is said under the topic until dismissed; one to
+  the topic, in place of its field.
+
+Not done: the stage's privacy and its `@everyone` notification, which
+Discord's start dialog offers, and stages in the channel list's card.
+
 ## DM calls
 
 A DM or group DM has a call, as in Discord. The phone in its header starts

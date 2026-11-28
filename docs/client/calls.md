@@ -31,6 +31,13 @@ The call's views and what they do are in `call/`.
   the tray meanwhile, the tile is back in the call and the next window
   opens as a window; brought forward while full screen, it stays so. A
   right click opens the person's voice menu.
+- On a Discord stage (`call/stage_channel.rs`) a bar over the tiles holds
+  its topic, or that nobody started it, and what this account may do there,
+  its topic's field written in place; the tiles are its speakers, and a row
+  under them its audience, raised hands first, with Invite to Speak, then
+  the other speakers' Move to Audience, for a moderator. The stage's size
+  leaves them their room (`stage_channel::height`). See
+  [stages](../discord/voice.md#stages).
 - The controls under the stage, in this order: mute and
   deafen (each with its device menu), the camera (its menu, from this button
   and the one under the call alike: the camera, its quality, on or off), Go Live, the soundboard,

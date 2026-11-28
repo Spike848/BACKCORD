@@ -477,6 +477,8 @@ fn asks_once_for_the_pictures_on_screen() {
                 style: None,
                 server_muted: false,
                 server_deafened: false,
+                suppressed: false,
+                requested_to_speak: None,
             }],
         )]
         .into(),

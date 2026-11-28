@@ -339,6 +339,10 @@
 // Add ?reject to reject the ticket after its challenges are answered.
 // Start BACKCORD with BACKCORD_DISCORD_TEST_UNLINKED=1 to link. POST
 // /auth/logout ends the session, and GET /_control/logouts counts them.
+// Alice's devices, username, email, password and two-factor
+// authentication, and stages with their controls (/_control/devices,
+// /account-changes, /totp-code, /stage, /stage-audience, /stage-invite,
+// /stage-changes), are described at "Account security" and "Stages" below.
 // A gateway session whose connection drops resumes with op 6, getting the
 // events it missed; a close with 1000 or 1001 ends it instead. POST
 // /_control/gateway-reconnect sends op 7, and GET /_control/sessions counts
@@ -405,7 +409,7 @@
 // `available_tags` gives it its tags whole, a new one an id, with
 // CHANNEL_UPDATE; GET /_control/forum-tags lists each set sent.
 
-import { createCipheriv, createDecipheriv } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { deflateSync } from "node:zlib";
@@ -2303,6 +2307,8 @@ const readStates = new Map<string, { last: string; mentions: number }>([
 type VoiceState = {
   guild: string | null; channel: string; self_mute: boolean; self_deaf: boolean; session: string; self_stream?: boolean; self_video?: boolean;
   mute?: boolean; deaf?: boolean;
+  /** On a stage: in its audience, and when they asked to speak. */
+  suppress?: boolean; request?: string | null;
 };
 /** The session of Alice's other client, such as her phone. */
 const OTHER_CLIENT = "voice-alice-phone";
@@ -2369,8 +2375,8 @@ function wireVoiceState(userId: string, state: VoiceState | undefined, left: str
     self_stream: state?.self_stream ?? false,
     mute: state?.mute ?? false,
     deaf: state?.deaf ?? false,
-    suppress: false,
-    request_to_speak_timestamp: null,
+    suppress: state?.suppress ?? false,
+    request_to_speak_timestamp: state?.request ?? null,
   };
 }
 
@@ -2684,6 +2690,7 @@ function guildChannels(): GuildChannel[] {
     channel(LOUNGE, "Lounge", 2, 1, CATEGORY),
     channel(CREATE_ROOM, "Create Room", 2, 2, CATEGORY),
     ...(roomMade ? [channel(ALICES_ROOM, "Alice's room", 2, 3, CATEGORY)] : []),
+    ...(stageMade ? [channel(TOWN_HALL, "Town Hall", 13, 4, CATEGORY)] : []),
     ...rooms.map((id, n) => channel(id, `room-${n + 1}`, 0, 2 + n, CATEGORY)),
     ...madeChannels.values(),
   ]
@@ -2851,6 +2858,7 @@ function needsMfa(method: string, path: string): boolean {
   // Discord always asks the owner to confirm this, as she has 2FA on.
   if (method === "POST" && /^\/guilds\/\d+\/mfa$/.test(path)) return serverSettings.alice_mfa;
   if (!mfa.on) return false;
+  if (method === "POST" && path === "/auth/sessions/logout") return true;
   if (method === "PATCH" && /^\/guilds\/\d+(\/profile)?$/.test(path)) return true;
   if (method !== "GET" && /^\/guilds\/\d+\/roles/.test(path)) return true;
   if ((method === "POST" || method === "PATCH") && /^\/guilds\/\d+\/channels$/.test(path)) return true;
@@ -2936,7 +2944,7 @@ function guild() {
     stickers: expressions.stickers.map((sticker) => wireSticker(sticker)),
     // A user account hears of the active threads it's in.
     threads: [...threads.values()].filter((thread) => thread.members.has(ALICE) && !thread.archived).map(wireThread),
-    stage_instances: [],
+    stage_instances: [...stageInstances.values()],
     guild_scheduled_events: [scheduledEvent()],
     activity_instances: [],
     member_count: Object.keys(users).length,
@@ -3478,6 +3486,237 @@ function memberUpdated(user: User) {
   dispatch("GUILD_MEMBER_UPDATE", { guild_id: GUILD, ...member(user), user_id: undefined });
 }
 
+
+// --- Account security ---------------------------------------------------------
+// Alice's devices and account, as Discord's My Account and Devices settings
+// change them. GET /auth/sessions lists her devices, this one "fake" (READY's
+// auth_session_id_hash), her phone and a browser; POST /auth/sessions/logout
+// signs those it names out, which Discord holds back for 2FA while
+// /_control/mfa is on, and GET /_control/devices lists those still signed in.
+// Her password is "password". POST /users/@me/pomelo-attempt says whether a
+// username is taken: those of the fixture's people are. PATCH /users/@me
+// changes her username, email or password only with it (a form error on
+// `password` otherwise); a new password ends every login and answers with a
+// new token, which the API takes from then on, and her verified email
+// changes only with the `email_token` POST /users/@me/email/verify-code
+// trades for "123456", the code PUT /users/@me/email emails. Each change is
+// listed, without the passwords, in GET /_control/account-changes. POST
+// /users/@me/mfa/totp/enable with the password alone answers 60005; with
+// a 32-character base32 `secret` and the authenticator's current code for
+// it, which GET /_control/totp-code?secret=... gives, it turns 2FA on with a
+// new token and eight backup codes, and USER_UPDATE says so. POST
+// /users/@me/mfa/totp/disable always asks to confirm with 2FA first, then
+// turns it off with a new token. POST /auth/verify/view-backup-codes-challenge
+// with the password answers with a nonce, and POST
+// /users/@me/mfa/codes-verification with it and "backupkey", the key
+// emailed, gives the codes.
+const FAKE_PASSWORD = "password";
+const CURRENT_SESSION = "fake";
+const startingDevices = () => [
+  { id_hash: CURRENT_SESSION, approx_last_used_time: new Date().toISOString(), client_info: { os: "Linux", platform: "Discord Client", location: "Rome, Lazio, Italy" } },
+  { id_hash: "fake-phone", approx_last_used_time: "2026-11-20T08:30:00.000000+00:00", client_info: { os: "Android", platform: "Discord Android", location: "Milan, Lombardy, Italy" } },
+  { id_hash: "fake-browser", approx_last_used_time: "2026-10-02T19:05:00.000000+00:00", client_info: { os: "Windows", platform: "Chrome", location: null } },
+];
+let authSessions = startingDevices();
+const accountChanges: Record<string, unknown>[] = [];
+const EMAIL_CODE = "123456";
+let emailCodeSent = false;
+const emailTokens = new Set<string>();
+let newTokens = 0;
+const backupNonces = new Set<string>();
+const BACKUP_KEY = "backupkey";
+const fakeBackupCodes = () => ["k3m9x2qa", "p7v4n8tz", "c2w6r5hy", "d8f3j1ls", "q9e4u7bn", "m5t2y8gk", "h6z3x9pw", "r4b7c1vd"]
+  .map((code, index) => ({ user_id: ALICE, code, consumed: index === 0 }));
+
+/** A form error on one field, as Discord answers a form it refuses. */
+function fieldError(field: string, code: string, message: string) {
+  return json({ message: "Invalid Form Body", code: 50035, errors: { [field]: { _errors: [{ code, message }] } } }, 400);
+}
+
+/** A new login for Alice, which the API takes from now on. */
+function newLogin(): string {
+  newTokens++;
+  apiToken = `${TOKEN}.new${newTokens}`;
+  return apiToken;
+}
+
+/** RFC 6238's code for a base32 secret now, as an authenticator app shows it. */
+function totpCode(secret: string, at = Date.now()): string | null {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const char of secret.toUpperCase().replace(/=+$/, "")) {
+    const value = alphabet.indexOf(char);
+    if (value < 0) return null;
+    bits += value.toString(2).padStart(5, "0");
+  }
+  const key = Buffer.from((bits.match(/.{8}/g) ?? []).map((byte) => parseInt(byte, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(at / 30_000)));
+  const mac = createHmac("sha1", key).update(counter).digest();
+  const offset = mac[mac.length - 1]! & 15;
+  const code = (mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
+  return String(code).padStart(6, "0");
+}
+
+/** Answers Alice's account security's requests, or null for any other. */
+async function accountSecurity(req: Request, method: string, path: string): Promise<Response | null> {
+  const body = async (): Promise<any> => req.json().catch(() => ({}));
+  if (method === "GET" && path === "/auth/sessions") return json({ user_sessions: authSessions });
+  if (method === "POST" && path === "/auth/sessions/logout") {
+    const hashes: string[] = ((await body()).session_id_hashes ?? []).map(String);
+    if (hashes.length === 0 || hashes.length > 64) return fieldError("session_id_hashes", "BASE_TYPE_BAD_LENGTH", "Must be between 1 and 64 in length.");
+    authSessions = authSessions.filter((session) => !hashes.includes(session.id_hash));
+    return empty();
+  }
+  if (method === "POST" && path === "/users/@me/pomelo-attempt") {
+    const username = String((await body()).username ?? "").toLowerCase();
+    const known = [...Object.values(users), ...Object.values(strangers)].some((user) => user.username === username && user.id !== ALICE);
+    return json({ taken: known });
+  }
+  if (method === "PUT" && path === "/users/@me/email") {
+    emailCodeSent = true;
+    return empty();
+  }
+  if (method === "POST" && path === "/users/@me/email/verify-code") {
+    if (!emailCodeSent || String((await body()).code) !== EMAIL_CODE) return fieldError("code", "INVALID_CODE", "Invalid verification code.");
+    const token = `email-token-${emailTokens.size + 1}`;
+    emailTokens.add(token);
+    return json({ token });
+  }
+  if (method === "POST" && path === "/users/@me/mfa/totp/enable") {
+    const sent = await body();
+    if (sent.password !== FAKE_PASSWORD) return fieldError("password", "PASSWORD_DOES_NOT_MATCH", "Password does not match.");
+    if (serverSettings.alice_mfa) return json({ message: "This account already has two-factor authentication.", code: 60001 }, 400);
+    if (!sent.secret || !sent.code) return json({ message: "Valid password provided", code: 60005 }, 400);
+    const secret = String(sent.secret);
+    if (secret.length !== 32 || totpCode(secret) === null) return fieldError("secret", "INVALID_SECRET", "Invalid secret.");
+    if (String(sent.code) !== totpCode(secret)) return json({ message: "Invalid two-factor code", code: 60008 }, 400);
+    serverSettings.alice_mfa = true;
+    accountChanges.push({ mfa: true });
+    dispatch("USER_UPDATE", { ...wireUser(users.alice), mfa_enabled: true });
+    return json({ token: newLogin(), backup_codes: fakeBackupCodes() });
+  }
+  if (method === "POST" && path === "/users/@me/mfa/totp/disable") {
+    // Discord always confirms turning it off with it.
+    const held = heldForMfa(req);
+    if (held) return held;
+    serverSettings.alice_mfa = false;
+    accountChanges.push({ mfa: false });
+    dispatch("USER_UPDATE", { ...wireUser(users.alice), mfa_enabled: false });
+    return json({ token: newLogin() });
+  }
+  if (method === "POST" && path === "/auth/verify/view-backup-codes-challenge") {
+    if ((await body()).password !== FAKE_PASSWORD) return fieldError("password", "PASSWORD_DOES_NOT_MATCH", "Password does not match.");
+    const nonce = `view-nonce-${backupNonces.size + 1}`;
+    backupNonces.add(nonce);
+    return json({ nonce, regenerate_nonce: `regenerate-${nonce}` });
+  }
+  if (method === "POST" && path === "/users/@me/mfa/codes-verification") {
+    const sent = await body();
+    if (!backupNonces.delete(String(sent.nonce))) return json({ message: "Invalid nonce", code: 60011 }, 400);
+    if (sent.key !== BACKUP_KEY) return json({ message: "Invalid key", code: 60011 }, 400);
+    return json({ backup_codes: fakeBackupCodes() });
+  }
+  return null;
+}
+
+
+// --- Stages -------------------------------------------------------------------
+// "Town Hall", a stage channel, joins "Server" after POST /_control/stage,
+// with CHANNEL_CREATE, so the rest of the fixture stays as it is. Joining it
+// puts Alice in its audience (`suppress`), as Discord does. POST
+// /stage-instances starts a stage there with a topic, which PATCH and DELETE
+// /stage-instances/{channel} change and end, each with STAGE_INSTANCE_CREATE,
+// _UPDATE or _DELETE, and only as its moderator (Manage Channels, Mute
+// Members and Move Members). PATCH /guilds/{id}/voice-states/@me raises or
+// lowers her hand (`request_to_speak_timestamp`), moves her to the audience,
+// or with Mute Members to the speakers; PATCH /guilds/{id}/voice-states/{user}
+// invites someone in the audience to speak (not suppressed, with a request's
+// time, until they say yes) or moves a speaker to the audience, with Mute
+// Members. Each goes out as VOICE_STATE_UPDATE. POST /_control/stage-audience
+// with {"user": "<id>", "hand": true} puts someone in Town Hall's audience,
+// their hand up or not; POST /_control/stage-invite invites Alice to speak,
+// as a moderator would. GET /_control/stage-changes lists each voice state
+// PATCH, oldest first, with its user (@me for her own) and body.
+const TOWN_HALL = "1400000000000000107";
+let stageMade = false;
+const stageInstances = new Map<string, { id: string; guild_id: string; channel_id: string; topic: string; privacy_level: number; invite_code: null; discoverable_disabled: boolean; guild_scheduled_event_id: null }>();
+const stageChanges: { user: string; body: unknown }[] = [];
+let stageIds = 0;
+
+/** Whether Alice moderates Town Hall: Manage Channels, Mute Members and Move Members. */
+function aliceModerates(): boolean {
+  return aliceMay(4) && aliceMay(22) && aliceMay(24);
+}
+
+/** Answers the stage's requests, or null for any other. */
+async function stages(req: Request, method: string, path: string): Promise<Response | null> {
+  let m: RegExpMatchArray | null;
+  const body = async (): Promise<any> => req.json().catch(() => ({}));
+  if (method === "POST" && path === "/stage-instances") {
+    const sent = await body();
+    if (sent.channel_id !== TOWN_HALL || !stageMade) return notFound("Unknown Channel", 10003);
+    if (!aliceModerates()) return json({ message: "Missing Permissions", code: 50013 }, 403);
+    const topic = String(sent.topic ?? "");
+    if (topic.length < 1 || topic.length > 120) return fieldError("topic", "BASE_TYPE_BAD_LENGTH", "Must be between 1 and 120 in length.");
+    if (stageInstances.has(TOWN_HALL)) return json({ message: "Stage already has an instance", code: 150006 }, 400);
+    const stage = {
+      id: String(1400000000000000800n + BigInt(++stageIds)), guild_id: GUILD, channel_id: TOWN_HALL, topic,
+      privacy_level: Number(sent.privacy_level ?? 2), invite_code: null, discoverable_disabled: false, guild_scheduled_event_id: null,
+    };
+    stageInstances.set(TOWN_HALL, stage);
+    dispatch("STAGE_INSTANCE_CREATE", stage);
+    return json(stage);
+  }
+  if ((m = path.match(/^\/stage-instances\/(\d+)$/))) {
+    const stage = stageInstances.get(m[1]!);
+    if (!stage) return notFound("Unknown Stage Instance", 10067);
+    if (method === "GET") return json(stage);
+    if (!aliceModerates()) return json({ message: "Missing Permissions", code: 50013 }, 403);
+    if (method === "PATCH") {
+      const sent = await body();
+      if ("topic" in sent) {
+        const topic = String(sent.topic);
+        if (topic.length < 1 || topic.length > 120) return fieldError("topic", "BASE_TYPE_BAD_LENGTH", "Must be between 1 and 120 in length.");
+        stage.topic = topic;
+      }
+      dispatch("STAGE_INSTANCE_UPDATE", stage);
+      return json(stage);
+    }
+    if (method === "DELETE") {
+      stageInstances.delete(m[1]!);
+      dispatch("STAGE_INSTANCE_DELETE", stage);
+      return empty();
+    }
+  }
+  if (method === "PATCH" && (m = path.match(/^\/guilds\/(\d+)\/voice-states\/(@me|\d+)$/))) {
+    if (m[1] !== GUILD) return notFound("Unknown Guild", 10004);
+    const sent = await body();
+    const own = m[2] === "@me";
+    const user = own ? ALICE : m[2]!;
+    const state = voice.get(user);
+    if (!state || state.channel !== TOWN_HALL || sent.channel_id !== TOWN_HALL) return fieldError("channel_id", "INVALID_CHANNEL", "Not in that stage.");
+    stageChanges.push({ user: own ? "@me" : user, body: sent });
+    if (own) {
+      if (sent.suppress === false && !aliceMay(22)) return json({ message: "Missing Permissions", code: 50013 }, 403);
+      if (typeof sent.suppress === "boolean") state.suppress = sent.suppress;
+      if (sent.suppress === true) state.request = null;
+      if ("request_to_speak_timestamp" in sent) {
+        if (sent.request_to_speak_timestamp !== null && !aliceMay(32)) return json({ message: "Missing Permissions", code: 50013 }, 403);
+        state.request = sent.request_to_speak_timestamp;
+      }
+    } else {
+      if (!aliceMay(22)) return json({ message: "Missing Permissions", code: 50013 }, 403);
+      // A user invited to speak stays asked until they say yes.
+      state.suppress = !!sent.suppress;
+      state.request = sent.suppress ? null : new Date().toISOString();
+    }
+    announce(user);
+    return empty();
+  }
+  return null;
+}
+
 // --- Remote login ---------------------------------------------------------
 // Linking by QR code: the client sends its RSA public key, proves it can read
 // a nonce encrypted to it, and gets a code to show. Scanning sends who
@@ -3637,6 +3876,12 @@ function gatewayMessage(ws: Socket, text: string) {
           session: ws.data.session,
           self_stream: before?.channel === channel && before.self_stream,
           self_video: !!d.self_video,
+          // Joining a stage joins its audience; staying keeps where she was.
+          ...(channel === TOWN_HALL
+            ? before?.channel === channel
+              ? { suppress: before.suppress, request: before.request }
+              : { suppress: true, request: null }
+            : {}),
         });
       } else {
         voice.delete(ALICE);
@@ -6027,6 +6272,10 @@ async function api(req: Request, path: string, origin: string): Promise<Response
     const held = heldForMfa(req);
     if (held) return held;
   }
+  const security = await accountSecurity(req, method, path);
+  if (security) return security;
+  const staged = await stages(req, method, path);
+  if (staged) return staged;
   if (method === "POST" && path === "/mfa/finish") {
     const body: any = await req.json().catch(() => ({}));
     const [type, data] = [String(body.mfa_type), String(body.data ?? "")];
@@ -7789,6 +8038,32 @@ async function api(req: Request, path: string, origin: string): Promise<Response
     const body: any = await req.json().catch(() => ({}));
     const alice: any = users.alice;
     if (typeof body.global_name === "string" && body.global_name.length > 32) return tooLong("global_name", 32);
+    // Her username, email and password, which take her password; see
+    // "Account security".
+    const guarded = ["username", "email", "new_password"].filter((field) => field in body);
+    let token: string | null = null;
+    if (guarded.length > 0) {
+      if (body.password !== FAKE_PASSWORD) return fieldError("password", "PASSWORD_DOES_NOT_MATCH", "Password does not match.");
+      if ("username" in body) {
+        const username = String(body.username);
+        if (!/^[a-z0-9_.]{2,32}$/.test(username)) return fieldError("username", "USERNAME_INVALID_CHARACTERS", "Username can only contain lowercase letters, numbers, periods and underscores.");
+        const taken = [...Object.values(users), ...Object.values(strangers)].some((user) => user.username === username && user.id !== ALICE);
+        if (taken) return fieldError("username", "USERNAME_ALREADY_TAKEN", "Username is unavailable. Try adding numbers, letters, underscores _ , or periods.");
+        alice.username = username;
+      }
+      if ("email" in body) {
+        if (!emailTokens.delete(String(body.email_token ?? ""))) return fieldError("email_token", "EMAIL_TOKEN_INVALID", "Verify your current email first.");
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(body.email))) return fieldError("email", "EMAIL_TYPE_INVALID_FORMAT", "Not a well formed email address.");
+      }
+      if ("new_password" in body) {
+        const length = String(body.new_password).length;
+        if (length < 8 || length > 72) return fieldError("new_password", "BASE_TYPE_BAD_LENGTH", "Must be between 8 and 72 in length.");
+        // A new password ends every login; this request's carries on as a new one.
+        authSessions = authSessions.filter((session) => session.id_hash === CURRENT_SESSION);
+        token = newLogin();
+      }
+      accountChanges.push(Object.fromEntries(guarded.map((field) => [field, field === "new_password" ? true : body[field]])));
+    }
     if ("avatar" in body && body.avatar !== null) {
       if (String(body.avatar).startsWith("data:image/gif") && !nitro) return premiumRequired("avatar");
       const kept = keepPicture(body.avatar);
@@ -7800,7 +8075,7 @@ async function api(req: Request, path: string, origin: string): Promise<Response
     if ("global_name" in body) alice.global_name = body.global_name || null;
     const wire = { ...wireUser(users.alice), premium_type: nitro ? 2 : 0 };
     dispatch("USER_UPDATE", wire);
-    return json(wire);
+    return json(token ? { ...wire, token } : wire);
   }
   if (method === "PUT" && path === "/users/@me/clan") {
     const body: any = await req.json().catch(() => ({}));
@@ -8930,6 +9205,7 @@ const GENERIC_CONTROLS = new Set([
   "qr-confirm", "qr-captcha", "qr-cancel", "qr-expire", "voice-audio", "video", "stream-codec", "reactor-pages",
   "reactor-removals", "thread-searches", "thread-creates", "thread-members", "thread-settings", "forum-tags", "typed", "acks", "invites",
   "invite-joins", "invite-captcha", "invite-form", "event-interest", "gift-redeems", "oauth-authorizations", "mfa", "soundboard-sends", "custom-call-sounds",
+  "devices", "account-changes", "totp-code",
 ]);
 
 /** A status's emoji as the env gives it, Unicode or `<:name:id>`, as Discord sends it. */
@@ -9583,6 +9859,37 @@ const server = Bun.serve<SocketData>({
       return new Response("Bob is offline\n");
     }
     if (path === "/_control/logouts") return Response.json(logouts);
+    if (req.method === "POST" && path === "/_control/stage") {
+      if (!stageMade) {
+        stageMade = true;
+        dispatch("CHANNEL_CREATE", guildChannels().find((made) => made.id === TOWN_HALL));
+      }
+      return new Response("Town Hall is a stage in Server\n");
+    }
+    if (req.method === "POST" && path === "/_control/stage-audience") {
+      const body: any = await req.json().catch(() => ({}));
+      const user = String(body.user ?? "");
+      if (!userById.has(user) || !stageMade) return new Response("no such person or no stage\n", { status: 400 });
+      const before = voice.get(user);
+      voice.set(user, {
+        guild: GUILD, channel: TOWN_HALL, self_mute: true, self_deaf: false, session: `voice-stage-${user}`,
+        suppress: true, request: body.hand ? new Date().toISOString() : null,
+      });
+      moved(user, before, origin);
+      return new Response("in the audience\n");
+    }
+    if (req.method === "POST" && path === "/_control/stage-invite") {
+      const state = voice.get(ALICE);
+      if (state?.channel !== TOWN_HALL) return new Response("Alice isn't on the stage\n", { status: 400 });
+      state.suppress = false;
+      state.request = new Date().toISOString();
+      announce(ALICE);
+      return new Response("Alice is invited to speak\n");
+    }
+    if (path === "/_control/stage-changes") return Response.json(stageChanges);
+    if (path === "/_control/devices") return Response.json(authSessions.map((session) => session.id_hash));
+    if (path === "/_control/account-changes") return Response.json(accountChanges);
+    if (path === "/_control/totp-code") return new Response(totpCode(url.searchParams.get("secret") ?? "") ?? "");
     if (path === "/_control/voice-identifies") return Response.json(voiceIdentifies);
     if (path === "/_control/voice-changes") return Response.json(voiceChanges);
     if (path === "/_control/channel-info") return Response.json(channelInfoRequests);

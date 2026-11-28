@@ -374,3 +374,128 @@ async fn knows_when_voice_channels_calls_started() {
     assert!(snapshot.servers.iter().any(|known| known.id == guild));
     assert_eq!(asked(), serde_json::json!([guild, guild]));
 }
+
+/// A stage, as Discord's client runs one: joining puts Alice in the
+/// audience; as its moderator she starts it with a topic, which
+/// STAGE_INSTANCE_CREATE tells, becoming a speaker; she edits and ends it;
+/// someone in the audience raises a hand, she invites them, and moves them
+/// back; invited herself, she says yes or no.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn runs_a_stage() {
+    let fixture = Fixture::start("runs_a_stage").await;
+    let (discord, server, guild) = (&fixture.discord, fixture.server, fixture.guild.as_str());
+    let hall = "1400000000000000107";
+    // Alice owns "Server", so she moderates its stage.
+    post_control(
+        server,
+        "/_control/guild",
+        r#"{"owner": "1400000000000000001"}"#,
+    );
+    post_control(server, "/_control/stage", "");
+    snapshot_where(discord, |snapshot| {
+        snapshot.servers[0]
+            .voice_channels
+            .iter()
+            .any(|channel| channel.id == hall && channel.stage)
+    })
+    .await;
+    discord.join(guild, hall).await.unwrap();
+    let me = fixture.snapshot.user_id.clone().unwrap();
+    let mine = |snapshot: &Snapshot| {
+        snapshot
+            .voice
+            .get(hall)
+            .and_then(|members| members.iter().find(|member| member.user_id == me).cloned())
+    };
+    snapshot_where(discord, |snapshot| {
+        mine(snapshot).is_some_and(|me| me.suppressed)
+    })
+    .await;
+
+    discord.start_stage(guild, hall, "Town news").await.unwrap();
+    let snapshot = snapshot_where(discord, |snapshot| {
+        mine(snapshot).is_some_and(|me| !me.suppressed) && snapshot.servers[0].stage(hall).is_some()
+    })
+    .await;
+    assert_eq!(snapshot.servers[0].stage(hall).unwrap().topic, "Town news");
+    discord.edit_stage_topic(hall, "Questions").await.unwrap();
+    snapshot_where(discord, |snapshot| {
+        snapshot.servers[0]
+            .stage(hall)
+            .is_some_and(|stage| stage.topic == "Questions")
+    })
+    .await;
+
+    let carol = "1400000000000000003";
+    post_control(
+        server,
+        "/_control/stage-audience",
+        &format!(r#"{{"user": "{carol}", "hand": true}}"#),
+    );
+    let person = |snapshot: &Snapshot| {
+        snapshot.voice.get(hall).and_then(|members| {
+            members
+                .iter()
+                .find(|member| member.user_id == carol)
+                .cloned()
+        })
+    };
+    snapshot_where(discord, |snapshot| {
+        person(snapshot).is_some_and(|carol| carol.suppressed && carol.requested_to_speak.is_some())
+    })
+    .await;
+    discord.set_speaker(guild, hall, carol, true).await.unwrap();
+    snapshot_where(discord, |snapshot| {
+        person(snapshot).is_some_and(|carol| !carol.suppressed)
+    })
+    .await;
+    discord
+        .set_speaker(guild, hall, carol, false)
+        .await
+        .unwrap();
+    snapshot_where(discord, |snapshot| {
+        person(snapshot).is_some_and(|carol| carol.suppressed && carol.requested_to_speak.is_none())
+    })
+    .await;
+
+    // To the audience and back: a hand raised, lowered, an invitation
+    // declined and one accepted.
+    discord.move_to_audience(guild, hall).await.unwrap();
+    discord.request_to_speak(guild, hall, true).await.unwrap();
+    snapshot_where(discord, |snapshot| {
+        mine(snapshot).is_some_and(|me| me.suppressed && me.requested_to_speak.is_some())
+    })
+    .await;
+    discord.request_to_speak(guild, hall, false).await.unwrap();
+    post_control(server, "/_control/stage-invite", "");
+    snapshot_where(discord, |snapshot| {
+        mine(snapshot).is_some_and(|me| !me.suppressed && me.requested_to_speak.is_some())
+    })
+    .await;
+    discord.move_to_audience(guild, hall).await.unwrap();
+    post_control(server, "/_control/stage-invite", "");
+    discord.become_speaker(guild, hall).await.unwrap();
+    snapshot_where(discord, |snapshot| {
+        mine(snapshot).is_some_and(|me| !me.suppressed && me.requested_to_speak.is_none())
+    })
+    .await;
+    let changes: serde_json::Value =
+        serde_json::from_str(&control(server, "GET", "/_control/stage-changes", "")).unwrap();
+    let users: Vec<&str> = changes
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|change| change["user"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        users,
+        ["@me", carol, carol, "@me", "@me", "@me", "@me", "@me"]
+    );
+
+    discord.end_stage(hall).await.unwrap();
+    snapshot_where(discord, |snapshot| {
+        snapshot.servers[0].stage(hall).is_none()
+    })
+    .await;
+}

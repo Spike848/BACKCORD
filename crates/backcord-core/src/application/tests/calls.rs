@@ -76,6 +76,8 @@ fn in_call(id: &str, local: bool, streaming: bool) -> voice::Participant {
         streaming,
         video: None,
         avatar: None,
+        audience: false,
+        requested_to_speak: None,
     }
 }
 
@@ -605,6 +607,8 @@ fn streams_sound_as_others_start_and_stop_watching() {
         streaming: false,
         video: None,
         avatar: None,
+        audience: false,
+        requested_to_speak: None,
     };
     let frames = std::sync::Arc::new(crate::frames::Frames::create(2, 2).unwrap());
     let call = |sharing: Option<&[&str]>, watching: Option<&[&str]>| voice::State {
@@ -675,6 +679,8 @@ fn others_going_live_and_ending_sounds_but_not_as_anyone_comes_or_goes_streaming
         streaming,
         video: None,
         avatar: None,
+        audience: false,
+        requested_to_speak: None,
     };
     let call = |me: bool, people: &[(&str, bool)]| voice::State {
         phase: Phase::Connected,
@@ -734,6 +740,8 @@ fn calls_sound_as_people_come_and_go_but_not_while_reconnecting_or_ringing() {
         streaming: false,
         video: None,
         avatar: None,
+        audience: false,
+        requested_to_speak: None,
     };
     let call = |phase: Phase, people: &[(&str, bool)]| voice::State {
         phase,
@@ -875,6 +883,8 @@ fn discord_dm_calls_start_ring_and_are_answered() {
         style: None,
         server_muted: false,
         server_deafened: false,
+        suppressed: false,
+        requested_to_speak: None,
     };
     let snapshot = |ringing: Vec<VoiceMember>, in_call: Vec<VoiceMember>| Snapshot {
         status: Status::Online,
@@ -969,6 +979,8 @@ fn do_not_disturb_shows_a_call_without_notifying() {
         style: None,
         server_muted: false,
         server_deafened: false,
+        suppressed: false,
+        requested_to_speak: None,
     };
     let mut app = Application::default();
     let effects = app.apply(discord_event(Snapshot {

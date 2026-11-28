@@ -1354,6 +1354,8 @@ mod tests {
                 has_email: true,
                 nsfw_allowed: false,
                 nsfw_commands_in_dms: false,
+                email_verified: false,
+                auth_session: None,
             }),
             servers: vec![MarkedServer::marked(
                 Server {

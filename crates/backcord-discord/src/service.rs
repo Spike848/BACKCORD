@@ -78,6 +78,13 @@ pub struct VoiceMember {
     pub streaming: bool,
     /// Their camera is on.
     pub video: bool,
+    /// On a stage, in its audience: not allowed to speak. One not
+    /// suppressed who asked to speak, [`Self::requested_to_speak`], was
+    /// invited to and hasn't said yes yet.
+    pub suppressed: bool,
+    /// When they asked to speak on a stage, or were invited to, in Unix
+    /// milliseconds.
+    pub requested_to_speak: Option<u64>,
     /// This account, in the call on another client, such as Discord's app
     /// on a phone, rather than on this gateway session.
     pub elsewhere: bool,
@@ -114,6 +121,14 @@ pub struct Account {
     /// not the address.
     #[serde(default)]
     pub has_email: bool,
+    /// Its email address is verified, so changing it takes a code Discord
+    /// emails there first.
+    #[serde(default)]
+    pub email_verified: bool,
+    /// The hash of this login's session, as READY gives it, which marks
+    /// this device among [`Discord::devices`].
+    #[serde(default)]
+    pub auth_session: Option<String>,
     /// Discord lets it see age-restricted content, as its `nsfw_allowed`
     /// says: an adult's, by the birthday it gave. Apps' age-restricted
     /// commands are offered to no other.
@@ -3129,6 +3144,191 @@ impl Discord {
     /// Ends this login's session on Discord; the token stops working.
     pub async fn logout(&self) -> Result<()> {
         self.api.logout().await
+    }
+
+    /// Starts a stage on `channel` of `guild` with `topic`, as its
+    /// moderator, and makes this account one of its speakers, as Discord's
+    /// client does.
+    pub async fn start_stage(&self, guild: &str, channel: &str, topic: &str) -> Result<()> {
+        self.api.create_stage_instance(channel, topic).await?;
+        self.become_speaker(guild, channel).await
+    }
+
+    /// Changes a live stage's topic.
+    pub async fn edit_stage_topic(&self, channel: &str, topic: &str) -> Result<()> {
+        self.api.edit_stage_instance(channel, topic).await.map(drop)
+    }
+
+    /// Ends a live stage.
+    pub async fn end_stage(&self, channel: &str) -> Result<()> {
+        self.api.delete_stage_instance(channel).await
+    }
+
+    /// Asks to speak on the stage this account is in the audience of, now,
+    /// or lowers the hand.
+    pub async fn request_to_speak(&self, guild: &str, channel: &str, raise: bool) -> Result<()> {
+        let at =
+            raise.then(|| chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+        let body = json!({"channel_id": channel, "request_to_speak_timestamp": at});
+        self.api.modify_own_voice_state(guild, &body).await
+    }
+
+    /// Makes this account a speaker on the stage it's in: accepting an
+    /// invitation to speak, or as a moderator.
+    pub async fn become_speaker(&self, guild: &str, channel: &str) -> Result<()> {
+        let body = json!({
+            "channel_id": channel,
+            "suppress": false,
+            "request_to_speak_timestamp": null,
+        });
+        self.api.modify_own_voice_state(guild, &body).await
+    }
+
+    /// Moves this account to the audience of the stage it's in, or declines
+    /// an invitation to speak.
+    pub async fn move_to_audience(&self, guild: &str, channel: &str) -> Result<()> {
+        let body = json!({"channel_id": channel, "suppress": true});
+        self.api.modify_own_voice_state(guild, &body).await
+    }
+
+    /// Invites someone in a stage's audience to speak, or moves a speaker
+    /// to the audience, as its moderator.
+    pub async fn set_speaker(
+        &self,
+        guild: &str,
+        channel: &str,
+        user: &str,
+        speak: bool,
+    ) -> Result<()> {
+        let body = json!({"channel_id": channel, "suppress": !speak});
+        self.api.modify_voice_state(guild, user, &body).await
+    }
+
+    /// The devices signed in to this account, as Discord's Devices settings
+    /// list them.
+    pub async fn devices(&self) -> Result<Vec<crate::security::Device>> {
+        Ok(crate::security::devices(&self.api.auth_sessions().await?))
+    }
+
+    /// Signs devices out of this account by their sessions' hashes. Discord
+    /// may hold it back for two-factor authentication: see
+    /// [`Self::stepping_up`].
+    pub async fn log_out_devices(&self, hashes: &[String]) -> Result<()> {
+        self.api.logout_sessions(hashes).await
+    }
+
+    /// Whether another account has the username `username`.
+    pub async fn username_taken(&self, username: &str) -> Result<bool> {
+        self.api.username_taken(username).await
+    }
+
+    /// Changes this account's username, confirmed by its password.
+    pub async fn change_username(&self, username: &str, password: &str) -> Result<()> {
+        let body = json!({"username": username, "password": password});
+        let answer = self.api.modify_account(&body).await?;
+        self.take_login(&answer).await;
+        Ok(())
+    }
+
+    /// Changes this account's password. Discord ends every login and gives
+    /// this one a new one, which BACKCORD keeps in their place.
+    pub async fn change_password(&self, current: &str, new: &str) -> Result<()> {
+        let body = json!({"password": current, "new_password": new});
+        let answer = self.api.modify_account(&body).await?;
+        if !self.take_login(&answer).await {
+            bail!("Discord changed the password but gave no new login. Link your account again.");
+        }
+        Ok(())
+    }
+
+    /// Changes this account's email address, confirmed by its password and,
+    /// when the old address was verified, the token its emailed code gave.
+    pub async fn change_email(
+        &self,
+        email: &str,
+        password: &str,
+        email_token: Option<&str>,
+    ) -> Result<()> {
+        let mut body = json!({"email": email, "password": password});
+        if let Some(token) = email_token {
+            body["email_token"] = json!(token);
+        }
+        let answer = self.api.modify_account(&body).await?;
+        self.take_login(&answer).await;
+        Ok(())
+    }
+
+    /// Has Discord email a code to this account's verified address, to
+    /// change it.
+    pub async fn send_email_code(&self) -> Result<()> {
+        self.api.email_change_challenge().await
+    }
+
+    /// Trades the code Discord emailed for the token that changes the
+    /// address.
+    pub async fn verify_email_code(&self, code: &str) -> Result<String> {
+        self.api.verify_email_code(code).await
+    }
+
+    /// Checks the password before two-factor authentication's setup goes
+    /// on to the secret, as Discord's client does.
+    pub async fn check_totp_password(&self, password: &str) -> Result<()> {
+        match self.api.enable_totp(&json!({"password": password})).await {
+            Err(error) if api::code(&error) == Some(crate::security::PASSWORD_CHECKED) => Ok(()),
+            Err(error) => Err(error),
+            // Discord turned it on without a secret, which it doesn't do.
+            Ok(_) => bail!("Discord didn't ask for the authenticator app's code."),
+        }
+    }
+
+    /// Turns two-factor authentication on with the authenticator app given
+    /// `secret`, confirmed by a code from it; the backup codes come back,
+    /// and the new login Discord gives is kept.
+    pub async fn enable_totp(
+        &self,
+        password: &str,
+        secret: &str,
+        code: &str,
+    ) -> Result<Vec<crate::security::BackupCode>> {
+        let body = json!({"password": password, "secret": secret, "code": code});
+        let answer = self.api.enable_totp(&body).await?;
+        self.take_login(&answer).await;
+        Ok(crate::security::backup_codes(&answer))
+    }
+
+    /// Turns two-factor authentication off; Discord asks to confirm it with
+    /// two-factor authentication first ([`Self::stepping_up`]).
+    pub async fn disable_totp(&self) -> Result<()> {
+        let answer = self.api.disable_totp().await?;
+        self.take_login(&answer).await;
+        Ok(())
+    }
+
+    /// Has Discord email the key that shows the backup codes, once the
+    /// password is right; the nonce that shows them comes back.
+    pub async fn backup_codes_challenge(&self, password: &str) -> Result<String> {
+        self.api.backup_codes_challenge(password).await
+    }
+
+    /// The backup codes, with the emailed key and the nonce.
+    pub async fn backup_codes(
+        &self,
+        key: &str,
+        nonce: &str,
+    ) -> Result<Vec<crate::security::BackupCode>> {
+        let answer = self.api.backup_codes(key, nonce).await?;
+        Ok(crate::security::backup_codes(&answer))
+    }
+
+    /// Keeps the login an answer carries, if it carries one, in place of
+    /// this one: requests, the next connection, the credential store and
+    /// the files kept take it. Whether it carried one.
+    async fn take_login(&self, answer: &Value) -> bool {
+        let Some(token) = answer["token"].as_str().filter(|token| !token.is_empty()) else {
+            return false;
+        };
+        session::relogin(&self.api, token).await;
+        true
     }
 
     /// Sends a friend request to whoever has this username.

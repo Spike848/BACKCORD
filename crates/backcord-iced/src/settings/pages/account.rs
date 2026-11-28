@@ -155,6 +155,9 @@ impl<'a> Page<'a> {
         };
         buttons.push(sign_out.into());
         parts.push(form::buttons(buttons));
+        if linked || state.preview {
+            parts.extend(self.account_security());
+        }
         form::page(parts)
     }
 }

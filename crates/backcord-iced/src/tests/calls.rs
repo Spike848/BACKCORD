@@ -873,3 +873,80 @@ fn room_mode_places_people_where_they_are_dragged() {
     let _ = crate::call::update(&mut app, Event::Room(RoomEvent::Reverb(40, true)));
     assert!((backcord_core::room::reverb() - 0.4).abs() < 0.01);
 }
+
+/// A Discord stage the call is on: its topic over the tiles, its speakers
+/// as the tiles and its audience under them, a raised hand first, and for
+/// its moderator Edit Topic, End Stage and Invite to Speak; invited to
+/// speak, Accept and Decline.
+#[test]
+fn a_stage_shows_its_topic_speakers_and_audience() {
+    use backcord_core::backcord_discord::ready::StageInstance;
+    let (mut app, _folder) = super::server::discord_server(0, |server, _| {
+        server.voice_channels[0].stage = true;
+        server.owner_id = Some("1".into());
+        server.stages = vec![StageInstance {
+            id: "90".into(),
+            channel: "14".into(),
+            topic: "Town news".into(),
+        }];
+    });
+    let room = "discord:10:14";
+    app.client.dispatch(Action::Open(room.into()));
+    let _ = app.sync();
+    let person =
+        |id: &str, name: &str, local: bool, audience: bool, hand: bool| voice::Participant {
+            id: id.into(),
+            user: name.into(),
+            person: id.into(),
+            local,
+            muted: audience,
+            deafened: false,
+            server_muted: false,
+            server_deafened: false,
+            speaking: false,
+            connected: true,
+            problem: None,
+            streaming: false,
+            video: None,
+            avatar: None,
+            audience,
+            requested_to_speak: hand.then_some(1),
+        };
+    super::change(&mut app, |state| {
+        state.voice.room = Some(room.into());
+        state.voice.phase = voice::Phase::Connected;
+        state.voice.participants = vec![
+            person("1", "Alice", true, false, false),
+            person("2", "Bob", false, true, false),
+            person("3", "Carol", false, true, true),
+        ];
+    });
+    assert!(crate::call::stage::voice_here(&app));
+    assert!(shows(&app, "Town news"));
+    assert!(shows(&app, "Live stage"));
+    assert!(shows(&app, "Edit Topic") && shows(&app, "End Stage"));
+    assert!(shows(&app, "Move to Audience"), "her own, as a speaker");
+    assert!(shows(&app, "AUDIENCE — 2"));
+    assert!(shows(&app, "Invite to Speak"));
+    // The tiles are the speakers': Alice alone.
+    let (slots, ..) = crate::call::stage::stage(&app);
+    assert_eq!(slots.len(), 1);
+
+    // Writing the topic in place.
+    interact(&mut app, |ui| {
+        ui.click("Edit Topic").expect("Edit Topic");
+    });
+    assert!(app.client.state().stage.editor.is_some());
+    assert!(shows(&app, "Save"));
+    interact(&mut app, |ui| {
+        ui.click("Cancel").expect("Cancel");
+    });
+    assert!(app.client.state().stage.editor.is_none());
+
+    // Invited to speak: Accept and Decline.
+    super::change(&mut app, |state| {
+        state.voice.participants[0].requested_to_speak = Some(1);
+    });
+    assert!(shows(&app, "You're invited to speak."));
+    assert!(shows(&app, "Accept") && shows(&app, "Decline"));
+}

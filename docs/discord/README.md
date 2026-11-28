@@ -3,12 +3,13 @@
 | Area | Works on Linux | Open |
 | --- | --- | --- |
 | [Linking](#account-linking) | QR code from Settings, or the sign-in of a build without Matrix; unlinking; Discord's captcha, in the browser | Verify the reported two-captcha ticket rejection against real Discord |
-| [Voice](voice.md) | Server voice channels, [a card of who is in one](voice.md#who-is-in-a-voice-channel), [how long each one's call has gone on](voice.md#how-long-a-channels-call-has-gone-on), mute, deafen, per-person volume, [moving people to another channel](servers.md#someones-menu-in-a-voice-channel) from their menu or [by dragging them](servers.md#dragging-someone-to-another-voice-channel), voice gate with its sensitivity, [push-to-talk](voice.md#push-to-talk) and [keybinds](../keybinds.md) for mute, deafen and the input mode, [DeepFilterNet noise suppression](voice.md#microphone) and its strength, [camera video](voice.md#camera-video), [the soundboard](voice.md#soundboard) | A check of Windows audio, cameras and keybinds on real Windows, and of keybinds on real Wayland desktops |
+| [Voice](voice.md) | Server voice channels, [a card of who is in one](voice.md#who-is-in-a-voice-channel), [how long each one's call has gone on](voice.md#how-long-a-channels-call-has-gone-on), mute, deafen, per-person volume, [moving people to another channel](servers.md#someones-menu-in-a-voice-channel) from their menu or [by dragging them](servers.md#dragging-someone-to-another-voice-channel), voice gate with its sensitivity, [push-to-talk](voice.md#push-to-talk) and [keybinds](../keybinds.md) for mute, deafen and the input mode, [DeepFilterNet noise suppression](voice.md#microphone) and its strength, [camera video](voice.md#camera-video), [the soundboard](voice.md#soundboard), [stages](voice.md#stages) with their topic, audience, raised hands and speakers | A check of Windows audio, cameras and keybinds on real Windows, and of keybinds on real Wayland desktops |
 | [DM calls](voice.md#dm-calls) | Starting, ringing, answering and declining DM and group DM calls, with cameras | A check by hand through real Discord |
 | [Go Live](go-live.md) | Sharing a screen with its sound, watching streams | A check on real Windows |
 | [Channels and messages](messages.md) | History, live updates, sending, replies, edits, reactions, files, embeds, custom emoji, stickers, spoilers, unread state and [marking a message unread](messages.md#mark-unread-and-message-links), notifications and their settings, member lists, pinning messages, pins and search, a channel's topic and header, server, category and [channel menus](servers.md#a-channels-menu), [Permissions Viewer](servers.md#permissions-viewer), [forwarding](messages.md#forwarding), [Cancella tutto](messages.md#cancella-tutto), [Export Chat](messages.md#export-chat), pinning channels to the top, [following channels](servers.md#following-channels), invites, [joining by invite](servers.md#joining-by-invite) and [invite cards in messages](servers.md#invite-cards), [message link cards](messages.md#message-link-cards), [Fake Nitro](messages.md#fake-nitro), [scheduled events from their links](servers.md#event-links) and [a server's Events dialog](servers.md#scheduled-events), with making, changing, starting, ending and deleting them, [making a server](servers.md#making-a-server), from nothing or a template, Discord's own channel, message and profile links, making and changing channels, [server settings](server-settings.md)' Server Profile, Engagement, Boost Perks, [Emoji](server-settings.md#emoji), [Stickers](server-settings.md#stickers), [Members](server-settings.md#members), [Roles](server-settings.md#roles), [Invites](server-settings.md#invites), [Safety Setup](server-settings.md#safety-setup), [AutoMod](server-settings.md#automod), [Audit Log](server-settings.md#audit-log), [Bans](server-settings.md#bans) and [Delete Server](server-settings.md#delete-server-and-transfer-ownership), [channel settings](server-settings.md#channel-settings) and their permissions, [two-factor authentication](server-settings.md#two-factor-authentication), threads, a channel's list of them and starting them, [forums](servers.md#forums), leaving servers, [bots' buttons, dropdown menus and forms](messages.md#bots-buttons-menus-and-forms), their radio groups, checkboxes and file uploads included, [apps' slash commands](messages.md#apps-commands), [context-menu commands](messages.md#apps) and [who used one](messages.md#who-used-an-apps-command) | The rest of a server's settings and its privacy, membership forms when joining |
 | [DMs](people.md#dms) | DMs, group DMs, message requests and spam, starting a DM, [a DM's menu](people.md#a-dms-menu): pinning, muting, closing and leaving a group | |
-| [Friends](people.md#friends-and-requests) and [profiles](people.md#profiles) | Friends list, friend requests, adding by username, profile cards with their badges, others' server tags and their servers' cards, the DM panel, custom status, [editing one's profile](people.md#editing-ones-main-profile), with its theme, name style and server tag, and [server profiles](people.md#editing-ones-server-profile), notes, friend nicknames, removing friends, ignoring, blocking and unblocking, also [from a profile](people.md#profiles), [the blocked list](people.md#friends-and-requests), [alerts when someone removes this account](people.md#relationship-alerts), [Badge Spoofer](people.md#badge-spoofer) on one's own profile, here alone | A list of the ignored; changing the username |
+| [Friends](people.md#friends-and-requests) and [profiles](people.md#profiles) | Friends list, friend requests, adding by username, profile cards with their badges, others' server tags and their servers' cards, the DM panel, custom status, [editing one's profile](people.md#editing-ones-main-profile), with its theme, name style and server tag, and [server profiles](people.md#editing-ones-server-profile), notes, friend nicknames, removing friends, ignoring, blocking and unblocking, also [from a profile](people.md#profiles), [the blocked list](people.md#friends-and-requests), [alerts when someone removes this account](people.md#relationship-alerts), [Badge Spoofer](people.md#badge-spoofer) on one's own profile, here alone | A list of the ignored |
+| [Account security](#account-security) | [Devices](#account-security) signed in, and signing them out; changing the username, email and password; turning two-factor authentication with an authenticator app on and off, and its backup codes | SMS and passkeys as a second factor; disabling or deleting the account |
 | [Mirroring](#mirroring-into-matrix) | | Planned and not started |
 
 Each area has a doc of its own: [voice](voice.md) and calls, [Go
@@ -125,6 +126,65 @@ A Discord bot relaying voice into a Matrix room, like
 [matrix-discord-voice-bridge](https://github.com/lukacsi/matrix-discord-voice-bridge),
 follows Discord's rules. But Discord users would hear every BACKCORD user as one bot,
 it only works in servers that install the bot, and bots can't join DM calls.
+
+## Account security
+
+Settings' My Account and Devices pages change the account as Discord's own
+do (`backcord_discord::security`, the core's `discord_text/security.rs` and
+`application/security.rs`). Each change Discord protects goes with the
+password, and Discord may hold any of them back for two-factor
+authentication, which asks as [server
+settings](server-settings.md#two-factor-authentication) describe
+(`Discord::stepping_up`). Passwords, codes, keys and tokens go to Discord
+alone: the commands carrying them name only themselves in logs, and a dialog
+forgets what was typed in it as it closes, as Settings close, or as their
+page changes.
+
+- **Devices.** `GET /auth/sessions` lists them each time the page shows,
+  with their system, client, rough place and when they were last used;
+  READY's `auth_session_id_hash` marks this one, which shows apart and
+  can't be signed out here. `POST /auth/sessions/logout` with
+  `session_id_hashes` signs out one, or all the others at once (up to 64),
+  each after a question.
+- **Username.** `PATCH /users/@me` with `username` and `password`. While
+  it's written, half a second after the last key, `POST
+  /users/@me/pomelo-attempt` says whether it's taken, as Discord's client
+  asks; letters other than lowercase ones, digits, `_` and `.`, or a
+  length outside 2 to 32, are said before asking. The display name is the
+  profile editor's ([people](people.md#editing-ones-main-profile)).
+- **Email.** A verified address changes in two steps, as
+  [docs.discord.food](https://docs.discord.food/topics/email-verification#changing-your-email-address)
+  has it: opening the dialog has Discord email a code there (`PUT
+  /users/@me/email`), which `POST /users/@me/email/verify-code` trades for a
+  token; then `PATCH /users/@me` with `email`, `email_token` and
+  `password`. An unverified one skips the code. Discord then emails the new
+  address a link, which its page verifies: BACKCORD can't. The address
+  itself isn't shown, only whether it's verified (READY's and USER_UPDATE's
+  `verified`).
+- **Password.** `PATCH /users/@me` with `password` and `new_password`
+  (8 to 72 characters, typed twice). Discord ends every login and answers
+  with a new `token`, which takes the old one's place as READY's refreshed
+  login does (`session::relogin`): requests ask with it at once, the
+  credential store and the files the cache keeps take it, and the gateway
+  connects with it next; a session Discord closes because its login went
+  connects again with the new one rather than stopping.
+- **Two-factor authentication.** Turning it on, as Discord's client does:
+  `POST /users/@me/mfa/totp/enable` with the password alone, which Discord
+  refuses with code 60005 when it's right; then a new secret, 20 random
+  bytes in base32, shown as text in groups of four and as a QR code of
+  `otpauth://totp/Discord:{username}?secret=...&issuer=Discord` (the
+  sign-in screen's `qr_code`, made once while it shows), and the same
+  request with `secret` and the app's 6-digit `code`. Discord answers with
+  a new token, kept as a new password's, and the backup codes, which show
+  with Copy codes, the used ones greyed. `POST
+  /users/@me/mfa/totp/disable` turns it off, after Discord's own 2FA
+  prompt, with a new token too. The backup codes show again with the
+  password (`POST /auth/verify/view-backup-codes-challenge`, which emails a
+  key) and that key (`POST /users/@me/mfa/codes-verification`).
+  Regenerating them, SMS and passkeys aren't offered: Discord's app does
+  those. USER_UPDATE's `mfa_enabled` says which buttons show.
+- **Disabling or deleting the account** isn't offered: it's rarely wanted,
+  can't be undone from here, and Discord's own page asks for it.
 
 ## Account linking
 

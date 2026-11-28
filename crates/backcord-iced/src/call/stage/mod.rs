@@ -138,7 +138,9 @@ pub fn stage_size(app: &App) -> Size {
         )
     };
     let width = right - crate::conversation::navigation(&app.layout);
-    Size::new(width, (height - CONTROLS).max(0.0))
+    // A stage's bar and audience take their part.
+    let stage = crate::call::stage_channel::height(app);
+    Size::new(width, (height - CONTROLS - stage).max(0.0))
 }
 
 /// The stage's tiles, the one shown large, where each goes, and how tall
@@ -531,12 +533,12 @@ pub fn call_panel(app: &App) -> Element<'_, Message> {
     };
     // The controls whole at the bottom whatever's over the stage: should
     // it come out taller than the room left, its foot is cut, not them.
-    column![
-        line,
-        container(stage).height(Length::Fill).clip(true),
-        call_controls(app)
-    ]
-    .into()
+    column![line]
+        .push(crate::call::stage_channel::bar(app))
+        .push(container(stage).height(Length::Fill).clip(true))
+        .push(crate::call::stage_channel::audience_row(app))
+        .push(call_controls(app))
+        .into()
 }
 
 /// What the line over the stage, or a channel's Join, says of the call.

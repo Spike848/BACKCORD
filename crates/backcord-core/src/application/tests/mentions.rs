@@ -132,6 +132,8 @@ fn discord_mentions_search_the_server_and_name_roles() {
             has_email: true,
             nsfw_allowed: false,
             nsfw_commands_in_dms: false,
+            email_verified: false,
+            auth_session: None,
         }),
         servers: vec![MarkedServer::from(Server {
             id: "10".into(),
