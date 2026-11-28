@@ -328,14 +328,16 @@ impl ScheduledEvent {
             mine: false,
             kind: value["entity_type"]
                 .as_u64()
-                .map_or(EVENT_EXTERNAL, |kind| u8::try_from(kind).unwrap_or(EVENT_EXTERNAL)),
+                .map_or(EVENT_EXTERNAL, |kind| {
+                    u8::try_from(kind).unwrap_or(EVENT_EXTERNAL)
+                }),
             description: value["description"]
                 .as_str()
                 .filter(|text| !text.is_empty())
                 .map(str::to_owned),
             cover: value["image"].as_str().map(|hash| {
                 let id = value["id"].as_str().unwrap_or_default();
-                format!("{}/guild-events/{id}/{hash}.png?size=1024", cdn())
+                format!("{}/guild-events/{id}/{hash}.png?size=512", cdn())
             }),
             creator_id: value["creator_id"].as_str().map(str::to_owned),
             creator: value["creator"]["global_name"]
@@ -2403,14 +2405,26 @@ mod tests {
             .unwrap()
         };
         assert_eq!(listed.kind, EVENT_VOICE);
-        assert!(listed.cover.as_deref().unwrap().ends_with("/guild-events/e/h.png?size=1024"));
-        assert_eq!((listed.creator.as_deref(), listed.description.as_deref()), (Some("Ann"), Some("Bring snacks")));
+        assert!(
+            listed
+                .cover
+                .as_deref()
+                .unwrap()
+                .ends_with("/guild-events/e/h.png?size=512")
+        );
+        assert_eq!(
+            (listed.creator.as_deref(), listed.description.as_deref()),
+            (Some("Ann"), Some("Bring snacks"))
+        );
         server.put_events(vec![listed]);
         assert!(server.event_user("e", true, false));
         assert_eq!(server.events[0].interested, 5);
         assert!(!server.event_user("e", true, true), "already interested");
         assert!(server.event_user("e", false, true));
-        assert_eq!((server.events[0].interested, server.events[0].mine), (4, false));
+        assert_eq!(
+            (server.events[0].interested, server.events[0].mine),
+            (4, false)
+        );
         // An update without a count keeps the count, the interest and the
         // creator's name.
         let renamed = ScheduledEvent::parse(&json!({"id": "e", "name": "Quiz night",
@@ -2418,7 +2432,14 @@ mod tests {
         .unwrap();
         server.put_event(renamed, false, false);
         let event = &server.events[0];
-        assert_eq!((event.name.as_str(), event.interested, event.creator.as_deref()), ("Quiz night", 4, Some("Ann")));
+        assert_eq!(
+            (
+                event.name.as_str(),
+                event.interested,
+                event.creator.as_deref()
+            ),
+            ("Quiz night", 4, Some("Ann"))
+        );
         assert!(!server.event_user("unknown", true, false));
     }
 

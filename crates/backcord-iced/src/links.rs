@@ -123,6 +123,7 @@ pub(crate) fn discord_link(
         }
         DiscordRoute::Authorize { query } => Action::OpenOAuthLink(query),
         DiscordRoute::Gift { code } => Action::OpenGiftLink(code),
+        DiscordRoute::Template { code } => Action::OpenTemplateLink(code),
         DiscordRoute::Event { guild, event } => Action::OpenEventLink { guild, event },
     }))
 }

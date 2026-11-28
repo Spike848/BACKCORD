@@ -50,6 +50,7 @@ mod permissions_viewer;
 mod picks;
 mod place_search;
 pub use picks::Picked;
+mod new_server;
 mod places;
 mod polls;
 mod preview;
@@ -60,6 +61,7 @@ mod relationships;
 mod rooms;
 mod scheduled_event;
 mod server;
+mod server_events;
 mod server_settings;
 mod session;
 mod slash;
@@ -94,6 +96,9 @@ pub use members::{member_server, with_clubs};
 pub use membership::{MembershipDialog, MembershipStep};
 pub use mfa::MfaPrompt;
 pub use new_post::{NewPost, POST_TAGS, POST_TITLE_LIMIT};
+pub use new_server::{
+    NewServerAction, NewServerDialog, NewServerStep, SERVER_NAME_LIMIT, SERVER_TEMPLATES,
+};
 pub use oauth::OAuthDialog;
 pub use permissions_viewer::{
     PermissionRow, PermissionSource, PermissionsGroup, PermissionsOf, PermissionsView,
@@ -113,6 +118,10 @@ pub use profile_editor::{
 pub use reactions::{ReactionTip, ReactionsWindow, TIP_PEOPLE};
 pub use rooms::{MUTE_TIMES, MenuChoice, network_id, network_link};
 pub use scheduled_event::EventDialog;
+pub use server_events::{
+    EVENT_DESCRIPTION_LIMIT, EVENT_EXTERNAL, EVENT_LOCATION_LIMIT, EVENT_NAME_LIMIT, EVENT_STAGE,
+    EVENT_VOICE, EventField, EventForm, EventsAction, EventsDialog, EventsPage, local_date_time,
+};
 pub use server_settings::{
     ADD_MEMBERS_LIMIT, AFK_TIMEOUTS, AUDIT_ACTIONS, AUDIT_PAGE, AUTOMOD_PRESETS, AUTOMOD_TIMEOUTS,
     AddMembers, AuditInput, AuditKind, AuditLine, AuditLogPage, AuditRow, AuditSpan, AuditWords,
@@ -596,6 +605,10 @@ pub struct AppState {
     /// The scheduled event a clicked event link opened, while its
     /// dialog is open.
     pub scheduled_event: Option<EventDialog>,
+    /// A server's Events dialog, while it's open.
+    pub events_dialog: Option<EventsDialog>,
+    /// Create a server, while it's open.
+    pub new_server: Option<NewServerDialog>,
     /// The gift a clicked gift link opened, while its dialog is open.
     pub gift: Option<GiftDialog>,
     /// The codes of the gifts being redeemed, until Discord answers, so a
@@ -994,6 +1007,7 @@ impl AppState {
                 (self.discord_online || self.preview) && server(guild)
             }
             DiscordRoute::Gift { .. } => self.discord_online || self.preview,
+            DiscordRoute::Template { .. } => self.discord_online || self.preview,
             DiscordRoute::DirectMessages => self.discord_linked,
             DiscordRoute::Server { guild } => server(guild),
             DiscordRoute::Channel { guild, channel }
@@ -1133,6 +1147,8 @@ impl AppState {
             || self.join.is_some()
             || self.oauth.is_some()
             || self.scheduled_event.is_some()
+            || self.events_dialog.is_some()
+            || self.new_server.is_some()
             || self.gift.is_some()
             || self.channel_dialog.is_some()
             || self.leave.is_some()
@@ -2411,6 +2427,12 @@ pub enum Action {
     },
     ToggleEventInterest,
     CloseEvent,
+    /// What's done in a server's Events dialog.
+    Events(EventsAction),
+    /// What's done in Create a server.
+    NewServer(NewServerAction),
+    /// Open a clicked `discord.new` link's template, by its code.
+    OpenTemplateLink(String),
     /// Open a clicked gift link, by its code; redeem the gift it
     /// shows, when asked; open it in the browser, for a gift only Discord
     /// can redeem; or close its dialog.
@@ -3557,6 +3579,8 @@ impl Application {
 
     pub fn apply(&mut self, event: Event) -> Vec<Effect> {
         let mut effects = self.apply_event(event);
+        // A server just made opens once it lists.
+        effects.extend(self.open_made_server());
         // A DM just started, or a thread asked for, opens once the lists
         // have it.
         if let Some(room) = self
@@ -4611,6 +4635,9 @@ impl Application {
             }
             Action::OpenEventLink { guild, event } => self.open_event_link(guild, event),
             Action::ToggleEventInterest => self.toggle_event_interest(),
+            Action::Events(action) => self.events_action(action),
+            Action::NewServer(action) => self.new_server_action(action),
+            Action::OpenTemplateLink(code) => self.open_template_link(code),
             Action::CloseEvent => {
                 self.state.scheduled_event = None;
                 vec![]
@@ -5569,7 +5596,12 @@ impl Application {
                 event,
                 interested,
                 result,
-            } => return self.event_interest_set(event, interested, result),
+            } => {
+                self.events_interest_answered(&event, &result);
+                return self.event_interest_set(event, interested, result);
+            }
+            Event::Events(answer) => return self.events_answered(answer),
+            Event::NewServer(answer) => return self.new_server_answered(answer),
             Event::GiftResolved { code, result } => return self.gift_resolved(code, result),
             Event::GiftRedeemed { code, result } => return self.gift_redeemed(code, result),
             Event::ChannelLoaded { room, result } => self.channel_settings_loaded(&room, result),

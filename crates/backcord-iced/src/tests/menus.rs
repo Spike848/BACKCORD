@@ -431,17 +431,18 @@ fn a_servers_top_shows_its_boost_goal_and_events_as_discords_does() {
     interact(&mut app, |ui| {
         ui.click("1 Event").expect("the events row");
     });
-    assert_eq!(
-        rows(&app),
-        [(
-            "Movie night".to_owned(),
-            "Happening now · Lounge".to_owned(),
-            Check::None
-        )]
-    );
-    // The menu opens under the row, inside the sidebar.
-    let menu = app.win.menu.as_ref().expect("the events menu");
-    assert!(menu.at.y >= app.sidebar.top_height() - 8.0, "{:?}", menu.at);
+    // The row opens the Events dialog, with each event's card.
+    assert!(app.client.state().events_dialog.is_some());
+    for words in [
+        "Movie night",
+        "Happening now",
+        "Lounge",
+        "Interested",
+        "Share",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
+    assert!(!shows(&app, "Create Event"), "a plain member makes none");
 }
 
 #[test]
@@ -469,9 +470,8 @@ fn a_community_without_events_says_so_and_a_server_without_a_bar_shows_none() {
     interact(&mut app, |ui| {
         ui.click("Events").expect("the events row");
     });
-    let menu = app.win.menu.as_ref().expect("the events menu");
-    assert!(menu.rows[0].disabled);
-    assert_eq!(labels(&app), ["No upcoming events"]);
+    assert!(shows(&app, "No upcoming events") || shows(&app, "Loading..."));
+    assert!(shows(&app, "Create Event"));
 }
 
 #[test]

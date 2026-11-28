@@ -313,53 +313,6 @@ pub fn open_bell(app: &mut App, at: Point) -> Task<Message> {
     operation::focus(NOBODY)
 }
 
-/// The server's scheduled events, under its events row: each one's name,
-/// with when it starts (or "Happening now") and where under it; "No
-/// upcoming events", greyed, for a server with none, as Discord's opens
-/// all the same.
-pub fn open_events_menu(app: &mut App, server: &str, at: Point) -> Task<Message> {
-    let twelve = app.layout.prefs.twelve_hour_clock;
-    let mut rows: Vec<MenuRow> = app
-        .client
-        .state()
-        .servers
-        .iter()
-        .find(|found| found.id == server)
-        .into_iter()
-        .flat_map(|server| &server.events)
-        .map(|event| {
-            let when = match u64::try_from(event.start) {
-                Ok(_) if event.active => backcord_iced_kit::i18n::tr("Happening now").to_owned(),
-                Ok(start) => until(start, twelve),
-                Err(_) => String::new(),
-            };
-            let subtitle = match &event.location {
-                Some(place) if !when.is_empty() => format!("{when} · {place}"),
-                Some(place) => place.clone(),
-                None => when,
-            };
-            MenuRow {
-                subtitle: (!subtitle.is_empty()).then(|| subtitle.into()),
-                ..MenuRow::plain(MenuAct::Event, event.name.clone())
-            }
-        })
-        .collect();
-    if rows.is_empty() {
-        rows.push(MenuRow {
-            disabled: true,
-            ..MenuRow::plain(
-                MenuAct::Event,
-                backcord_iced_kit::i18n::tr("No upcoming events"),
-            )
-        });
-    }
-    app.win.menu = Some(Menu {
-        place: Some(server.to_owned()),
-        ..Menu::new(at, rows).width(crate::menus::FIELD_WIDTH)
-    });
-    operation::focus(NOBODY)
-}
-
 /// A place's menu row was chosen.
 pub fn choose_place(app: &mut App, place: String, choice: MenuChoice) -> Task<Message> {
     let action = match choice {

@@ -50,7 +50,9 @@ pub(super) fn command(
                         code,
                         result: Err(why),
                     },
-                    NewServerCommand::Create { .. } => NewServerAnswer::Created { result: Err(why) },
+                    NewServerCommand::Create { .. } => {
+                        NewServerAnswer::Created { result: Err(why) }
+                    }
                 };
                 let _ = events.send(Event::NewServer(answer));
                 return None;
@@ -125,7 +127,11 @@ async fn events_answer(discord: &Discord, asked: EventsCommand) -> EventsAnswer 
                 .map_err(failed("list who is interested in an event")),
             event,
         },
-        EventsCommand::Save { guild, event, draft } => {
+        EventsCommand::Save {
+            guild,
+            event,
+            draft,
+        } => {
             let result = match event_form(&draft) {
                 Ok(form) => discord
                     .save_event(&guild, event.as_deref(), &form.body())
@@ -145,7 +151,11 @@ async fn events_answer(discord: &Discord, asked: EventsCommand) -> EventsAnswer 
             status,
         } => EventsAnswer::Changed {
             result: discord
-                .save_event(&guild, Some(&event), &serde_json::json!({ "status": status }))
+                .save_event(
+                    &guild,
+                    Some(&event),
+                    &serde_json::json!({ "status": status }),
+                )
                 .await
                 .map_err(failed("change an event's status")),
             guild,
@@ -218,7 +228,12 @@ async fn new_server_answer(discord: &Discord, asked: NewServerCommand) -> NewSer
             template,
         } => {
             let icon = match icon {
-                Some(path) => match read_shaped(std::path::Path::new(&path), ICON, ICON_PREVIEW, "a server icon") {
+                Some(path) => match read_shaped(
+                    std::path::Path::new(&path),
+                    ICON,
+                    ICON_PREVIEW,
+                    "a server icon",
+                ) {
                     Ok(picked) => picture(&Some(picked)).as_str().map(str::to_owned),
                     Err(error) => return NewServerAnswer::Created { result: Err(error) },
                 },

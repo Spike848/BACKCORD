@@ -140,13 +140,22 @@ mod tests {
         assert_eq!(body["guild_template_code"], DEFAULT_TEMPLATE);
         assert_eq!(body["channels"], json!([]));
         assert_eq!(body["system_channel_id"], Value::Null);
-        assert_eq!(template_body("X", Some("data:,")), json!({"name": "X", "icon": "data:,"}));
+        assert_eq!(
+            template_body("X", Some("data:,")),
+            json!({"name": "X", "icon": "data:,"})
+        );
     }
 
     #[test]
     fn finds_a_templates_code() {
-        assert_eq!(code_of("https://discord.new/hgM48av5Q69A").as_deref(), Some("hgM48av5Q69A"));
-        assert_eq!(code_of("discord.new/hgM48av5Q69A").as_deref(), Some("hgM48av5Q69A"));
+        assert_eq!(
+            code_of("https://discord.new/hgM48av5Q69A").as_deref(),
+            Some("hgM48av5Q69A")
+        );
+        assert_eq!(
+            code_of("discord.new/hgM48av5Q69A").as_deref(),
+            Some("hgM48av5Q69A")
+        );
         assert_eq!(
             code_of("https://discord.com/template/hgM48av5Q69A").as_deref(),
             Some("hgM48av5Q69A")

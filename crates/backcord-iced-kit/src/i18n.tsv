@@ -4253,3 +4253,68 @@ Every tag needs a name.	Ogni tag ha bisogno di un nome.
 Couldn't save the tags: {}	Impossibile salvare i tag: {}
 change the thread's notification settings	cambiare le impostazioni delle notifiche del thread
 A thread has no such setting.	Un thread non ha questa impostazione.
+Delete Event	Elimina evento
+Save Event	Salva evento
+Plan something for the server: a game night, a stage talk, a meetup.	Organizza qualcosa per il server: una serata di giochi, un talk sul palco, un incontro.
+Interested ✓	Mi interessa ✓
+Share	Condividi
+End Event	Termina evento
+Start Event	Avvia evento
+No one is interested yet.	Non interessa ancora a nessuno.
+Edit Event	Modifica evento
+Somewhere Else	Altrove
+WHERE IS YOUR EVENT?	DOVE SI SVOLGE L'EVENTO?
+LOCATION	LUOGO
+Add a location, link, or something.	Aggiungi un luogo, un link o altro.
+CHANNEL	CANALE
+This server has no voice channels.	Questo server non ha canali vocali.
+EVENT TOPIC	ARGOMENTO DELL'EVENTO
+What's your event?	Di che evento si tratta?
+START DATE AND TIME	DATA E ORA DI INIZIO
+END DATE AND TIME	DATA E ORA DI FINE
+END DATE AND TIME (OPTIONAL)	DATA E ORA DI FINE (FACOLTATIVE)
+Tell people a little more about your event.	Racconta qualcosa in più sull'evento.
+COVER IMAGE	IMMAGINE DI COPERTINA
+The event keeps its cover.	L'evento mantiene la sua copertina.
+No cover image	Nessuna immagine di copertina
+Upload Image	Carica immagine
+Create Your Server	Crea il tuo server
+Your server is where you and your friends hang out. Make yours and start talking.	Il tuo server è dove tu e i tuoi amici vi ritrovate. Crea il tuo e inizia a chiacchierare.
+Create My Own	Crea il mio
+START FROM A TEMPLATE	INIZIA DA UN MODELLO
+TEMPLATE LINK	LINK DEL MODELLO
+Looking up the template...	Ricerca del modello...
+Have an invite already?	Hai già un invito?
+Tell Us More About Your Server	Raccontaci di più sul tuo server
+In order to help you with your setup, is your new server for just a few friends or a larger community?	Per aiutarti a configurarlo: il tuo nuovo server è per pochi amici o per una community più grande?
+For me and my friends	Per me e i miei amici
+For a club or community	Per un club o una community
+Use This Template	Usa questo modello
+Customize Your Server	Personalizza il tuo server
+Give your new server a personality with a name and an icon. You can always change it later.	Dai personalità al tuo nuovo server con un nome e un'icona. Puoi sempre cambiarli in seguito.
+No icon	Nessuna icona
+SERVER NAME	NOME DEL SERVER
+Making the server...	Creazione del server...
+by {}	di {}
+Interested in {}	Interessati a {}
+Are you sure you want to delete {}? This can't be undone.	Vuoi davvero eliminare {}? Non si può annullare.
+Used {} times	Usato {} volte
+Roles: {}	Ruoli: {}
+Choose a channel for the event.	Scegli un canale per l'evento.
+Enter a location for the event.	Inserisci un luogo per l'evento.
+Give the event a topic.	Dai un argomento all'evento.
+Write the start date as YYYY-MM-DD and the time as HH:MM.	Scrivi la data di inizio come AAAA-MM-GG e l'ora come HH:MM.
+The start time must be in the future.	L'ora di inizio deve essere nel futuro.
+Write the end date as YYYY-MM-DD and the time as HH:MM.	Scrivi la data di fine come AAAA-MM-GG e l'ora come HH:MM.
+An event somewhere else needs an end time.	Un evento altrove richiede un'ora di fine.
+The end time must be after the start time.	L'ora di fine deve essere dopo l'ora di inizio.
+Paste a template link, such as https://discord.new/hgM48av5Q69A.	Incolla il link di un modello, come https://discord.new/hgM48av5Q69A.
+A server's name must be between 2 and 100 characters.	Il nome di un server deve avere tra 2 e 100 caratteri.
+This template is invalid or was deleted.	Questo modello non è valido o è stato eliminato.
+Couldn't make the server: {}	Impossibile creare il server: {}
+Friends & Family	Amici e famiglia
+Study Group	Gruppo di studio
+Campus Clubs & Organizations	Club e associazioni universitarie
+Local Communities	Community locali
+Creators & Hobbies	Creatori e hobby
+Global Communities	Community globali

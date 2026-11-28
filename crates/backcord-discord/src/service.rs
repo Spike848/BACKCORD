@@ -3931,7 +3931,10 @@ impl Discord {
         let made = match template {
             Some(code) => {
                 self.api
-                    .create_guild_from_template(code, &crate::guild_template::template_body(name, icon))
+                    .create_guild_from_template(
+                        code,
+                        &crate::guild_template::template_body(name, icon),
+                    )
                     .await?
             }
             None => {

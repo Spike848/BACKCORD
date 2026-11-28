@@ -3,7 +3,7 @@
 The rail (`rail.rs`) holds, from the top: the DM home (the logo; its
 badge counts DM mentions and friend
 requests), the DMs with unread messages, a line, then the servers and
-folders, then the "Add a server" tile after the last of them, which opens Join a Server (a plus
+folders, then the "Add a server" tile after the last of them, which opens Create Your Server (a plus
 cut from a disc on a raised ground, a step toward the rail's at rest; it has no menu and is
 there while Discord is connected or in the preview). Each tile has its pill at the
 rail's edge (open, pointed at, unread), its mentions in a red badge, a
@@ -182,9 +182,9 @@ The list's first rows, which scroll with the channels: room for the
 banner, then, on a server with events or one where this account may
 create them, the "N Events" row, Channels & Roles where the server has
 onboarding questions to answer again, and Browse Channels in a Community
-server. The events row's menu lists
-each event with "Happening now" or when it starts and where, or "No
-upcoming events" greyed; an event's row does nothing. A verified
+server. The events row opens the server's Events
+dialog, its events as cards (see [scheduled
+events](../discord/servers.md#scheduled-events)). A verified
 server's name has Discord's green badge before it
 (`Look::drawn`, an icon in its own colours), a Community server's the
 Community badge, and another at Boost level 1 to 3 has the level, its

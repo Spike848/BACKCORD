@@ -3075,9 +3075,14 @@ pub enum EventsCommand {
     /// The server's scheduled and active events, with their counts and
     /// this account's interest, into the server's [`ServerEvent`]s.
     /// [`EventsAnswer::Loaded`] follows.
-    Load { guild: String },
+    Load {
+        guild: String,
+    },
     /// Who is interested in an event. [`EventsAnswer::Users`] follows.
-    Users { guild: String, event: String },
+    Users {
+        guild: String,
+        event: String,
+    },
     /// Make an event, or change the one `event` names.
     /// [`EventsAnswer::Changed`] follows, as for the rest.
     Save {
@@ -3091,7 +3096,10 @@ pub enum EventsCommand {
         event: String,
         status: u8,
     },
-    Delete { guild: String, event: String },
+    Delete {
+        guild: String,
+        event: String,
+    },
 }
 
 /// What the event form makes or changes an event into.

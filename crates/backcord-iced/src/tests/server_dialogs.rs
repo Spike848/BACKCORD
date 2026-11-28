@@ -294,8 +294,14 @@ fn join_a_server_shows_the_invites_server_and_a_link_opens_it() {
     press(&mut app, key::Named::Escape);
     assert!(app.client.state().join.is_none());
 
-    // The rail's button opens it with the field, which takes the keys.
+    // The rail's button opens Create Your Server, whose Join a Server
+    // opens it with the field, which takes the keys.
     let _ = app.update(Message::Rail(crate::rail::Event::Join));
+    assert!(shows(&app, "Create Your Server"));
+    interact(&mut app, |ui| {
+        ui.click("Join a Server").expect("Join a Server");
+    });
+    assert!(app.client.state().new_server.is_none());
     assert!(shows(&app, "Join a Server") && shows(&app, "Find Invite"));
     interact(&mut app, |ui| {
         ui.click(Id::new("join-invite")).expect("the field");
@@ -470,4 +476,75 @@ fn browse_channels_join_joins_a_voice_channels_call() {
         )
     });
     assert!(joins, "the Lounge's call joined");
+}
+
+#[test]
+fn the_rails_plus_makes_a_server_of_ones_own_or_from_a_template() {
+    use backcord_core::chat::{DiscordCommand, NewServerCommand, TemplatePreview};
+    use backcord_core::{application::NewServerStep, chat::Command};
+    let (mut app, _folder) = discord_server(0, |_, _| {});
+    let _ = app.update(Message::Rail(crate::rail::Event::Join));
+    for words in [
+        "Create Your Server",
+        "Create My Own",
+        "START FROM A TEMPLATE",
+        "Friends & Family",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
+    interact(&mut app, |ui| {
+        ui.click("Create My Own").expect("Create My Own");
+    });
+    assert!(shows(&app, "Tell Us More About Your Server"));
+    interact(&mut app, |ui| {
+        ui.click("For me and my friends").expect("for friends");
+    });
+    assert!(shows(&app, "Customize Your Server") && shows(&app, "SERVER NAME"));
+    interact(&mut app, |ui| {
+        ui.click(Id::new("new-server-name")).expect("the name");
+        ui.typewrite("Our place");
+    });
+    app.client.sent.clear();
+    interact(&mut app, |ui| {
+        ui.click("Create").expect("Create");
+    });
+    assert!(app.client.sent.iter().any(|command| matches!(
+        command,
+        Command::Discord(DiscordCommand::NewServer(NewServerCommand::Create { name, template: None, .. }))
+            if name.ends_with("Our place")
+    )), "the server to make");
+
+    // A template's link previews it first.
+    press(&mut app, key::Named::Escape);
+    let _ = crate::links::follow_link(
+        &mut app,
+        "https://discord.new/hgM48av5Q69A",
+        Point::new(400.0, 300.0),
+    );
+    assert!(app.client.state().new_server.is_some());
+    change(&mut app, |state| {
+        let dialog = state.new_server.as_mut().unwrap();
+        dialog.looking_up = None;
+        dialog.step = NewServerStep::Template;
+        dialog.template = Some(TemplatePreview {
+            code: "hgM48av5Q69A".into(),
+            name: "Friends & Family".into(),
+            description: Some("Hang out".into()),
+            usage_count: 12,
+            channels: vec![
+                (4, "Text Channels".into()),
+                (0, "general".into()),
+                (2, "Lounge".into()),
+            ],
+            roles: vec![],
+        });
+    });
+    for words in [
+        "Friends & Family",
+        "Used 12 times",
+        "# general",
+        "Use This Template",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
 }

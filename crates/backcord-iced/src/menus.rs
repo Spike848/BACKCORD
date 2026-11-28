@@ -212,8 +212,6 @@ pub enum MenuAct {
     AddTo,
     App,
     MoveTo,
-    /// One of a server's scheduled events, which only shows.
-    Event,
     /// A message's picture or video, by its place in the row's `key`:
     /// copied, saved, its address copied or opened.
     CopyImage,
@@ -970,7 +968,6 @@ pub fn act(
                 None => focus,
             }
         }
-        MenuAct::Event => focus,
         MenuAct::AllActivity => {
             Task::batch([focus, app.profile_event(crate::profile::Event::AllActivity)])
         }

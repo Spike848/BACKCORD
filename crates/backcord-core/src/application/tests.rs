@@ -327,6 +327,7 @@ mod commands;
 mod composer;
 mod direct_messages;
 mod discord_account;
+mod events;
 #[cfg(feature = "discord")]
 mod expressions;
 mod forwarding;

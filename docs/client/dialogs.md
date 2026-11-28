@@ -62,7 +62,19 @@ Escape closes it.
   Expire after and Max number of uses, starting from the link's, with
   Cancel and Generate a new link. Every word is in the Italian table, and
   the title wraps rather than runs out of the dialog.
-- Join a Server, from the rail's button or a clicked invite link: the
+- Create Your Server, from the rail's button or a clicked `discord.new`
+  link (`server_dialogs/new_server.rs`): Create My Own, Discord's
+  templates and a field for a template's link or code, then who it's
+  for, a template's preview with its channels, and Customize Your Server
+  with Upload for the icon (the system's file dialog) and the name; its
+  "Join a Server" opens the dialog below.
+- A server's Events dialog, from its "N Events" row
+  (`server_dialogs/events.rs`): a card per event, its cover the only
+  picture, with Interested, "N interested" (Who's interested, with
+  avatars), Share, and Edit, Start or End, Cancel and Delete for those who
+  may; Create Event's form, every field the core's, Upload Image for the
+  cover; and a question before deleting. Escape closes it.
+- Join a Server, from Create Your Server or a clicked invite link: the
   field (Join's alone; Enter finds the invite), the server once found
   with its icon and who is online, how joining goes (looking up, joining,
   already in it, a captcha or a form to finish in the browser), and Find

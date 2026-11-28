@@ -32,8 +32,10 @@ use crate::{
     style::rounded,
 };
 
+mod events;
 mod explore;
 mod membership;
+mod new_server;
 
 /// The dialogs' widths: the invite's and the channel's, and Join a
 /// Server's.
@@ -150,6 +152,16 @@ pub enum Event {
     FinishOnboarding,
     MembershipBrowser,
     CloseMembership,
+    /// A server's Events dialog: what's done in it, choosing a cover
+    /// file and the one chosen, and copying an event's link.
+    Events(backcord_core::application::EventsAction),
+    PickCover,
+    CoverPicked(Option<String>),
+    CopyEventLink(String),
+    /// Create a server: what's done in it, and choosing its icon.
+    NewServer(backcord_core::application::NewServerAction),
+    NewServerIcon,
+    NewServerIconPicked(Option<String>),
 }
 
 fn message(event: Event) -> Message {
@@ -158,7 +170,9 @@ fn message(event: Event) -> Message {
 
 /// Whether one of these dialogs is open, which takes the keys.
 pub fn is_open(state: &AppState) -> bool {
-    state.invite.is_some()
+    state.events_dialog.is_some()
+        || state.new_server.is_some()
+        || state.invite.is_some()
         || state
             .join
             .as_ref()
@@ -221,6 +235,7 @@ pub fn pictures(state: &AppState) -> Vec<String> {
         .and_then(|join| join.preview.as_ref())
         .and_then(|preview| preview.icon.clone())
         .into_iter()
+        .chain(events::pictures(state))
         .chain(people)
         .chain(group)
         .chain(emoji)
@@ -445,6 +460,30 @@ impl Dialogs {
             Event::DeleteAll => Action::DeleteAll,
             Event::CloseDeleteAll => Action::CloseDeleteAll,
             Event::MoveSync(sync) => Action::AnswerMoveSync(sync),
+            Event::Events(action) => Action::Events(action),
+            Event::PickCover => {
+                return pick_picture("Copertina dell'evento", |picked| {
+                    message(Event::CoverPicked(picked))
+                });
+            }
+            Event::CoverPicked(None) | Event::NewServerIconPicked(None) => {
+                return Task::none();
+            }
+            Event::CoverPicked(Some(path)) => {
+                Action::Events(backcord_core::application::EventsAction::Field(
+                    backcord_core::application::EventField::Cover(Some(path)),
+                ))
+            }
+            Event::CopyEventLink(link) => return iced::clipboard::write(link),
+            Event::NewServer(action) => Action::NewServer(action),
+            Event::NewServerIcon => {
+                return pick_picture("Icona del server", |picked| {
+                    message(Event::NewServerIconPicked(picked))
+                });
+            }
+            Event::NewServerIconPicked(Some(path)) => Action::NewServer(
+                backcord_core::application::NewServerAction::Icon(Some(path)),
+            ),
         };
         cx.dispatch(action);
         if !is_open(cx.state()) {
@@ -457,7 +496,17 @@ impl Dialogs {
     /// a channel dialog or a leave without a field.
     pub fn key(&mut self, named: Option<key::Named>, cx: &mut Cx<'_>) -> Task<Message> {
         let state = cx.state();
-        let (close, enter) = if state.move_sync.is_some() {
+        let (close, enter) = if state.events_dialog.is_some() {
+            (
+                Event::Events(backcord_core::application::EventsAction::Close),
+                None,
+            )
+        } else if state.new_server.is_some() {
+            (
+                Event::NewServer(backcord_core::application::NewServerAction::Close),
+                None,
+            )
+        } else if state.move_sync.is_some() {
             (Event::MoveSync(None), Some(Event::MoveSync(Some(true))))
         } else if state.leave.is_some() {
             (Event::CloseLeave, Some(Event::Leave))
@@ -515,6 +564,12 @@ struct View<'a> {
 impl<'a> View<'a> {
     fn view(self) -> Option<Element<'a, Message>> {
         let state = self.cx.state;
+        if state.events_dialog.is_some() {
+            return self.events_view();
+        }
+        if state.new_server.is_some() {
+            return self.new_server_view();
+        }
         if state.move_sync.is_some() {
             return self.move_sync_view();
         }
@@ -1333,4 +1388,25 @@ fn works(uses: u32) -> &'static str {
         50 => " and works 50 times",
         _ => " and works 100 times",
     })
+}
+
+/// The system's dialog for a picture file, then the file chosen.
+fn pick_picture(
+    title: &'static str,
+    picked: impl Fn(Option<String>) -> Message + Send + 'static,
+) -> Task<Message> {
+    Task::perform(
+        async move {
+            let file = rfd::AsyncFileDialog::new()
+                .set_title(title)
+                .add_filter(
+                    "PNG, JPG, GIF, WebP",
+                    &["png", "jpg", "jpeg", "gif", "webp"],
+                )
+                .pick_file()
+                .await?;
+            Some(file.path().to_string_lossy().into_owned())
+        },
+        picked,
+    )
 }

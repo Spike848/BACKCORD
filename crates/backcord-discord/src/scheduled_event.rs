@@ -119,7 +119,10 @@ pub struct EventUser {
 /// or as a list of event users with their `user` and `member`.
 pub fn users(answer: &Value) -> Vec<EventUser> {
     let rows: Vec<(&Value, &Value)> = match answer["users"].as_array() {
-        Some(users) => users.iter().map(|user| (user, &user["guild_member"])).collect(),
+        Some(users) => users
+            .iter()
+            .map(|user| (user, &user["guild_member"]))
+            .collect(),
         None => answer
             .as_array()
             .into_iter()
@@ -241,7 +244,10 @@ mod tests {
         form.end = None;
         form.image = Some("data:image/png;base64,AA==".into());
         let body = form.body();
-        assert_eq!((body["channel_id"].as_str(), body["entity_type"].as_u64()), (Some("5"), Some(2)));
+        assert_eq!(
+            (body["channel_id"].as_str(), body["entity_type"].as_u64()),
+            (Some("5"), Some(2))
+        );
         assert_eq!(body["entity_metadata"], Value::Null);
         assert_eq!(body["image"], "data:image/png;base64,AA==");
     }

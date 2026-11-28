@@ -176,18 +176,6 @@ impl Sidebar {
         HEADER
     }
 
-    /// Where the row with `key` ends in the list's own space, scrolled.
-    fn row_bottom(&self, key: &str) -> Option<f32> {
-        let mut bottom = 0.0;
-        for row in &self.rows {
-            bottom += row.height();
-            if row.key() == key {
-                return Some(bottom - self.viewport().offset);
-            }
-        }
-        None
-    }
-
     /// How faded the banner is as the list scrolls, as Discord's: 1 at the
     /// list's top, 0 once it's scrolled the banner's height.
     pub fn banner_shown(&self) -> f32 {
@@ -511,9 +499,9 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             let Some(server) = app.sidebar.header.server.clone() else {
                 return Task::none();
             };
-            let bottom = app.sidebar.row_bottom("events").unwrap_or(0.0);
-            let at = Point::new(crate::rail::WIDTH + INSET, HEADER + bottom - INSET);
-            return crate::place_menus::open_events_menu(app, &server, at);
+            app.client.dispatch(Action::Events(
+                backcord_core::application::EventsAction::Open(server),
+            ));
         }
         Event::Menu(id, at) => {
             app.sidebar.voice_card_off = true;

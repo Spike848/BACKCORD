@@ -964,7 +964,9 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             return app.ask();
         }
         Event::Dm(id) => app.client.dispatch(Action::Open(id)),
-        Event::Join => app.client.dispatch(Action::OpenJoinServer),
+        Event::Join => app.client.dispatch(Action::NewServer(
+            backcord_core::application::NewServerAction::Open,
+        )),
         Event::Explore => app.client.dispatch(Action::OpenExplore),
         Event::Menu(id, at) => {
             // On one of several picked servers, the menu of them all.

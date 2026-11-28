@@ -227,9 +227,39 @@ client also offers a server without the permission when it has a vanity
 URL, and sends that instead; BACKCORD doesn't keep servers' vanity codes, so it
 leaves those out.
 
+## Making a server
+
+The "+" at the foot of the server rail opens Create Your Server, as
+Discord's Add a Server does (`application/new_server.rs`,
+`server_dialogs/new_server.rs`, `backcord-discord/src/guild_template.rs`):
+
+- Create My Own, then "For me and my friends" or "For a club or
+  community" (which only steers Discord's own setup tips, so both go the
+  same way here), then Customize Your Server: an icon and a name, which
+  starts as "{name}'s server". Create sends `POST /guilds` as Discord's
+  client sends it for a user account: `name`, `icon` (a data URI of the
+  picture cropped square, at most 1024 px, or null), `channels` empty and
+  `system_channel_id` null, so the default template's channels come, and
+  `guild_template_code` "2TffvPucqHkN", that template's code.
+- Start from a template lists Discord's own verified templates, from the
+  list of official ones docs.discord.food links to: Friends & Family,
+  Study Group, Campus Clubs & Organizations, Local Communities, Creators
+  & Hobbies and Global Communities. Below them, a `discord.new/{code}` or
+  `discord.com/template/{code}` link or a bare code is looked up the same
+  way. A clicked `discord.new` link opens the dialog on it too.
+- A template is looked up with `GET /guilds/templates/{code}` and
+  previewed: its name, description, how often it was used, its
+  channels under their categories, and its roles. Use This Template goes
+  to Customize Your Server, whose Create sends `POST
+  /guilds/templates/{code}` with `name` and `icon`.
+- Discord answers with the guild and sends GUILD_CREATE; the dialog stays
+  on "Making the server..." until the server lists, then opens it.
+  Discord's refusals show in the dialog.
+- "Have an invite already?" Join a Server opens the dialog below.
+
 ## Joining by invite
 
-The "+" at the foot of the server rail opens Join a Server, which takes an
+Join a Server, from Create Your Server, takes an
 invite link or a bare code, a server's vanity code too, as Discord's dialog
 does: `discord.gg/{code}`, or `/invite/{code}` on discord.com, discordapp.com,
 canary and ptb, with any query left off; otherwise the last part after a `/`
@@ -371,8 +401,10 @@ the browser.
   `{"response": 1}`, as Discord's client sends it, or `DELETE` on the same
   path, from the click only. An ended or canceled event offers no button.
 
-BACKCORD doesn't keep a server's events or follow their gateway events; the
-dialog shows them as they were when it opened.
+The link's dialog shows the event as it was when it opened; the server's
+Events dialog, below, follows the gateway. A message's link to an event
+shows no card under it yet, as Discord's client draws one: only invites
+and messages have link cards.
 
 ## Channels and categories
 
@@ -431,10 +463,65 @@ enough in Discord's client, and a plain member sees no row), a 58px row reads
 counts the scheduled events that haven't ended (status 1 scheduled or 2
 active). They come from `guild_scheduled_events` in GUILD_CREATE and are kept
 current by GUILD_SCHEDULED_EVENT_CREATE, UPDATE and DELETE. Clicking the row
-opens a menu (a single "No upcoming events" row when there are none) with one row per event: its name, and "Happening now" or the
-start time (12 or 24 hours as the clock is set) followed by its place.
-BACKCORD doesn't fetch `/guilds/{id}/scheduled-events` and doesn't draw
-Discord's event cards, so interest counts aren't shown.
+opens the server's Events dialog; see [Scheduled events](#scheduled-events).
+
+### Scheduled events
+
+The Events dialog (`application/server_events.rs`,
+`server_dialogs/events.rs`) lists the events that haven't ended, soonest
+first, each as a card as in Discord's client: its cover, when it is
+("Happening now" for an active one, else its start and end, 12 or 24 hours
+as the clock is set), its name, what it says, where it is (the voice or
+stage channel, or the location of one somewhere else), who made it, and
+Interested, "N interested" and Share. "No upcoming events" shows for a
+server with none.
+
+- Opening it asks `GET /guilds/{id}/scheduled-events?with_user_count=true`
+  and `GET /users/@me/scheduled-events?guild_ids={id}`, and the service
+  keeps what they say in the server's snapshot in place of what
+  GUILD_CREATE gave (`Discord::load_events`): the counts, which
+  GUILD_CREATE leaves out, and whether this account is interested.
+- The tracker keeps the events current with GUILD_SCHEDULED_EVENT_CREATE,
+  UPDATE and DELETE, keeping the count, this account's interest and the
+  creator's name when an update leaves them out, and with
+  GUILD_SCHEDULED_EVENT_USER_ADD and _REMOVE, which move the count and,
+  for this account, its interest; one occurrence's of a recurring event,
+  with an exception id, isn't counted.
+- Interested is the event link's `PUT` or `DELETE
+  /guilds/{id}/scheduled-events/{event}/users/@me`; the button changes
+  once USER_ADD or _REMOVE comes back.
+- "N interested" opens Who's interested: `GET
+  /guilds/{id}/scheduled-events/{event}/users?limit=100&with_member=true`,
+  each person by their server nickname, display name or username, with
+  their avatar. Only the first hundred show.
+- Share copies `https://discord.com/events/{server}/{event}`.
+
+Create Event shows for those with Create Events (or Administrator), as the
+row does. Edit, Start Event or End Event, Cancel Event and Delete show on
+an event for those with Manage Events, and on their own events for those
+with Create Events, as Discord allows.
+
+- The form has where it is (Stage Channel, Voice Channel, Somewhere
+  Else), the channel among the server's voice channels or a location of
+  at most 100 characters, a topic of at most 100, a start and an end date
+  and time on this computer's clock (`YYYY-MM-DD` and `HH:MM`; a new
+  event starts at the next full hour), a description of at most 1000, and
+  a cover picture. Somewhere else needs a location and an end, a new
+  event a start in the future, and an end comes after the start; the form
+  says so in its own words.
+- It sends `POST /guilds/{id}/scheduled-events`, or `PATCH` on the
+  event, with `name`, `privacy_level` 2 (the server only),
+  `scheduled_start_time`, `scheduled_end_time`, `description`,
+  `entity_type` (1 stage, 2 voice, 3 elsewhere), `channel_id` (null
+  elsewhere) and `entity_metadata` with `location` (null in a channel).
+  A cover goes as `image`, a data URI of the picture cropped to 2.5 by 1,
+  at most 800 by 320; an edit without a new cover leaves it out, which
+  keeps the one it has. Recurrence isn't offered.
+- Start Event, End Event and Cancel Event send `PATCH` with `status` 2, 3
+  or 4, Discord's manual steps; Delete asks first, then `DELETE`. An
+  ended or canceled event leaves the list with its UPDATE.
+
+Covers are asked for only while the dialog shows them, at 512 px.
 
 ## A chat's first message
 
